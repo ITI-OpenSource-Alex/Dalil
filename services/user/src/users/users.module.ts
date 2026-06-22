@@ -1,9 +1,17 @@
 import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
+import { User } from './entities/user.entity';
+import { UserProfile } from '../profile/entities/profile.entity';
 
 @Module({
+  imports: [
+    // Register both repositories so they can be injected into the service
+    TypeOrmModule.forFeature([User, UserProfile]),
+  ],
+  controllers: [UsersController],
   providers: [UsersService],
-  controllers: [UsersController]
+  exports: [UsersService], // Export if other modules need to find users
 })
 export class UsersModule {}

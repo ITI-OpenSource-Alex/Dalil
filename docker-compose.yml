@@ -19,7 +19,7 @@ services:
         condition: service_healthy
 
   postgres:
-    image: postgres:15-alpine
+    image: pgvector/pgvector:pg15
     environment:
       POSTGRES_USER: goa
       POSTGRES_PASSWORD: goa_pass
@@ -96,6 +96,26 @@ services:
     depends_on:
       prometheus:
         condition: service_started
+
+  rag:
+    build:
+      context: ./services/rag
+      target: dev
+    ports:
+      - "8084:8084"
+    environment:
+      - PORT=8084
+      - DATABASE_URL=postgresql://goa:goa_pass@postgres:5432/rag_db
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
+      - LANGFUSE_HOST=${LANGFUSE_HOST}
+    volumes:
+      - ./services/rag:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   pgdata:

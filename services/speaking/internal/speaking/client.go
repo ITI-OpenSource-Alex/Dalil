@@ -1,4 +1,4 @@
-package main
+package speaking
 
 import (
 	"bytes"
@@ -48,7 +48,7 @@ type Client struct {
 	transcribeFn func(audio []byte)
 }
 
-func handleWebSocket(w http.ResponseWriter, r *http.Request, cfg *Config) {
+func HandleWebSocket(w http.ResponseWriter, r *http.Request, cfg *Config) {
 	currentConns := atomic.LoadInt32(&activeConns)
 	if currentConns >= int32(cfg.MaxConnections) {
 		log.Warn().Msg("Max connections reached, rejecting connection")

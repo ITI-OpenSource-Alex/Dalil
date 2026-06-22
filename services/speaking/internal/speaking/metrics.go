@@ -1,18 +1,14 @@
-package main
+package speaking
 
 import (
 	"bytes"
 	"net/http"
-	"os"
 	"runtime"
 	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -59,13 +55,7 @@ var (
 	}, []string{"outcome"})
 )
 
-func main() {
-	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
-	log.Logger = log.Output(os.Stdout)
-
-	cfg := LoadConfig()
-	log.Info().Str("port", cfg.Port).Int("max_connections", cfg.MaxConnections).Msg("Starting Speaking Service")
-
+func StartBackgroundTasks() {
 	go func() {
 		ticker := time.NewTicker(5 * time.Second)
 		defer ticker.Stop()
@@ -73,12 +63,4 @@ func main() {
 			goroutineCountMetric.Set(float64(runtime.NumGoroutine()))
 		}
 	}()
-
-	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-		handleWebSocket(w, r, cfg)
-	})
-
-	http.Handle("/metrics", promhttp.Handler())
-
-	log.Fatal().Err(http.ListenAndServe(":"+cfg.Port, nil)).Msg("Server terminated")
 }

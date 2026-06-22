@@ -8,7 +8,7 @@ tmp_dir = "tmp"
 [build]
 args_bin = []
 bin = "./tmp/speaking"
-cmd = "go build -o ./tmp/speaking ."
+cmd = "go build -o ./tmp/speaking ./cmd/speaking"
 delay = 1000
 entrypoint = ["./tmp/speaking"]
 exclude_dir = ["assets", "tmp", "vendor", "testdata"]
@@ -34,7 +34,7 @@ stop_on_error = false
 [build.windows]
 args_bin = []
 bin = "tmp\\speaking.exe"
-cmd = "go build -o ./tmp/speaking.exe ."
+cmd = "go build -o ./tmp/speaking.exe ./cmd/speaking"
 entrypoint = ["tmp\\speaking.exe"]
 full_bin = ""
 post_cmd = []

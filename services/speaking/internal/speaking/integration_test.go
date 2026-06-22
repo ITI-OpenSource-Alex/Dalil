@@ -1,4 +1,4 @@
-package main
+package speaking
 
 import (
 	"encoding/json"
@@ -20,7 +20,7 @@ func TestIntegrationE2EAudioStreaming(t *testing.T) {
 		ElevenLabsAPIKey: "", // Triggers STT mock fallback
 	}
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		handleWebSocket(w, r, cfg)
+		HandleWebSocket(w, r, cfg)
 	}))
 	defer ts.Close()
 
@@ -81,7 +81,7 @@ func TestIntegrationMetricsAndSessionAccounting(t *testing.T) {
 		ElevenLabsAPIKey: "",
 	}
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		handleWebSocket(w, r, cfg)
+		HandleWebSocket(w, r, cfg)
 	}))
 	defer ts.Close()
 
@@ -123,7 +123,7 @@ func TestLoadConcurrentConnectionsAndLeaks(t *testing.T) {
 		ElevenLabsAPIKey: "",
 	}
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		handleWebSocket(w, r, cfg)
+		HandleWebSocket(w, r, cfg)
 	}))
 	defer ts.Close()
 

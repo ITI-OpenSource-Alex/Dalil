@@ -16,7 +16,7 @@ CMD ["air", "-c", ".air.toml"]
 #Build Stage
 FROM base AS builder
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o /speaking .
+RUN CGO_ENABLED=0 GOOS=linux go build -o /speaking ./cmd/speaking
 
 # Production target (mini image)
 FROM alpine:3.20 AS prod

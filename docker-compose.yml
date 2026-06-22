@@ -77,6 +77,26 @@ services:
     ports:
       - "6380:6379"
 
+  speaking:
+    build:
+      context: ./services/speaking
+      target: dev
+    ports:
+      - "8082:8082"
+    environment:
+      - PORT=8082
+      - MAX_CONNECTIONS=100
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
+      - OTEL_SERVICE_NAME=speaking
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
+      - LANGFUSE_HOST=${LANGFUSE_HOST}
+    volumes:
+      - ./services/speaking:/app
+    depends_on:
+      prometheus:
+        condition: service_started
+
 volumes:
   pgdata:
   grafana-data:

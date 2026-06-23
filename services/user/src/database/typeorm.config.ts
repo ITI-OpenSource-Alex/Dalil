@@ -1,4 +1,3 @@
-// src/database/typeorm.config.ts
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { AppDataSource } from './data-source';
 

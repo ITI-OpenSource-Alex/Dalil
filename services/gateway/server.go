@@ -1,0 +1,90 @@
+package main
+
+import (
+	"time"
+
+	gatewayauth "github.com/ITI-OpenSource-Alex/GOA/services/gateway/auth"
+	"github.com/ITI-OpenSource-Alex/GOA/services/gateway/handlers"
+	"github.com/ITI-OpenSource-Alex/GOA/services/gateway/middleware"
+	"github.com/ITI-OpenSource-Alex/GOA/services/gateway/observability"
+	"github.com/gofiber/fiber/v2"
+	"github.com/redis/go-redis/v9"
+	"github.com/rs/zerolog"
+)
+
+type GatewayServer struct {
+	App             *fiber.App
+	redisClient     *redis.Client
+	shutdownTimeout time.Duration
+}
+
+func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error) {
+	metrics, err := observability.NewMetrics()
+	if err != nil {
+		return nil, err
+	}
+
+	redisOptions, err := redis.ParseURL(cfg.RedisURL)
+	if err != nil {
+		return nil, err
+	}
+	redisClient := redis.NewClient(redisOptions)
+
+	app := fiber.New(fiber.Config{
+		ReadTimeout:  cfg.ReadTimeout,
+		WriteTimeout: cfg.WriteTimeout,
+		ErrorHandler: middleware.ErrorHandler(logger),
+	})
+
+	startTime := time.Now()
+	tokenService := gatewayauth.NewTokenService(cfg.JWTSecret, cfg.AccessTokenTTL, cfg.RefreshTokenTTL)
+	authHandler := handlers.NewAuthHandler(tokenService, gatewayauth.StaticCredentialValidator{}, metrics)
+
+	app.Use(middleware.RequestID())
+	app.Use(middleware.RequestLogger(logger, metrics))
+
+	app.Get("/health", handlers.Health(startTime, cfg.Version))
+	app.Get("/metrics", handlers.Metrics())
+	app.Post("/auth/login", authHandler.Login)
+	app.Post("/auth/refresh", authHandler.Refresh)
+
+	api := app.Group("/api", middleware.JWT(cfg.JWTSecret, metrics))
+	api.Use(middleware.RateLimiter(redisClient, 60, metrics))
+	api.Get("/ping", func(c *fiber.Ctx) error {
+		return c.JSON(fiber.Map{"status": "ok"})
+	})
+
+	return &GatewayServer{
+		App:             app,
+		redisClient:     redisClient,
+		shutdownTimeout: cfg.ShutdownTimeout,
+	}, nil
+}
+
+func NewServer(cfg Config, logger zerolog.Logger) (*fiber.App, error) {
+	server, err := NewGatewayServer(cfg, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	return server.App, nil
+}
+
+func (s *GatewayServer) Listen(addr string) error {
+	return s.App.Listen(addr)
+}
+
+func (s *GatewayServer) Shutdown() error {
+	var shutdownErr error
+	if err := s.App.ShutdownWithTimeout(s.shutdownTimeout); err != nil {
+		shutdownErr = err
+	}
+
+	if s.redisClient != nil {
+		if err := s.redisClient.Close(); err != nil && shutdownErr == nil {
+			shutdownErr = err
+		}
+	}
+
+	return shutdownErr
+}

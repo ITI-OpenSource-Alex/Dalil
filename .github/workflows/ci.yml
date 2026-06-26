@@ -190,7 +190,7 @@ jobs:
 
       - name: Run Tests
         if: matrix.language == 'node'
-        run: npm test
+        run: npx jest --ci
 
       - name: Coverage
         if: matrix.language == 'node'

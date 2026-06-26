@@ -190,7 +190,7 @@ jobs:
 
       - name: Run Tests
         if: matrix.language == 'node'
-        run: npx jest --ci
+        run: npx jest --ci --detectOpenHandles
 
       - name: Coverage
         if: matrix.language == 'node'

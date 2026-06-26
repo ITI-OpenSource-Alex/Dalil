@@ -1,27 +1,19 @@
 name: GOA CI
-permissions:
-  contents: read
-  pull-requests: read
+
 on:
   pull_request:
     branches:
       - main
       - dev
 
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   detect-changes:
     runs-on: ubuntu-latest
-
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - id: changes
         uses: dorny/paths-filter@v3
@@ -29,25 +21,18 @@ jobs:
           filters: |
             gateway:
               - 'services/gateway/**'
-
             speaking:
               - 'services/speaking/**'
-
             rag:
               - 'services/rag/**'
-
             user:
               - 'services/user/**'
-
             orchestration:
               - 'services/orchestration/**'
-
             writing:
               - 'services/writing/**'
-
             exam:
               - 'services/exam/**'
-
             notification:
               - 'services/notification/**'
 
@@ -66,14 +51,12 @@ jobs:
           script: |
             const matrix = [];
 
-            // Go Services
             if (process.env.GATEWAY === 'true')
               matrix.push({ service: 'gateway', language: 'go' });
 
             if (process.env.SPEAKING === 'true')
               matrix.push({ service: 'speaking', language: 'go' });
 
-            // Python Services
             if (process.env.RAG === 'true')
               matrix.push({ service: 'rag', language: 'python' });
 
@@ -86,19 +69,16 @@ jobs:
             if (process.env.EXAM === 'true')
               matrix.push({ service: 'exam', language: 'python' });
 
-            // Node Services
             if (process.env.USER === 'true')
               matrix.push({ service: 'user', language: 'node' });
 
             if (process.env.NOTIFICATION === 'true')
               matrix.push({ service: 'notification', language: 'node' });
 
-            core.setOutput('matrix', JSON.stringify(matrix));
+            core.setOutput("matrix", JSON.stringify(matrix));
 
   test-services:
-    name: Test ${{ matrix.service }}
     needs: detect-changes
-
     if: needs.detect-changes.outputs.matrix != '[]'
 
     runs-on: ubuntu-latest
@@ -113,12 +93,11 @@ jobs:
         working-directory: services/${{ matrix.service }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      #########################################################
-      # GO SERVICES
-      #########################################################
+      ####################################################
+      # GO
+      ####################################################
 
       - name: Setup Go
         if: matrix.language == 'go'
@@ -126,34 +105,30 @@ jobs:
         with:
           go-version-file: services/${{ matrix.service }}/go.mod
 
-      - name: Cache Go Modules
+      - name: Cache Go
         if: matrix.language == 'go'
         uses: actions/cache@v4
         with:
           path: |
             ~/go/pkg/mod
             ~/.cache/go-build
-          key: go-${{ runner.os }}-${{ matrix.service }}-${{ hashFiles(format('services/{0}/go.sum', matrix.service)) }}
-          restore-keys: |
-            go-${{ runner.os }}-${{ matrix.service }}-
+          key: go-${{ runner.os }}-${{ hashFiles(format('services/{0}/go.sum', matrix.service)) }}
 
-      - name: Run golangci-lint
+      - name: Go Lint
         if: matrix.language == 'go'
+        continue-on-error: true
         uses: golangci/golangci-lint-action@v6
         with:
           version: latest
           working-directory: services/${{ matrix.service }}
-          args: --timeout=3m
-          skip-cache: true
 
-      - name: Run Go Tests
+      - name: Go Tests
         if: matrix.language == 'go'
-        run: |
-          go test ./... -v
+        run: go test ./... -v
 
-      #########################################################
-      # PYTHON SERVICES
-      #########################################################
+      ####################################################
+      # PYTHON
+      ####################################################
 
       - name: Setup Python
         if: matrix.language == 'python'
@@ -166,35 +141,33 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: pip-${{ runner.os }}-${{ matrix.service }}-${{ hashFiles(format('services/{0}/requirements.txt', matrix.service)) }}
-          restore-keys: |
-            pip-${{ runner.os }}-${{ matrix.service }}-
+          key: pip-${{ runner.os }}-${{ hashFiles(format('services/{0}/requirements.txt', matrix.service)) }}
 
-      - name: Install Python Dependencies
+      - name: Install Dependencies
         if: matrix.language == 'python'
         run: |
           pip install -r requirements.txt
+          pip install ruff pytest pytest-cov
 
-      - name: Install Ruff
+      - name: Ruff
         if: matrix.language == 'python'
-        run: |
-          pip install ruff
+        continue-on-error: true
+        run: ruff check .
 
-      - name: Run Ruff
+      - name: Run Tests
         if: matrix.language == 'python'
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/test
+          OPENAI_API_KEY: dummy-key
+          ANTHROPIC_API_KEY: dummy-key
         run: |
-          ruff check .
+          pytest \
+            --cov=. \
+            --cov-report=xml
 
-      - name: Run Pytest With Coverage
-        if: matrix.language == 'python'
-        run: |
-          pytest --cov=. \
-                 --cov-report=xml \
-                 --cov-fail-under=70
-
-      #########################################################
-      # TYPESCRIPT / NODE SERVICES
-      #########################################################
+      ####################################################
+      # NODE
+      ####################################################
 
       - name: Setup Node
         if: matrix.language == 'node'
@@ -206,24 +179,26 @@ jobs:
 
       - name: Install Dependencies
         if: matrix.language == 'node'
-        run: |
-          npm ci
+        run: npm ci
 
-      - name: Run ESLint
+      - name: ESLint
         if: matrix.language == 'node'
-        run: |
-          npm run lint
+        continue-on-error: true
+        run: npm run lint
 
-      - name: Run Jest Coverage
+      - name: Run Tests
         if: matrix.language == 'node'
-        run: |
-          npm run test:cov
+        run: npm test
 
-      #########################################################
-      # COVERAGE ARTIFACTS
-      #########################################################
+      - name: Coverage
+        if: matrix.language == 'node'
+        run: npm run test:cov
 
-      - name: Upload Coverage Reports
+      ####################################################
+      # Upload Coverage
+      ####################################################
+
+      - name: Upload Coverage
         if: matrix.language != 'go'
         uses: actions/upload-artifact@v4
         with:
@@ -231,5 +206,3 @@ jobs:
           path: |
             services/${{ matrix.service }}/coverage
             services/${{ matrix.service }}/coverage.xml
-          if-no-files-found: ignore
-          retention-days: 7

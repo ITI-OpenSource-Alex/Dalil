@@ -188,12 +188,9 @@ jobs:
         continue-on-error: true
         run: npm run lint
 
-      - name: Run Tests
+      - name: Run Jest with Coverage
         if: matrix.language == 'node'
-        run: npx jest --ci --runInBand --forceExit
-      - name: Coverage
-        if: matrix.language == 'node'
-        run: npm run test:cov
+        run: npm run test:cov -- --runInBand --forceExit
 
       ####################################################
       # Upload Coverage

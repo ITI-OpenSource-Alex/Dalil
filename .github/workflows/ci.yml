@@ -190,8 +190,7 @@ jobs:
 
       - name: Run Tests
         if: matrix.language == 'node'
-        run: npx jest --ci --detectOpenHandles
-
+        run: npx jest --ci --runInBand --forceExit
       - name: Coverage
         if: matrix.language == 'node'
         run: npm run test:cov

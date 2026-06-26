@@ -17,6 +17,28 @@ services:
         condition: service_healthy
       redis-gateway:
         condition: service_healthy
+  
+  user-service:
+    build:
+      context: ./services/user
+      dockerfile: Dockerfile
+      target: development # Targets our development stage from the Dockerfile
+    ports:
+      - "8081:8081"
+    environment:
+      - PORT=8081
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=goa
+      - DB_PASSWORD=goa_pass
+      - DB_NAME=user_db
+      - INTERNAL_API_KEY=supersecret_internal_key_123
+    volumes:
+      - ./services/user:/usr/src/app
+      - /usr/src/app/node_modules # Prevents local node_modules from conflicting with container
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   postgres:
     image: pgvector/pgvector:pg15

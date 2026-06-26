@@ -5,7 +5,9 @@ on:
     branches:
       - main
       - dev
-
+permissions:
+  contents: read
+  pull-requests: read
 jobs:
   detect-changes:
     runs-on: ubuntu-latest

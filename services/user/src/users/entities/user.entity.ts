@@ -10,7 +10,7 @@ import {
 import { UserProfile } from '../../profile/entities/profile.entity';
 import { ResetToken } from './reset-tokens.entity';
 import { EmailVerification } from './email-verification.entity';
-
+import { RefreshToken } from './refresh-token.entity';
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
@@ -34,6 +34,8 @@ export class User {
 
   @OneToOne(() => UserProfile, (profile) => profile.user, { cascade: true })
   profile: UserProfile;
+  @OneToMany(() => RefreshToken, (token) => token.user)
+  refreshTokens: RefreshToken[];
 
   @Column({ type: 'boolean', default: false, name: 'is_verified' })
   isVerified: boolean;

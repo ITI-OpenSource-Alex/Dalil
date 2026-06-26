@@ -6,7 +6,7 @@ import { User } from './entities/user.entity';
 import { UserProfile } from '../profile/entities/profile.entity';
 import { ResetToken } from './entities/reset-tokens.entity';
 import { EmailVerification } from './entities/email-verification.entity';
-
+import { RefreshToken } from './entities/refresh-token.entity';
 describe('UsersService', () => {
   let service: UsersService;
 
@@ -33,6 +33,12 @@ describe('UsersService', () => {
     save: jest.fn(),
     findOne: jest.fn(),
   };
+  const mockRefreshTokenRepository = {
+    create: jest.fn(),
+    save: jest.fn(),
+    findOne: jest.fn(),
+    update: jest.fn(),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -46,6 +52,10 @@ describe('UsersService', () => {
         {
           provide: getRepositoryToken(ResetToken),
           useValue: mockResetTokenRepository,
+        },
+        {
+          provide: getRepositoryToken(RefreshToken),
+          useValue: mockRefreshTokenRepository,
         },
         {
           provide: getRepositoryToken(EmailVerification),

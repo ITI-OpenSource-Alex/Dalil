@@ -4,12 +4,14 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
 	gatewayauth "github.com/ITI-OpenSource-Alex/GOA/services/gateway/auth"
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/redis/go-redis/v9"
 )
 
 const testJWTSecret = "test-secret"
@@ -84,10 +86,18 @@ func TestJWTAcceptsValidHS256TokenAndStoresUserID(t *testing.T) {
 
 func newJWTTestApp() *fiber.App {
 	app := fiber.New()
-	app.Use(JWT(testJWTSecret))
+
+	redisURL := os.Getenv("REDIS_URL")
+	if redisURL == "" {
+		redisURL = "redis://redis-gateway:6379/0"
+	}
+	redisOpts, _ := redis.ParseURL(redisURL)
+	rdb := redis.NewClient(redisOpts)
+
+	app.Use(JWT(testJWTSecret, rdb))
 	app.Get("/protected", func(c *fiber.Ctx) error {
 		userID, _ := c.Locals(ContextKeyUserID).(string)
-		if userID != "user-1" {
+		if userID != "00000000-0000-0000-0000-000000000001" {
 			return fiber.NewError(fiber.StatusInternalServerError, "user_id not stored")
 		}
 
@@ -105,7 +115,7 @@ func signTestAccessToken(t *testing.T, secret string, ttl time.Duration, method 
 		Email:     "user@example.com",
 		TokenType: gatewayauth.AccessTokenType,
 		RegisteredClaims: jwt.RegisteredClaims{
-			Subject:   "user-1",
+			Subject:   "00000000-0000-0000-0000-000000000001",
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
 		},
@@ -127,7 +137,7 @@ func signUnsignedTestAccessToken(t *testing.T) string {
 		Email:     "user@example.com",
 		TokenType: gatewayauth.AccessTokenType,
 		RegisteredClaims: jwt.RegisteredClaims{
-			Subject:   "user-1",
+			Subject:   "00000000-0000-0000-0000-000000000001",
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(time.Hour)),
 		},
@@ -154,7 +164,7 @@ func signRSATestAccessToken(t *testing.T) string {
 		Email:     "user@example.com",
 		TokenType: gatewayauth.AccessTokenType,
 		RegisteredClaims: jwt.RegisteredClaims{
-			Subject:   "user-1",
+			Subject:   "00000000-0000-0000-0000-000000000001",
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(time.Hour)),
 		},

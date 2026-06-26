@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"io"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -14,6 +16,7 @@ import (
 	"github.com/ITI-OpenSource-Alex/GOA/services/gateway/middleware"
 	"github.com/ITI-OpenSource-Alex/GOA/services/gateway/observability"
 	"github.com/gofiber/fiber/v2"
+	_ "github.com/lib/pq"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
@@ -28,8 +31,8 @@ func TestAuthAndProtectedRoutesIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("login access token was not valid: %v", err)
 	}
-	if accessClaims.Subject != "user-1" {
-		t.Fatalf("expected subject user-1, got %q", accessClaims.Subject)
+	if accessClaims.Subject != "00000000-0000-0000-0000-000000000001" {
+		t.Fatalf("expected subject 00000000-0000-0000-0000-000000000001, got %q", accessClaims.Subject)
 	}
 
 	refreshedTokens := refresh(t, app, loginTokens.RefreshToken)
@@ -115,8 +118,40 @@ func newIntegrationTestApp(t *testing.T) *fiber.App {
 	}
 
 	logger := zerolog.Nop()
+
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		dbURL = "postgres://goa:goa_pass@localhost:5432/user_db?sslmode=disable"
+	}
+	db, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		t.Fatalf("failed to open database: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+
+	redisURL := os.Getenv("REDIS_URL")
+	if redisURL == "" {
+		redisURL = "redis://localhost:6379/0"
+	}
+	redisOpts, err := redis.ParseURL(redisURL)
+	if err != nil {
+		t.Fatalf("failed to parse redis url: %v", err)
+	}
+	redisClient := redis.NewClient(redisOpts)
+	t.Cleanup(func() { redisClient.Close() })
+
+	// Seed test user so foreign keys don't fail
+	_, _ = db.Exec("DELETE FROM refresh_tokens WHERE user_id = $1", "00000000-0000-0000-0000-000000000001")
+	_, _ = db.Exec("DELETE FROM users WHERE id = $1", "00000000-0000-0000-0000-000000000001")
+	_, err = db.Exec("INSERT INTO users (id, email, \"passwordHash\", is_verified) VALUES ($1, $2, $3, $4)",
+		"00000000-0000-0000-0000-000000000001", "user@example.com", "dummy_hash", true)
+	if err != nil {
+		t.Fatalf("failed to seed test user: %v", err)
+	}
+
 	tokenService := gatewayauth.NewTokenService(testIntegrationJWTSecret, time.Hour, 24*time.Hour)
-	authHandler := handlers.NewAuthHandler(tokenService, gatewayauth.StaticCredentialValidator{}, metrics)
+	repo := gatewayauth.NewRefreshTokenRepository(db)
+	authHandler := handlers.NewAuthHandler(db, redisClient, repo, tokenService, gatewayauth.StaticCredentialValidator{}, metrics)
 
 	app := fiber.New(fiber.Config{
 		ErrorHandler: middleware.ErrorHandler(logger),
@@ -128,7 +163,7 @@ func newIntegrationTestApp(t *testing.T) *fiber.App {
 	app.Post("/auth/login", authHandler.Login)
 	app.Post("/auth/refresh", authHandler.Refresh)
 
-	api := app.Group("/api", middleware.JWT(testIntegrationJWTSecret, metrics))
+	api := app.Group("/api", middleware.JWT(testIntegrationJWTSecret, redisClient, metrics))
 	api.Use(middleware.RateLimiter(newIntegrationRateLimitStore(), 60, metrics))
 	api.Get("/ping", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"status": "ok"})

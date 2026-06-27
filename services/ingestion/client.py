@@ -1,0 +1,67 @@
+import logging
+import requests
+from config import settings
+
+logger = logging.getLogger('ingestion_worker.client')
+
+def get_headers() -> dict:
+    """Returns headers required to communicate with RAG service internal endpoints."""
+    return {
+         "Content-Type": "application/json",
+        "X-Internal-Api-Key": settings.internal_api_key
+    }
+
+def check_existing_chunks(ids: list[str]) -> list[str]:
+    """
+    Calls the RAG service's check-existing endpoint to determine which document
+    chunk IDs are already present in the database.
+    Returns a list of IDs (as strings) that already exist.
+    """
+     
+    if not ids:
+        return []
+     
+    url = f"{settings.rag_service_url}/internal/documents/check-existing"
+    headers = get_headers()
+    payload = {"ids": ids}
+
+    try:
+        logger.info("Checking existence of %d chunks at %s", len(ids), url)
+        response = requests.post(url, json=payload, headers=headers)
+        if response.status_code == 200:
+            data = response.json()
+            return data.get("existing_ids", [])
+        else:
+            logger.error("RAG check-existing endpoint failed with status %d: %s", response.status_code, response.text)
+            response.raise_for_status()
+    except Exception as e:
+        logger.error("Failed to connect to RAG check-existing endpoint: %s", str(e))
+        raise e
+    
+def upsert_chunks(chunks: list[dict]) -> bool:
+    """
+    Calls the RAG service's internal documents endpoint to bulk upsert chunks.
+    `chunks` is a list of dictionaries matching the DocumentUpsertItem schema.
+    Returns True if the upsert succeeded.
+    """
+
+    if not chunks:
+        return True
+    
+    url = f"{settings.rag_service_url}/internal/documents"
+    headers = get_headers()
+    payload = {"documents": chunks}
+
+    try:
+        logger.info("Upserting %d chunks to RAG service at %s", len(chunks), url)
+        response = requests.post(url, json=payload, headers=headers, timeout=15)
+        
+        if response.status_code == 200:
+            logger.info("Successfully upserted %d chunks to RAG database", len(chunks))
+            return True
+        else:
+            logger.error("RAG documents upsert endpoint failed with status %d: %s", response.status_code, response.text)
+            response.raise_for_status()
+    except Exception as e:
+        logger.error("Failed to connect to RAG documents upsert endpoint: %s", str(e))
+        raise e

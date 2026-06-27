@@ -7,6 +7,7 @@ from app.core.database import db
 from app.core.logging import configure_logging, correlation_id_var
 from app.api.query import router as query_router
 from app.api.visa import router as visa_router
+from app.api.documents import router as documents_router
 
 configure_logging()
 logger = structlog.get_logger("rag_service.main")
@@ -42,7 +43,7 @@ async def correlation_id_middleware(request: Request, call_next):
 # Mount routers directly
 app.include_router(query_router)
 app.include_router(visa_router)
-
+app.include_router(documents_router)
 # Health endpoint
 @app.get("/health")
 async def health_check():

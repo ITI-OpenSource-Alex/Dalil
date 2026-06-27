@@ -89,7 +89,7 @@ async def forward_downstream_stream(
                 status_code=response.status_code,
                 text=response.text
             )
-            yield f"Error: Downstream service {service_name} returned status code {response.status_code}."
+            response.raise_for_status()
     except (httpx.HTTPError, Exception) as e:
         duration_ms = (time.perf_counter() - start_time) * 1000
         logger.warning(

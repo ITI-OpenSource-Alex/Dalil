@@ -11,3 +11,9 @@ scrape_configs:
   - job_name: 'rag'
     static_configs:
       - targets: ['rag:8084']
+  - job_name: 'orchestration'
+    static_configs:
+      - targets: ['orchestration:8083']
+  - job_name: 'speaking'
+    static_configs:
+      - targets: ['speaking:8082']

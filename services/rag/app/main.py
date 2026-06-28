@@ -1,8 +1,6 @@
 from fastapi import FastAPI, Request
 from prometheus_client import make_asgi_app
 import structlog
-
-from app.core.config import settings
 from app.core.database import db
 from app.core.logging import configure_logging, correlation_id_var
 from app.api.query import router as query_router

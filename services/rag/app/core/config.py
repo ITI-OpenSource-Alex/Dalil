@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     langfuse_public_key: Optional[str] = ""
     langfuse_secret_key: Optional[str] = ""
     langfuse_host: str = "https://cloud.langfuse.com"
+    internal_api_key: str = "supersecret_internal_key_123"
 
     model_config = SettingsConfigDict(
         env_file=".env", 

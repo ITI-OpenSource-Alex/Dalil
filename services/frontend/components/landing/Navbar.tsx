@@ -31,7 +31,7 @@ export default function Navbar() {
             Sign In
           </Link>
 
-          <Link href="/register" className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-5 py-3 text-sm font-medium text-white transition hover:bg-emerald-800">
+          <Link href="/onboarding" className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-5 py-3 text-sm font-medium text-white transition hover:bg-emerald-800">
             Get Started
             <ArrowRight size={16} />
           </Link>

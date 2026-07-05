@@ -182,3 +182,19 @@ The service includes an automated **Migration Runner** executed on startup, trac
 | `005_create_faq_entries.sql` | `faq_entries` | FAQ list matching on standard trigram pattern indexing (`pg_trgm`). |
 | `006_add_checklists.sql` | `checklists`, `checklist_item_states` | Stores student task checklists and progress status tags. |
 | `007_add_visa_requirements.sql` | `visa_requirements` | Caches scraped visa details with a unique key on `(country, visa_type, issuing_body)`. |
+
+---
+
+## Standalone Pipeline Code Example
+
+A simplified, standalone, runnable example of the RAG pipeline is provided in [rag_pipeline_example.py](file:///d:/ITI/Graduation%20Project/GOA/services/rag/docs/rag_pipeline_example.py).
+
+This educational script covers:
+1. Setting up pgvector and the database schema.
+2. Generating embeddings using OpenAI's `text-embedding-3-small` model.
+3. Seeding sample document chunks.
+4. Performing a vector Cosine Similarity search (`1 - (embedding <=> query_vector)`).
+5. Augmenting a context prompt and generating a final response using Claude (`claude-haiku-4-5-20251001`).
+
+Refer to the script file for detailed code commentary and step-by-step logic execution instructions.
+

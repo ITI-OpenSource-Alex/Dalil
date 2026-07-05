@@ -7,7 +7,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - DATABASE_URL=postgres://goa:goa_pass@postgres:5432/gateway_db?sslmode=disable
+      - DATABASE_URL=postgres://goa:goa_pass@postgres:5432/user_db?sslmode=disable
       - REDIS_URL=redis://redis-gateway:6379/0
       - JWT_SECRET=supersecret_dev_key
     volumes:
@@ -17,7 +17,7 @@ services:
         condition: service_healthy
       redis-gateway:
         condition: service_healthy
-  
+
   user-service:
     build:
       context: ./services/user
@@ -69,7 +69,7 @@ services:
       retries: 5
 
   localstack:
-    image: localstack/localstack
+    image: localstack/localstack:3.4.0
     environment:
       - SERVICES=sqs,s3
     ports:
@@ -139,6 +139,36 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+
+  orchestration:
+    build:
+      context: ./services/orchestration
+      target: dev
+
+    ports:
+      - "8083:8083"
+
+    environment:
+      - PORT=8083
+      - DATABASE_URL=postgresql://goa:goa_pass@postgres:5432/orchestration_db
+      - REDIS_URL=redis://redis-cache:6379/1
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - INTERNAL_API_KEY=supersecret_internal_key_123
+      - OTEL_SERVICE_NAME=orchestration
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
+      - LANGFUSE_HOST=${LANGFUSE_HOST}
+      - RAG_SERVICE_URL=http://rag:8084
+      - SPEAKING_SERVICE_URL=http://speaking:8082
+      - WRITING_SERVICE_URL=http://writing:8000
+    volumes:
+      - ./services/orchestration:/app
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis-cache:
+        condition: service_started
 
 volumes:
   pgdata:

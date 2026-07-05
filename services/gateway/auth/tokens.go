@@ -31,6 +31,9 @@ type TokenService struct {
 	refreshTokenTTL time.Duration
 }
 
+// JWT validates access tokens. It checks both HTTP headers and cookies,
+// and cross-checks the token's jti with the Redis blacklist cache.
+
 func NewTokenService(secret string, accessTokenTTL time.Duration, refreshTokenTTL time.Duration) *TokenService {
 	return &TokenService{
 		secret:          []byte(secret),

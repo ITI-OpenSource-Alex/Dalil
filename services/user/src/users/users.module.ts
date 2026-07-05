@@ -6,6 +6,7 @@ import { User } from './entities/user.entity';
 import { UserProfile } from '../profile/entities/profile.entity';
 import { ResetToken } from './entities/reset-tokens.entity';
 import { EmailVerification } from './entities/email-verification.entity';
+import { RefreshToken } from './entities/refresh-token.entity';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { EmailVerification } from './entities/email-verification.entity';
       UserProfile,
       ResetToken,
       EmailVerification,
+      RefreshToken,
     ]),
   ],
   controllers: [UsersController],

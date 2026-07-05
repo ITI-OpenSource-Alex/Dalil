@@ -7,7 +7,7 @@ export class NotificationConsumer {
   constructor(private readonly mailerService: MailerService) {}
 
   @SqsMessageHandler('PasswordResetRequested') // Match your SQS queue/event binding name
-  async handlePasswordReset(message: AWS.SQS.Message) {
+  async handlePasswordReset(message: any) {
     const { email, token } = JSON.parse(message.Body);
 
     await this.mailerService.sendMail({
@@ -21,7 +21,7 @@ export class NotificationConsumer {
   }
 
   @SqsMessageHandler('EmailVerificationRequired')
-  async handleEmailVerification(message: AWS.SQS.Message) {
+  async handleEmailVerification(message: any) {
     const { email, token } = JSON.parse(message.Body);
 
     await this.mailerService.sendMail({

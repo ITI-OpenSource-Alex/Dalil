@@ -1,11 +1,9 @@
 import pytest
-import re
 from unittest.mock import AsyncMock, MagicMock
 from fastapi.testclient import TestClient
 
 from app.main import app
 from app.services.rag_service import generate_embedding, query_rag
-from app.core.metrics import QUERY_LATENCY, RETRIEVAL_SIMILARITY, LOW_CONFIDENCE_TOTAL
 
 client = TestClient(app)
 
@@ -78,7 +76,7 @@ def mock_langfuse(monkeypatch):
 def get_prometheus_counter_value(metrics_text: str, counter_name: str) -> float:
     """Helper to parse a counter's float value from Prometheus text output."""
     for line in metrics_text.splitlines():
-        if line.startswith(counter_name) and not line.startswith(f"#"):
+        if line.startswith(counter_name) and not line.startswith("#"):
             parts = line.split()
             if len(parts) >= 2:
                 return float(parts[1])

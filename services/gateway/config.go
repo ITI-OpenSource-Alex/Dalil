@@ -14,13 +14,15 @@ import (
 type Config struct {
 	Port            string        `envconfig:"PORT" default:"8080"`
 	JWTSecret       string        `envconfig:"JWT_SECRET" required:"true"`
+	DatabaseURL     string        `envconfig:"DATABASE_URL" required:"true"`
 	RedisURL        string        `envconfig:"REDIS_URL" required:"true"`
 	Version         string        `envconfig:"VERSION" default:"0.1.0"`
 	AccessTokenTTL  time.Duration `envconfig:"ACCESS_TOKEN_TTL" default:"1h"`
-	RefreshTokenTTL time.Duration `envconfig:"REFRESH_TOKEN_TTL" default:"24h"`
+	RefreshTokenTTL time.Duration `envconfig:"REFRESH_TOKEN_TTL" default:"720h"`
 	ReadTimeout     time.Duration `envconfig:"READ_TIMEOUT" default:"5s"`
 	WriteTimeout    time.Duration `envconfig:"WRITE_TIMEOUT" default:"10s"`
 	ShutdownTimeout time.Duration `envconfig:"SHUTDOWN_TIMEOUT" default:"10s"`
+	SecureCookies   bool          `envconfig:"SECURE_COOKIES" default:"false"`
 }
 
 func LoadConfig() (Config, error) {

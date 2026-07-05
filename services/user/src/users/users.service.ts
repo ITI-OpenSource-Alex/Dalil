@@ -4,6 +4,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { RefreshToken } from './entities/refresh-token.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
@@ -27,8 +28,10 @@ export class UsersService {
     private readonly resetTokenRepository: Repository<ResetToken>,
     @InjectRepository(EmailVerification)
     private readonly emailVerificationRepository: Repository<EmailVerification>,
+    @InjectRepository(RefreshToken)
+    private readonly refreshTokenRepository: Repository<RefreshToken>,
     // private readonly sqsService: SqsService,
-  ) {}
+  ) { }
 
   // FIX 1: Async methods must return a Promise wrapper, and we type it cleanly using structural mapping
   async register(
@@ -286,6 +289,13 @@ export class UsersService {
           verificationRecord.id,
         );
       },
+    );
+  }
+
+  async revokeAllForUser(userId: string): Promise<void> {
+    await this.refreshTokenRepository.update(
+      { userId },
+      { revokedAt: new Date() },
     );
   }
 }

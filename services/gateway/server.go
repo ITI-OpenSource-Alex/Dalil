@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"net/http"
 	"time"
 
 	gatewayauth "github.com/ITI-OpenSource-Alex/GOA/services/gateway/auth"
@@ -49,16 +50,20 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	redisClient := redis.NewClient(redisOptions)
 
 	app := fiber.New(fiber.Config{
-		ReadTimeout:  cfg.ReadTimeout,
-		WriteTimeout: cfg.WriteTimeout,
-		ErrorHandler: middleware.ErrorHandler(logger),
-	})
+	ReadTimeout:  cfg.ReadTimeout,
+	WriteTimeout: cfg.WriteTimeout,
+	BodyLimit:    15 * 1024 * 1024,
+	ErrorHandler: middleware.ErrorHandler(logger),
+})
 
 	startTime := time.Now()
 	tokenService := gatewayauth.NewTokenService(cfg.JWTSecret, cfg.AccessTokenTTL, cfg.RefreshTokenTTL)
 	repo := gatewayauth.NewRefreshTokenRepository(db)
 	dbValidator := gatewayauth.NewDatabaseCredentialValidator(db)
 	authHandler := handlers.NewAuthHandler(db, redisClient, repo, tokenService, dbValidator, metrics)
+
+	httpClient := &http.Client{Timeout: 10 * time.Second}
+	writingHandler := handlers.NewWritingHandler(httpClient, cfg.WritingServiceURL)
 
 	app.Use(middleware.RequestID())
 	app.Use(middleware.RequestLogger(logger, metrics))
@@ -77,6 +82,8 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	api.Get("/ping", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"status": "ok"})
 	})
+	api.Post("/writing/essays/upload", middleware.ValidateEssayTextLength(5000), writingHandler.UploadEssay)
+
 	return &GatewayServer{
 		App:             app,
 		dbPool:          db, // <-- Assign pool

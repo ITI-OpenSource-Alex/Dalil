@@ -23,6 +23,7 @@ type Config struct {
 	WriteTimeout    time.Duration `envconfig:"WRITE_TIMEOUT" default:"10s"`
 	ShutdownTimeout time.Duration `envconfig:"SHUTDOWN_TIMEOUT" default:"10s"`
 	SecureCookies   bool          `envconfig:"SECURE_COOKIES" default:"false"`
+	WritingServiceURL string `envconfig:"WRITING_SERVICE_URL" required:"true"`
 }
 
 func LoadConfig() (Config, error) {

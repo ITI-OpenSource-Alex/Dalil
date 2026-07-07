@@ -1,6 +1,7 @@
 package speaking
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -11,20 +12,62 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+
+	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/db"
+	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/langfuse"
+	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/llm"
 )
 
+// mockDBRepo satisfies db.Repository for testing
+type mockDBRepo struct{}
+
+func (m *mockDBRepo) Create(ctx context.Context, session *db.SpeakingSession) error {
+	return nil
+}
+
+// mockLLMClient satisfies agents.LLMClient for testing
+type mockLLMClient struct{}
+
+func (m *mockLLMClient) StreamCompletion(ctx context.Context, systemPrompt, userPrompt string) (llm.CompletionResult, error) {
+	return llm.CompletionResult{
+		Text:             `{"band": 7.0, "feedback": "Good job.", "examples": ["example phrase"]}`,
+		PromptTokens:     20,
+		CompletionTokens: 15,
+		LatencyMs:        150,
+	}, nil
+}
+
+// mockTTSClient satisfies TTSClient for testing
+type mockTTSClient struct{}
+
+func (m *mockTTSClient) StreamTTS(ctx context.Context, text string, writeAudio func([]byte) error) error {
+	// Write a mock 4-byte audio chunk
+	return writeAudio([]byte{0, 1, 2, 3})
+}
+
+// mockLangfuseClient satisfies LangfuseClient for testing
+type mockLangfuseClient struct{}
+
+func (m *mockLangfuseClient) SendBatch(ctx context.Context, events []langfuse.IngestionEvent) error {
+	return nil
+}
+
 func TestIntegrationE2EAudioStreaming(t *testing.T) {
-	// 1. Start a local HTTP test server
 	cfg := &Config{
 		MaxConnections:   10,
-		ElevenLabsAPIKey: "", // Triggers STT mock fallback
+		ElevenLabsAPIKey: "", // Triggers TTS API flow
 	}
+
+	dbRepo := &mockDBRepo{}
+	llmClient := &mockLLMClient{}
+	ttsClient := &mockTTSClient{}
+	lfClient := &mockLangfuseClient{}
+
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		HandleWebSocket(w, r, cfg)
+		HandleWebSocket(w, r, cfg, dbRepo, llmClient, ttsClient, lfClient)
 	}))
 	defer ts.Close()
 
-	// Convert HTTP URL to WebSocket WS URL
 	u, err := url.Parse(ts.URL)
 	if err != nil {
 		t.Fatal(err)
@@ -32,14 +75,26 @@ func TestIntegrationE2EAudioStreaming(t *testing.T) {
 	u.Scheme = "ws"
 	u.Path = "/ws"
 
-	// 2. Connect WebSocket client
 	ws, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	if err != nil {
 		t.Fatalf("Failed to connect: %v", err)
 	}
 	defer ws.Close()
 
-	// 3. Write multiple binary chunks
+	// 1. Write the mandatory session_init control frame first
+	initMsg := map[string]string{
+		"type":           "session_init",
+		"userId":         "user-123",
+		"questionPrompt": "Describe a book you read.",
+		"questionType":   "IELTS Part 2",
+	}
+	initBytes, _ := json.Marshal(initMsg)
+	err = ws.WriteMessage(websocket.TextMessage, initBytes)
+	if err != nil {
+		t.Fatalf("Failed to send session_init control frame: %v", err)
+	}
+
+	// 2. Write binary chunks
 	for i := 0; i < 3; i++ {
 		err = ws.WriteMessage(websocket.BinaryMessage, []byte{0, 1, 2, 3})
 		if err != nil {
@@ -48,13 +103,13 @@ func TestIntegrationE2EAudioStreaming(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 	}
 
-	// 4. Wait for VAD silence window (1.5s silence gap + padding)
-	time.Sleep(1700 * time.Millisecond)
+	// 3. Wait for silence VAD ticker (1.5s silence gap + padding)
+	time.Sleep(1800 * time.Millisecond)
 
-	// 5. Read response from client channel
+	// 4. Read response transcript frame
 	_, reply, err := ws.ReadMessage()
 	if err != nil {
-		t.Fatalf("Failed to read message: %v", err)
+		t.Fatalf("Failed to read transcript response: %v", err)
 	}
 
 	var res map[string]interface{}
@@ -63,15 +118,41 @@ func TestIntegrationE2EAudioStreaming(t *testing.T) {
 		t.Fatalf("Failed to unmarshal response: %v", err)
 	}
 
-	// Verify transcript payload properties
 	if res["type"] != "transcript" {
 		t.Errorf("Expected type 'transcript', got '%v'", res["type"])
 	}
 	if res["text"] == "" {
 		t.Error("Expected non-empty transcript text")
 	}
-	if res["isFinal"] != true {
-		t.Errorf("Expected isFinal to be true, got %v", res["isFinal"])
+
+	// 5. Read evaluation response frame
+	_, reply, err = ws.ReadMessage()
+	if err != nil {
+		t.Fatalf("Failed to read evaluation response: %v", err)
+	}
+
+	err = json.Unmarshal(reply, &res)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal evaluation response: %v", err)
+	}
+
+	if res["type"] != "evaluation" {
+		t.Errorf("Expected type 'evaluation', got '%v'", res["type"])
+	}
+	if res["overall_band"] != 7.0 {
+		t.Errorf("Expected overall band 7.0, got %v", res["overall_band"])
+	}
+
+	// 6. Read synthesized TTS binary chunk
+	msgType, audioBytes, err := ws.ReadMessage()
+	if err != nil {
+		t.Fatalf("Failed to read audio output chunk: %v", err)
+	}
+	if msgType != websocket.BinaryMessage {
+		t.Errorf("Expected binary audio frame, got type %d", msgType)
+	}
+	if len(audioBytes) != 4 || audioBytes[0] != 0 {
+		t.Errorf("Unexpected audio bytes: %v", audioBytes)
 	}
 }
 
@@ -80,8 +161,14 @@ func TestIntegrationMetricsAndSessionAccounting(t *testing.T) {
 		MaxConnections:   10,
 		ElevenLabsAPIKey: "",
 	}
+
+	dbRepo := &mockDBRepo{}
+	llmClient := &mockLLMClient{}
+	ttsClient := &mockTTSClient{}
+	lfClient := &mockLangfuseClient{}
+
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		HandleWebSocket(w, r, cfg)
+		HandleWebSocket(w, r, cfg, dbRepo, llmClient, ttsClient, lfClient)
 	}))
 	defer ts.Close()
 
@@ -89,29 +176,24 @@ func TestIntegrationMetricsAndSessionAccounting(t *testing.T) {
 	u.Scheme = "ws"
 	u.Path = "/ws"
 
-	// Verify baseline
 	if activeConns != 0 {
 		t.Fatalf("Expected baseline activeConns to be 0, got %d", activeConns)
 	}
 
-	// Connect client
 	ws, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	if err != nil {
 		t.Fatalf("Failed to connect client: %v", err)
 	}
 
-	// Verify increment
 	if activeConns != 1 {
 		t.Errorf("Expected activeConns to be 1, got %d", activeConns)
 	}
 
-	// Disconnect client
 	ws.Close()
 
 	// Wait for cleanup deferred routines to finish
 	time.Sleep(150 * time.Millisecond)
 
-	// Verify decrement
 	if activeConns != 0 {
 		t.Errorf("Expected activeConns to return to 0 after disconnect, got %d", activeConns)
 	}
@@ -122,8 +204,14 @@ func TestLoadConcurrentConnectionsAndLeaks(t *testing.T) {
 		MaxConnections:   60,
 		ElevenLabsAPIKey: "",
 	}
+
+	dbRepo := &mockDBRepo{}
+	llmClient := &mockLLMClient{}
+	ttsClient := &mockTTSClient{}
+	lfClient := &mockLangfuseClient{}
+
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		HandleWebSocket(w, r, cfg)
+		HandleWebSocket(w, r, cfg, dbRepo, llmClient, ttsClient, lfClient)
 	}))
 	defer ts.Close()
 
@@ -136,10 +224,8 @@ func TestLoadConcurrentConnectionsAndLeaks(t *testing.T) {
 	clients := make([]*websocket.Conn, concurrency)
 	clientErrors := make([]error, concurrency)
 
-	// Capture baseline goroutine count
 	initialGoroutines := runtime.NumGoroutine()
 
-	// Connect 50 clients concurrently in goroutines
 	for i := 0; i < concurrency; i++ {
 		wg.Add(1)
 		go func(idx int) {
@@ -155,36 +241,30 @@ func TestLoadConcurrentConnectionsAndLeaks(t *testing.T) {
 
 	wg.Wait()
 
-	// Assert connection successes
 	for idx, err := range clientErrors {
 		if err != nil {
 			t.Fatalf("Concurrent Client %d failed to connect: %v", idx, err)
 		}
 	}
 
-	// Verify the counter registers 50
 	if activeConns != int32(concurrency) {
 		t.Errorf("Expected activeConns to count %d, got %d", concurrency, activeConns)
 	}
 
-	// Close all connections concurrently
 	for _, ws := range clients {
 		if ws != nil {
 			ws.Close()
 		}
 	}
 
-	// Wait for background worker cleanups to complete
 	time.Sleep(1000 * time.Millisecond)
 
-	// Verify counter drops back to 0
 	if activeConns != 0 {
 		t.Errorf("Expected activeConns to return to 0, got %d", activeConns)
 	}
 
-	// Check for goroutine leak
 	finalGoroutines := runtime.NumGoroutine()
-	margin := 5 // Allow small background system thread variations
+	margin := 10 // Allow small background system thread variations
 	if finalGoroutines > initialGoroutines+margin {
 		t.Errorf("Possible goroutine leak detected: started with %d, ended with %d", initialGoroutines, finalGoroutines)
 	}

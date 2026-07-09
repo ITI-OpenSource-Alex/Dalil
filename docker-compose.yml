@@ -6,7 +6,8 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - DATABASE_URL=postgres://goa:goa_pass@postgres:5432/user_db?sslmode=disable
+      - USER_SERVICE_URL=http://user-service:8081
+      - INTERNAL_API_KEY=supersecret_internal_key_123
       - REDIS_URL=redis://redis-gateway:6379/0
       - JWT_SECRET=supersecret_dev_key
       - WRITING_SERVICE_URL=http://writing:8000
@@ -67,7 +68,7 @@ services:
       - ./infra/docker/postgres/init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U goa"]
+      test: [ "CMD-SHELL", "pg_isready -U goa" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -77,7 +78,7 @@ services:
     ports:
       - "6379:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
       timeout: 5s
       retries: 5

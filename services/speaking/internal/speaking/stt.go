@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/rs/zerolog/log"
 )
 
@@ -22,11 +23,10 @@ func (c *Client) transcribeAudio(audio []byte) {
 		apiDuration := time.Since(apiStart)
 
 		transcriptionLatencyMetric.Observe(float64(apiDuration.Milliseconds()))
-		e2eDuration := time.Since(c.e2eStart)
-		e2eLatencyMetric.Observe(float64(e2eDuration.Milliseconds()))
-
 		atomic.StoreInt64(&c.lastTransMs, apiDuration.Milliseconds())
-		c.outcome = "completed"
+
+		// Trigger evaluation swarm directly using the mock transcript
+		c.runEvaluationAndTTS("Mock transcript (ElevenLabs API Key missing)", apiDuration.Milliseconds())
 		return
 	}
 	log.Info().
@@ -75,12 +75,26 @@ func (c *Client) transcribeAudio(audio []byte) {
 		if err == nil && resp.StatusCode == http.StatusOK {
 			// Record metrics on success
 			transcriptionLatencyMetric.Observe(float64(apiDuration.Milliseconds()))
-			e2eDuration := time.Since(c.e2eStart)
-			e2eLatencyMetric.Observe(float64(e2eDuration.Milliseconds()))
-
 			atomic.StoreInt64(&c.lastTransMs, apiDuration.Milliseconds())
-			c.outcome = "completed"
-			break
+
+			// Decode response
+			defer resp.Body.Close()
+			var sttResp struct {
+				Text string `json:"text"`
+			}
+			err = json.NewDecoder(resp.Body).Decode(&sttResp)
+			if err != nil {
+				log.Error().Err(err).Str("session_id", c.id).Msg("Failed to decode STT response JSON")
+				c.outcome = "error"
+				return
+			}
+
+			// 1. Send text transcript to client
+			c.sendTranscript(sttResp.Text)
+
+			// 2. Trigger evaluation swarm and TTS voice streaming pipeline
+			c.runEvaluationAndTTS(sttResp.Text, apiDuration.Milliseconds())
+			return
 		}
 		if resp != nil {
 			resp.Body.Close()
@@ -102,28 +116,8 @@ func (c *Client) transcribeAudio(audio []byte) {
 		c.outcome = "error"
 		return
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		var errorDetails bytes.Buffer
-		errorDetails.ReadFrom(resp.Body)
-		log.Error().
-			Int("status_code", resp.StatusCode).
-			Str("response", errorDetails.String()).
-			Str("session_id", c.id).
-			Msg("ElevenLabs STT API returned non-OK status after retries")
-		c.outcome = "error"
-		return
-	}
-	var sttResp struct {
-		Text string `json:"text"`
-	}
-	err = json.NewDecoder(resp.Body).Decode(&sttResp)
-	if err != nil {
-		log.Error().Err(err).Str("session_id", c.id).Msg("Failed to decode STT response JSON")
-		return
-	}
-	c.sendTranscript(sttResp.Text)
 }
+
 func (c *Client) sendTranscript(text string) {
 	response := map[string]interface{}{
 		"type":    "transcript",
@@ -140,7 +134,7 @@ func (c *Client) sendTranscript(text string) {
 	select {
 	case <-c.ctx.Done():
 		return
-	case c.send <- resBytes:
+	case c.send <- WSMessage{Type: websocket.TextMessage, Payload: resBytes}: // Wrapped in WSMessage
 	case <-sendTimer.C:
 		log.Error().Str("session_id", c.id).Msg("Timed out trying to send transcript back to client")
 	}

@@ -83,7 +83,7 @@ describe('User Flow Integration (e2e)', () => {
     let validTokenId: string;
     let validRawToken: string;
 
-    const testEmail = 'e2e-auth@example.com';
+    const testEmail = `e2e-auth-${Date.now()}@example.com`;
     const testPassword = 'securePassword123';
 
     it('should register a test user', async () => {

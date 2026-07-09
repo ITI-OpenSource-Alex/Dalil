@@ -120,7 +120,7 @@ func newIntegrationTestApp(t *testing.T) *fiber.App {
 
 	redisURL := os.Getenv("REDIS_URL")
 	if redisURL == "" {
-		redisURL = "redis://localhost:6379/0"
+		redisURL = "redis://127.0.0.1:6379/0"
 	}
 	redisOpts, err := redis.ParseURL(redisURL)
 	if err != nil {
@@ -133,7 +133,7 @@ func newIntegrationTestApp(t *testing.T) *fiber.App {
 		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path == "/internal/auth/login" || r.URL.Path == "/internal/auth/refresh-tokens" {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"userId":"00000000-0000-0000-0000-000000000001", "email":"user@example.com", "tokenId":"mockTokenId", "rawToken":"mockRawToken", "expiresAt":"2030-01-01T00:00:00Z"}`))
+			w.Write([]byte(`{"userId":"00000000-0000-0000-0000-000000000001", "email":"user@example.com", "newTokenId":"mockNewTokenId", "newRawToken":"mockNewRawToken", "expiresAt":"2030-01-01T00:00:00Z"}`))
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)

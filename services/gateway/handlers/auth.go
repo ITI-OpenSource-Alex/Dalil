@@ -70,13 +70,20 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	}
 
 	// 1. Delegate credentials validation & token generation to User Service
-	payload, _ := json.Marshal(map[string]string{
+	payload, err := json.Marshal(map[string]string{
 		"email":      req.Email,
 		"password":   req.Password,
 		"deviceHint": c.Get("User-Agent"),
 	})
 
-	httpReq, _ := http.NewRequestWithContext(c.UserContext(), http.MethodPost, h.userServiceURL+"/internal/auth/login", bytes.NewBuffer(payload))
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "internal serialization error")
+	}
+
+	httpReq, err := http.NewRequestWithContext(c.UserContext(), http.MethodPost, h.userServiceURL+"/internal/auth/login", bytes.NewBuffer(payload))
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "internal request error")
+	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("X-Internal-Api-Key", h.internalAPIKey)
 
@@ -165,13 +172,21 @@ func (h *AuthHandler) Refresh(c *fiber.Ctx) error {
 	tokenID, rawToken := parts[0], parts[1]
 
 	// 1. Delegate rotation & replay detection to User Service
-	payload, _ := json.Marshal(map[string]string{
+	payload, err := json.Marshal(map[string]string{
 		"tokenId":    tokenID,
 		"rawToken":   rawToken,
 		"deviceHint": c.Get("User-Agent"),
 	})
 
-	httpReq, _ := http.NewRequestWithContext(c.UserContext(), http.MethodPost, h.userServiceURL+"/internal/auth/refresh-tokens", bytes.NewBuffer(payload))
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "internal serialization error")
+	}
+
+	httpReq, err := http.NewRequestWithContext(c.UserContext(), http.MethodPost, h.userServiceURL+"/internal/auth/refresh-tokens", bytes.NewBuffer(payload))
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "internal request error")
+	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("X-Internal-Api-Key", h.internalAPIKey)
 
@@ -242,15 +257,21 @@ func (h *AuthHandler) Refresh(c *fiber.Ctx) error {
 }
 
 func (h *AuthHandler) Logout(c *fiber.Ctx) error {
-	refreshTokenValue := c.Cookies("refresh_token")
-	if refreshTokenValue != "" {
-		parts := strings.SplitN(refreshTokenValue, ".", 2)
-		if len(parts) == 2 {
-			payload, _ := json.Marshal(map[string]interface{}{
-				"tokenId":   parts[0],
-				"revokeAll": false,
-			})
-			h.fireAndForgetRevoke(c, payload)
+	userID, ok := c.Locals(middleware.ContextKeyUserID).(string)
+	if ok && userID != "" {
+		refreshTokenValue := c.Cookies("refresh_token")
+		if refreshTokenValue != "" {
+			parts := strings.SplitN(refreshTokenValue, ".", 2)
+			if len(parts) == 2 {
+				payload, err := json.Marshal(map[string]interface{}{
+					"userId":    userID,
+					"tokenId":   parts[0],
+					"revokeAll": false,
+				})
+				if err == nil {
+					h.fireAndForgetRevoke(c, payload)
+				}
+			}
 		}
 	}
 
@@ -265,10 +286,13 @@ func (h *AuthHandler) LogoutAll(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusUnauthorized, "unauthorized")
 	}
 
-	payload, _ := json.Marshal(map[string]interface{}{
+	payload, err := json.Marshal(map[string]interface{}{
 		"userId":    userID,
 		"revokeAll": true,
 	})
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "internal serialization error")
+	}
 	h.fireAndForgetRevoke(c, payload)
 
 	h.blacklistCurrentAccessToken(c)
@@ -277,7 +301,12 @@ func (h *AuthHandler) LogoutAll(c *fiber.Ctx) error {
 }
 
 func (h *AuthHandler) fireAndForgetRevoke(c *fiber.Ctx, payload []byte) {
-	httpReq, _ := http.NewRequestWithContext(c.UserContext(), http.MethodPost, h.userServiceURL+"/internal/auth/revoke-tokens", bytes.NewBuffer(payload))
+	httpReq, err := http.NewRequestWithContext(c.UserContext(), http.MethodPost, h.userServiceURL+"/internal/auth/revoke-tokens", bytes.NewBuffer(payload))
+
+	if err != nil {
+		return 
+	}
+
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("X-Internal-Api-Key", h.internalAPIKey)
 	resp, err := h.httpClient.Do(httpReq)

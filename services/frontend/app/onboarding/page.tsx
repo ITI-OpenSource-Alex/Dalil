@@ -36,7 +36,7 @@ export default function OnboardingWizardPage() {
   const stepNames = ["Academic", "Languages", "Targets", "CV Upload"];
 
   return (
-    <div className="min-h-screen bg-orange-50 flex flex-col justify-center items-center p-6">
+    <div className="min-h-screen bg-linear-to-br from-emerald-50 via-white to-yellow-50 flex flex-col justify-center items-center p-6">
       <div className="w-full max-w-xl bg-white border border-gray-100 shadow-xl rounded-2xl p-8">
         {/* Progress Bar Header */}
         <div className="mb-8">

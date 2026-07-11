@@ -7,6 +7,9 @@ import { UserProfile } from '../profile/entities/profile.entity';
 import { ResetToken } from './entities/reset-tokens.entity';
 import { EmailVerification } from './entities/email-verification.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
+import { SqsService } from '@ssut/nestjs-sqs';
+import { ConfigService } from '@nestjs/config';
+
 describe('UsersService', () => {
   let service: UsersService;
 
@@ -39,6 +42,15 @@ describe('UsersService', () => {
     findOne: jest.fn(),
     update: jest.fn(),
   };
+  const mockSqsService = {
+    send: jest.fn(),
+  };
+  const mockConfigService = {
+    get: jest.fn().mockImplementation((key: string, defaultValue?: string) => {
+      if (key === 'SQS_PRODUCER_NAME') return defaultValue ?? 'user-events';
+      return defaultValue;
+    }),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -61,6 +73,8 @@ describe('UsersService', () => {
           provide: getRepositoryToken(EmailVerification),
           useValue: mockEmailVerificationRepository,
         },
+        { provide: SqsService, useValue: mockSqsService },
+        { provide: ConfigService, useValue: mockConfigService },
       ],
     }).compile();
 
@@ -126,4 +140,105 @@ describe('UsersService', () => {
       ).rejects.toThrow(BadRequestException);
     });
   });
+
+  describe('updateProfile (GOA-016)', () => {
+    const userId = 'user-uuid-123';
+    const dto = { degreeLevel: 'MSc' };
+    const mockProfile = { userId, degreeLevel: 'BSc' };
+    const mockUser = {
+      id: userId,
+      email: 'user@example.com',
+      subscriptionTier: 'free' as const,
+    };
+
+    it('should save the profile and return it successfully', async () => {
+      mockProfileRepository.findOne.mockResolvedValue({ ...mockProfile });
+      mockProfileRepository.save.mockResolvedValue({ ...mockProfile, ...dto });
+      // SQS lookup runs async - resolve but do not block
+      mockUserRepository.findOne.mockResolvedValue(mockUser);
+      mockSqsService.send.mockResolvedValue([]);
+
+      const result = await service.updateProfile(userId, dto as any);
+
+      expect(result).toMatchObject({ userId, degreeLevel: 'MSc' });
+      expect(mockProfileRepository.save).toHaveBeenCalledTimes(1);
+    });
+
+    it('should call SqsService.send after a successful profile save', async () => {
+      mockProfileRepository.findOne.mockResolvedValue({ ...mockProfile });
+      mockProfileRepository.save.mockResolvedValue({ ...mockProfile, ...dto });
+      mockUserRepository.findOne.mockResolvedValue(mockUser);
+      mockSqsService.send.mockResolvedValue([]);
+
+      await service.updateProfile(userId, dto as any);
+
+      // Allow the fire-and-forget microtask to flush
+      await new Promise(process.nextTick);
+
+      expect(mockSqsService.send).toHaveBeenCalledTimes(1);
+      const [producerName, message] = mockSqsService.send.mock.calls[0];
+      expect(producerName).toBe('user-events');
+      expect(message.body).toMatchObject({
+        type: 'user.updated',
+        version: '1.0',
+        payload: {
+          userId,
+          email: mockUser.email,
+          subscriptionTier: mockUser.subscriptionTier,
+        },
+      });
+    });
+
+    it('should still return the saved profile even if SqsService.send throws', async () => {
+      mockProfileRepository.findOne.mockResolvedValue({ ...mockProfile });
+      mockProfileRepository.save.mockResolvedValue({ ...mockProfile, ...dto });
+      mockUserRepository.findOne.mockResolvedValue(mockUser);
+      mockSqsService.send.mockRejectedValue(new Error('SQS unavailable'));
+
+      // Silence the logger so the caught error does not leak to stderr and cause exit code 1
+      jest.spyOn((service as any).logger, 'error').mockImplementation(() => { });
+
+      // Should resolve successfully — SQS failure must not propagate
+      await expect(
+        service.updateProfile(userId, dto as any),
+      ).resolves.toMatchObject({ degreeLevel: 'MSc' });
+
+      // Flush the fire-and-forget so the spy handles the rejection before the test tears down
+      await new Promise(process.nextTick);
+    });
+
+    it('should log an error (not rethrow) when SQS publish fails', async () => {
+      mockProfileRepository.findOne.mockResolvedValue({ ...mockProfile });
+      mockProfileRepository.save.mockResolvedValue({ ...mockProfile, ...dto });
+      mockUserRepository.findOne.mockResolvedValue(mockUser);
+      mockSqsService.send.mockRejectedValue(new Error('SQS timeout'));
+
+      const loggerErrorSpy = jest
+        .spyOn((service as any).logger, 'error')
+        .mockImplementation(() => { });
+
+      await service.updateProfile(userId, dto as any);
+
+      // Flush fire-and-forget
+      await new Promise(process.nextTick);
+
+      expect(loggerErrorSpy).toHaveBeenCalledTimes(1);
+      expect(loggerErrorSpy.mock.calls[0][0]).toContain(
+        `Failed to publish UserUpdated event for user ${userId}`,
+      );
+    });
+
+    it('should throw NotFoundException when profile does not exist', async () => {
+      mockProfileRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.updateProfile('nonexistent-id', dto as any),
+      ).rejects.toThrow('Profile for user nonexistent-id not found');
+
+      // No SQS attempt if profile was not found
+      await new Promise(process.nextTick);
+      expect(mockSqsService.send).not.toHaveBeenCalled();
+    });
+  });
 });
+

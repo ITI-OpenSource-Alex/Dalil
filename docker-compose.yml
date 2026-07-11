@@ -33,12 +33,23 @@ services:
       - DB_PASSWORD=goa_pass
       - DB_NAME=user_db
       - INTERNAL_API_KEY=supersecret_internal_key_123
+
+      # AWS / LocalStack
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT=http://localstack:4566
+      - SQS_QUEUE_URL=http://localstack:4566/000000000000/user-events
+
     volumes:
       - ./services/user:/usr/src/app
       - /usr/src/app/node_modules
+
     depends_on:
       postgres:
         condition: service_healthy
+      localstack:
+        condition: service_started
 
   writing:
     build:

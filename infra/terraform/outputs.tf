@@ -137,3 +137,25 @@ output "session_manager_preferences_document_name" {
   description = "Name of the Session Manager preferences SSM document."
   value       = module.iam.session_manager_preferences_document_name
 }
+
+output "writing_files_bucket_name" {
+  value = module.writing_files_bucket.bucket_name
+}
+output "exam_audio_bucket_name" {
+  value = module.exam_audio_bucket.bucket_name
+}
+output "ingestion_reports_bucket_name" {
+  value = module.ingestion_reports_bucket.bucket_name
+}
+output "eval_reports_bucket_name" {
+  value = module.eval_reports_bucket.bucket_name
+}
+output "cv_processor_function_name" {
+  value = module.cv_processor_lambda.function_name
+}
+output "scholarship_matcher_function_name" {
+  value = module.scholarship_matcher_lambda.function_name
+}
+output "notification_sender_function_name" {
+  value = module.notification_sender_lambda.function_name
+}

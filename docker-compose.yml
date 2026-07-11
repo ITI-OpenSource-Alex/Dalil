@@ -149,11 +149,17 @@ services:
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
       - LANGFUSE_HOST=${LANGFUSE_HOST}
+      - REDIS_URL=redis://redis-cache:6379/2
+      - USER_SERVICE_URL=http://user-service:8081
+      - WRITING_SERVICE_URL=http://writing:8000
+      - INTERNAL_API_KEY=supersecret_internal_key_123
     volumes:
       - ./services/rag:/app
     depends_on:
       postgres:
         condition: service_healthy
+      redis-cache:
+        condition: service_started
 
   orchestration:
     build:

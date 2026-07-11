@@ -5,6 +5,8 @@ import {
   Min,
   Max,
   IsArray,
+  IsInt,
+  IsIn,
 } from 'class-validator';
 
 export class UpdateProfileDto {
@@ -15,7 +17,7 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0, { message: 'GPA cannot be negative.' })
-  @Max(4.0, { message: 'GPA cannot exceed 4.0.' })
+  @Max(100, { message: 'GPA cannot exceed 100.' })
   gpa?: number;
 
   @IsOptional()
@@ -36,4 +38,18 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsNumber()
   ects?: number;
+
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  workExperienceYears?: number;
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(10)
+  extracurricularsScore?: number;
+  @IsOptional()
+  @IsIn(['4.0', '100'])
+  gpaScale?: '4.0' | '100';
 }

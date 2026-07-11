@@ -7,6 +7,7 @@ from fastapi import HTTPException
 from fastapi import UploadFile
 from fastapi import File
 from sqlalchemy.orm import Session
+from app.routers import internal
 
 from app.database import SessionLocal
 from app.models import Essay
@@ -114,3 +115,5 @@ def get_essay(
         "submissionType": essay.submission_type,
         "examSessionId": essay.exam_session_id
     }
+
+app.include_router(internal.router)

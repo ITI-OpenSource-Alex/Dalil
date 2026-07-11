@@ -3,7 +3,10 @@ import {
   ConflictException,
   NotFoundException,
   BadRequestException,
+  UnauthorizedException,
+  ForbiddenException,
 } from '@nestjs/common';
+import { InternalLoginDto, InternalRefreshDto, InternalRevokeDto } from './dto/refresh-token.dto';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -297,5 +300,103 @@ export class UsersService {
       { userId },
       { revokedAt: new Date() },
     );
+  }
+
+
+
+
+  async internalLogin(dto: InternalLoginDto) {
+    const user = await this.userRepository.findOne({
+      where: { email: dto.email }
+    })
+
+    if (!user || !(await bcrypt.compare(dto.password, user.passwordHash))) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = await bcrypt.hash(rawToken, 10);
+
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30);
+
+
+    const tokenEntity = this.refreshTokenRepository.create({
+      tokenHash,
+      userId: user.id,
+      expiresAt,
+      deviceHint: dto.deviceHint,
+    });
+
+    const savedToken = await this.refreshTokenRepository.save(tokenEntity);
+
+    return {
+      userId: user.id,
+      email: user.email,
+      tokenId: savedToken.id,
+      rawToken,
+      expiresAt: savedToken.expiresAt.toISOString(),
+    };
+
+  }
+
+  async internalRefresh(dto: InternalRefreshDto) {
+    const token = await this.refreshTokenRepository.findOne({
+      where: { id: dto.tokenId },
+      relations: { user: true }
+    });
+
+    if (!token || !(await bcrypt.compare(dto.rawToken, token.tokenHash))) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    if (token.revokedAt) {
+      // If token is already revoked, this is a replay attack! Revoke ALL sessions.
+      await this.revokeAllForUser(token.userId);
+      throw new ForbiddenException('Replay attack detected. All sessions revoked.');
+    }
+
+    if (new Date() > token.expiresAt) {
+      throw new UnauthorizedException('Refresh token expired');
+    }
+
+    token.revokedAt = new Date();
+    const newRawToken = crypto.randomBytes(32).toString('hex');
+    const newTokenHash = await bcrypt.hash(newRawToken, 10);
+    const newExpiresAt = new Date();
+    newExpiresAt.setDate(newExpiresAt.getDate() + 30);
+
+
+    const newTokenEntity = this.refreshTokenRepository.create({
+      tokenHash: newTokenHash,
+      userId: token.userId,
+      expiresAt: newExpiresAt,
+      deviceHint: dto.deviceHint || token.deviceHint, // carry over hint if not provided
+    });
+
+    //Atomically save the invalidation and the new token
+    await this.refreshTokenRepository.manager.transaction(async (manager) => {
+      await manager.save(token);
+      await manager.save(newTokenEntity);
+    });
+
+    return {
+      userId: token.userId,
+      email: token.user.email,
+      newTokenId: newTokenEntity.id,
+      newRawToken,
+      expiresAt: newTokenEntity.expiresAt.toISOString(),
+    };
+  }
+
+  async internalRevoke(dto: InternalRevokeDto) {
+    if (dto.revokeAll) {
+      await this.revokeAllForUser(dto.userId);
+    } else if (dto.tokenId) {
+      await this.refreshTokenRepository.update(
+        { id: dto.tokenId, userId: dto.userId },
+        { revokedAt: new Date() }
+      );
+    }
   }
 }

@@ -76,4 +76,63 @@ describe('User Flow Integration (e2e)', () => {
 
     expect(response.body.message).toContain('GPA cannot be negative.');
   });
+
+
+  describe('Internal Auth / Refresh Tokens (GOA-090)', () => {
+    let testUserId: string;
+    let validTokenId: string;
+    let validRawToken: string;
+
+    const testEmail = `e2e-auth-${Date.now()}@example.com`;
+    const testPassword = 'securePassword123';
+
+    it('should register a test user', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/users')
+        .send({ email: testEmail, password: testPassword })
+        .expect(201);
+      testUserId = res.body.id;
+    });
+
+    it('/internal/auth/login (POST) - atomic token creation', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/internal/auth/login')
+        .set('X-Internal-Api-Key', 'supersecret_internal_key_123')
+        .send({ email: testEmail, password: testPassword, deviceHint: 'TestAgent' })
+        .expect(200);
+
+      expect(res.body).toHaveProperty('userId', testUserId);
+      expect(res.body).toHaveProperty('email', testEmail);
+      expect(res.body).toHaveProperty('tokenId');
+      expect(res.body).toHaveProperty('rawToken');
+
+      validTokenId = res.body.tokenId;
+      validRawToken = res.body.rawToken;
+    });
+
+    it('/internal/auth/refresh-tokens (POST) - rotation', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/internal/auth/refresh-tokens')
+        .set('X-Internal-Api-Key', 'supersecret_internal_key_123')
+        .send({ tokenId: validTokenId, rawToken: validRawToken })
+        .expect(200);
+
+      expect(res.body).toHaveProperty('newTokenId');
+      expect(res.body).toHaveProperty('newRawToken');
+      // The old token is now invalidated!
+    });
+
+    it('/internal/auth/refresh-tokens (POST) - REPLAY ATTACK', async () => {
+      // Reusing the old (now revoked) token should trigger a 403 Forbidden
+      await request(app.getHttpServer())
+        .post('/internal/auth/refresh-tokens')
+        .set('X-Internal-Api-Key', 'supersecret_internal_key_123')
+        .send({ tokenId: validTokenId, rawToken: validRawToken })
+        .expect(403);
+    });
+  });
 });
+
+
+
+

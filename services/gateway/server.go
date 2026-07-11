@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"net/http"
 	"time"
 
@@ -10,14 +9,12 @@ import (
 	"github.com/ITI-OpenSource-Alex/GOA/services/gateway/middleware"
 	"github.com/ITI-OpenSource-Alex/GOA/services/gateway/observability"
 	"github.com/gofiber/fiber/v2"
-	_ "github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 )
 
 type GatewayServer struct {
 	App             *fiber.App
-	dbPool          *sql.DB
 	redisClient     *redis.Client
 	shutdownTimeout time.Duration
 }
@@ -28,41 +25,25 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 		return nil, err
 	}
 
-	db, err := sql.Open("postgres", cfg.DatabaseURL)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := db.Ping(); err != nil {
-		db.Close()
-		return nil, err
-	}
-
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(25)
-	db.SetConnMaxLifetime(5 * time.Minute)
-
 	redisOptions, err := redis.ParseURL(cfg.RedisURL)
+
 	if err != nil {
-		db.Close()
 		return nil, err
 	}
+
 	redisClient := redis.NewClient(redisOptions)
 
 	app := fiber.New(fiber.Config{
-	ReadTimeout:  cfg.ReadTimeout,
-	WriteTimeout: cfg.WriteTimeout,
-	BodyLimit:    15 * 1024 * 1024,
-	ErrorHandler: middleware.ErrorHandler(logger),
-})
+		ReadTimeout:  cfg.ReadTimeout,
+		WriteTimeout: cfg.WriteTimeout,
+		BodyLimit:    15 * 1024 * 1024,
+		ErrorHandler: middleware.ErrorHandler(logger),
+	})
 
 	startTime := time.Now()
 	tokenService := gatewayauth.NewTokenService(cfg.JWTSecret, cfg.AccessTokenTTL, cfg.RefreshTokenTTL)
-	repo := gatewayauth.NewRefreshTokenRepository(db)
-	dbValidator := gatewayauth.NewDatabaseCredentialValidator(db)
-	authHandler := handlers.NewAuthHandler(db, redisClient, repo, tokenService, dbValidator, metrics)
-
 	httpClient := &http.Client{Timeout: 10 * time.Second}
+	authHandler := handlers.NewAuthHandler(redisClient, tokenService, metrics, httpClient, cfg.UserServiceURL, cfg.InternalApiKey)
 	writingHandler := handlers.NewWritingHandler(httpClient, cfg.WritingServiceURL)
 
 	app.Use(middleware.RequestID())
@@ -86,7 +67,6 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 
 	return &GatewayServer{
 		App:             app,
-		dbPool:          db, // <-- Assign pool
 		redisClient:     redisClient,
 		shutdownTimeout: cfg.ShutdownTimeout,
 	}, nil
@@ -105,12 +85,6 @@ func (s *GatewayServer) Shutdown() error {
 	var shutdownErr error
 	if err := s.App.ShutdownWithTimeout(s.shutdownTimeout); err != nil {
 		shutdownErr = err
-	}
-	// Clean up database connection pool
-	if s.dbPool != nil {
-		if err := s.dbPool.Close(); err != nil && shutdownErr == nil {
-			shutdownErr = err
-		}
 	}
 	if s.redisClient != nil {
 		if err := s.redisClient.Close(); err != nil && shutdownErr == nil {

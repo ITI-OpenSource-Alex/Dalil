@@ -2,7 +2,7 @@ import time
 import json
 import structlog
 from fastapi import HTTPException
-from langfuse import observe, langfuse_context
+from langfuse.decorators import observe, langfuse_context
 from app.core.database import db
 from app.core.redis import redis_client
 from app.schemas.scoring import UserProfile, ProgramRequirements

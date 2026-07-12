@@ -113,8 +113,8 @@ locals {
     production = "cache.t3.small"
   }
 
-  rds_instance_class = local.rds_instance_classes[var.environment]
-  redis_node_type    = local.redis_node_types[var.environment]
+  rds_instance_class = lookup(local.rds_instance_classes, var.environment, "db.t3.micro")
+  redis_node_type    = lookup(local.redis_node_types, var.environment, "cache.t3.micro")
   rds_multi_az       = var.environment == "production"
 
   ecs_service_names = {
@@ -207,7 +207,7 @@ locals {
         description         = "${service} ECS service running task count is below the GOA-027 threshold."
         namespace           = "ECS/ContainerInsights"
         metric_name         = "RunningTaskCount"
-        dimensions          = { ClusterName = var.goa069_ecs_cluster_name, ServiceName = local.ecs_service_names[service] }
+        dimensions          = { ClusterName = var.ecs_cluster_name, ServiceName = local.ecs_service_names[service] }
         comparison_operator = "LessThanThreshold"
         threshold           = var.ecs_running_task_minimum
         evaluation_periods  = 2

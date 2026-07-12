@@ -261,11 +261,11 @@ resource "aws_vpc_security_group_ingress_rule" "elasticache_from_lambda" {
 }
 
 resource "aws_vpc_security_group_egress_rule" "lambda_https" {
-  for_each           = toset(var.private_egress_cidr_blocks)
-  security_group_id  = aws_security_group.lambda.id
-  description        = "Allow Lambda worker HTTPS egress through NAT (Secrets Manager, S3, third-party APIs)."
-  cidr_ipv4          = each.value
-  from_port          = 443
-  ip_protocol        = "tcp"
-  to_port            = 443
+  for_each          = toset(var.private_egress_cidr_blocks)
+  security_group_id = aws_security_group.lambda.id
+  description       = "Allow Lambda worker HTTPS egress through NAT (Secrets Manager, S3, third-party APIs)."
+  cidr_ipv4         = each.value
+  from_port         = 443
+  ip_protocol       = "tcp"
+  to_port           = 443
 }

@@ -63,17 +63,17 @@ module "iam" {
   source = "./modules/iam"
 
   environment                        = var.environment
-  task_execution_secret_arns         = var.task_execution_secret_arns
+  task_execution_secret_arns         = distinct(concat(var.task_execution_secret_arns, values(module.secrets.service_secret_arns)))
   task_execution_kms_key_arns        = var.task_execution_kms_key_arns
-  task_secret_arns                   = var.task_secret_arns
-  task_sqs_queue_arns                = var.task_sqs_queue_arns
+  task_secret_arns                   = distinct(concat(var.task_secret_arns, values(module.secrets.service_secret_arns)))
+  task_sqs_queue_arns                = distinct(concat(var.task_sqs_queue_arns, values(module.sqs.queue_arns)))
   task_kms_key_arns                  = var.task_kms_key_arns
   ecs_exec_operator_resource_arns    = var.ecs_exec_operator_resource_arns
   session_manager_log_retention_days = var.session_manager_log_retention_days
   session_manager_kms_key_id         = var.session_manager_kms_key_id
-  lambda_secret_arns                 = var.lambda_secret_arns
-  lambda_sqs_queue_arns              = var.sqs_notification_queue_arn != null ? [var.sqs_notification_queue_arn] : []
-  tags                                = var.tags
+  lambda_secret_arns                 = distinct(concat(var.lambda_secret_arns, values(module.secrets.service_secret_arns)))
+  lambda_sqs_queue_arns              = distinct(concat(var.sqs_notification_queue_arn != null ? [var.sqs_notification_queue_arn] : [], values(module.sqs.queue_arns)))
+  tags                               = var.tags
 }
 
 locals {
@@ -173,7 +173,7 @@ module "notification_sender_lambda" {
       ENVIRONMENT = var.environment
       WORKER      = "notification-sender"
     },
-    var.sqs_notification_queue_url != null ? { SQS_QUEUE_URL = var.sqs_notification_queue_url } : {}
+    { SQS_QUEUE_URL = module.sqs.queue_urls["notification"] }
   )
 
   tags = local.goa071_tags
@@ -187,13 +187,13 @@ module "notification_sender_lambda" {
 # scholarship-matcher as a PLACEHOLDER so plan/apply succeeds. Swap for the
 # real ingestion function once it exists, or drop this block if out of scope.
 module "weekly_ingestion_rule" {
-  source                = "./modules/eventbridge"
-  rule_name             = "goa-weekly-ingestion-${var.environment}"
-  description           = "Weekly ingestion run — Sunday 02:00 UTC"
-  schedule_expression   = "cron(0 2 ? * SUN *)"
-  target_function_name  = module.scholarship_matcher_lambda.function_name # PLACEHOLDER
-  target_function_arn   = module.scholarship_matcher_lambda.function_arn  # PLACEHOLDER
-  tags                  = local.goa071_tags
+  source               = "./modules/eventbridge"
+  rule_name            = "goa-weekly-ingestion-${var.environment}"
+  description          = "Weekly ingestion run — Sunday 02:00 UTC"
+  schedule_expression  = "cron(0 2 ? * SUN *)"
+  target_function_name = module.scholarship_matcher_lambda.function_name # PLACEHOLDER
+  target_function_arn  = module.scholarship_matcher_lambda.function_arn  # PLACEHOLDER
+  tags                 = local.goa071_tags
 }
 
 module "daily_scholarship_match_rule" {
@@ -224,8 +224,8 @@ resource "aws_s3_bucket_notification" "writing_files" {
 
   lambda_function {
     lambda_function_arn = module.cv_processor_lambda.function_arn
-    events               = ["s3:ObjectCreated:*"]
-    filter_prefix        = local.cv_upload_prefix
+    events              = ["s3:ObjectCreated:*"]
+    filter_prefix       = local.cv_upload_prefix
   }
 
   depends_on = [aws_lambda_permission.s3_invoke_cv_processor]
@@ -234,9 +234,7 @@ resource "aws_s3_bucket_notification" "writing_files" {
 # Skipped entirely until modules/sqs exists and sqs_notification_queue_arn
 # is set — this whole resource is conditionally created via count.
 resource "aws_lambda_event_source_mapping" "sqs_to_notification_sender" {
-  count = var.sqs_notification_queue_arn != null ? 1 : 0
-
-  event_source_arn                   = var.sqs_notification_queue_arn
+  event_source_arn                   = module.sqs.queue_arns["notification"]
   function_name                      = module.notification_sender_lambda.function_name
   batch_size                         = 10
   maximum_batching_window_in_seconds = 5

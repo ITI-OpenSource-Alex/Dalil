@@ -14,6 +14,12 @@ def test_dry_run_logging_only(mocker):
     mock_check = mocker.patch("handler.check_existing_chunks")
     mock_upsert = mocker.patch("handler.upsert_chunks")
     
+    # Mock the adapters fetch to just return the 10 fixture documents
+    from langchain_core.documents import Document
+    fixture_docs = [Document(page_content=f"Doc {i}", metadata={"id": f"id_{i}"}) for i in range(10)]
+    async def mock_fetch(): return fixture_docs
+    mocker.patch("handler.fetch_all_adapters", side_effect=mock_fetch)
+    
     # Spy on the handler logger
     spy_logger = mocker.spy(logging.getLogger("ingestion_worker.handler"), "info")
     
@@ -50,6 +56,12 @@ def test_idempotency_skips_embedding_api_calls(mocker):
     mock_embed = mocker.patch("handler.generate_embeddings", return_value=[[0.0]*1536]*10)
     mock_upsert = mocker.patch("handler.upsert_chunks", return_value=True)
     
+    # Mock the adapters fetch
+    from langchain_core.documents import Document
+    fixture_docs = [Document(page_content=f"Doc {i}", metadata={"id": f"id_{i}", "source_url": "test"}) for i in range(10)]
+    async def mock_fetch(): return fixture_docs
+    mocker.patch("handler.fetch_all_adapters", side_effect=mock_fetch)
+    
     # FIRST RUN: Mock check-existing to indicate no chunks exist in DB (first time run)
     mocker.patch("handler.check_existing_chunks", return_value=[])
     
@@ -67,8 +79,7 @@ def test_idempotency_skips_embedding_api_calls(mocker):
     mock_upsert.reset_mock()
     
     # SECOND RUN: Mock check-existing to return all chunk IDs as already existing
-    docs = TestFixtureAdapter().scrape("https://goa.app/test-fixture")
-    chunks = chunk_documents(docs)
+    chunks = chunk_documents(fixture_docs)
     existing_chunk_ids = [c.metadata["id"] for c in chunks]
     
     mocker.patch("handler.check_existing_chunks", return_value=existing_chunk_ids)

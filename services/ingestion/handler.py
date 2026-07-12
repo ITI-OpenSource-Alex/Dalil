@@ -10,6 +10,29 @@ from client import check_existing_chunks, upsert_chunks
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ingestion_worker.handler")
 
+from app.adapters.ielts_org import IELTSOrgAdapter
+from app.adapters.daad import DAADAdapter
+from app.adapters.chevening import CheveningAdapter
+from app.adapters.study_in_poland import StudyInPolandAdapter
+from app.adapters.stipendium_hungaricum import StipendiumHungaricumAdapter
+from app.adapters.masters_portal import MastersPortalAdapter
+import asyncio
+
+async def fetch_all_adapters():
+    adapters = [
+        IELTSOrgAdapter(), DAADAdapter(), CheveningAdapter(),
+        StudyInPolandAdapter(), StipendiumHungaricumAdapter(), MastersPortalAdapter()
+    ]
+    all_docs = []
+    for adapter in adapters:
+        logger.info("Scraping source: %s", adapter.source_name)
+        docs = await adapter.scrape()
+        # Convert to LangChain Documents
+        from langchain_core.documents import Document
+        for d in docs:
+            all_docs.append(Document(page_content=d['content'], metadata={'source_url': d.get('url'), 'category': d.get('category')}))
+    return all_docs
+
 def handle_ingestion(event: dict, context=None) -> dict:
     """
     Lambda-compatible entry point for the ingestion worker.
@@ -20,10 +43,8 @@ def handle_ingestion(event: dict, context=None) -> dict:
     # Allow overriding dry_run and url via the lambda trigger event
     url = event.get("url", "https://goa.app/test-fixture")
     dry_run = event.get("dry_run", settings.dry_run)
-    # 1. Scrape documents using the fixture adapter (scaffolded)
-    adapter = TestFixtureAdapter()
-    logger.info("Scraping source URL: %s", url)
-    documents = adapter.scrape(url)
+    # 1. Scrape documents using the real adapters
+    documents = asyncio.run(fetch_all_adapters())
     logger.info("Scraped %d source documents", len(documents))
     # 2. Chunk documents and assign deterministic UUID v5 IDs
     chunks = chunk_documents(documents)

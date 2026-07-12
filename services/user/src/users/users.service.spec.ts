@@ -178,15 +178,26 @@ describe('UsersService', () => {
       expect(mockSqsService.send).toHaveBeenCalledTimes(1);
       const [producerName, message] = mockSqsService.send.mock.calls[0];
       expect(producerName).toBe('user-events');
+      // Verify the full event envelope — use expect.any(String) for non-deterministic fields
       expect(message.body).toMatchObject({
         type: 'user.updated',
         version: '1.0',
+        timestamp: expect.any(String),
+        correlationId: expect.any(String),
         payload: {
           userId,
           email: mockUser.email,
           subscriptionTier: mockUser.subscriptionTier,
         },
       });
+      // correlationId must be a valid UUID v4
+      expect(message.body.correlationId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+      );
+      // timestamp must be a valid ISO 8601 string
+      expect(() => new Date(message.body.timestamp).toISOString()).not.toThrow();
+      // message.id must equal correlationId (our convention)
+      expect(message.id).toBe(message.body.correlationId);
     });
 
     it('should still return the saved profile even if SqsService.send throws', async () => {
@@ -205,6 +216,9 @@ describe('UsersService', () => {
 
       // Flush the fire-and-forget so the spy handles the rejection before the test tears down
       await new Promise(process.nextTick);
+
+      // The DB save must have occurred regardless of SQS outcome
+      expect(mockProfileRepository.save).toHaveBeenCalledTimes(1);
     });
 
     it('should log an error (not rethrow) when SQS publish fails', async () => {

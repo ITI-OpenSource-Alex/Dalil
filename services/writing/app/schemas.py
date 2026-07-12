@@ -7,3 +7,8 @@ class EssayCreate(BaseModel):
     essayText: str
     submissionType: str
     examSessionId: Optional[str] = None
+
+
+class CVUploadResponse(BaseModel):
+    cvId: int
+    status: str

@@ -64,6 +64,13 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 		return c.JSON(fiber.Map{"status": "ok"})
 	})
 	api.Post("/writing/essays/upload", middleware.ValidateEssayTextLength(5000), writingHandler.UploadEssay)
+	api.Post("/writing/cv/upload", writingHandler.UploadCV)
+	app.Post(
+		"/cv/upload",
+		middleware.JWT(cfg.JWTSecret, redisClient, metrics),
+		middleware.RateLimiter(redisClient, 60, metrics),
+		writingHandler.UploadCV,
+	)
 
 	return &GatewayServer{
 		App:             app,

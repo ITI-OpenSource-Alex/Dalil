@@ -7,7 +7,10 @@ from sqlalchemy.orm import sessionmaker
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql://goa:goa_pass@localhost:5432/writing_db",
+)
 
 engine = create_engine(DATABASE_URL)
 

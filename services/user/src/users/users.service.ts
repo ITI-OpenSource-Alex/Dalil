@@ -5,6 +5,7 @@ import {
   BadRequestException,
   UnauthorizedException,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { InternalLoginDto, InternalRefreshDto, InternalRevokeDto } from './dto/refresh-token.dto';
 import { RefreshToken } from './entities/refresh-token.entity';
@@ -20,9 +21,13 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import { SqsService } from '@ssut/nestjs-sqs';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     @InjectRepository(User) private readonly userRepository: Repository<User>,
     @InjectRepository(UserProfile)
@@ -33,7 +38,8 @@ export class UsersService {
     private readonly emailVerificationRepository: Repository<EmailVerification>,
     @InjectRepository(RefreshToken)
     private readonly refreshTokenRepository: Repository<RefreshToken>,
-    // private readonly sqsService: SqsService,
+    private readonly sqsService: SqsService,
+    private readonly configService: ConfigService,
   ) { }
 
   // FIX 1: Async methods must return a Promise wrapper, and we type it cleanly using structural mapping
@@ -142,7 +148,54 @@ export class UsersService {
     }
 
     Object.assign(profile, dto);
-    return this.profileRepository.save(profile);
+    const savedProfile = await this.profileRepository.save(profile);
+
+    // Fire-and-forget: publish UserUpdated event to SQS.
+    // A failure here must never fail the HTTP request — the DB write is the source of truth.
+    void this.publishUserUpdatedEvent(id);
+
+    return savedProfile;
+  }
+
+  private async publishUserUpdatedEvent(userId: string): Promise<void> {
+    try {
+      const user = await this.userRepository.findOne({ where: { id: userId } });
+      if (!user) {
+        this.logger.warn(
+          `publishUserUpdatedEvent: user ${userId} not found, skipping SQS publish`,
+        );
+        return;
+      }
+
+      const producerName = this.configService.get<string>(
+        'SQS_PRODUCER_NAME',
+        'user-events',
+      );
+
+      const event = {
+        type: 'user.updated',
+        version: '1.0',
+        timestamp: new Date().toISOString(),
+        correlationId: crypto.randomUUID(),
+        payload: {
+          userId: user.id,
+          email: user.email,
+          subscriptionTier: user.subscriptionTier,
+        },
+      };
+
+      await this.sqsService.send(producerName, {
+        id: event.correlationId,
+        body: event,
+      });
+
+      this.logger.log(`UserUpdated event published for user ${userId}`);
+    } catch (error) {
+      this.logger.error(
+        `Failed to publish UserUpdated event for user ${userId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
   }
 
   private hashToken(token: string): string {

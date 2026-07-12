@@ -1,9 +1,6 @@
-from sqlalchemy import Column
-from sqlalchemy import String
-from sqlalchemy import Text
-from sqlalchemy import DateTime
-from sqlalchemy import Integer
-from datetime import datetime
+from datetime import datetime, timezone
+
+from sqlalchemy import Column, DateTime, Integer, String, Text, func
 
 from app.database import Base
 
@@ -19,9 +16,24 @@ class Essay(Base):
 
     extracted_text = Column(Text, nullable=False)
 
-    uploaded_at = Column(DateTime, default=datetime.utcnow)
+    uploaded_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     status = Column(String, default="pending")
 
     submission_type = Column(String)
     exam_session_id = Column(String, nullable=True)
+
+
+class CVReview(Base):
+    __tablename__ = "cv_reviews"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String(128), nullable=False, index=True)
+    s3_key = Column(String(512), nullable=False, unique=True)
+    original_filename = Column(String(255), nullable=False)
+    status = Column(String(32), nullable=False, default="processing")
+    uploaded_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )

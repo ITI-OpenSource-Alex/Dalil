@@ -1,16 +1,15 @@
 from pathlib import Path
 
-from fastapi import FastAPI
-from fastapi import Form
-from fastapi import Depends
-from fastapi import HTTPException
-from fastapi import UploadFile
-from fastapi import File
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile, status
 from sqlalchemy.orm import Session
+from starlette.responses import JSONResponse
+
 from app.routers import internal
 
-from app.database import SessionLocal
+from app.config import MAX_CV_REQUEST_BYTES
+from app.dependencies import get_db
 from app.models import Essay
+from app.routers.cvs import router as cv_router
 
 app = FastAPI(
     title="GOA Writing Service",
@@ -21,12 +20,23 @@ MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 ALLOWED_EXTENSIONS = {".pdf", ".png", ".jpg", ".jpeg"}
 
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+@app.middleware("http")
+async def reject_oversized_cv_request(request: Request, call_next):
+    if request.method == "POST" and request.url.path == "/cv/upload":
+        content_length = request.headers.get("content-length")
+        if content_length:
+            try:
+                if int(content_length) > MAX_CV_REQUEST_BYTES:
+                    return JSONResponse(
+                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        content={"detail": "CV files must be 10 MB or smaller"},
+                    )
+            except ValueError:
+                return JSONResponse(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    content={"detail": "Invalid Content-Length header"},
+                )
+    return await call_next(request)
 
 
 @app.get("/health")
@@ -117,3 +127,4 @@ def get_essay(
     }
 
 app.include_router(internal.router)
+app.include_router(cv_router)

@@ -6,7 +6,7 @@ class UserProfile(BaseModel):
     userId: str
     degreeLevel: Optional[str] = None
     gpa: Optional[float] = None
-    ieltsScore: Optional[float] = None 
+    ieltsScore: Optional[float] = None
     major: Optional[str] = None
     targetCountries: List[str] = Field(default_factory=list)
     fieldOfStudy: Optional[str] = None
@@ -14,7 +14,8 @@ class UserProfile(BaseModel):
     workExperienceYears: int = 0
     extracurricularsScore: int = 0
     gpaScale: str = "100"
-    citizenship: Optional[str] = None 
+    citizenship: Optional[str] = None
+
 
 class ProgramRequirements(BaseModel):
     id: str
@@ -25,6 +26,7 @@ class ProgramRequirements(BaseModel):
     min_gpa: Optional[float] = None
     min_work_experience: Optional[int] = None
 
+
 class GateResult(BaseModel):
     passed: bool
     reason: Optional[str] = None
@@ -34,5 +36,7 @@ class GateResult(BaseModel):
 class ScoreRequest(BaseModel):
     userId: str
     programId: str
+
+
 class MatchRequest(BaseModel):
     userId: str

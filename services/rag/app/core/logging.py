@@ -7,7 +7,7 @@ correlation_id_var: ContextVar[str] = ContextVar("correlation_id", default="")
 
 
 def configure_logging():
-     # Setup standard logging configuration
+    # Setup standard logging configuration
     logging.basicConfig(
         format="%(message)s",
         stream=sys.stdout,
@@ -20,7 +20,7 @@ def configure_logging():
             structlog.stdlib.add_logger_name,
             structlog.processors.TimeStamper(fmt="iso"),
             inject_correlation_id,
-            structlog.processors.JSONRenderer()
+            structlog.processors.JSONRenderer(),
         ],
         context_class=dict,
         logger_factory=structlog.stdlib.LoggerFactory(),
@@ -29,10 +29,8 @@ def configure_logging():
     )
 
 
-
 def inject_correlation_id(logger, method_name, event_dict):
     correlation_id = correlation_id_var.get()
     if correlation_id:
         event_dict["correlation_id"] = correlation_id
     return event_dict
-

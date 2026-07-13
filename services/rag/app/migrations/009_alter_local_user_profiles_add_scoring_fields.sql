@@ -1,0 +1,4 @@
+ALTER TABLE local_user_profiles 
+ADD COLUMN IF NOT EXISTS work_exp INTEGER,
+ADD COLUMN IF NOT EXISTS extracurriculars INTEGER,
+ADD COLUMN IF NOT EXISTS gpa_scale VARCHAR(10);

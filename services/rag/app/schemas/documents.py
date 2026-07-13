@@ -4,11 +4,14 @@ from uuid import UUID
 
 
 class DocumentCheckRequest(BaseModel):
-    ids: List[UUID] = Field(..., description="List of document IDs to check for existence")
+    ids: List[UUID] = Field(
+        ..., description="List of document IDs to check for existence"
+    )
+
 
 class DocumentCheckResponse(BaseModel):
     existing_ids: List[UUID] = Field(..., description="List of existing document IDs")
-    
+
 
 class DocumentUpsertItem(BaseModel):
     id: UUID = Field(..., description="The database UUID of the document chunk")
@@ -17,5 +20,8 @@ class DocumentUpsertItem(BaseModel):
     source_url: Optional[str] = Field(None, description="The source URL of the chunk")
     category: Optional[str] = Field(None, description="The category classification")
 
+
 class DocumentUpsertRequest(BaseModel):
-    documents: List[DocumentUpsertItem] = Field(..., description="List of documents to upsert")
+    documents: List[DocumentUpsertItem] = Field(
+        ..., description="List of documents to upsert"
+    )

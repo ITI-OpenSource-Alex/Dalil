@@ -39,7 +39,6 @@ export class UpdateProfileDto {
   @IsNumber()
   ects?: number;
 
-
   @IsOptional()
   @IsInt()
   @Min(0)

@@ -44,6 +44,9 @@ services:
       - AWS_ENDPOINT=http://localstack:4566
       - SQS_QUEUE_URL=http://localstack:4566/000000000000/user-events
 
+      - REDIS_HOST=redis-gateway
+      - REDIS_PORT=6379
+
     volumes:
       - ./services/user:/usr/src/app
       - /usr/src/app/node_modules
@@ -191,6 +194,11 @@ services:
       - USER_SERVICE_URL=http://user-service:8081
       - WRITING_SERVICE_URL=http://writing:8000
       - INTERNAL_API_KEY=supersecret_internal_key_123
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - SQS_QUEUE_NAME=user-events
     volumes:
       - ./services/rag:/app
     depends_on:

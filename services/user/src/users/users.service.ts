@@ -7,7 +7,11 @@ import {
   ForbiddenException,
   Logger,
 } from '@nestjs/common';
-import { InternalLoginDto, InternalRefreshDto, InternalRevokeDto } from './dto/refresh-token.dto';
+import {
+  InternalLoginDto,
+  InternalRefreshDto,
+  InternalRevokeDto,
+} from './dto/refresh-token.dto';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -40,7 +44,7 @@ export class UsersService {
     private readonly refreshTokenRepository: Repository<RefreshToken>,
     private readonly sqsService: SqsService,
     private readonly configService: ConfigService,
-  ) { }
+  ) {}
 
   // FIX 1: Async methods must return a Promise wrapper, and we type it cleanly using structural mapping
   async register(
@@ -159,7 +163,10 @@ export class UsersService {
 
   private async publishUserUpdatedEvent(userId: string): Promise<void> {
     try {
-      const user = await this.userRepository.findOne({ where: { id: userId } });
+      const user = await this.userRepository.findOne({
+        where: { id: userId },
+        relations: { profile: true },
+      });
       if (!user) {
         this.logger.warn(
           `publishUserUpdatedEvent: user ${userId} not found, skipping SQS publish`,
@@ -181,6 +188,15 @@ export class UsersService {
           userId: user.id,
           email: user.email,
           subscriptionTier: user.subscriptionTier,
+
+          ects: user.profile?.ects || 0,
+          gpa: user.profile?.gpa || 0,
+          gpaScale: user.profile?.gpaScale || '4.0',
+          ieltsScore: user.profile?.ieltsScore || 0,
+          degreeLevel: user.profile?.degreeLevel || 'Bachelor',
+          workExperienceYears: user.profile?.workExperienceYears || 0,
+          extracurricularsScore: user.profile?.extracurricularsScore || 0,
+          targetCountries: user.profile?.targetCountries || [],
         },
       };
 
@@ -355,13 +371,10 @@ export class UsersService {
     );
   }
 
-
-
-
   async internalLogin(dto: InternalLoginDto) {
     const user = await this.userRepository.findOne({
-      where: { email: dto.email }
-    })
+      where: { email: dto.email },
+    });
 
     if (!user || !(await bcrypt.compare(dto.password, user.passwordHash))) {
       throw new UnauthorizedException('Invalid credentials');
@@ -372,7 +385,6 @@ export class UsersService {
 
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 30);
-
 
     const tokenEntity = this.refreshTokenRepository.create({
       tokenHash,
@@ -390,13 +402,12 @@ export class UsersService {
       rawToken,
       expiresAt: savedToken.expiresAt.toISOString(),
     };
-
   }
 
   async internalRefresh(dto: InternalRefreshDto) {
     const token = await this.refreshTokenRepository.findOne({
       where: { id: dto.tokenId },
-      relations: { user: true }
+      relations: { user: true },
     });
 
     if (!token || !(await bcrypt.compare(dto.rawToken, token.tokenHash))) {
@@ -406,7 +417,9 @@ export class UsersService {
     if (token.revokedAt) {
       // If token is already revoked, this is a replay attack! Revoke ALL sessions.
       await this.revokeAllForUser(token.userId);
-      throw new ForbiddenException('Replay attack detected. All sessions revoked.');
+      throw new ForbiddenException(
+        'Replay attack detected. All sessions revoked.',
+      );
     }
 
     if (new Date() > token.expiresAt) {
@@ -418,7 +431,6 @@ export class UsersService {
     const newTokenHash = await bcrypt.hash(newRawToken, 10);
     const newExpiresAt = new Date();
     newExpiresAt.setDate(newExpiresAt.getDate() + 30);
-
 
     const newTokenEntity = this.refreshTokenRepository.create({
       tokenHash: newTokenHash,
@@ -448,8 +460,34 @@ export class UsersService {
     } else if (dto.tokenId) {
       await this.refreshTokenRepository.update(
         { id: dto.tokenId, userId: dto.userId },
-        { revokedAt: new Date() }
+        { revokedAt: new Date() },
       );
     }
+  }
+
+  async findAllPaginated(page: number, limit: number) {
+    const skip = (page - 1) * limit;
+    const [users, total] = await this.userRepository.findAndCount({
+      relations: { profile: true },
+      skip,
+      take: limit,
+      order: { createdAt: 'ASC' },
+    });
+    const mappedUsers = users.map((u) => ({
+      userId: u.id,
+      email: u.email,
+      ects: u.profile?.ects || 0,
+      gpa: u.profile?.gpa || 0,
+      gpaScale: u.profile?.gpaScale || '4.0',
+      ieltsScore: u.profile?.ieltsScore || 0,
+      degreeLevel: u.profile?.degreeLevel || 'Bachelor',
+      workExperienceYears: u.profile?.workExperienceYears || 0,
+      extracurricularsScore: u.profile?.extracurricularsScore || 0,
+      targetCountries: u.profile?.targetCountries || [],
+    }));
+    return {
+      users: mappedUsers,
+      hasMore: skip + users.length < total,
+    };
   }
 }

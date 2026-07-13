@@ -5,7 +5,6 @@ from app.core.database import db
 import structlog
 
 
-
 logger = structlog.get_logger("rag_service.api.scoring")
 router = APIRouter(prefix="/scoring", tags=["scoring"])
 
@@ -21,7 +20,7 @@ async def match_profile(request: MatchRequest):
     async with db.pool.acquire() as conn:
         rows = await conn.fetch("SELECT id FROM program_requirements")
         program_ids = [str(r["id"]) for r in rows]
-        
+
     results = []
     # 2. Score against every single program
     for pid in program_ids:
@@ -30,11 +29,13 @@ async def match_profile(request: MatchRequest):
             results.append({"programId": pid, "result": res})
         except HTTPException as e:
             # If a program is misconfigured or deleted mid-loop, just skip it gracefully
-            logger.warning(f"Skipping program {pid} for user {request.userId}: {e.detail}")
+            logger.warning(
+                f"Skipping program {pid} for user {request.userId}: {e.detail}"
+            )
         except Exception as e:
             logger.error(f"Unexpected error scoring program {pid}: {str(e)}")
-            
+
     # 3. Rank them from highest score to lowest score
     results.sort(key=lambda x: x["result"]["score"], reverse=True)
-    
+
     return {"matches": results}

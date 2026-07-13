@@ -3,9 +3,46 @@ variable "function_name" {
   type        = string
 }
 
+variable "package_type" {
+  description = "Lambda deployment package type"
+  type        = string
+  default     = "Image"
+}
+
+variable "image_uri" {
+  description = "Container image URI for the Lambda function"
+  type        = string
+  default     = null
+}
+
+variable "filename" {
+  description = "Zip deployment package filename for the Lambda function"
+  type        = string
+  default     = null
+}
+
+variable "handler" {
+  description = "Handler for Zip-based Lambda deployments"
+  type        = string
+  default     = null
+}
+
+variable "runtime" {
+  description = "Runtime for Zip-based Lambda deployments"
+  type        = string
+  default     = null
+}
+
 variable "lambda_insights_layer_arn" {
   description = "ARN of the AWS-managed Lambda Insights extension layer for this region/arch"
   type        = string
+  default     = ""
+}
+
+variable "enable_lambda_insights" {
+  description = "Enable the Lambda Insights extension layer"
+  type        = bool
+  default     = true
 }
 
 variable "role_arn" {
@@ -45,11 +82,6 @@ variable "environment_variables" {
   description = "Environment variables for the function"
   type        = map(string)
   default     = {}
-}
-
-variable "lambda_insights_layer_arn" {
-  description = "ARN of the AWS-managed Lambda Insights extension layer for this region/arch"
-  type        = string
 }
 
 variable "enable_tracing" {

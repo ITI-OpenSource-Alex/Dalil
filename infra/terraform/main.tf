@@ -76,12 +76,17 @@ module "iam" {
   tags                               = var.tags
 }
 
+data "aws_region" "current" {}
+
+data "aws_partition" "current" {}
+
 locals {
   goa071_tags = merge(var.tags, {
     Ticket = "GOA-071"
   })
 
-  cv_upload_prefix = "cvs/"
+  cv_upload_prefix           = "cvs/"
+  lambda_insights_layer_arn  = "arn:${data.aws_partition.current.partition}:lambda:${data.aws_region.current.name}:580247275435:layer:LambdaInsightsExtension:14"
 }
 
 # ---------------------------------------------------------------------------
@@ -119,6 +124,7 @@ module "eval_reports_bucket" {
 module "cv_processor_lambda" {
   source        = "./modules/lambda"
   function_name = "goa-cv-processor-${var.environment}"
+  package_type  = "Image"
   image_uri     = "${var.ecr_cv_processor_repo_url}:${var.image_tag}"
 
   role_arn                       = module.iam.lambda_execution_role_arn
@@ -127,6 +133,7 @@ module "cv_processor_lambda" {
   timeout                        = 120
   memory_size                    = 1024
   reserved_concurrent_executions = 20
+  lambda_insights_layer_arn      = local.lambda_insights_layer_arn
 
   environment_variables = {
     ENVIRONMENT = var.environment
@@ -139,6 +146,7 @@ module "cv_processor_lambda" {
 module "scholarship_matcher_lambda" {
   source        = "./modules/lambda"
   function_name = "goa-scholarship-matcher-${var.environment}"
+  package_type  = "Image"
   image_uri     = "${var.ecr_scholarship_matcher_repo_url}:${var.image_tag}"
 
   role_arn                       = module.iam.lambda_execution_role_arn
@@ -147,6 +155,7 @@ module "scholarship_matcher_lambda" {
   timeout                        = 300
   memory_size                    = 1024
   reserved_concurrent_executions = 5
+  lambda_insights_layer_arn      = local.lambda_insights_layer_arn
 
   environment_variables = {
     ENVIRONMENT = var.environment
@@ -159,6 +168,7 @@ module "scholarship_matcher_lambda" {
 module "notification_sender_lambda" {
   source        = "./modules/lambda"
   function_name = "goa-notification-sender-${var.environment}"
+  package_type  = "Image"
   image_uri     = "${var.ecr_notification_sender_repo_url}:${var.image_tag}"
 
   role_arn                       = module.iam.lambda_execution_role_arn
@@ -167,6 +177,7 @@ module "notification_sender_lambda" {
   timeout                        = 30
   memory_size                    = 512
   reserved_concurrent_executions = 50
+  lambda_insights_layer_arn      = local.lambda_insights_layer_arn
 
   environment_variables = merge(
     {
@@ -234,6 +245,8 @@ resource "aws_s3_bucket_notification" "writing_files" {
 # Skipped entirely until modules/sqs exists and sqs_notification_queue_arn
 # is set — this whole resource is conditionally created via count.
 resource "aws_lambda_event_source_mapping" "sqs_to_notification_sender" {
+  count = var.sqs_notification_queue_arn != null ? 1 : 0
+
   event_source_arn                   = module.sqs.queue_arns["notification"]
   function_name                      = module.notification_sender_lambda.function_name
   batch_size                         = 10

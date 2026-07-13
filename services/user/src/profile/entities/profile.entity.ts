@@ -26,10 +26,8 @@ export class UserProfile {
   @Column({ type: 'int', nullable: true })
   ects: number;
 
-
   @Column({ name: 'work_experience_years', type: 'int', default: 0 })
   workExperienceYears: number;
-
 
   @Column({ name: 'extracurriculars_score', type: 'int', default: 0 })
   extracurricularsScore: number;

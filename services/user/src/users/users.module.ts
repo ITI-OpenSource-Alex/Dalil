@@ -23,4 +23,4 @@ import { InternalAuthController } from './internal-auth.controller';
   providers: [UsersService],
   exports: [UsersService], // Export if other modules need to find users
 })
-export class UsersModule { }
+export class UsersModule {}

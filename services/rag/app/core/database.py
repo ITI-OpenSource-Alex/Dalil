@@ -6,6 +6,7 @@ from app.core.config import settings
 
 logger = logging.getLogger("rag_service.database")
 
+
 class Database:
     def __init__(self):
         self.pool = None
@@ -14,9 +15,7 @@ class Database:
         if not self.pool:
             logger.info("Initializing asyncpg connection pool...")
             self.pool = await asyncpg.create_pool(
-                dsn=settings.database_url,
-                min_size=2,
-                max_size=10
+                dsn=settings.database_url, min_size=2, max_size=10
             )
             # Run migrations on connection startup
             await self.run_migrations()
@@ -50,12 +49,12 @@ class Database:
 
             for file_path in migration_files:
                 filename = os.path.basename(file_path)
-                
+
                 # Check if migration was already executed
                 already_executed = await conn.fetchval(
                     "SELECT 1 FROM migrations_log WHERE migration_file = $1", filename
                 )
-                
+
                 if not already_executed:
                     logger.info("Executing migration: %s", filename)
                     with open(file_path, "r", encoding="utf-8") as f:
@@ -65,10 +64,12 @@ class Database:
                     async with conn.transaction():
                         await conn.execute(sql)
                         await conn.execute(
-                            "INSERT INTO migrations_log (migration_file) VALUES ($1)", filename
+                            "INSERT INTO migrations_log (migration_file) VALUES ($1)",
+                            filename,
                         )
                     logger.info("Migration %s executed successfully", filename)
                 else:
                     logger.debug("Migration %s already executed, skipping", filename)
+
 
 db = Database()

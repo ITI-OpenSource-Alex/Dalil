@@ -12,6 +12,7 @@ describe('UsersController', () => {
     forgotPassword: jest.fn(),
     resetPassword: jest.fn(),
     verifyEmail: jest.fn(),
+    findAllPaginated: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -67,6 +68,32 @@ describe('UsersController', () => {
         message:
           'Password has been successfully reset. You can now log in with your new password.',
       });
+    });
+  });
+
+  describe('findAllPaginated', () => {
+    it('should return paginated users with all required scoring fields and hasMore flag', async () => {
+      const mockResult = {
+        users: [
+          {
+            id: '1',
+            workExperienceYears: 2,
+            extracurricularsScore: 85,
+            gpaScale: '4.0',
+          },
+        ],
+        hasMore: false,
+      };
+      mockUsersService.findAllPaginated.mockResolvedValue(mockResult);
+
+      const result = await controller.findAllPaginated('1', '50');
+
+      expect(service.findAllPaginated).toHaveBeenCalledWith(1, 50);
+      expect(result).toEqual(mockResult);
+      // Assert explicitly that the payload includes the critical fields
+      expect(result.users[0]).toHaveProperty('workExperienceYears');
+      expect(result.users[0]).toHaveProperty('extracurricularsScore');
+      expect(result.users[0]).toHaveProperty('gpaScale');
     });
   });
 });

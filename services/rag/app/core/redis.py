@@ -3,7 +3,8 @@ import structlog
 from redis.asyncio import Redis, from_url
 
 
-logger = structlog.get_logger('rag_service.redis')
+logger = structlog.get_logger("rag_service.redis")
+
 
 class RedisClient:
     def __init__(self):
@@ -14,6 +15,7 @@ class RedisClient:
         self.redis = from_url(url, decode_responses=True)
         await self.redis.ping()
         logger.info("Connected to Redis for RAG cache.")
+
     async def disconnect(self):
         if self.redis:
             await self.redis.close()

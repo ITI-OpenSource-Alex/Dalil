@@ -158,7 +158,7 @@ describe('UsersService', () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser);
       mockSqsService.send.mockResolvedValue([]);
 
-      const result = await service.updateProfile(userId, dto as any);
+      const result = await service.updateProfile(userId, dto);
 
       expect(result).toMatchObject({ userId, degreeLevel: 'MSc' });
       expect(mockProfileRepository.save).toHaveBeenCalledTimes(1);
@@ -170,7 +170,7 @@ describe('UsersService', () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser);
       mockSqsService.send.mockResolvedValue([]);
 
-      await service.updateProfile(userId, dto as any);
+      await service.updateProfile(userId, dto);
 
       // Allow the fire-and-forget microtask to flush
       await new Promise(process.nextTick);
@@ -195,7 +195,9 @@ describe('UsersService', () => {
         /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
       );
       // timestamp must be a valid ISO 8601 string
-      expect(() => new Date(message.body.timestamp).toISOString()).not.toThrow();
+      expect(() =>
+        new Date(message.body.timestamp).toISOString(),
+      ).not.toThrow();
       // message.id must equal correlationId (our convention)
       expect(message.id).toBe(message.body.correlationId);
     });
@@ -207,7 +209,7 @@ describe('UsersService', () => {
       mockSqsService.send.mockRejectedValue(new Error('SQS unavailable'));
 
       // Silence the logger so the caught error does not leak to stderr and cause exit code 1
-      jest.spyOn((service as any).logger, 'error').mockImplementation(() => { });
+      jest.spyOn((service as any).logger, 'error').mockImplementation(() => {});
 
       // Should resolve successfully — SQS failure must not propagate
       await expect(
@@ -229,9 +231,9 @@ describe('UsersService', () => {
 
       const loggerErrorSpy = jest
         .spyOn((service as any).logger, 'error')
-        .mockImplementation(() => { });
+        .mockImplementation(() => {});
 
-      await service.updateProfile(userId, dto as any);
+      await service.updateProfile(userId, dto);
 
       // Flush fire-and-forget
       await new Promise(process.nextTick);
@@ -255,4 +257,3 @@ describe('UsersService', () => {
     });
   });
 });
-

@@ -7,6 +7,7 @@ from app.services.visa_service import upsert_visa_requirements
 router = APIRouter()
 logger = structlog.get_logger("rag_service.api.visa")
 
+
 @router.post("/internal/visa-requirements")
 async def handle_visa_requirements(request: VisaRequirementsRequest):
     try:

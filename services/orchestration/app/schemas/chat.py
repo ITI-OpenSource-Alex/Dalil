@@ -13,8 +13,14 @@ class HistoryResponseItem(BaseModel):
     content: str
 
 class ChatStreamEvent(BaseModel):
-    type: Literal["metadata", "token", "error"]
+    type: Literal["metadata", "token", "error", "speaking_url", "writing_url", "match_results", "sources"]
     intent: Optional[str] = None
     confidence: Optional[float] = None
     content: Optional[str] = None
     error: Optional[str] = None
+    wsUrl: Optional[str] = None
+    essayId: Optional[str] = None
+    sseUrl: Optional[str] = None
+    programs: Optional[List[dict]] = None
+    sources: Optional[List[dict]] = None
+

@@ -1,4 +1,4 @@
-from prometheus_client import Counter, Histogram
+from prometheus_client import Counter, Histogram, Gauge
 
 # Intent classification count counter (labeled by intent)
 goa_orchestration_intent_classified_total = Counter(
@@ -22,5 +22,9 @@ goa_orchestration_downstream_latency_ms = Histogram(
     buckets=[50, 100, 200, 500, 1000, 2000, 5000, 10000, 30000]
 )
 
-
-
+# Circuit breaker state gauge (labeled by service)
+goa_orchestration_circuit_breaker_state = Gauge(
+    "goa_orchestration_circuit_breaker_state",
+    "Circuit breaker state for downstream services (0=closed, 1=open)",
+    ["service"]
+)

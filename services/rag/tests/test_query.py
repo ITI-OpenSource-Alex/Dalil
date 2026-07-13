@@ -183,7 +183,8 @@ def test_api_visa_requirements_endpoint():
         "processing_days_min": 30,
         "processing_days_max": 90,
         "notes": "Bring physical biometric photos.",
-        "content_hash": "abc123hash"
+        "content_hash": "abc123hash",
+        "egyptian_specific": True
     }
 
     response = client.post("/internal/visa-requirements", json=payload)

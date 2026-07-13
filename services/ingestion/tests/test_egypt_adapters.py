@@ -8,6 +8,7 @@ from app.adapters.vfs_global_egypt import VFSGlobalEgyptAdapter
 from app.adapters.fintiba_sperrkonto import FintibaSperrkontoAdapter
 from app.adapters.czech_embassy_cairo import CzechEmbassyCairoAdapter
 from app.adapters.spain_visa_egypt import SpainVisaEgyptAdapter
+from app.adapters.italy_embassy_cairo import ItalyEmbassyCairoAdapter
 
 ARABIC_ONLY_HTML = (
     '<html lang="ar"><body><main>'
@@ -645,6 +646,72 @@ async def test_spain_visa_egypt_partial_data_leaves_fields_none():
 @pytest.mark.asyncio
 async def test_spain_visa_egypt_skips_arabic_only_page():
     adapter = SpainVisaEgyptAdapter()
+    docs = adapter.extract_documents(ARABIC_ONLY_HTML)
+
+    assert docs == []
+
+
+# ---------------------------------------------------------------------------
+# Task 15: ItalyEmbassyCairoAdapter
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_italy_embassy_cairo_happy_path_extracts_documents_and_visa_requirements():
+    mock_html = """
+    <html><body><main>
+      <h2>National Visa (Type D) Requirements</h2>
+      <p>Applicants must provide proof of enrollment and sufficient financial means.</p>
+      <ul>
+        <li>Valid passport</li>
+        <li>University enrollment certificate</li>
+        <li>Proof of funds: EUR 6000</li>
+      </ul>
+      <p>Processing time: 30-45 working days.</p>
+    </main></body></html>
+    """
+    adapter = ItalyEmbassyCairoAdapter()
+    docs = adapter.extract_documents(mock_html, url="https://ambcairo.esteri.it/visa")
+
+    assert len(docs) == 1
+    doc = docs[0]
+    assert doc["category"] == "visa"
+    assert doc["country"] == "Italy"
+    assert doc["source"] == "italy_embassy_cairo"
+
+    record = doc["visa_requirements"][0]
+    assert record["issuing_body"] == "Italian Embassy Cairo"
+    assert record["country"] == "Italy"
+    assert record["egyptian_specific"] is True
+    assert record["processing_days_min"] == 30
+    assert record["processing_days_max"] == 45
+    assert record["proof_of_funds"]["amount_eur"] == 6000.0
+    assert "University enrollment certificate" in record["requirements"]["items"]
+    assert record["content_hash"]
+
+
+@pytest.mark.asyncio
+async def test_italy_embassy_cairo_partial_data_leaves_fields_none():
+    mock_html = """
+    <html><body><main>
+      <h2>National Visa (Type D) Requirements</h2>
+      <ul>
+        <li>Valid passport</li>
+        <li>University enrollment certificate</li>
+      </ul>
+    </main></body></html>
+    """
+    adapter = ItalyEmbassyCairoAdapter()
+    docs = adapter.extract_documents(mock_html)
+
+    record = docs[0]["visa_requirements"][0]
+    assert record["processing_days_min"] is None
+    assert record["processing_days_max"] is None
+    assert record["proof_of_funds"] is None
+
+
+@pytest.mark.asyncio
+async def test_italy_embassy_cairo_skips_arabic_only_page():
+    adapter = ItalyEmbassyCairoAdapter()
     docs = adapter.extract_documents(ARABIC_ONLY_HTML)
 
     assert docs == []

@@ -1,7 +1,15 @@
+import uuid
 import pytest
+from unittest.mock import AsyncMock, MagicMock
 from pydantic import ValidationError
+from fastapi.testclient import TestClient
 
+from app.core.config import settings
+from app.main import app
 from app.schemas.visa import VisaRequirementsRequest
+from app.services.visa_service import upsert_visa_requirements
+
+client = TestClient(app)
 
 VALID_PAYLOAD = {
     "country": "Germany",
@@ -56,3 +64,132 @@ def test_model_dump_produces_plain_nested_dict():
     assert dumped["proof_of_funds"]["amount_eur"] == 11208.0
     assert dumped["proof_of_funds"]["blocked_account_providers"] == ["Fintiba"]
     assert dumped["proof_of_funds"]["minimum_balance_period_days"] == 365
+
+
+# ---------------------------------------------------------------------------
+# Task 03: visa_service.upsert_visa_requirements — insert / update / unchanged
+# ---------------------------------------------------------------------------
+
+def make_mock_visa_db(monkeypatch, fetchrow_results=None):
+    """Helper mirroring test_query.py's make_mock_db_pool, extended with a
+    transaction() context manager since visa_service wraps its writes in one."""
+    mock_pool = MagicMock()
+    mock_conn = AsyncMock()
+    mock_conn.fetchrow = AsyncMock(side_effect=fetchrow_results)
+    mock_conn.execute = AsyncMock(return_value=None)
+
+    mock_tx_ctx = MagicMock()
+    mock_tx_ctx.__aenter__ = AsyncMock(return_value=None)
+    mock_tx_ctx.__aexit__ = AsyncMock(return_value=None)
+    mock_conn.transaction = MagicMock(return_value=mock_tx_ctx)
+
+    mock_pool_ctx = MagicMock()
+    mock_pool_ctx.__aenter__ = AsyncMock(return_value=mock_conn)
+    mock_pool_ctx.__aexit__ = AsyncMock(return_value=None)
+    mock_pool.acquire = MagicMock(return_value=mock_pool_ctx)
+
+    monkeypatch.setattr("app.core.database.db.pool", mock_pool)
+    return mock_conn
+
+
+@pytest.mark.asyncio
+async def test_upsert_inserts_new_row(monkeypatch):
+    new_id = uuid.uuid4()
+    # 1st fetchrow: SELECT existing -> no row. 2nd fetchrow: INSERT ... RETURNING id.
+    mock_conn = make_mock_visa_db(monkeypatch, fetchrow_results=[None, {"id": new_id}])
+
+    result = await upsert_visa_requirements(VALID_PAYLOAD)
+
+    assert result == {"status": "success", "id": str(new_id), "action": "inserted"}
+    assert mock_conn.fetchrow.call_count == 2
+    mock_conn.execute.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_upsert_is_unchanged_when_content_hash_matches(monkeypatch):
+    existing_id = uuid.uuid4()
+    # SELECT existing -> row with the SAME content_hash as the incoming payload.
+    mock_conn = make_mock_visa_db(
+        monkeypatch,
+        fetchrow_results=[{"id": existing_id, "content_hash": VALID_PAYLOAD["content_hash"]}],
+    )
+
+    result = await upsert_visa_requirements(VALID_PAYLOAD)
+
+    assert result == {"status": "success", "id": str(existing_id), "action": "unchanged"}
+    assert mock_conn.fetchrow.call_count == 1
+    mock_conn.execute.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_upsert_updates_when_content_hash_differs(monkeypatch):
+    existing_id = uuid.uuid4()
+    # SELECT existing -> row with a DIFFERENT content_hash than the incoming payload.
+    mock_conn = make_mock_visa_db(
+        monkeypatch,
+        fetchrow_results=[{"id": existing_id, "content_hash": "a-different-hash"}],
+    )
+
+    result = await upsert_visa_requirements(VALID_PAYLOAD)
+
+    assert result == {"status": "success", "id": str(existing_id), "action": "updated"}
+    assert mock_conn.fetchrow.call_count == 1
+    mock_conn.execute.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_upsert_treats_matching_none_content_hash_as_unchanged(monkeypatch):
+    existing_id = uuid.uuid4()
+    mock_conn = make_mock_visa_db(
+        monkeypatch,
+        fetchrow_results=[{"id": existing_id, "content_hash": None}],
+    )
+    payload = dict(VALID_PAYLOAD)
+    payload["content_hash"] = None
+
+    result = await upsert_visa_requirements(payload)
+
+    assert result["action"] == "unchanged"
+    mock_conn.execute.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Task 04: POST /internal/visa-requirements auth
+# ---------------------------------------------------------------------------
+
+def test_visa_endpoint_without_api_key_returns_401():
+    response = client.post("/internal/visa-requirements", json=VALID_PAYLOAD)
+    assert response.status_code == 401
+
+
+def test_visa_endpoint_with_wrong_api_key_returns_401():
+    response = client.post(
+        "/internal/visa-requirements",
+        json=VALID_PAYLOAD,
+        headers={"X-Internal-Api-Key": "definitely-the-wrong-key"}
+    )
+    assert response.status_code == 401
+
+
+def test_visa_endpoint_with_correct_api_key_succeeds(monkeypatch):
+    new_id = uuid.uuid4()
+    make_mock_visa_db(monkeypatch, fetchrow_results=[None, {"id": new_id}])
+
+    response = client.post(
+        "/internal/visa-requirements",
+        json=VALID_PAYLOAD,
+        headers={"X-Internal-Api-Key": settings.internal_api_key}
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"
+    assert data["action"] == "inserted"
+    assert data["id"] == str(new_id)
+
+
+def test_documents_endpoint_auth_still_enforced_after_extraction(monkeypatch):
+    """Regression check for Task 04's shared-module extraction: /internal/documents
+    must still require the same header after verify_api_key moved to app.core.security."""
+    response = client.post("/internal/documents", json={"documents": []})
+    assert response.status_code == 401

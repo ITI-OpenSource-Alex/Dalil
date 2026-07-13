@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock
 from fastapi.testclient import TestClient
 
+from app.core.config import settings
 from app.main import app
 from app.services.rag_service import generate_embedding, query_rag
 
@@ -171,8 +172,13 @@ def test_low_similarity_increments_metrics_counter(monkeypatch):
     assert val_after == val_before + 1.0
 
 
-def test_api_visa_requirements_endpoint():
-    """Verify internal stub route validates schema and returns 200 OK."""
+def test_api_visa_requirements_endpoint(monkeypatch):
+    """Verify the authenticated internal visa route validates schema and returns 200 OK.
+
+    Auth (Task 04) and the real insert/update/unchanged upsert behavior (Task 03) have
+    dedicated, more thorough coverage in test_visa.py; this test only guards that the
+    route wiring itself (schema + auth + service call) still returns success end-to-end.
+    """
     payload = {
         "country": "Germany",
         "visa_type": "Student",
@@ -187,7 +193,24 @@ def test_api_visa_requirements_endpoint():
         "egyptian_specific": True
     }
 
-    response = client.post("/internal/visa-requirements", json=payload)
+    mock_pool = MagicMock()
+    mock_conn = AsyncMock()
+    mock_conn.fetchrow = AsyncMock(side_effect=[None, {"id": "11111111-1111-1111-1111-111111111111"}])
+    mock_tx_ctx = MagicMock()
+    mock_tx_ctx.__aenter__ = AsyncMock(return_value=None)
+    mock_tx_ctx.__aexit__ = AsyncMock(return_value=None)
+    mock_conn.transaction = MagicMock(return_value=mock_tx_ctx)
+    mock_pool_ctx = MagicMock()
+    mock_pool_ctx.__aenter__ = AsyncMock(return_value=mock_conn)
+    mock_pool_ctx.__aexit__ = AsyncMock(return_value=None)
+    mock_pool.acquire = MagicMock(return_value=mock_pool_ctx)
+    monkeypatch.setattr("app.core.database.db.pool", mock_pool)
+
+    response = client.post(
+        "/internal/visa-requirements",
+        json=payload,
+        headers={"X-Internal-Api-Key": settings.internal_api_key}
+    )
     assert response.status_code == 200
     assert response.json()["status"] == "success"
 

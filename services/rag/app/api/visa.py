@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Security
 import structlog
 
+from app.core.security import verify_api_key
 from app.schemas.visa import VisaRequirementsRequest
 from app.services.visa_service import upsert_visa_requirements
 
@@ -8,7 +9,7 @@ router = APIRouter()
 logger = structlog.get_logger("rag_service.api.visa")
 
 @router.post("/internal/visa-requirements")
-async def handle_visa_requirements(request: VisaRequirementsRequest):
+async def handle_visa_requirements(request: VisaRequirementsRequest, _ = Security(verify_api_key)):
     try:
         data = request.model_dump()
         result = await upsert_visa_requirements(data)

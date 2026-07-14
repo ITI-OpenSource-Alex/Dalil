@@ -198,6 +198,109 @@ class SessionService:
             "answer_key": answer_key,
         }
 
+    async def create_reading_session(
+        self,
+        user_id: UUID,
+        exam_type: str,
+    ) -> dict[str, Any]:
+        question = await self.question_repository.get_random_unseen_question(
+            exam_type=exam_type,
+            skill_area="reading",
+            user_id=user_id,
+        )
+        if question is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No reading tests available",
+            )
+
+        session_id = uuid4()
+        time_limit_seconds = self._time_limit_for("reading")
+
+        await self.session_repository.create(
+            session_id=session_id,
+            user_id=user_id,
+            question_id=question["id"],
+            exam_type=exam_type,
+            skill_area="reading",
+            status="in_progress",
+            time_limit_seconds=time_limit_seconds,
+        )
+
+        passage_text = question["passage_text"] or ""
+        passages = [p.strip() for p in passage_text.split("---") if p.strip()]
+        questions_data = self._question_list(question["questions"])
+
+        return {
+            "session_id": session_id,
+            "passages": passages,
+            "questions": questions_data,
+            "time_limit_seconds": time_limit_seconds,
+        }
+
+    async def submit_reading_session(
+        self,
+        session_id: UUID,
+        answers: dict[str, str],
+    ) -> dict[str, Any]:
+        session = await self.session_repository.get_by_id(session_id)
+        if session is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Session not found",
+            )
+
+        if session["status"] in {"submitted", "scored"}:
+            existing = await self.result_repository.get_by_session(session_id)
+            if existing is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Session already submitted",
+                )
+
+        if session["status"] != "in_progress":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid session state",
+            )
+
+        if self.timer_service.is_expired(
+            session["started_at"],
+            session["time_limit_seconds"],
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Session expired",
+            )
+
+        question = await self.question_repository.get_by_id(session["question_id"])
+        if question is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Question not found",
+            )
+        answer_key = self._decode_json(question["answer_key"])
+
+        grading = self.grading_service.grade_reading(
+            submitted_answers=answers,
+            answer_key=answer_key,
+            exam_type=session["exam_type"],
+        )
+
+        await self.result_repository.create(
+            result_id=uuid4(),
+            session_id=session_id,
+            user_id=session["user_id"],
+            skill_area="reading",
+            raw_score=grading["raw_score"],
+            band_score=grading["band_score"],
+            section_scores=grading["section_breakdown"],
+        )
+        await self.session_repository.submit(session_id)
+        await self.session_repository.mark_scored(session_id)
+
+        return grading
+
     def _time_limit_for(self, skill_area: str) -> int:
         return self.DEFAULT_TIME_LIMITS_SECONDS[skill_area]
 

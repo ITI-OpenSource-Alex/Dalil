@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request
 from prometheus_client import make_asgi_app
 import structlog
 from app.api.questions import router as questions_router
+from app.api.reading import router as reading_router
 from app.api.results import router as results_router
 from app.api.sessions import router as sessions_router
 from app.core.database import db
@@ -47,6 +48,7 @@ async def correlation_id_middleware(request: Request, call_next):
 app.include_router(sessions_router)
 app.include_router(questions_router)
 app.include_router(results_router)
+app.include_router(reading_router)
 
 # Health endpoint
 @app.get("/health")

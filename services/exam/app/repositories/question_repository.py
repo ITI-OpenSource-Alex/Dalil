@@ -37,6 +37,29 @@ class QuestionRepository:
                 skill_area,
             )
 
+    async def get_random_unseen_question(
+        self,
+        exam_type: str,
+        skill_area: str,
+        user_id: UUID,
+    ) -> Record | None:
+        query = """
+        SELECT q.*
+        FROM questions q
+        WHERE q.exam_type=$1
+          AND q.skill_area=$2
+          AND q.id NOT IN (
+              SELECT question_id FROM exam_sessions WHERE user_id=$3
+          )
+        ORDER BY RANDOM()
+        LIMIT 1
+        """
+        async with self.pool.acquire() as conn:
+            row = await conn.fetchrow(query, exam_type, skill_area, user_id)
+        if row is not None:
+            return row
+        return await self.get_random_question(exam_type, skill_area)
+
     async def get_answer_key(
         self,
         question_id: UUID,

@@ -12,5 +12,24 @@ goa_exam_sessions_total = Counter(
 EXAM_REQUEST_LATENCY = Histogram(
     "goa_exam_request_latency_ms",
     "Latency of exam service requests in milliseconds",
-    labelnames=["route"]
+    labelnames=["route"],
+)
+
+goa_exam_reading_sessions_total = Counter(
+    "goa_exam_reading_sessions_total",
+    "Total reading exam sessions started",
+    labelnames=["exam_type"],
+)
+
+goa_exam_reading_score = Histogram(
+    "goa_exam_reading_score",
+    "Reading exam band score distribution",
+    buckets=(4.0, 5.0, 6.0, 7.0, 8.0, 9.0),
+)
+
+goa_exam_grading_latency_ms = Histogram(
+    "goa_exam_grading_latency_ms",
+    "Grading latency in milliseconds",
+    labelnames=["skill_area"],
+    buckets=(10, 50, 100, 250, 500),
 )

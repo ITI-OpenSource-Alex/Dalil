@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request
 from prometheus_client import make_asgi_app
 import structlog
+from app.api.internal import router as internal_router
 from app.api.questions import router as questions_router
 from app.api.reading import router as reading_router
 from app.api.results import router as results_router
@@ -49,6 +50,7 @@ app.include_router(sessions_router)
 app.include_router(questions_router)
 app.include_router(results_router)
 app.include_router(reading_router)
+app.include_router(internal_router)
 
 # Health endpoint
 @app.get("/health")

@@ -14,8 +14,11 @@ This project uses Docker Compose to run all services locally.
 
 2. **Set up environment variables:**
    ```bash
+   cp .env.example .env
    cp services/gateway/.env.example services/gateway/.env
    ```
+
+   Add real provider keys to the root `.env` before running live AI evaluations.
 
 3. **Start the infrastructure:**
    ```bash

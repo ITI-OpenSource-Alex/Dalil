@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, Integer, String, Text, func
+from sqlalchemy import JSON, Column, DateTime, Integer, String, Text, func
+from sqlalchemy.dialects.postgresql import JSONB
 
 from app.database import Base
 
@@ -22,6 +23,9 @@ class Essay(Base):
 
     submission_type = Column(String)
     exam_session_id = Column(String, nullable=True)
+    exam_type = Column(String, nullable=True)
+    evaluation_cache_key = Column(String(64), nullable=True, index=True)
+    evaluation_result = Column(JSON().with_variant(JSONB, "postgresql"), nullable=True)
 
 
 class CVReview(Base):

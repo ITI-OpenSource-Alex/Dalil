@@ -204,6 +204,13 @@ jobs:
             echo "No tests folder found. Skipping pytest to avoid fatal exit code 5."
           fi
 
+      - name: Run Writing golden evaluation
+        if: matrix.service == 'writing' && vars.RUN_WRITING_EVAL == '1'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          RUN_WRITING_EVAL: "1"
+        run: pytest tests/evaluation -m evaluation -q
+
       ####################################################
       # NODE
       ####################################################

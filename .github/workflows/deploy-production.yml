@@ -9,24 +9,42 @@ permissions:
   id-token: write
   contents: read
 
+env:
+  AWS_REGION: us-east-1
+  # PLACEHOLDER: Whoever runs the Terraform will replace this placeholder ARN
+  ROLE_TO_ASSUME: arn:aws:iam::REPLACE_WITH_YOUR_AWS_ACCOUNT_ID:role/goa-production-deploy
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     environment:
-      name: production
+      name: production # Targets the GitHub environment gate with manual reviewer rules
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Display deployment info
-        run: |
-          echo "Deploying to PRODUCTION"
+        run: echo "Deploying to PRODUCTION"
 
-      # Configure AWS Credentials
+      # CHANGE 2: Configured the dynamic AWS credentials action using OIDC
+      - name: Configure AWS Credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
 
-      # Docker Build
+      - name: Verify AWS Connection
+        run: aws sts get-caller-identity
 
-      # Push ECR
-
-      # ECS Deploy
+      # CHANGE 3: Placeholders kept clean for GOA-070
+      # # Docker Build
+      # - name: Build Docker Image
+      #   run: echo "docker build -t goa-exam-production ."
+      #
+      # # Push to ECR
+      # - name: Push to Amazon ECR
+      #   run: echo "Pushing image to ECR..."
+      #
+      # # ECS Deploy
+      # - name: Deploy to Amazon ECS
+      #   run: echo "Updating ECS Service..."

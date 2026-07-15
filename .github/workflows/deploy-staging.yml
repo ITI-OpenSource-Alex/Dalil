@@ -5,10 +5,19 @@ on:
     branches:
       - develop
 
+# CHANGE 1: Added explicit permissions required for AWS OIDC authentication
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  # PLACEHOLDER: Whoever runs the Terraform will replace this placeholder ARN
+  ROLE_TO_ASSUME: arn:aws:iam::REPLACE_WITH_YOUR_AWS_ACCOUNT_ID:role/goa-staging-deploy
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     environment:
       name: staging
 
@@ -18,11 +27,25 @@ jobs:
       - name: Display deployment info
         run: echo "Deploying to STAGING"
 
-      #Configure AWS Credentials ْAfter GOA-070
-      # - uses: aws-actions/configure-aws-credentials@v4
+      # CHANGE 2: Configured the dynamic AWS credentials action using OIDC
+      - name: Configure AWS Credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
 
-      #Docker Build
+      - name: Verify AWS Connection
+        run: aws sts get-caller-identity
 
-      #Push to ECR
-
-      #ECS Deploy
+      # CHANGE 3: Placeholders kept clean for GOA-070
+      # # Docker Build
+      # - name: Build Docker Image
+      #   run: echo "docker build -t goa-exam-staging ."
+      #
+      # # Push to ECR
+      # - name: Push to Amazon ECR
+      #   run: echo "Pushing image to ECR..."
+      #
+      # # ECS Deploy
+      # - name: Deploy to Amazon ECS
+      #   run: echo "Updating ECS Service..."

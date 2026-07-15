@@ -21,7 +21,7 @@ jobs:
 
       - name: Start Docker Compose Stack
         run: |
-          docker-compose up -d
+          docker compose up -d
           # Wait for Gateway to become healthy
           echo "Waiting for services..."
           for i in {1..20}; do
@@ -40,7 +40,7 @@ jobs:
           aws --endpoint-url=http://localhost:4566 s3 mb s3://goa-eval-reports || true
           
           # Provision DB using the dedicated seed script
-          docker exec -i $(docker-compose ps -q postgres) psql -U goa -d rag_db < evals/seed_data.sql
+          docker exec -i $(docker compose ps -q postgres) psql -U goa -d rag_db < evals/seed_data.sql
         env:
           AWS_ACCESS_KEY_ID: test
           AWS_SECRET_ACCESS_KEY: test
@@ -82,4 +82,4 @@ jobs:
 
       - name: Shutdown Docker Compose
         if: always()
-        run: docker-compose down
+        run: docker compose down

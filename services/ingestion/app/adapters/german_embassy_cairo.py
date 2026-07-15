@@ -1,6 +1,4 @@
-import hashlib
 import io
-import json
 import re
 
 import httpx
@@ -8,6 +6,7 @@ import structlog
 from bs4 import BeautifulSoup
 
 from app.adapters.base_adapter import BaseAdapter
+from app.core.content_hash import compute_content_hash
 from app.core.rate_limiter import polite_delay
 from app.core.robots import robot_checker
 
@@ -70,12 +69,6 @@ def _extract_amount_eur(text: str):
         return float(raw)
     except ValueError:
         return None
-
-
-def _compute_content_hash(record: dict) -> str:
-    """Deterministic hash of the structured record fields (not raw HTML)."""
-    canonical = json.dumps(record, sort_keys=True, default=str)
-    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def _section_elements(heading):
@@ -184,7 +177,7 @@ class GermanEmbassyCairoAdapter(BaseAdapter):
             "notes": heading,
             "egyptian_specific": True,
         }
-        record["content_hash"] = _compute_content_hash(record)
+        record["content_hash"] = compute_content_hash(record)
         return record
 
     def _discover_study_pdf_url(self, html: str) -> str:

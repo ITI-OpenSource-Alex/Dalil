@@ -37,17 +37,66 @@ async def generate_embedding(text: str) -> List[float]:
     return await embeddings_model.aembed_query(text)
 
 
+# Fuzzy-match threshold for the FAQ short-circuit below, per the architecture doc's
+# documented design ("A match above 0.85 similarity returns the FAQ answer directly").
+FAQ_SIMILARITY_THRESHOLD = 0.85
+
+
+async def _find_faq_match(question: str):
+    """Fuzzy-matches `question` against faq_entries.question_pattern using pg_trgm's
+    similarity() (extension already enabled by migration 005). Returns the
+    best-matching row if it meets FAQ_SIMILARITY_THRESHOLD, else None."""
+    async with db.pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            SELECT id, answer_markdown, similarity(question_pattern, $1) AS sim
+            FROM faq_entries
+            ORDER BY sim DESC
+            LIMIT 1
+            """,
+            question
+        )
+    if row and row["sim"] >= FAQ_SIMILARITY_THRESHOLD:
+        return row
+    return None
+
+
+async def _record_faq_hit(faq_id) -> None:
+    async with db.pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE faq_entries SET hit_count = hit_count + 1 WHERE id = $1",
+            faq_id
+        )
+
+
 async def query_rag(
     question: str, user_id: str, top_k: int = 5
 ) -> Tuple[str, List[Dict[str, Any]], Dict[str, Any]]:
     """
-    Retrieves matching document chunks from the database, sends them with the question
-    to Claude for answer generation, and records tracking metadata in Langfuse.
+    Checks for a hand-curated FAQ match first (zero-token, skips the LLM entirely on
+    a hit). Otherwise retrieves matching document chunks from the database, sends them
+    with the question to Claude for answer generation, and records tracking metadata
+    in Langfuse.
     """
     start_time = time.time()
 
     # 1. Compute question hash
     question_hash = hashlib.sha256(question.encode("utf-8")).hexdigest()[:16]
+
+    # 1b. FAQ short-circuit -- a close match returns the curated answer directly,
+    # without embedding the question, querying documents, or invoking the LLM.
+    faq_match = await _find_faq_match(question)
+    if faq_match:
+        await _record_faq_hit(faq_match["id"])
+        metrics_summary = {
+            "question_hash": question_hash,
+            "top_similarity": float(faq_match["sim"]),
+            "chunks_retrieved": 0,
+            "answer_tokens": 0,
+            "latency_ms": (time.time() - start_time) * 1000,
+            "faq_hit": True,
+        }
+        return faq_match["answer_markdown"], [], metrics_summary
 
     # 2. Embed the search query
     query_vector = await generate_embedding(question)

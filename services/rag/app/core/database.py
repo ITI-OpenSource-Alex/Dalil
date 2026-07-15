@@ -2,6 +2,7 @@ import os
 import glob
 import logging
 import asyncpg
+from pgvector.asyncpg import register_vector
 from app.core.config import settings
 
 logger = logging.getLogger("rag_service.database")
@@ -15,7 +16,10 @@ class Database:
         if not self.pool:
             logger.info("Initializing asyncpg connection pool...")
             self.pool = await asyncpg.create_pool(
-                dsn=settings.database_url, min_size=2, max_size=10
+                dsn=settings.database_url,
+                min_size=2,
+                max_size=10,
+                init=register_vector
             )
             # Run migrations on connection startup
             await self.run_migrations()

@@ -15,14 +15,15 @@ class Database:
     async def connect(self):
         if not self.pool:
             logger.info("Initializing asyncpg connection pool...")
+            # Run migrations first using a direct connection (no vector init)
+            await self.run_migrations()
+
             self.pool = await asyncpg.create_pool(
                 dsn=settings.database_url,
                 min_size=2,
                 max_size=10,
                 init=register_vector
             )
-            # Run migrations on connection startup
-            await self.run_migrations()
 
     async def disconnect(self):
         if self.pool:
@@ -32,7 +33,8 @@ class Database:
 
     async def run_migrations(self):
         logger.info("Starting database migrations...")
-        async with self.pool.acquire() as conn:
+        conn = await asyncpg.connect(settings.database_url)
+        try:
             # Create migrations_log table if it doesn't exist
             await conn.execute("""
                 CREATE TABLE IF NOT EXISTS migrations_log (
@@ -74,6 +76,7 @@ class Database:
                     logger.info("Migration %s executed successfully", filename)
                 else:
                     logger.debug("Migration %s already executed, skipping", filename)
-
+        finally:
+            await conn.close()
 
 db = Database()

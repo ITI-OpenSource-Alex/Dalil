@@ -31,6 +31,12 @@ Thumbs.db
 .vscode/
 .idea/
 
+# AI assistant local configuration
+.claude/
+.codex/
+.cursor/
+.agents/
+
 *.exe
 tmp/
 Sprint_1_Detailed_Plan.md
@@ -40,3 +46,7 @@ GOA_Sprint_2_Tickets.md
 .agents/
 scratch_generator.py
 evals/reports/
+
+# Local Python virtual environments
+.venv_check/
+services/rag/.venv_check/

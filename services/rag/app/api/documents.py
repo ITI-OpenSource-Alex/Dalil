@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Security, HTTPException, status
-from fastapi.security.api_key import APIKeyHeader
+from typing import List
+from uuid import UUID
 
 
-from app.core.config import settings
 from app.core.database import db
+from app.core.security import verify_api_key
 from app.schemas.documents import (
     DocumentCheckRequest,
     DocumentCheckResponse,
@@ -12,17 +13,6 @@ from app.schemas.documents import (
 
 
 router = APIRouter()
-API_KEY_NAME = "X-Internal-API-Key"
-api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
-
-
-async def verify_api_key(header_key: str = Security(api_key_header)):
-    if not header_key or header_key != settings.internal_api_key:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or missing X-Internal-Api-Key header",
-        )
-    return header_key
 
 
 @router.post("/internal/documents/check-existing", response_model=DocumentCheckResponse)

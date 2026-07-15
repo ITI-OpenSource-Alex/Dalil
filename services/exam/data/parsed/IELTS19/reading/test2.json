@@ -1,0 +1,14 @@
+{
+  "book_ref": "IELTS-unknown",
+  "test_number": 2,
+  "exam_type": "academic",
+  "skill_area": "reading",
+  "passage_text": "This test consists of three sections with 40 questions. There are three texts, which are\ntaken from journals, books, magazines and newspapers. The texts are on topics of general\ninterest. At least one text contains detailed logical argument.\nA variety of question types is used, including: multiple choice, identifying information\n(True/False/Not Given), identifying the writer’s views/claims (Yes/No/Not Given), matching\ninformation, matching headings, matching features, matching sentence endings, sentence\ncompletion, summary completion, note completion, table completion, flowchart completion,\ndiagram-label completion and short-answer questions.",
+  "questions": [],
+  "answer_key": {
+    "1": "below.",
+    "3": "a valuable",
+    "9": "They explain how they have adjusted not"
+  },
+  "time_limit_seconds": 3600
+}

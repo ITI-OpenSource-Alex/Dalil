@@ -1,18 +1,14 @@
 from __future__ import annotations
 
-import hashlib
 import logging
-import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger("exam_service.ingestion.parser")
+from app.ingestion.ocr_service import OcrService
 
-# Default directory for cached OCR page text.  Override via the
-# ``OCR_CACHE_DIR`` environment variable.
-_DEFAULT_CACHE_DIR = Path(__file__).resolve().parent.parent.parent / ".cache" / "ocr"
+logger = logging.getLogger("exam_service.ingestion.parser")
 
 
 @dataclass(slots=True)
@@ -58,6 +54,9 @@ class BaseParser:
         "Short Answer": "Short Answer",
     }
 
+    def __init__(self) -> None:
+        self._ocr_service = OcrService()
+
     def parse(self, content: str | Path) -> dict[str, Any]:
         return self.parse_text(content)
 
@@ -71,38 +70,10 @@ class BaseParser:
         first_page: int | None = None,
         last_page: int | None = None,
     ) -> dict[str, Any]:
-        """Extract text from a PDF and parse it.
-
-        Parameters
-        ----------
-        first_page, last_page : int | None
-            1-based inclusive page range.  When provided, only the specified
-            pages are processed — both for pdfplumber and OCR fallback.
-        """
         source_path = Path(path)
-        text, page_count = self._extract_pdf_text(
+        text = self._ocr_service.extract(
             source_path, first_page=first_page, last_page=last_page
         )
-        logger.info(
-            "Using pdfplumber extraction",
-            extra={"source": str(source_path), "pages_processed": page_count},
-        )
-
-        if len(text.strip()) < 100:
-            logger.info(
-                "Searchable text is too short or empty. Falling back to OCR.",
-                extra={"source": str(source_path), "pages_processed": page_count},
-            )
-            text, ocr_page_count = self._extract_pdf_text_with_ocr(
-                source_path, first_page=first_page, last_page=last_page
-            )
-            logger.info(
-                "Using OCR fallback",
-                extra={"source": str(source_path), "pages_processed": ocr_page_count},
-            )
-
-        if not text.strip():
-            raise RuntimeError(f"No text extracted from PDF: {source_path}")
 
         try:
             name = source_path.name
@@ -111,174 +82,8 @@ class BaseParser:
         content = f"{name}\n{text}"
         return self.parse_text(content)
 
-    def _extract_pdf_text(
-        self,
-        path: str | Path,
-        *,
-        first_page: int | None = None,
-        last_page: int | None = None,
-    ) -> tuple[str, int]:
-        try:
-            import pdfplumber  # type: ignore
-        except ImportError as exc:  # pragma: no cover - dependency guard
-            raise RuntimeError("pdfplumber is required to parse PDF content") from exc
-
-        with pdfplumber.open(str(path)) as pdf:
-            total = len(pdf.pages)
-            start = max((first_page or 1) - 1, 0)
-            end = min(last_page or total, total)
-            pages = []
-            for page in pdf.pages[start:end]:
-                extracted = page.extract_text(layout=True) or page.extract_text() or ""
-                pages.append(extracted)
-        return self._normalize_text("\n".join(pages)), end - start
-
-    def _extract_pdf_text_with_ocr(
-        self,
-        path: str | Path,
-        *,
-        first_page: int | None = None,
-        last_page: int | None = None,
-    ) -> tuple[str, int]:
-        try:
-            import pytesseract  # type: ignore
-        except ImportError as exc:  # pragma: no cover - dependency guard
-            raise RuntimeError(
-                "OCR fallback requires 'pytesseract'. Install it with pip install pytesseract."
-            ) from exc
-
-        try:
-            from pdf2image import convert_from_path, pdfinfo_from_path  # type: ignore
-        except ImportError as exc:  # pragma: no cover - dependency guard
-            raise RuntimeError(
-                "OCR fallback requires 'pdf2image'. Install it with pip install pdf2image."
-            ) from exc
-
-        try:
-            from PIL import ImageOps  # type: ignore
-        except ImportError as exc:  # pragma: no cover - dependency guard
-            raise RuntimeError(
-                "OCR fallback requires 'Pillow'. Install it with pip install Pillow."
-            ) from exc
-
-        try:
-            info = pdfinfo_from_path(str(path))
-            total_pages = int(info.get("Pages", 0))
-        except Exception as exc:
-            raise RuntimeError(f"OCR fallback could not inspect PDF pages: {path}") from exc
-
-        if total_pages <= 0:
-            raise RuntimeError(f"OCR fallback could not render pages from PDF: {path}")
-
-        start = max((first_page or 1), 1)
-        end = min((last_page or total_pages), total_pages)
-        page_range = range(start, end + 1)
-        pages_to_process = len(page_range)
-
-        # Resolve cache directory and compute PDF hash for cache keys
-        cache_dir = self._resolve_cache_dir(path)
-        pdf_hash = self._compute_pdf_hash(path)
-
-        from concurrent.futures import ThreadPoolExecutor
-        import pytesseract
-        from PIL import ImageOps
-        from pdf2image import convert_from_path
-
-        max_workers = min(os.cpu_count() or 2, 4)
-
-        def process_page(idx: int) -> str:
-            # Check cache first
-            cached = self._read_page_cache(cache_dir, pdf_hash, idx)
-            if cached is not None:
-                logger.debug("Cache hit for page %d", idx)
-                return cached
-
-            try:
-                rendered = convert_from_path(str(path), dpi=150, first_page=idx, last_page=idx)
-                if not rendered:
-                    return ""
-                image = rendered[0]
-                grayscale = ImageOps.grayscale(image)
-                thresholded = grayscale.point(lambda x: 0 if x < 160 else 255, mode="1")
-                text = pytesseract.image_to_string(thresholded) or ""
-                image.close()
-                grayscale.close()
-                thresholded.close()
-
-                # Write to cache
-                self._write_page_cache(cache_dir, pdf_hash, idx, text)
-
-                logger.info("OCR page %d/%d complete", idx, end)
-                return text
-            except Exception as e:
-                logger.warning("Error on page %d: %s", idx, e)
-                return ""
-
-        pages: list[str] = []
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            pages = list(executor.map(process_page, page_range))
-
-        merged_text = self._normalize_text("\n".join(pages))
-        if not merged_text.strip():
-            raise RuntimeError(f"OCR fallback returned no text for PDF: {path}")
-
-        logger.info(
-            "OCR complete: %d pages processed (%d from cache)",
-            pages_to_process,
-            sum(1 for idx in page_range if self._read_page_cache(cache_dir, pdf_hash, idx) is not None),
-        )
-        return merged_text, pages_to_process
-
-    # ------------------------------------------------------------------
-    # OCR Caching
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    def _resolve_cache_dir(path: str | Path) -> Path:
-        env_dir = os.environ.get("OCR_CACHE_DIR")
-        if env_dir:
-            return Path(env_dir)
-        return _DEFAULT_CACHE_DIR
-
-    @staticmethod
-    def _compute_pdf_hash(path: str | Path) -> str:
-        h = hashlib.sha256()
-        with open(path, "rb") as f:
-            while chunk := f.read(1 << 20):  # 1 MiB chunks
-                h.update(chunk)
-        return h.hexdigest()[:16]
-
-    @staticmethod
-    def _read_page_cache(cache_dir: Path, pdf_hash: str, page: int) -> str | None:
-        cache_file = cache_dir / pdf_hash / f"page_{page:04d}.txt"
-        if cache_file.exists():
-            return cache_file.read_text(encoding="utf-8")
-        return None
-
-    @staticmethod
-    def _write_page_cache(cache_dir: Path, pdf_hash: str, page: int, text: str) -> None:
-        page_dir = cache_dir / pdf_hash
-        page_dir.mkdir(parents=True, exist_ok=True)
-        cache_file = page_dir / f"page_{page:04d}.txt"
-        cache_file.write_text(text, encoding="utf-8")
-
     def _normalize_text(self, text: str) -> str:
-        cleaned_lines: list[str] = []
-        seen: set[str] = set()
-        for raw_line in text.splitlines():
-            line = re.sub(r"\s+", " ", raw_line).strip()
-            if not line:
-                continue
-            if re.fullmatch(r"\d+", line):
-                continue
-            if "copyright" in line.lower() or "cambridge university press" in line.lower():
-                continue
-            if line.lower().startswith("page "):
-                continue
-            if line not in seen:
-                cleaned_lines.append(line)
-                seen.add(line)
-        return "\n".join(cleaned_lines)
+        return self._ocr_service.normalize_text(text)
 
     def _infer_metadata(self, content: str, source: str | None = None) -> dict[str, Any]:
         metadata: dict[str, Any] = {

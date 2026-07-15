@@ -1,6 +1,7 @@
 from app.ingestion.ingest import ingest_question_bank
 from app.ingestion.listening_parser import ListeningParser
 from app.ingestion.loader import QuestionLoader
+from app.ingestion.ocr_service import OcrService
 from app.ingestion.parser import ParsedQuestion, ParsedTest
 from app.ingestion.reading_parser import ReadingParser
 from app.ingestion.speaking_parser import SpeakingParser
@@ -14,5 +15,6 @@ __all__ = [
     "WritingParser",
     "SpeakingParser",
     "QuestionLoader",
+    "OcrService",
     "ingest_question_bank",
 ]

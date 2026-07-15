@@ -85,6 +85,23 @@ class SessionRepository:
         async with self.pool.acquire() as conn:
             await conn.execute(query, session_id)
 
+    async def try_submit(
+        self,
+        session_id: UUID,
+    ) -> bool:
+        query = """
+        UPDATE exam_sessions
+        SET
+            status='submitted',
+            submitted_at=NOW()
+        WHERE id=$1 AND status='in_progress'
+        RETURNING id
+        """
+
+        async with self.pool.acquire() as conn:
+            result = await conn.fetchval(query, session_id)
+            return result is not None
+
     async def mark_scored(
         self,
         session_id: UUID,

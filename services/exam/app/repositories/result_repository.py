@@ -19,6 +19,7 @@ class ResultRepository:
         raw_score: int,
         band_score: float,
         section_scores: dict[str, Any],
+        agent_responses: dict | list | None = None,
     ) -> None:
         query = """
         INSERT INTO exam_results(
@@ -29,12 +30,15 @@ class ResultRepository:
             raw_score,
             band_score,
             section_scores,
-            graded_at
+            graded_at,
+            agent_responses
         )
         VALUES(
-            $1,$2,$3,$4,$5,$6,$7::jsonb,NOW()
+            $1,$2,$3,$4,$5,$6,$7::jsonb,NOW(),$8::jsonb
         )
         """
+        if agent_responses is not None:
+            agent_responses = json.dumps(agent_responses)
 
         async with self.pool.acquire() as conn:
             await conn.execute(
@@ -45,7 +49,8 @@ class ResultRepository:
                 skill_area,
                 raw_score,
                 band_score,
-                json.dumps(section_scores),
+                json.dumps(section_scores) if section_scores else None,
+                agent_responses,
             )
 
     async def get_by_session(

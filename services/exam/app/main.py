@@ -6,6 +6,7 @@ from app.api.results import router as results_router
 from app.api.sessions import router as sessions_router
 from app.core.database import db
 from app.core.logging import configure_logging, correlation_id_var
+from app.api.internal import router as internal_router
 
 configure_logging()
 logger = structlog.get_logger("exam_service.main")
@@ -56,3 +57,4 @@ async def health_check():
 # Metrics endpoint using standard prometheus client exporter
 metrics_app = make_asgi_app()
 app.mount("/metrics", metrics_app)
+app.include_router(internal_router)

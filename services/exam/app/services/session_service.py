@@ -42,6 +42,7 @@ class SessionService:
         question = await self.question_repository.get_random_question(
             exam_type=request.exam_type.value,
             skill_area=request.skill_area.value,
+            user_id=request.user_id,
         )
         if question is None:
             raise HTTPException(
@@ -202,6 +203,9 @@ class SessionService:
         return self.DEFAULT_TIME_LIMITS_SECONDS[skill_area]
 
     def _public_question(self, question: Any) -> dict[str, Any]:
+        questions_data = self._question_list(question["questions"])
+        if question["skill_area"] == "speaking":
+            questions_data = self._shape_speaking_questions(questions_data)
         payload = {
             "id": question["id"],
             "book_ref": question["book_ref"],
@@ -210,9 +214,43 @@ class SessionService:
             "skill_area": question["skill_area"],
             "passage_text": question["passage_text"],
             "audio_s3_key": question["audio_s3_key"],
-            "questions": self._question_list(question["questions"]),
+            "questions": questions_data,
         }
         return QuestionResponse.model_validate(payload).model_dump()
+    
+
+
+    def _shape_speaking_questions(self, raw_questions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        parts = [{"part": 1, "type": "general", "questions": []}, {"part": 2, "type": "cue_card", "topic": "", "bullet_points": []}, {"part": 3, "type": "discussion", "questions": []}]
+
+
+        for item in raw_questions:
+            part = item.get("part")
+
+
+            if part == 1:
+                questions = item.get("questions", [])
+                if isinstance(questions, list):
+                    parts[0]["questions"].extend(questions)
+                elif isinstance(questions, str):
+                    parts[0]["questions"].append(questions)
+            elif part == 2:
+                if not parts[1]["topic"]:
+                    parts[1]["topic"] = item.get("topic", "")
+                
+                bullets = item.get("bullet_points", [])
+                if isinstance(bullets, list):
+                    parts[1]["bullet_points"].extend(bullets)
+            
+            elif part == 3:
+                questions = item.get("questions", [])
+                if isinstance(questions, list):
+                    parts[2]["questions"].extend(questions)
+                elif isinstance(questions, str):
+                    parts[2]["questions"].append(questions)
+
+        return parts
+
 
     def _question_list(self, value: Any) -> list[dict[str, Any]]:
         decoded = self._decode_json(value)

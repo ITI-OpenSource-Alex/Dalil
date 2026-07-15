@@ -18,6 +18,8 @@ services:
         condition: service_healthy
       redis-gateway:
         condition: service_healthy
+      writing:
+        condition: service_healthy
 
   user-service:
     build:
@@ -34,27 +36,64 @@ services:
       - DB_PASSWORD=goa_pass
       - DB_NAME=user_db
       - INTERNAL_API_KEY=supersecret_internal_key_123
+
+      # AWS / LocalStack
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT=http://localstack:4566
+      - SQS_QUEUE_URL=http://localstack:4566/000000000000/user-events
+
+      - REDIS_HOST=redis-gateway
+      - REDIS_PORT=6379
+
     volumes:
       - ./services/user:/usr/src/app
       - /usr/src/app/node_modules
+
     depends_on:
       postgres:
         condition: service_healthy
+      localstack:
+        condition: service_started
 
   writing:
     build:
-      context: ./services/writing
+      context: .
+      dockerfile: services/writing/Dockerfile
     ports:
       - "8000:8000"
     environment:
       - DATABASE_URL=postgresql://goa:goa_pass@postgres:5432/writing_db
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - S3_BUCKET=goa-writing-files
+      - CV_UPLOADED_QUEUE_URL=http://localstack:4566/000000000000/goa-cv-uploaded
+      - PYTHONPATH=/app:/packages/contracts/py
       - OTEL_SERVICE_NAME=writing-service
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
+      - LANGFUSE_HOST=${LANGFUSE_HOST}
+      - WRITING_MODEL=${WRITING_MODEL:-claude-sonnet-4-6}
+      - ANTHROPIC_TIMEOUT_SECONDS=${ANTHROPIC_TIMEOUT_SECONDS:-25}
+      - WRITING_CACHE_VERSION=${WRITING_CACHE_VERSION:-v1}
     volumes:
-      - ./services/writing:/app
+      - ./services/writing/app:/app/app
+      - ./services/writing/migrations:/app/migrations
+      - ./packages/contracts/py:/packages/contracts/py
     depends_on:
       postgres:
         condition: service_healthy
+      localstack:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   postgres:
     image: pgvector/pgvector:pg15
@@ -68,7 +107,7 @@ services:
       - ./infra/docker/postgres/init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U goa" ]
+      test: [ "CMD-SHELL", "pg_isready -U goa -d postgres" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -84,11 +123,19 @@ services:
       retries: 5
 
   localstack:
-    image: localstack/localstack:3.4.0
+    build:
+      context: ./infra/localstack
+    image: goa-localstack:3.4.0
     environment:
       - SERVICES=sqs,s3
+      - AWS_DEFAULT_REGION=us-east-1
     ports:
       - "4566:4566"
+    healthcheck:
+      test: [ "CMD-SHELL", "awslocal s3api head-bucket --bucket goa-writing-files" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   prometheus:
     image: prom/prometheus:v2.50.1
@@ -97,6 +144,7 @@ services:
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
       - ./monitoring/prometheus/gateway-alerts.yml:/etc/prometheus/gateway-alerts.yml
+      - ./monitoring/prometheus/writing-alerts.yml:/etc/prometheus/writing-alerts.yml
 
   grafana:
     image: grafana/grafana:10.4.0
@@ -149,8 +197,38 @@ services:
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
       - LANGFUSE_HOST=${LANGFUSE_HOST}
+      - REDIS_URL=redis://redis-cache:6379/2
+      - USER_SERVICE_URL=http://user-service:8081
+      - WRITING_SERVICE_URL=http://writing:8000
+      - INTERNAL_API_KEY=supersecret_internal_key_123
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - SQS_QUEUE_NAME=user-events
     volumes:
       - ./services/rag:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis-cache:
+        condition: service_started
+
+  exam:
+    build:
+      context: ./services/exam
+      target: dev
+    ports:
+      - "8085:8085"
+    environment:
+      - PORT=8085
+      - DATABASE_URL=postgresql://goa:goa_pass@postgres:5432/exam_db
+      - INTERNAL_API_KEY=supersecret_internal_key_123
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
+      - LANGFUSE_HOST=${LANGFUSE_HOST}
+    volumes:
+      - ./services/exam:/app
     depends_on:
       postgres:
         condition: service_healthy

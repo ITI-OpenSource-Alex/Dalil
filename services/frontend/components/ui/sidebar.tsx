@@ -1,97 +1,170 @@
 "use client";
-
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 export function Sidebar() {
   const pathname = usePathname();
+  const [isOpen, setIsOpen] = useState(false);
+
+  // Close the drawer whenever the route changes
+  useEffect(() => {
+    setIsOpen(false);
+  }, [pathname]);
+
+  // Prevent background scroll when the mobile drawer is open
+  useEffect(() => {
+    document.body.style.overflow = isOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isOpen]);
 
   const navItems = [
     { label: "Chat", icon: ChatIcon, href: "/chat" },
     { label: "Opportunities", icon: OpportunitiesIcon, href: "#" },
     { label: "Checklists", icon: ChecklistsIcon, href: "#" },
-    { label: "IELTS", icon: IELTSIcon, href: "/exam", active: true },
+    { label: "IELTS", icon: IELTSIcon, href: "/exam" },
     { label: "CV Review", icon: CVReviewIcon, href: "#" },
     { label: "Profile", icon: ProfileIcon, href: "#" },
   ];
 
   return (
-    <aside className="w-64 bg-[#fbfbfa] border-r border-gray-200/80 p-5 flex flex-col justify-between h-screen sticky top-0 shrink-0 font-sans select-none">
-      <div className="space-y-8">
-        {/* Brand Header */}
-        <div className="flex items-center gap-2.5 px-2">
-          <div className="w-8 h-8 rounded-full bg-[#0d4d3a] flex items-center justify-center text-white font-serif font-bold text-lg">
-            G
-          </div>
-          <span className="font-serif text-2xl font-bold tracking-tight text-[#0d4d3a]">
-            goa
-          </span>
+    <>
+      {/* Mobile top bar with hamburger trigger */}
+      <div className="lg:hidden sticky top-0 z-30 flex items-center justify-between bg-[#fbfbfa] border-b border-gray-200/80 px-4 py-3">
+        <div className="flex items-center gap-2.5">
+          <Link href="/" className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-full bg-[#0d4d3a] flex items-center justify-center text-white font-serif font-bold text-sm">
+              G
+            </div>
+            <span className="font-serif text-lg font-bold tracking-tight text-[#0d4d3a]">
+              goa
+            </span>
+          </Link>
         </div>
-
-        {/* Navigation Items */}
-        <nav className="space-y-1">
-          {navItems.map((item) => {
-            const isActive = item.active || pathname.startsWith(item.href);
-            const Icon = item.icon;
-
-            return (
-              <Link
-                key={item.label}
-                href={item.href}
-                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-full text-sm font-medium transition-colors ${
-                  isActive
-                    ? "bg-[#d8f3e5] text-[#0d4d3a] font-semibold"
-                    : "text-gray-600 hover:bg-gray-100/80 hover:text-gray-900"
-                }`}
-              >
-                <Icon
-                  className={`w-4 h-4 ${isActive ? "text-[#0d4d3a]" : "text-gray-500"}`}
-                />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
+        <button
+          onClick={() => setIsOpen(true)}
+          aria-label="Open menu"
+          className="p-2 rounded-full hover:bg-gray-100/80 text-gray-700"
+        >
+          <MenuIcon className="w-5 h-5" />
+        </button>
       </div>
 
-      {/* Bottom Pro Callout & Profile */}
-      <div className="space-y-4">
-        {/* GOA Pro Card */}
-        <div className="bg-[#eaf7f0] border border-[#d2efe0] rounded-2xl p-4 space-y-3">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-[#0d4d3a]">
-            <SparkleIcon className="w-3.5 h-3.5" />
-            <span>Free plan</span>
+      {/* Backdrop overlay (mobile only, shown when drawer is open) */}
+      {isOpen && (
+        <div
+          onClick={() => setIsOpen(false)}
+          className="lg:hidden fixed inset-0 bg-black/40 z-40"
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Sidebar / Drawer */}
+      <aside
+        className={`
+          font-sans select-none
+          w-64 bg-[#fbfbfa] border-r border-gray-200/80 p-5
+          flex flex-col justify-between h-screen shrink-0
+          fixed top-0 left-0 z-50 transition-transform duration-300 ease-in-out
+          lg:sticky lg:translate-x-0
+          ${isOpen ? "translate-x-0" : "-translate-x-full"}
+        `}
+      >
+        <div className="space-y-8">
+          {/* Brand Header (desktop only, mobile has its own top bar) */}
+          <div className="hidden lg:flex items-center gap-2.5 px-2">
+            <div className="w-8 h-8 rounded-full bg-[#0d4d3a] flex items-center justify-center text-white font-serif font-bold text-lg">
+              G
+            </div>
+            <span className="font-serif text-2xl font-bold tracking-tight text-[#0d4d3a]">
+              goa
+            </span>
           </div>
-          <div>
-            <h4 className="font-bold text-sm text-gray-900 leading-tight">
-              Unlock GOA Pro
-            </h4>
-            <p className="text-[11px] text-gray-500 mt-1 leading-normal">
-              Unlimited AI, CV review, IELTS scoring.
-            </p>
+
+          {/* Mobile drawer header with close button */}
+          <div className="lg:hidden flex items-center justify-between px-2">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-full bg-[#0d4d3a] flex items-center justify-center text-white font-serif font-bold text-lg">
+                G
+              </div>
+              <span className="font-serif text-2xl font-bold tracking-tight text-[#0d4d3a]">
+                goa
+              </span>
+            </div>
+            <button
+              onClick={() => setIsOpen(false)}
+              aria-label="Close menu"
+              className="p-1.5 rounded-full hover:bg-gray-100/80 text-gray-500"
+            >
+              <CloseIcon className="w-5 h-5" />
+            </button>
           </div>
-          <button className="bg-[#0d4d3a] hover:bg-[#09382a] text-white text-xs font-semibold py-1.5 px-3.5 rounded-full transition-colors flex items-center gap-1">
-            Upgrade <span>→</span>
-          </button>
+
+          {/* Navigation Items */}
+          <nav className="space-y-1">
+            {navItems.map((item) => {
+              const isActive = pathname.startsWith(item.href);
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  onClick={() => setIsOpen(false)}
+                  className={`flex items-center gap-3 px-3.5 py-2.5 rounded-full text-sm font-medium transition-colors ${
+                    isActive
+                      ? "bg-[#d8f3e5] text-[#0d4d3a] font-semibold"
+                      : "text-gray-600 hover:bg-gray-100/80 hover:text-gray-900"
+                  }`}
+                >
+                  <Icon
+                    className={`w-4 h-4 ${isActive ? "text-[#0d4d3a]" : "text-gray-500"}`}
+                  />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
         </div>
 
-        {/* User Badge */}
-        <div className="flex items-center gap-3 px-2 pt-2 border-t border-gray-100">
-          <div className="w-8 h-8 rounded-full bg-[#1b4332] text-white flex items-center justify-center text-xs font-bold shrink-0">
-            LA
+        {/* Bottom Pro Callout & Profile */}
+        <div className="space-y-4">
+          {/* GOA Pro Card */}
+          <div className="bg-[#eaf7f0] border border-[#d2efe0] rounded-2xl p-4 space-y-3">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-[#0d4d3a]">
+              <SparkleIcon className="w-3.5 h-3.5" />
+              <span>Free plan</span>
+            </div>
+            <div>
+              <h4 className="font-bold text-sm text-gray-900 leading-tight">
+                Unlock GOA Pro
+              </h4>
+              <p className="text-[11px] text-gray-500 mt-1 leading-normal">
+                Unlimited AI, CV review, IELTS scoring.
+              </p>
+            </div>
+            <button className="bg-[#0d4d3a] hover:bg-[#09382a] text-white text-xs font-semibold py-1.5 px-3.5 rounded-full transition-colors flex items-center gap-1">
+              Upgrade <span>→</span>
+            </button>
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-bold text-gray-900 truncate">
-              Lina Ahmadi
-            </p>
-            <p className="text-[11px] text-gray-400 truncate">
-              lina.ahmadi@goa.app
-            </p>
+          {/* User Badge */}
+          <div className="flex items-center gap-3 px-2 pt-2 border-t border-gray-100">
+            <div className="w-8 h-8 rounded-full bg-[#1b4332] text-white flex items-center justify-center text-xs font-bold shrink-0">
+              LA
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold text-gray-900 truncate">
+                Lina Ahmadi
+              </p>
+              <p className="text-[11px] text-gray-400 truncate">
+                lina.ahmadi@goa.app
+              </p>
+            </div>
           </div>
         </div>
-      </div>
-    </aside>
+      </aside>
+    </>
   );
 }
 
@@ -207,6 +280,40 @@ function SparkleIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="currentColor" viewBox="0 0 20 20">
       <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+    </svg>
+  );
+}
+function MenuIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      strokeWidth="2"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M4 6h16M4 12h16M4 18h16"
+      />
+    </svg>
+  );
+}
+function CloseIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      strokeWidth="2"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M6 18L18 6M6 6l12 12"
+      />
     </svg>
   );
 }

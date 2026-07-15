@@ -1,11 +1,110 @@
 import time
+import datetime
 import httpx
 import structlog
-from typing import AsyncGenerator
+import pybreaker
+import contextvars
+from typing import AsyncGenerator, List, Optional
+
+correlation_id_var = contextvars.ContextVar("correlation_id", default="unknown")
 from app.core.config import settings
-from app.core.metrics import goa_orchestration_downstream_latency_ms
+from app.core.metrics import goa_orchestration_downstream_latency_ms, goa_orchestration_circuit_breaker_state
+from app.schemas.chat import ChatStreamEvent
 
 logger = structlog.get_logger("orchestration.client")
+
+
+class MetricsCircuitBreakerListener(pybreaker.CircuitBreakerListener):
+    """
+    Listens to Pybreaker state changes to update Prometheus metrics
+    and log structured JSON errors for correlation.
+    """
+    def __init__(self, service_name: str):
+        self.service_name = service_name
+
+    def state_change(self, cb, old_state, new_state):
+        if new_state.name == "open":
+            goa_orchestration_circuit_breaker_state.labels(service=self.service_name).set(1)
+            logger.error(
+                "Circuit breaker opened",
+                service=self.service_name,
+                failure_count=cb.fail_counter,
+                opened_at=time.time(),
+                correlation_id=correlation_id_var.get()
+            )
+        elif new_state.name == "closed":
+            goa_orchestration_circuit_breaker_state.labels(service=self.service_name).set(0)
+            
+            downtime_s = 0.0
+            if cb._state_storage.opened_at:
+                downtime_s = (datetime.datetime.now(pybreaker.UTC) - cb._state_storage.opened_at).total_seconds()
+                
+            logger.info(
+                "Circuit breaker closed",
+                service=self.service_name,
+                closed_at=time.time(),
+                downtime_s=downtime_s
+            )
+
+
+rag_breaker = pybreaker.CircuitBreaker(
+    fail_max=3, 
+    reset_timeout=60, 
+    listeners=[MetricsCircuitBreakerListener("rag")]
+)
+writing_breaker = pybreaker.CircuitBreaker(
+    fail_max=3, 
+    reset_timeout=60, 
+    listeners=[MetricsCircuitBreakerListener("writing")]
+)
+
+async def call_with_breaker(breaker: pybreaker.CircuitBreaker, client: httpx.AsyncClient, url: str, payload: dict, headers: dict):
+    state = breaker.current_state
+    if state == "open":
+        opened_at = breaker._state_storage.opened_at
+        if opened_at:
+            timeout = datetime.timedelta(seconds=breaker.reset_timeout)
+            if opened_at + timeout < datetime.datetime.now(pybreaker.UTC):
+                breaker.half_open()
+            else:
+                raise pybreaker.CircuitBreakerError("Circuit is open")
+        else:
+            raise pybreaker.CircuitBreakerError("Circuit is open")
+
+    try:
+        response = await client.post(url, json=payload, headers=headers)
+        response.raise_for_status()
+        data = response.json()
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code < 500:
+            raise e
+        if breaker.is_system_error(e):
+            def fail(): raise e
+            try: breaker.call(fail)
+            except Exception: pass
+        raise e
+    except Exception as e:
+        if breaker.is_system_error(e):
+            def fail(): raise e
+            try: breaker.call(fail)
+            except Exception: pass
+        raise e
+        
+    breaker.call(lambda: None)
+    return data
+        
+
+
+
+async def call_rag(client: httpx.AsyncClient, url: str, payload: dict, headers: dict):
+    response = await client.post(url, json=payload, headers=headers)
+    response.raise_for_status()
+    return response.json()
+
+async def call_writing(client: httpx.AsyncClient, url: str, payload: dict, headers: dict):
+    response = await client.post(url, json=payload, headers=headers)
+    response.raise_for_status()
+    return response.json()
 
 
 async def forward_downstream_stream(
@@ -13,100 +112,133 @@ async def forward_downstream_stream(
         intent: str,
         message: str,
         user_id: str,
-        correlation_id: str
-) -> AsyncGenerator[str, None]:
+        correlation_id: str,
+        attachments: Optional[List[str]] = None
+) -> AsyncGenerator[ChatStreamEvent, None]:
     """
-    Calls the appropriate downstream service based on intent, propagates tracking headers,
-    measures latency, and yields response tokens chunk-by-chunk.
-    Implements a graceful fallback (circuit breaker) if the downstream service is offline.
+    Routes the request to the target microservice based on intent classification.
+    Yields strictly-typed ChatStreamEvent objects to ensure frontend contract integrity.
     """
-
-
     headers = {
         "X-Internal-Api-Key": settings.internal_api_key,
         "X-Correlation-Id": correlation_id,
         "Content-Type": "application/json"
     }
 
-     # 1. Determine target service and URL based on intent classification
-    service_name = intent.lower()
-    target_url = ""
-    payload = {}
-    if intent == "RAG" or intent == "OPPORTUNITY_SEARCH":
-        # OPPORTUNITY_SEARCH implicitly routes to RAG in Sprint 1
-        target_url = f"{settings.rag_service_url}/query"
-        payload = {"question": message, "userId": user_id}
-        service_name = "rag"
-    elif intent == "WRITING" or intent == "CV_REVIEW":
-        # CV_REVIEW implicitly routes to Writing in Sprint 1
-        target_url = f"{settings.writing_service_url}/essays"
-        payload = {
-            "userId": user_id,
-            "essayText": message,
-            "submissionType": "task2"
-        }
-        service_name = "writing"
-    elif intent == "SPEAKING":
-        target_url = f"{settings.speaking_service_url}/chat"
-        payload = {"message": message, "userId": user_id}
-        service_name = "speaking"
-    logger.info(
-        "Routing message downstream",
-        intent=intent,
-        service=service_name,
-        url=target_url,
-        correlation_id=correlation_id
-    )
+    intent = intent.upper()
+    correlation_id_var.set(correlation_id)
+    
+    if intent == "SPEAKING":
+        ws_url = f"{settings.speaking_service_url.replace('http', 'ws')}/ws"
+        yield ChatStreamEvent(type="speaking_url", wsUrl=ws_url)
+        return
+
+    service_name = ""
     start_time = time.perf_counter()
 
     try:
-        # In Sprint 1, RAG and Writing are non-streaming REST endpoints.
-        # We call them and yield their responses chunk-by-chunk to simulate streaming.
-        # Speaking has no REST endpoint, so it will raise an exception or 404,
-        # triggering the fallback block.
+        if intent == "WRITING":
+            service_name = "writing"
+            url = f"{settings.writing_service_url}/essays"
+            payload = {"userId": user_id, "essayText": message, "submissionType": "task2"}
+            
+            logger.info("Routing message downstream", intent=intent, service=service_name, url=url, correlation_id=correlation_id)
+            data = await call_with_breaker(writing_breaker,client, url, payload, headers)
+            duration_ms = (time.perf_counter() - start_time) * 1000
+            goa_orchestration_downstream_latency_ms.labels(service=service_name).observe(duration_ms)
+            
+            essay_id = data.get("id", "unknown")
+            sse_url = f"{settings.writing_service_url}/essays/{essay_id}/evaluate"
+            yield ChatStreamEvent(type="writing_url", essayId=essay_id, sseUrl=sse_url)
 
-        response = await client.post(target_url, json=payload, headers=headers, timeout=10.0)
-        #Observe downstream latency
-        duration_ms = (time.perf_counter() - start_time) * 1000
-        goa_orchestration_downstream_latency_ms.labels(service=service_name).observe(duration_ms)
-        if response.status_code == 200:
-            data = response.json()
-            if service_name == "rag":
-                answer = data.get("answer", "No answer received.")
-            elif service_name == "writing":
-                essay_id = data.get("id", "unknown")
-                status = data.get("status", "ready")
-                answer = f"Essay submitted successfully! ID: {essay_id}. Status: {status}."
-            else:
-                answer = str(data)
-            # Yield chunks to simulate streaming
+        elif intent == "RAG":
+            service_name = "rag"
+            url = f"{settings.rag_service_url}/query"
+            payload = {"question": message, "userId": user_id}
+            
+            logger.info("Routing message downstream", intent=intent, service=service_name, url=url, correlation_id=correlation_id)
+            data = await call_with_breaker(rag_breaker, client, url, payload, headers)
+            duration_ms = (time.perf_counter() - start_time) * 1000
+            goa_orchestration_downstream_latency_ms.labels(service=service_name).observe(duration_ms)
+            
+            answer = data.get("answer", "No answer received.")
+            import asyncio
             chunk_size = 5
             for i in range(0, len(answer), chunk_size):
-                yield answer[i:i + chunk_size]
+                await asyncio.sleep(0.02)
+                yield ChatStreamEvent(type="token", content=answer[i:i + chunk_size])
+            
+            sources = data.get("sources", [])
+            if sources:
+                yield ChatStreamEvent(type="sources", sources=sources)
+
+        elif intent == "OPPORTUNITY_SEARCH":
+            service_name = "rag"
+            url = f"{settings.rag_service_url}/match"
+            payload = {"userId": user_id}
+            
+            logger.info("Routing message downstream", intent=intent, service=service_name, url=url, correlation_id=correlation_id)
+            data = await call_with_breaker(rag_breaker, client, url, payload, headers)
+            duration_ms = (time.perf_counter() - start_time) * 1000
+            goa_orchestration_downstream_latency_ms.labels(service=service_name).observe(duration_ms)
+            
+            programs = data.get("programs", [])
+            yield ChatStreamEvent(type="match_results", programs=programs)
+
+        elif intent == "CV_REVIEW":
+            service_name = "writing"
+            url = f"{settings.writing_service_url}/essays"
+            cv_text = attachments[0] if attachments else message
+            payload = {"userId": user_id, "essayText": cv_text, "submissionType": "task2"}
+            
+            logger.info("Routing CV downstream to Writing", intent=intent, service=service_name, url=url, correlation_id=correlation_id)
+            data = await call_with_breaker(writing_breaker ,client, url, payload, headers)
+            duration_ms = (time.perf_counter() - start_time) * 1000
+            goa_orchestration_downstream_latency_ms.labels(service=service_name).observe(duration_ms)
+
+            # CV Workflow Part 2: Extract text and feed to RAG
+            service_name = "rag"
+            rag_url = f"{settings.rag_service_url}/query"
+            rag_payload = {"question": f"Review this CV: {cv_text}", "userId": user_id}
+            start_time_rag = time.perf_counter()
+            
+            logger.info("Routing extracted CV downstream to RAG", intent=intent, service=service_name, url=rag_url, correlation_id=correlation_id)
+            data = await call_with_breaker(rag_breaker,client, rag_url, rag_payload, headers)
+            duration_ms_rag = (time.perf_counter() - start_time_rag) * 1000
+            goa_orchestration_downstream_latency_ms.labels(service=service_name).observe(duration_ms_rag)
+
+            answer = data.get("answer", "No answer received.")
+            chunk_size = 5
+            import asyncio
+            for i in range(0, len(answer), chunk_size):
+                await asyncio.sleep(0.02)
+                yield ChatStreamEvent(type="token", content=answer[i:i + chunk_size])
+            
+            sources = data.get("sources", [])
+            if sources:
+                yield ChatStreamEvent(type="sources", sources=sources)
+
+    except pybreaker.CircuitBreakerError:
+        if intent in ["WRITING", "CV_REVIEW"]:
+            yield ChatStreamEvent(type="error", error="I'm sorry, but the Writing evaluation service is currently offline. Please try again later.")
         else:
-            logger.error(
-                "Downstream service returned error status",
-                status_code=response.status_code,
-                text=response.text
-            )
-            response.raise_for_status()
+            yield ChatStreamEvent(type="error", error="I'm sorry, but the global opportunity database is currently offline. Please try again later.")
     except (httpx.HTTPError, Exception) as e:
         duration_ms = (time.perf_counter() - start_time) * 1000
         logger.warning(
             "Downstream service unavailable - activating fallback",
             service=service_name,
             error=str(e),
-            latency_ms=duration_ms
+            latency_ms=duration_ms,
+            correlation_id=correlation_id
         )
-        
-        # Observe latency even for failures
         goa_orchestration_downstream_latency_ms.labels(service=service_name).observe(duration_ms)
-        # Graceful fallback messages (Circuit Breaker pattern)
-        if intent == "SPEAKING":
-            yield "I'm sorry, but the Speaking practice service is currently offline. Please try again later."
-        elif intent == "WRITING" or intent == "CV_REVIEW":
-            yield "I'm sorry, but the Writing evaluation service is currently offline. Please try again later."
-        elif intent == "RAG" or intent == "OPPORTUNITY_SEARCH":
-            yield "I'm sorry, but the global opportunity database is currently offline. Please try again later."
+        
+        # We explicitly log ReadTimeouts differently for clarity
+        if isinstance(e, httpx.ReadTimeout):
+            logger.error(f"Timeout (30s) reached connecting to {service_name}")
+            
+        if intent in ["WRITING", "CV_REVIEW"]:
+            yield ChatStreamEvent(type="error", error="I'm sorry, but the Writing evaluation service is currently offline. Please try again later.")
         else:
-            yield "I'm sorry, but the requested service is currently unavailable."
+            yield ChatStreamEvent(type="error", error="I'm sorry, but the global opportunity database is currently offline. Please try again later.")

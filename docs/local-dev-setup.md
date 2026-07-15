@@ -24,10 +24,12 @@ cd GOA
 ### 2. Configure Environment Variables
 Copy the `.env.example` template files in the root folder or within each service directory to `.env`:
 ```bash
+cp .env.example .env
 cp services/orchestration/.env.example services/orchestration/.env
 cp services/rag/.env.example services/rag/.env
 cp services/speaking/.env.example services/speaking/.env
 cp services/gateway/.env.example services/gateway/.env
+cp services/writing/.env.example services/writing/.env
 ```
 Fill in the credentials (e.g. `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `ELEVENLABS_API_KEY`) if you have them. For offline development, mock values can be used.
 

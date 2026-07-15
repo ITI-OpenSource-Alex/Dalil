@@ -8,6 +8,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Query,
 } from '@nestjs/common';
 
 import { UsersService } from './users.service';
@@ -25,6 +26,17 @@ export class UsersController {
   @Post()
   register(@Body() createUserDto: CreateUserDto) {
     return this.usersService.register(createUserDto);
+  }
+
+  @Get('internal')
+  @UseGuards(InternalAuthGuard)
+  async findAllPaginated(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '50',
+  ) {
+    const pageNum = parseInt(page, 10) || 1;
+    const limitNum = parseInt(limit, 10) || 50;
+    return this.usersService.findAllPaginated(pageNum, limitNum);
   }
 
   @Get(':id')

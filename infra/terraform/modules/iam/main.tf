@@ -23,6 +23,11 @@ locals {
   session_manager_log_group_name = coalesce(var.session_manager_log_group_name, "/aws/ssm/${local.name_prefix}/session-manager")
   session_manager_kms_key_id     = trimspace(var.session_manager_kms_key_id)
   session_manager_s3_bucket_name = trimspace(var.session_manager_s3_bucket_name)
+
+  lambda_secret_arns       = distinct(var.lambda_secret_arns)
+  lambda_kms_key_arns      = distinct(var.lambda_kms_key_arns)
+  lambda_sqs_queue_arns    = distinct(var.lambda_sqs_queue_arns)
+  create_lambda_app_policy = length(local.lambda_secret_arns) > 0 || length(local.lambda_sqs_queue_arns) > 0 || length(local.lambda_kms_key_arns) > 0
 }
 
 data "aws_iam_policy_document" "ecs_tasks_assume_role" {
@@ -295,4 +300,94 @@ resource "aws_ssm_document" "session_manager_preferences" {
       Role = "session-manager-preferences"
     }
   )
+}
+
+data "aws_iam_policy_document" "lambda_assume_role" {
+  statement {
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["lambda.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "lambda_execution" {
+  name               = "${local.name_prefix}-lambda-execution-role"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
+  description        = "Execution role assumed by GOA async worker Lambda functions."
+  tags = merge(
+    local.common_tags,
+    {
+      Name = "${local.name_prefix}-lambda-execution-role"
+      Role = "lambda-execution"
+    }
+  )
+}
+
+# Covers CloudWatch Logs (create group/stream, put events) plus the EC2
+# network-interface actions Lambda needs to run inside the VPC.
+resource "aws_iam_role_policy_attachment" "lambda_vpc_access" {
+  role       = aws_iam_role.lambda_execution.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
+data "aws_iam_policy_document" "lambda_app" {
+  count = local.create_lambda_app_policy ? 1 : 0
+
+  dynamic "statement" {
+    for_each = length(local.lambda_secret_arns) > 0 ? [1] : []
+    content {
+      sid = "ReadLambdaSecrets"
+      actions = [
+        "secretsmanager:DescribeSecret",
+        "secretsmanager:GetSecretValue",
+      ]
+      resources = local.lambda_secret_arns
+    }
+  }
+
+  dynamic "statement" {
+    for_each = length(local.lambda_sqs_queue_arns) > 0 ? [1] : []
+    content {
+      sid = "UseLambdaQueues"
+      actions = [
+        "sqs:ChangeMessageVisibility",
+        "sqs:DeleteMessage",
+        "sqs:GetQueueAttributes",
+        "sqs:GetQueueUrl",
+        "sqs:ReceiveMessage",
+        "sqs:SendMessage",
+      ]
+      resources = local.lambda_sqs_queue_arns
+    }
+  }
+
+  dynamic "statement" {
+    for_each = length(local.lambda_kms_key_arns) > 0 ? [1] : []
+    content {
+      sid = "UseLambdaKeys"
+      actions = [
+        "kms:Decrypt",
+        "kms:DescribeKey",
+        "kms:Encrypt",
+        "kms:GenerateDataKey",
+      ]
+      resources = local.lambda_kms_key_arns
+    }
+  }
+}
+
+resource "aws_iam_policy" "lambda_app" {
+  count       = local.create_lambda_app_policy ? 1 : 0
+  name        = "${local.name_prefix}-lambda-app-policy"
+  description = "Allows GOA Lambda workers to access explicitly listed runtime dependencies."
+  policy      = data.aws_iam_policy_document.lambda_app[0].json
+  tags        = local.common_tags
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_app" {
+  count      = local.create_lambda_app_policy ? 1 : 0
+  role       = aws_iam_role.lambda_execution.name
+  policy_arn = aws_iam_policy.lambda_app[0].arn
 }

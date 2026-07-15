@@ -172,3 +172,48 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "aws_account_id" {
+  description = "AWS account ID, used for S3 bucket notification source_account."
+  type        = string
+}
+
+variable "image_tag" {
+  description = "Container image tag to deploy for all Lambda workers (CI passes the git SHA)."
+  type        = string
+  default     = "latest"
+}
+
+variable "ecr_cv_processor_repo_url" {
+  description = "ECR repository URL for the cv-processor image (without tag)."
+  type        = string
+}
+
+variable "ecr_scholarship_matcher_repo_url" {
+  description = "ECR repository URL for the scholarship-matcher image (without tag)."
+  type        = string
+}
+
+variable "ecr_notification_sender_repo_url" {
+  description = "ECR repository URL for the notification-sender image (without tag)."
+  type        = string
+}
+
+# --- Temporary, until modules/secrets and modules/sqs exist (see GOA-070) ---
+variable "lambda_secret_arns" {
+  description = "Secret ARNs Lambda workers may read. Empty until modules/secrets exists."
+  type        = list(string)
+  default     = []
+}
+
+variable "sqs_notification_queue_arn" {
+  description = "ARN of the SQS queue notification-sender consumes. Null until modules/sqs exists — the SQS trigger is skipped while null."
+  type        = string
+  default     = null
+}
+
+variable "sqs_notification_queue_url" {
+  description = "URL of the SQS queue notification-sender consumes. Null until modules/sqs exists."
+  type        = string
+  default     = null
+}

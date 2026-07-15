@@ -195,7 +195,7 @@ def test_api_visa_requirements_endpoint(monkeypatch):
 
     mock_pool = MagicMock()
     mock_conn = AsyncMock()
-    mock_conn.fetchrow = AsyncMock(side_effect=[None, {"id": "11111111-1111-1111-1111-111111111111"}])
+    mock_conn.fetchrow = AsyncMock(return_value={"id": "11111111-1111-1111-1111-111111111111", "inserted": True})
     mock_tx_ctx = MagicMock()
     mock_tx_ctx.__aenter__ = AsyncMock(return_value=None)
     mock_tx_ctx.__aexit__ = AsyncMock(return_value=None)

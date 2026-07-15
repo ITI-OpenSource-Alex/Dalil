@@ -36,3 +36,7 @@ tmp/
 Sprint_1_Detailed_Plan.md
 sprint_1_review.md
 GOA_Sprint_1_Tickets.md
+
+# Local Python virtual environments
+.venv_check/
+services/rag/.venv_check/

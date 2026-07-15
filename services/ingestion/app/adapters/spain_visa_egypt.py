@@ -14,6 +14,17 @@ _AMOUNT_EUR_RE = re.compile(r"(?:€|EUR)\s?([\d.,]+)", re.IGNORECASE)
 _ARABIC_RE = re.compile(r"[؀-ۿ]")
 _LATIN_RE = re.compile(r"[A-Za-z]")
 
+# This source only publishes its content in Spanish (e.g. "en el plazo máximo de un
+# mes" -- "within a maximum period of one month"), so the English "N-M days" regex
+# above never matches. Fall back to Spanish month/day phrasing rather than leaving
+# genuinely-present processing-time information unextracted.
+_SPANISH_NUMBER_WORDS = {
+    "un": 1, "uno": 1, "una": 1, "dos": 2, "tres": 3, "cuatro": 4, "cinco": 5, "seis": 6,
+}
+_PROCESSING_PLAZO_ES_RE = re.compile(
+    r"plazo\s+m[aá]ximo\s+de\s+(\w+)\s+(mes|d[ií]a)", re.IGNORECASE
+)
+
 
 def _is_arabic_only(soup: BeautifulSoup) -> bool:
     """Detects Arabic-only pages so they can be skipped gracefully (per GOA-086)."""
@@ -28,17 +39,40 @@ def _is_arabic_only(soup: BeautifulSoup) -> bool:
 
 def _extract_processing_days(text: str):
     match = _PROCESSING_DAYS_RE.search(text)
-    if not match:
-        return None, None
-    return int(match.group(1)), int(match.group(2))
+    if match:
+        return int(match.group(1)), int(match.group(2))
+    es_match = _PROCESSING_PLAZO_ES_RE.search(text)
+    if es_match:
+        count = _SPANISH_NUMBER_WORDS.get(es_match.group(1).lower())
+        if count is not None:
+            unit = es_match.group(2).lower()
+            days = count * 30 if unit == "mes" else count
+            return None, days
+    return None, None
 
 
 def _extract_amount_eur(text: str):
     match = _AMOUNT_EUR_RE.search(text)
     if not match:
         return None
+    raw = match.group(1)
+    # Normalize European (1.234,56) vs US (1,234.56) vs plain (1234) number
+    # formats before parsing -- German/European sources conventionally use "."
+    # as the thousands separator and "," as the decimal separator.
+    if "," in raw and "." in raw:
+        if raw.rfind(",") > raw.rfind("."):
+            raw = raw.replace(".", "").replace(",", ".")
+        else:
+            raw = raw.replace(",", "")
+    elif "," in raw:
+        _, _, frac_part = raw.rpartition(",")
+        raw = raw.replace(",", "") if len(frac_part) == 3 else raw.replace(",", ".")
+    elif "." in raw:
+        _, _, frac_part = raw.rpartition(".")
+        if len(frac_part) == 3:
+            raw = raw.replace(".", "")
     try:
-        return float(match.group(1).replace(",", ""))
+        return float(raw)
     except ValueError:
         return None
 
@@ -80,18 +114,43 @@ class SpainVisaEgyptAdapter(BaseAdapter):
 
     def __init__(self):
         super().__init__(
-            # The domain follows the Spanish MFA's known per-consulate subsite pattern.
-            # The exact visa-requirements page path is unconfirmed (see GOA-086
-            # implementation plan Task 14, Prerequisites) and must be set before
-            # production scraping.
-            base_url="https://www.exteriores.gob.es/consulados/elcairo",
-            target_url="https://www.exteriores.gob.es/consulados/elcairo",
+            # The general national-visa landing page (GOA-086's original target) has
+            # no outbound link to a dedicated student-visa page at all -- extract_urls
+            # legitimately finds nothing there, so it silently degrades to reporting
+            # its own generic, non-study-specific content. The real "Visado de
+            # estudios" (student visa) detail -- document checklist, eligible
+            # activities, procedure -- lives behind this consular service-finder
+            # widget's query parameters instead of a crawlable <a href>, discovered
+            # by inspecting the widget's own <option> values (only published in
+            # Spanish; no English equivalent of this route is accessible).
+            base_url="https://exteriores.gob.es",
+            target_url=(
+                "https://exteriores.gob.es/Embajadas/elcairo/es/ServiciosConsulares/"
+                "Paginas/index.aspx?scca=Visados&scco=Egipto&scd=140&"
+                "scs=Visados%20Nacionales%20-%20Visado%20de%20estudios"
+            ),
             source_name="spain_visa_egypt",
             category="visa",
             country="Spain",
             min_delay=2.0,
             max_delay=3.0,
         )
+
+    def extract_urls(self, html: str) -> list[str]:
+        """Discovers a dedicated study/student visa page linked from the general
+        national-visas landing page, if the consulate publishes one as a separate
+        page. If no such link exists, extract_urls returns [] and the base template
+        falls back to scraping the landing page's own content instead."""
+        soup = BeautifulSoup(html, "lxml")
+        urls = []
+        for a in soup.find_all("a", href=True):
+            href = a["href"]
+            link_text = a.get_text(strip=True)
+            if re.search(r"stud(y|ies|ent)", link_text, re.IGNORECASE):
+                full_url = href if href.startswith("http") else f"{self.base_url}{href}"
+                if full_url not in urls:
+                    urls.append(full_url)
+        return urls
 
     def extract_documents(self, html: str, url: str = None) -> list[dict]:
         soup = BeautifulSoup(html, "lxml")

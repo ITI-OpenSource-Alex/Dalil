@@ -21,6 +21,7 @@ import uuid
 
 import asyncpg
 import pytest
+from pgvector.asyncpg import register_vector
 from unittest.mock import AsyncMock, MagicMock
 from fastapi.testclient import TestClient
 
@@ -34,6 +35,8 @@ def live_client():
     (db.connect() / db.disconnect()), giving request handlers a real, connected
     app.core.database.db.pool for the duration of the block -- required since
     query_rag() and upsert_visa_requirements() both call db.pool.acquire() directly.
+    app.core.database.py registers pgvector's asyncpg codec on this pool, so real
+    Python lists can be passed directly as $N::vector parameters.
     """
     with TestClient(app) as c:
         yield c
@@ -43,27 +46,11 @@ FIXED_EMBEDDING = [0.15] * 1536
 UNRELATED_EMBEDDING = [-0.15] * 1536
 
 
-def _vec_str(vector: list) -> str:
-    """
-    Renders a vector as pgvector's plain-text input format ("[v1,v2,...]").
-
-    NOTE: this codebase's asyncpg pool (app/core/database.py) never registers
-    pgvector's binary codec (pgvector.asyncpg.register_vector), so passing a raw
-    Python list as a $N::vector parameter fails with "expected str, got list" --
-    discovered while writing this integration test. That gap predates GOA-086 (it's
-    in the original GOA-006 RAG scaffold) and fixing app/core/database.py is out of
-    scope for this task ("no production code changes expected"). Passing the vector's
-    text representation instead works around it entirely within this test file.
-    """
-    return "[" + ",".join(repr(v) for v in vector) + "]"
-
-
 @pytest.fixture(autouse=True)
 def mock_ai_apis(monkeypatch):
     """Mock only the external OpenAI/Anthropic calls -- no real API keys are configured
-    for this project. Retrieval itself still hits the real, live Postgres. The mocked
-    embedding is returned in pgvector's text format -- see _vec_str's docstring."""
-    mock_embed = AsyncMock(return_value=_vec_str(FIXED_EMBEDDING))
+    for this project. Retrieval itself still hits the real, live Postgres."""
+    mock_embed = AsyncMock(return_value=FIXED_EMBEDDING)
     monkeypatch.setattr("langchain_openai.OpenAIEmbeddings.aembed_query", mock_embed)
 
     mock_response = MagicMock()
@@ -81,13 +68,22 @@ def _run(coro):
     return asyncio.run(coro)
 
 
-async def _insert_document(doc_id, source_url, category, content, embedding):
+async def _connect():
+    """A standalone connection (independent of app.core.database.db.pool) with
+    pgvector's codec registered, so vector columns can be written/read as plain
+    Python lists here too."""
     conn = await asyncpg.connect(dsn=settings.database_url)
+    await register_vector(conn)
+    return conn
+
+
+async def _insert_document(doc_id, source_url, category, content, embedding):
+    conn = await _connect()
     try:
         await conn.execute(
             "INSERT INTO documents (id, content, embedding, source_url, category, last_updated) "
             "VALUES ($1, $2, $3::vector, $4, $5, NOW())",
-            doc_id, content, _vec_str(embedding), source_url, category,
+            doc_id, content, embedding, source_url, category,
         )
     finally:
         await conn.close()
@@ -105,9 +101,21 @@ async def _fetch_visa_requirement(row_id):
     conn = await asyncpg.connect(dsn=settings.database_url)
     try:
         return await conn.fetchrow(
-            "SELECT country, visa_type, issuing_body, egyptian_specific "
+            "SELECT country, visa_type, issuing_body, egyptian_specific, last_scraped_at "
             "FROM visa_requirements WHERE id = $1",
             row_id,
+        )
+    finally:
+        await conn.close()
+
+
+async def _count_visa_requirements(country, visa_type, issuing_body):
+    conn = await asyncpg.connect(dsn=settings.database_url)
+    try:
+        return await conn.fetchval(
+            "SELECT COUNT(*) FROM visa_requirements "
+            "WHERE country = $1 AND visa_type = $2 AND issuing_body = $3",
+            country, visa_type, issuing_body,
         )
     finally:
         await conn.close()
@@ -166,11 +174,76 @@ def test_visa_requirements_endpoint_persists_via_real_http_and_real_db(live_clie
         ))
 
 
+def test_visa_requirements_endpoint_is_idempotent_for_identical_resubmission(live_client):
+    """Submitting the exact same payload twice must not create a duplicate row, and
+    must leave last_scraped_at unchanged (the whole point of content_hash-aware
+    skipping is to avoid needless churn when nothing actually changed)."""
+    payload = {
+        "country": "Germany",
+        "visa_type": "Student Visa (Idempotency Test)",
+        "issuing_body": "GOA-086 Idempotency Test",
+        "requirements": {"items": ["Valid passport"]},
+        "proof_of_funds": {"amount_eur": 11208.0},
+        "source_url": "https://kairo.diplo.de/idempotency-test",
+        "processing_days_min": 15,
+        "processing_days_max": 20,
+        "notes": None,
+        "content_hash": "identical-content-hash",
+        "egyptian_specific": True,
+    }
+
+    try:
+        first = live_client.post(
+            "/internal/visa-requirements", json=payload,
+            headers={"X-Internal-Api-Key": settings.internal_api_key},
+        )
+        assert first.status_code == 200
+        first_data = first.json()
+        assert first_data["action"] == "inserted"
+
+        row_after_first = _run(_fetch_visa_requirement(uuid.UUID(first_data["id"])))
+        last_scraped_at_after_first = row_after_first["last_scraped_at"]
+
+        # Resubmit the exact same payload.
+        second = live_client.post(
+            "/internal/visa-requirements", json=payload,
+            headers={"X-Internal-Api-Key": settings.internal_api_key},
+        )
+        assert second.status_code == 200
+        second_data = second.json()
+        assert second_data["action"] == "unchanged"
+        assert second_data["id"] == first_data["id"]
+
+        # No duplicate row: exactly one row for this key.
+        count = _run(_count_visa_requirements(
+            payload["country"], payload["visa_type"], payload["issuing_body"]
+        ))
+        assert count == 1
+
+        row_after_second = _run(_fetch_visa_requirement(uuid.UUID(second_data["id"])))
+        assert row_after_second["last_scraped_at"] == last_scraped_at_after_first
+    finally:
+        _run(_delete_visa_requirement(
+            payload["country"], payload["visa_type"], payload["issuing_body"]
+        ))
+
+
 # ---------------------------------------------------------------------------
 # /query against real, live-retrieved content
 # ---------------------------------------------------------------------------
 
 def test_query_answers_aps_certificate_question_from_real_retrieval(live_client, mock_ai_apis):
+    """
+    NOTE on source domains: the Definition of Done's example expects a citation of
+    "cairo.diplo.de" or "aps-egypt.de". This project's actual GermanEmbassyCairoAdapter
+    / APSCairoAdapter are configured against "kairo.diplo.de" (the German missions'
+    real <city>.diplo.de convention -- Kairo is the German spelling) and
+    "aps-cairo.org" -- neither exact domain was ever confirmed by live browsing (both
+    plans explicitly flag the exact source URL as an open item). Rather than swap in
+    the DoD's suggested domains on no better evidence, this test asserts a citation of
+    the adapter's actual configured domain, which is the substantively correct thing
+    to verify (that retrieval genuinely finds and cites the APS Cairo source).
+    """
     _, mock_llm = mock_ai_apis
     aps_id = uuid.uuid4()
     distractor_id = uuid.uuid4()
@@ -190,7 +263,7 @@ def test_query_answers_aps_certificate_question_from_real_retrieval(live_client,
         ))
 
         response = live_client.post("/query", json={
-            "question": "Do I need an APS certificate for my German student visa?",
+            "question": "Do I need an APS certificate for Germany?",
             "userId": "task18-integration-test-user",
             "topK": 3,
         })
@@ -212,6 +285,9 @@ def test_query_answers_aps_certificate_question_from_real_retrieval(live_client,
 
 
 def test_query_answers_blocked_account_question_from_real_retrieval(live_client, mock_ai_apis):
+    """DoD expects a citation mentioning "Fintiba or Expatrio" -- this project's
+    FintibaSperrkontoAdapter is genuinely about Fintiba, so asserting the retrieved
+    content mentions "Fintiba" directly satisfies that either/or condition."""
     _, mock_llm = mock_ai_apis
     fintiba_id = uuid.uuid4()
     distractor_id = uuid.uuid4()
@@ -231,7 +307,7 @@ def test_query_answers_blocked_account_question_from_real_retrieval(live_client,
         ))
 
         response = live_client.post("/query", json={
-            "question": "How much do I need in my blocked account for a German student visa?",
+            "question": "How do I open a blocked account from Egypt?",
             "userId": "task18-integration-test-user",
             "topK": 3,
         })
@@ -241,6 +317,7 @@ def test_query_answers_blocked_account_question_from_real_retrieval(live_client,
 
         prompt_sent_to_llm = mock_llm.call_args[0][0]
         assert "blocked account" in prompt_sent_to_llm.lower()
+        assert "Fintiba" in prompt_sent_to_llm
 
         cited_urls = {s["source_url"] for s in data["sources"]}
         assert fintiba_source_url in cited_urls

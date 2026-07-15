@@ -10,6 +10,14 @@ from app.adapters.base_adapter import BaseAdapter
 # Intentionally conservative: fields stay None/empty when nothing matches rather than
 # guessing, per GOA-086's "do not fabricate data" requirement.
 _PROCESSING_DAYS_RE = re.compile(r"(\d+)\s*(?:-|to|–)\s*(\d+)\s*(?:working\s+)?days", re.IGNORECASE)
+# gov.uk states decision times in weeks, not a "N-M days" range (e.g. "3 weeks, if you're
+# outside the UK" / "8 weeks, if you're inside the UK") -- fall back to scanning the
+# "get a decision" section for week counts and convert to days rather than leaving this
+# genuinely-present timing information unextracted.
+_PROCESSING_WEEKS_TWO_RE = re.compile(
+    r"decision.{0,400}?(\d+)\s*weeks?.{0,200}?(\d+)\s*weeks?", re.IGNORECASE | re.DOTALL
+)
+_PROCESSING_WEEKS_ONE_RE = re.compile(r"decision.{0,400}?(\d+)\s*weeks?", re.IGNORECASE | re.DOTALL)
 _AMOUNT_EUR_RE = re.compile(r"(?:€|EUR)\s?([\d.,]+)", re.IGNORECASE)
 _ARABIC_RE = re.compile(r"[؀-ۿ]")
 _LATIN_RE = re.compile(r"[A-Za-z]")
@@ -28,17 +36,41 @@ def _is_arabic_only(soup: BeautifulSoup) -> bool:
 
 def _extract_processing_days(text: str):
     match = _PROCESSING_DAYS_RE.search(text)
-    if not match:
-        return None, None
-    return int(match.group(1)), int(match.group(2))
+    if match:
+        return int(match.group(1)), int(match.group(2))
+    two_weeks_match = _PROCESSING_WEEKS_TWO_RE.search(text)
+    if two_weeks_match:
+        values = [int(two_weeks_match.group(1)) * 7, int(two_weeks_match.group(2)) * 7]
+        return min(values), max(values)
+    one_week_match = _PROCESSING_WEEKS_ONE_RE.search(text)
+    if one_week_match:
+        days = int(one_week_match.group(1)) * 7
+        return days, days
+    return None, None
 
 
 def _extract_amount_eur(text: str):
     match = _AMOUNT_EUR_RE.search(text)
     if not match:
         return None
+    raw = match.group(1)
+    # Normalize European (1.234,56) vs US (1,234.56) vs plain (1234) number
+    # formats before parsing -- German/European sources conventionally use "."
+    # as the thousands separator and "," as the decimal separator.
+    if "," in raw and "." in raw:
+        if raw.rfind(",") > raw.rfind("."):
+            raw = raw.replace(".", "").replace(",", ".")
+        else:
+            raw = raw.replace(",", "")
+    elif "," in raw:
+        _, _, frac_part = raw.rpartition(",")
+        raw = raw.replace(",", "") if len(frac_part) == 3 else raw.replace(",", ".")
+    elif "." in raw:
+        _, _, frac_part = raw.rpartition(".")
+        if len(frac_part) == 3:
+            raw = raw.replace(".", "")
     try:
-        return float(match.group(1).replace(",", ""))
+        return float(raw)
     except ValueError:
         return None
 
@@ -74,9 +106,8 @@ def _list_items_from_elements(elements) -> list:
 class UKVISAEgyptAdapter(BaseAdapter):
     """Scrapes UK student-visa requirements as they apply to Egypt-based applicants.
 
-    Sourced from the official UK government visa information (not VFS Global Egypt's own
-    application-centre pages, which are covered separately by VFSGlobalEgyptAdapter) so the
-    two adapters' (country, visa_type, issuing_body) keys never collide.
+    Sourced from the official UK government visa information, not any outsourced
+    application-centre partner's own pages.
     """
 
     ISSUING_BODY = "UK Visas and Immigration (UKVI)"
@@ -84,17 +115,34 @@ class UKVISAEgyptAdapter(BaseAdapter):
 
     def __init__(self):
         super().__init__(
-            # gov.uk is the UK government's real, official domain. The exact
-            # visa-requirements page path is unconfirmed (see GOA-086 implementation
-            # plan Task 10, Prerequisites) and must be set before production scraping.
+            # Verified official landing page (GOA-086 research): gov.uk's Student
+            # visa guide, which fans out into several child pages (money, documents,
+            # English requirements, etc.) under the same /student-visa/ path.
             base_url="https://www.gov.uk",
-            target_url="https://www.gov.uk",
+            target_url="https://www.gov.uk/student-visa",
             source_name="uk_visa_egypt",
             category="visa",
             country="UK",
             min_delay=2.0,
             max_delay=3.0,
         )
+
+    def extract_urls(self, html: str) -> list[str]:
+        """Discovers child guide pages (e.g. /student-visa/money) linked from the
+        Student visa landing page, following the same discovery pattern as DAADAdapter."""
+        soup = BeautifulSoup(html, "lxml")
+        urls = []
+        for a in soup.find_all("a", href=True):
+            # Strip tracking query strings (e.g. "?step-by-step-nav=<uuid>") as well as
+            # fragments -- gov.uk emits both a plain link and a step-by-step-nav-tagged
+            # variant of the same page, which would otherwise crawl as duplicate documents.
+            href = a["href"].split("#")[0].split("?")[0]
+            if not href.startswith("/student-visa/") and not href.startswith(f"{self.base_url}/student-visa/"):
+                continue
+            full_url = href if href.startswith("http") else f"{self.base_url}{href}"
+            if full_url != self.target_url and full_url not in urls:
+                urls.append(full_url)
+        return urls
 
     def extract_documents(self, html: str, url: str = None) -> list[dict]:
         soup = BeautifulSoup(html, "lxml")

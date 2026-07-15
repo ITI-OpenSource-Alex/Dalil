@@ -95,46 +95,50 @@ def make_mock_visa_db(monkeypatch, fetchrow_results=None):
 @pytest.mark.asyncio
 async def test_upsert_inserts_new_row(monkeypatch):
     new_id = uuid.uuid4()
-    # 1st fetchrow: SELECT existing -> no row. 2nd fetchrow: INSERT ... RETURNING id.
-    mock_conn = make_mock_visa_db(monkeypatch, fetchrow_results=[None, {"id": new_id}])
+    # Single atomic INSERT ... ON CONFLICT ... RETURNING id, (xmax = 0) AS inserted.
+    # A brand-new row has no conflict, so xmax = 0 -> inserted = True.
+    mock_conn = make_mock_visa_db(monkeypatch, fetchrow_results=[{"id": new_id, "inserted": True}])
 
     result = await upsert_visa_requirements(VALID_PAYLOAD)
 
     assert result == {"status": "success", "id": str(new_id), "action": "inserted"}
-    assert mock_conn.fetchrow.call_count == 2
+    assert mock_conn.fetchrow.call_count == 1
     mock_conn.execute.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_upsert_is_unchanged_when_content_hash_matches(monkeypatch):
     existing_id = uuid.uuid4()
-    # SELECT existing -> row with the SAME content_hash as the incoming payload.
+    # The DO UPDATE's WHERE clause suppresses the update when content_hash is
+    # unchanged, so RETURNING yields no row (None) -- the code falls back to a plain
+    # SELECT to report the existing row's id.
     mock_conn = make_mock_visa_db(
         monkeypatch,
-        fetchrow_results=[{"id": existing_id, "content_hash": VALID_PAYLOAD["content_hash"]}],
+        fetchrow_results=[None, {"id": existing_id}],
     )
 
     result = await upsert_visa_requirements(VALID_PAYLOAD)
 
     assert result == {"status": "success", "id": str(existing_id), "action": "unchanged"}
-    assert mock_conn.fetchrow.call_count == 1
+    assert mock_conn.fetchrow.call_count == 2
     mock_conn.execute.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_upsert_updates_when_content_hash_differs(monkeypatch):
     existing_id = uuid.uuid4()
-    # SELECT existing -> row with a DIFFERENT content_hash than the incoming payload.
+    # Conflicting row, content_hash differs -> DO UPDATE proceeds; the updated tuple
+    # is not a fresh insert, so xmax != 0 -> inserted = False.
     mock_conn = make_mock_visa_db(
         monkeypatch,
-        fetchrow_results=[{"id": existing_id, "content_hash": "a-different-hash"}],
+        fetchrow_results=[{"id": existing_id, "inserted": False}],
     )
 
     result = await upsert_visa_requirements(VALID_PAYLOAD)
 
     assert result == {"status": "success", "id": str(existing_id), "action": "updated"}
     assert mock_conn.fetchrow.call_count == 1
-    mock_conn.execute.assert_called_once()
+    mock_conn.execute.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -142,7 +146,7 @@ async def test_upsert_treats_matching_none_content_hash_as_unchanged(monkeypatch
     existing_id = uuid.uuid4()
     mock_conn = make_mock_visa_db(
         monkeypatch,
-        fetchrow_results=[{"id": existing_id, "content_hash": None}],
+        fetchrow_results=[None, {"id": existing_id}],
     )
     payload = dict(VALID_PAYLOAD)
     payload["content_hash"] = None
@@ -173,7 +177,7 @@ def test_visa_endpoint_with_wrong_api_key_returns_401():
 
 def test_visa_endpoint_with_correct_api_key_succeeds(monkeypatch):
     new_id = uuid.uuid4()
-    make_mock_visa_db(monkeypatch, fetchrow_results=[None, {"id": new_id}])
+    make_mock_visa_db(monkeypatch, fetchrow_results=[{"id": new_id, "inserted": True}])
 
     response = client.post(
         "/internal/visa-requirements",

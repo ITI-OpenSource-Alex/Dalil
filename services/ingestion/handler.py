@@ -17,10 +17,8 @@ from app.adapters.study_in_poland import StudyInPolandAdapter
 from app.adapters.stipendium_hungaricum import StipendiumHungaricumAdapter
 from app.adapters.masters_portal import MastersPortalAdapter
 from app.adapters.german_embassy_cairo import GermanEmbassyCairoAdapter
-from app.adapters.aps_cairo import APSCairoAdapter
 from app.adapters.campus_france_egypt import CampusFranceEgyptAdapter
 from app.adapters.uk_visa_egypt import UKVISAEgyptAdapter
-from app.adapters.vfs_global_egypt import VFSGlobalEgyptAdapter
 from app.adapters.fintiba_sperrkonto import FintibaSperrkontoAdapter
 from app.adapters.czech_embassy_cairo import CzechEmbassyCairoAdapter
 from app.adapters.spain_visa_egypt import SpainVisaEgyptAdapter
@@ -31,18 +29,27 @@ async def fetch_all_adapters():
     adapters = [
         IELTSOrgAdapter(), DAADAdapter(), CheveningAdapter(),
         StudyInPolandAdapter(), StipendiumHungaricumAdapter(), MastersPortalAdapter(),
-        GermanEmbassyCairoAdapter(), APSCairoAdapter(), CampusFranceEgyptAdapter(),
-        UKVISAEgyptAdapter(), VFSGlobalEgyptAdapter(), FintibaSperrkontoAdapter(),
+        GermanEmbassyCairoAdapter(), CampusFranceEgyptAdapter(),
+        UKVISAEgyptAdapter(), FintibaSperrkontoAdapter(),
         CzechEmbassyCairoAdapter(), SpainVisaEgyptAdapter(), ItalyEmbassyCairoAdapter(),
     ]
-    all_docs = []
-    all_visa_records = []
+    from langchain_core.documents import Document
+
     for adapter in adapters:
         logger.info("Scraping source: %s", adapter.source_name)
-        docs = await adapter.scrape()
-        # Convert to LangChain Documents
-        from langchain_core.documents import Document
-        for d in docs:
+
+    # Scrape all adapters concurrently; return_exceptions=True isolates a single
+    # adapter's failure so it can't abort the whole run (matches the isolation
+    # pattern already used in app/services/run_orchestrator.py).
+    results = await asyncio.gather(*[adapter.scrape() for adapter in adapters], return_exceptions=True)
+
+    all_docs = []
+    all_visa_records = []
+    for adapter, result in zip(adapters, results):
+        if isinstance(result, Exception):
+            logger.error("Adapter %s failed completely: %s", adapter.source_name, str(result))
+            continue
+        for d in result:
             # Structured visa requirements (GOA-086) are upserted independently of the
             # document chunk pipeline below, so pop them out before they'd otherwise be
             # discarded here -- see GOA-086 implementation plan Task 16.

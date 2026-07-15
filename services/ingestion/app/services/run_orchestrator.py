@@ -10,10 +10,8 @@ from app.adapters.study_in_poland import StudyInPolandAdapter
 from app.adapters.stipendium_hungaricum import StipendiumHungaricumAdapter
 from app.adapters.masters_portal import MastersPortalAdapter
 from app.adapters.german_embassy_cairo import GermanEmbassyCairoAdapter
-from app.adapters.aps_cairo import APSCairoAdapter
 from app.adapters.campus_france_egypt import CampusFranceEgyptAdapter
 from app.adapters.uk_visa_egypt import UKVISAEgyptAdapter
-from app.adapters.vfs_global_egypt import VFSGlobalEgyptAdapter
 from app.adapters.fintiba_sperrkonto import FintibaSperrkontoAdapter
 from app.adapters.czech_embassy_cairo import CzechEmbassyCairoAdapter
 from app.adapters.spain_visa_egypt import SpainVisaEgyptAdapter
@@ -41,17 +39,15 @@ async def run_ingestion():
         StipendiumHungaricumAdapter(),
         MastersPortalAdapter(),
         GermanEmbassyCairoAdapter(),
-        APSCairoAdapter(),
         CampusFranceEgyptAdapter(),
         UKVISAEgyptAdapter(),
-        VFSGlobalEgyptAdapter(),
         FintibaSperrkontoAdapter(),
         CzechEmbassyCairoAdapter(),
         SpainVisaEgyptAdapter(),
         ItalyEmbassyCairoAdapter(),
     ]
 
-    #Run all 15 concurrently. return_exceptions=True is critical for isolation!
+    #Run all 13 concurrently. return_exceptions=True is critical for isolation!
     results = await asyncio.gather(*[adapter.scrape() for adapter in adapters], return_exceptions=True)
     report = {
         "run_id": run_id,

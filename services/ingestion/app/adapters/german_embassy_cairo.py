@@ -1,10 +1,17 @@
 import hashlib
+import io
 import json
 import re
 
+import httpx
+import structlog
 from bs4 import BeautifulSoup
 
 from app.adapters.base_adapter import BaseAdapter
+from app.core.rate_limiter import polite_delay
+from app.core.robots import robot_checker
+
+logger = structlog.get_logger(__name__)
 
 # Regex heuristics for pulling genuinely-present structured facts out of page text.
 # Intentionally conservative: fields stay None/empty when nothing matches rather than
@@ -13,6 +20,12 @@ _PROCESSING_DAYS_RE = re.compile(r"(\d+)\s*(?:-|to|–)\s*(\d+)\s*(?:working\s+)
 _AMOUNT_EUR_RE = re.compile(r"(?:€|EUR)\s?([\d.,]+)", re.IGNORECASE)
 _ARABIC_RE = re.compile(r"[؀-ۿ]")
 _LATIN_RE = re.compile(r"[A-Za-z]")
+
+# The embassy publishes its study-visa leaflet under a rotating /resource/blob/...
+# path (e.g. ".../250210-studium-englisch-data.pdf") that changes whenever the
+# document is reissued -- so the link is discovered by filename convention
+# ("studium") rather than ever hardcoding a blob URL, matching StipendiumHungaricumAdapter.
+_STUDY_PDF_RE = re.compile(r"studium", re.IGNORECASE)
 
 
 def _is_arabic_only(soup: BeautifulSoup) -> bool:
@@ -37,8 +50,24 @@ def _extract_amount_eur(text: str):
     match = _AMOUNT_EUR_RE.search(text)
     if not match:
         return None
+    raw = match.group(1)
+    # Normalize European (1.234,56) vs US (1,234.56) vs plain (1234) number
+    # formats before parsing -- German/European sources conventionally use "."
+    # as the thousands separator and "," as the decimal separator.
+    if "," in raw and "." in raw:
+        if raw.rfind(",") > raw.rfind("."):
+            raw = raw.replace(".", "").replace(",", ".")
+        else:
+            raw = raw.replace(",", "")
+    elif "," in raw:
+        _, _, frac_part = raw.rpartition(",")
+        raw = raw.replace(",", "") if len(frac_part) == 3 else raw.replace(",", ".")
+    elif "." in raw:
+        _, _, frac_part = raw.rpartition(".")
+        if len(frac_part) == 3:
+            raw = raw.replace(".", "")
     try:
-        return float(match.group(1).replace(",", ""))
+        return float(raw)
     except ValueError:
         return None
 
@@ -79,12 +108,10 @@ class GermanEmbassyCairoAdapter(BaseAdapter):
 
     def __init__(self):
         super().__init__(
-            # The domain is the German Embassy Cairo's real site (all German missions
-            # abroad use the <city>.diplo.de pattern). The exact visa-requirements page
-            # path is unconfirmed (see GOA-086 implementation plan Task 07, Prerequisites)
-            # and must be set before this adapter is pointed at production scraping.
+            # Verified landing page (GOA-086 research): Service > Visa and Entry > Study
+            # on the German Embassy Cairo's official site.
             base_url="https://kairo.diplo.de",
-            target_url="https://kairo.diplo.de",
+            target_url="https://kairo.diplo.de/eg-de/service/05-visaeinreise/2573252-2573252",
             source_name="german_embassy_cairo",
             category="visa",
             country="Germany",
@@ -159,3 +186,68 @@ class GermanEmbassyCairoAdapter(BaseAdapter):
         }
         record["content_hash"] = _compute_content_hash(record)
         return record
+
+    def _discover_study_pdf_url(self, html: str) -> str:
+        """Finds the current English-language study-visa leaflet PDF, preferring the
+        "englisch" variant and skipping the Arabic one, without ever hardcoding a URL."""
+        soup = BeautifulSoup(html, "lxml")
+        fallback_pdf = None
+        for a in soup.find_all("a", href=True):
+            href = a["href"]
+            if not href.lower().endswith(".pdf") or not _STUDY_PDF_RE.search(href):
+                continue
+            if "arab" in href.lower():
+                continue
+            full_url = href if href.startswith("http") else f"{self.base_url}{href}"
+            if "englisch" in href.lower():
+                return full_url
+            if fallback_pdf is None:
+                fallback_pdf = full_url
+        return fallback_pdf
+
+    async def scrape(self) -> list[dict]:
+        """Overrides the template method to append the dynamically-discovered study-visa
+        PDF leaflet as a second document, following StipendiumHungaricumAdapter's pattern."""
+        if not robot_checker.is_allowed(self.target_url):
+            logger.warning("robots_disallowed", url=self.target_url)
+            return []
+
+        async with httpx.AsyncClient() as client:
+            await polite_delay(self.min_delay, self.max_delay)
+            html = await self.fetch_page(client, self.target_url)
+            docs = self.extract_documents(html, self.target_url)
+
+            pdf_url = self._discover_study_pdf_url(html)
+            if not pdf_url:
+                logger.error("missing_pdf", url=self.target_url, reason="Could not dynamically discover the study visa PDF")
+                return docs
+
+            if not robot_checker.is_allowed(pdf_url):
+                return docs
+
+            await polite_delay(self.min_delay, self.max_delay)
+            try:
+                pdf_bytes = await self.fetch_binary(client, pdf_url)
+
+                # Import here to avoid polluting other adapters
+                from pypdf import PdfReader
+                reader = PdfReader(io.BytesIO(pdf_bytes))
+                text = ""
+                for page in reader.pages:
+                    page_text = page.extract_text()
+                    if page_text:
+                        text += page_text + "\n"
+
+                if text.strip():
+                    docs.append({
+                        "source": self.source_name,
+                        "category": self.category,
+                        "country": self.country,
+                        "url": pdf_url,
+                        "content": text,
+                        "visa_requirements": [self._build_record(None, text, [], pdf_url)],
+                    })
+            except Exception as e:
+                logger.error("pdf_fetch_error", url=pdf_url, error=str(e))
+
+        return docs

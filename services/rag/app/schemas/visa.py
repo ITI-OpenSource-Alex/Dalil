@@ -9,6 +9,8 @@ class ProofOfFunds(BaseModel):
     minimum_balance_period_days: Optional[int] = Field(None, description="Minimum number of days the balance must be held")
     sponsor_letter_accepted: Optional[bool] = Field(None, description="Whether a sponsor letter is accepted in lieu of a blocked account")
     notes_egypt: Optional[str] = Field(None, description="Egypt-specific notes on proof-of-funds requirements")
+    setup_fee_eur: Optional[float] = Field(None, description="One-time account setup fee in EUR, if stated by the provider")
+    accepts_egyptian_debit: Optional[bool] = Field(None, description="Whether an Egyptian-issued debit/credit card is accepted for setup")
 
 
 class VisaRequirementsRequest(BaseModel):

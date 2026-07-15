@@ -10,6 +10,9 @@ from app.adapters.base_adapter import BaseAdapter
 # Intentionally conservative: fields stay None/empty when nothing matches rather than
 # guessing, per GOA-086's "do not fabricate data" requirement.
 _PROCESSING_DAYS_RE = re.compile(r"(\d+)\s*(?:-|to|–)\s*(\d+)\s*(?:working\s+)?days", re.IGNORECASE)
+# Fallback for a single upper-bound figure (e.g. "may take up to 60 days") rather than
+# an explicit "N-M days" range -- only the max is known in this phrasing, so min stays None.
+_PROCESSING_UP_TO_DAYS_RE = re.compile(r"up\s+to\s+(\d+)\s*days", re.IGNORECASE)
 _AMOUNT_EUR_RE = re.compile(r"(?:€|EUR)\s?([\d.,]+)", re.IGNORECASE)
 _ARABIC_RE = re.compile(r"[؀-ۿ]")
 _LATIN_RE = re.compile(r"[A-Za-z]")
@@ -28,17 +31,36 @@ def _is_arabic_only(soup: BeautifulSoup) -> bool:
 
 def _extract_processing_days(text: str):
     match = _PROCESSING_DAYS_RE.search(text)
-    if not match:
-        return None, None
-    return int(match.group(1)), int(match.group(2))
+    if match:
+        return int(match.group(1)), int(match.group(2))
+    up_to_match = _PROCESSING_UP_TO_DAYS_RE.search(text)
+    if up_to_match:
+        return None, int(up_to_match.group(1))
+    return None, None
 
 
 def _extract_amount_eur(text: str):
     match = _AMOUNT_EUR_RE.search(text)
     if not match:
         return None
+    raw = match.group(1)
+    # Normalize European (1.234,56) vs US (1,234.56) vs plain (1234) number
+    # formats before parsing -- German/European sources conventionally use "."
+    # as the thousands separator and "," as the decimal separator.
+    if "," in raw and "." in raw:
+        if raw.rfind(",") > raw.rfind("."):
+            raw = raw.replace(".", "").replace(",", ".")
+        else:
+            raw = raw.replace(",", "")
+    elif "," in raw:
+        _, _, frac_part = raw.rpartition(",")
+        raw = raw.replace(",", "") if len(frac_part) == 3 else raw.replace(",", ".")
+    elif "." in raw:
+        _, _, frac_part = raw.rpartition(".")
+        if len(frac_part) == 3:
+            raw = raw.replace(".", "")
     try:
-        return float(match.group(1).replace(",", ""))
+        return float(raw)
     except ValueError:
         return None
 
@@ -79,12 +101,13 @@ class CzechEmbassyCairoAdapter(BaseAdapter):
 
     def __init__(self):
         super().__init__(
-            # The domain follows the Czech MFA's known per-mission subsite pattern.
-            # The exact visa-requirements page path is unconfirmed (see GOA-086
-            # implementation plan Task 13, Prerequisites) and must be set before
-            # production scraping.
-            base_url="https://www.mzv.cz/cairo",
-            target_url="https://www.mzv.cz/cairo",
+            # Verified official page (GOA-086 research): Czech MFA's long-term study
+            # visa page for the Cairo mission.
+            base_url="https://mzv.gov.cz",
+            target_url=(
+                "https://mzv.gov.cz/cairo/en/visa_and_consular_information/long_term_visa/"
+                "study_long_term_visa_to_the_czech/index.html"
+            ),
             source_name="czech_embassy_cairo",
             category="visa",
             country="Czech Republic",

@@ -1,10 +1,8 @@
 import pytest
 
 from app.adapters.german_embassy_cairo import GermanEmbassyCairoAdapter
-from app.adapters.aps_cairo import APSCairoAdapter
 from app.adapters.campus_france_egypt import CampusFranceEgyptAdapter
 from app.adapters.uk_visa_egypt import UKVISAEgyptAdapter
-from app.adapters.vfs_global_egypt import VFSGlobalEgyptAdapter
 from app.adapters.fintiba_sperrkonto import FintibaSperrkontoAdapter
 from app.adapters.czech_embassy_cairo import CzechEmbassyCairoAdapter
 from app.adapters.spain_visa_egypt import SpainVisaEgyptAdapter
@@ -117,97 +115,96 @@ async def test_german_embassy_cairo_multi_record_page_yields_multiple_entries():
     assert len({r["visa_type"] for r in visa_requirements}) == 2
 
 
-# ---------------------------------------------------------------------------
-# Task 08: APSCairoAdapter
-# ---------------------------------------------------------------------------
-
-@pytest.mark.asyncio
-async def test_aps_cairo_happy_path_extracts_documents_and_visa_requirements():
+def test_german_embassy_cairo_discovers_english_study_pdf_over_german_and_arabic():
     mock_html = """
     <html><body><main>
-      <h2>APS Certificate Procedure</h2>
-      <p>The APS certificate verifies the authenticity of Egyptian academic credentials.</p>
-      <ul>
-        <li>Original university certificates</li>
-        <li>Thanaweya Amma certificate</li>
-      </ul>
-      <p>Processing time: 20-30 working days.</p>
+      <a href="/resource/blob/2573896/abc/250210-studium-deutsch-data.pdf">Merkblatt Studium (deutsch)</a>
+      <a href="/resource/blob/2573898/def/250210-studium-englisch-data.pdf">Leaflet Study Visa for Germany</a>
+      <a href="https://kairo.diplo.de/resource/blob/1624186/ghi/241120-merkblatt-studium-arab-data.pdf">Arabic leaflet</a>
     </main></body></html>
     """
-    adapter = APSCairoAdapter()
-    docs = adapter.extract_documents(mock_html, url="https://www.aps-cairo.org/procedure")
+    adapter = GermanEmbassyCairoAdapter()
+    pdf_url = adapter._discover_study_pdf_url(mock_html)
+
+    assert pdf_url == "https://kairo.diplo.de/resource/blob/2573898/def/250210-studium-englisch-data.pdf"
+
+
+def test_german_embassy_cairo_falls_back_to_any_studium_pdf_if_no_english_variant():
+    mock_html = """
+    <html><body><main>
+      <a href="/resource/blob/2573896/abc/250210-studium-deutsch-data.pdf">Merkblatt Studium (deutsch)</a>
+    </main></body></html>
+    """
+    adapter = GermanEmbassyCairoAdapter()
+    pdf_url = adapter._discover_study_pdf_url(mock_html)
+
+    assert pdf_url == "https://kairo.diplo.de/resource/blob/2573896/abc/250210-studium-deutsch-data.pdf"
+
+
+def test_german_embassy_cairo_no_pdf_link_yields_no_pdf_url():
+    mock_html = "<html><body><main><a href='/other.pdf'>Unrelated</a></main></body></html>"
+    adapter = GermanEmbassyCairoAdapter()
+
+    assert adapter._discover_study_pdf_url(mock_html) is None
+
+
+@pytest.mark.asyncio
+async def test_german_embassy_cairo_scrape_appends_discovered_pdf_as_second_document(mocker):
+    """Exercises the overridden scrape() end-to-end: landing page -> dynamic PDF
+    discovery -> PDF download -> parse, mirroring StipendiumHungaricumAdapter's pattern."""
+    landing_html = """
+    <html><body><main>
+      <h2>National Visa Requirements</h2>
+      <ul><li>Valid passport</li></ul>
+      <a href="/resource/blob/2573898/def/250210-studium-englisch-data.pdf">Leaflet Study Visa for Germany</a>
+    </main></body></html>
+    """
+    adapter = GermanEmbassyCairoAdapter()
+
+    mocker.patch("app.adapters.german_embassy_cairo.robot_checker.is_allowed", return_value=True)
+    mocker.patch("app.adapters.german_embassy_cairo.polite_delay")
+    mocker.patch.object(adapter, "fetch_page", return_value=landing_html)
+    mocker.patch.object(adapter, "fetch_binary", return_value=b"%PDF-fake-bytes")
+
+    fake_page = mocker.Mock()
+    fake_page.extract_text.return_value = "Proof of funds: EUR 11208. Processing time: 15-20 working days."
+    fake_reader = mocker.Mock()
+    fake_reader.pages = [fake_page]
+    mocker.patch("pypdf.PdfReader", return_value=fake_reader)
+
+    docs = await adapter.scrape()
+
+    assert len(docs) == 2
+    landing_doc, pdf_doc = docs
+    assert landing_doc["url"] == adapter.target_url
+    assert pdf_doc["url"] == "https://kairo.diplo.de/resource/blob/2573898/def/250210-studium-englisch-data.pdf"
+    assert "Proof of funds" in pdf_doc["content"]
+
+    pdf_record = pdf_doc["visa_requirements"][0]
+    assert pdf_record["processing_days_min"] == 15
+    assert pdf_record["processing_days_max"] == 20
+    assert pdf_record["proof_of_funds"]["amount_eur"] == 11208.0
+
+
+@pytest.mark.asyncio
+async def test_german_embassy_cairo_scrape_returns_landing_docs_only_when_pdf_missing(mocker):
+    landing_html = """
+    <html><body><main>
+      <h2>National Visa Requirements</h2>
+      <ul><li>Valid passport</li></ul>
+    </main></body></html>
+    """
+    adapter = GermanEmbassyCairoAdapter()
+
+    mocker.patch("app.adapters.german_embassy_cairo.robot_checker.is_allowed", return_value=True)
+    mocker.patch("app.adapters.german_embassy_cairo.polite_delay")
+    mocker.patch.object(adapter, "fetch_page", return_value=landing_html)
+    fetch_binary_spy = mocker.patch.object(adapter, "fetch_binary")
+
+    docs = await adapter.scrape()
 
     assert len(docs) == 1
-    doc = docs[0]
-    assert doc["category"] == "visa"
-    assert doc["country"] == "Germany"
-    assert doc["source"] == "aps_cairo"
-
-    record = doc["visa_requirements"][0]
-    assert record["issuing_body"] == "APS Cairo"
-    assert record["country"] == "Germany"
-    assert record["egyptian_specific"] is True
-    assert record["processing_days_min"] == 20
-    assert record["processing_days_max"] == 30
-    assert "Thanaweya Amma certificate" in record["requirements"]["items"]
-
-
-@pytest.mark.asyncio
-async def test_aps_cairo_partial_data_leaves_fields_none():
-    mock_html = """
-    <html><body><main>
-      <h2>APS Certificate Procedure</h2>
-      <ul>
-        <li>Original university certificates</li>
-      </ul>
-    </main></body></html>
-    """
-    adapter = APSCairoAdapter()
-    docs = adapter.extract_documents(mock_html)
-
-    record = docs[0]["visa_requirements"][0]
-    assert record["processing_days_min"] is None
-    assert record["processing_days_max"] is None
-    assert record["proof_of_funds"] is None
-
-
-@pytest.mark.asyncio
-async def test_aps_cairo_skips_arabic_only_page():
-    adapter = APSCairoAdapter()
-    docs = adapter.extract_documents(ARABIC_ONLY_HTML)
-
-    assert docs == []
-
-
-@pytest.mark.asyncio
-async def test_aps_cairo_multiple_pathways_yield_multiple_visa_requirements():
-    mock_html = """
-    <html><body><main>
-      <h2>University-track APS Certificate</h2>
-      <ul>
-        <li>Bachelor's degree certificate</li>
-        <li>Foundation course (Studienkolleg) certificate if applicable</li>
-      </ul>
-      <p>Processing time: 10-15 working days.</p>
-      <h2>Non-university-track APS Certificate</h2>
-      <ul>
-        <li>Thanaweya Amma certificate</li>
-        <li>Proof of university admission</li>
-      </ul>
-      <p>Processing time: 20-25 working days.</p>
-    </main></body></html>
-    """
-    adapter = APSCairoAdapter()
-    docs = adapter.extract_documents(mock_html)
-
-    visa_requirements = docs[0]["visa_requirements"]
-    assert len(visa_requirements) == 2
-
-    by_heading = {r["notes"]: r for r in visa_requirements}
-    assert by_heading["University-track APS Certificate"]["processing_days_min"] == 10
-    assert by_heading["University-track APS Certificate"]["processing_days_max"] == 15
-    assert by_heading["Non-university-track APS Certificate"]["processing_days_min"] == 20
-    assert by_heading["Non-university-track APS Certificate"]["processing_days_max"] == 25
+    fetch_binary_spy.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -339,114 +336,23 @@ async def test_uk_visa_egypt_skips_arabic_only_page():
     assert docs == []
 
 
-# ---------------------------------------------------------------------------
-# Task 11: VFSGlobalEgyptAdapter
-# ---------------------------------------------------------------------------
-
-VFS_MULTI_COUNTRY_HTML = """
-<html><body><main>
-  <h2>Italy Visa Applications</h2>
-  <ul>
-    <li>Valid passport</li>
-    <li>Appointment confirmation</li>
-  </ul>
-  <p>Processing time: 10-15 working days.</p>
-  <h2>Czech Republic Visa Applications</h2>
-  <ul>
-    <li>Valid passport</li>
-    <li>Travel insurance</li>
-  </ul>
-  <p>Processing time: 15-20 working days.</p>
-</main></body></html>
-"""
-
-
-@pytest.mark.asyncio
-async def test_vfs_global_egypt_multi_country_page_yields_one_record_per_country():
-    adapter = VFSGlobalEgyptAdapter()
-    docs = adapter.extract_documents(VFS_MULTI_COUNTRY_HTML, url="https://visa.vfsglobal.com/egy/en")
-
-    assert len(docs) == 1
-    doc = docs[0]
-    assert doc["category"] == "visa"
-    assert doc["source"] == "vfs_global_egypt"
-
-    visa_requirements = doc["visa_requirements"]
-    assert len(visa_requirements) == 2
-    countries = {r["country"] for r in visa_requirements}
-    assert countries == {"Italy", "Czech Republic"}
-    for record in visa_requirements:
-        assert record["issuing_body"] == "VFS Global Egypt"
-        assert record["egyptian_specific"] is True
-
-
-@pytest.mark.asyncio
-async def test_vfs_global_egypt_partial_data_leaves_fields_none():
+def test_uk_visa_egypt_extract_urls_discovers_child_guide_pages_only():
     mock_html = """
-    <html><body><main>
-      <h2>Spain Visa Applications</h2>
-      <ul>
-        <li>Valid passport</li>
-      </ul>
-      <h2>Netherlands Visa Applications</h2>
-      <ul>
-        <li>Valid passport</li>
-        <li>Travel insurance</li>
-      </ul>
-    </main></body></html>
+    <html><body>
+      <a href="/student-visa/money">Money you need</a>
+      <a href="/student-visa/knowledge-of-english">Knowledge of English</a>
+      <a href="/student-visa/money">Money you need</a>
+      <a href="/child-study-visa">Child Student visa</a>
+      <a href="/browse/visas-immigration">Visas and immigration</a>
+    </body></html>
     """
-    adapter = VFSGlobalEgyptAdapter()
-    docs = adapter.extract_documents(mock_html)
+    adapter = UKVISAEgyptAdapter()
+    urls = adapter.extract_urls(mock_html)
 
-    visa_requirements = docs[0]["visa_requirements"]
-    assert len(visa_requirements) == 2
-    for record in visa_requirements:
-        assert record["processing_days_min"] is None
-        assert record["processing_days_max"] is None
-        assert record["proof_of_funds"] is None
-
-
-@pytest.mark.asyncio
-async def test_vfs_global_egypt_skips_arabic_only_page():
-    adapter = VFSGlobalEgyptAdapter()
-    docs = adapter.extract_documents(ARABIC_ONLY_HTML)
-
-    assert docs == []
-
-
-@pytest.mark.asyncio
-async def test_vfs_global_egypt_no_known_country_yields_no_records():
-    mock_html = """
-    <html><body><main>
-      <h2>General Information</h2>
-      <ul>
-        <li>Bring a valid passport</li>
-      </ul>
-    </main></body></html>
-    """
-    adapter = VFSGlobalEgyptAdapter()
-    docs = adapter.extract_documents(mock_html)
-
-    # No known destination country is genuinely named in the fixture, so nothing
-    # should be fabricated.
-    assert docs == []
-
-
-@pytest.mark.asyncio
-async def test_vfs_global_egypt_scrape_with_mocked_playwright_fetch(mocker):
-    """Exercises the async Playwright-backed scrape() template method (fetch_page mocked,
-    matching the existing adapter test pattern) rather than only extract_documents()."""
-    adapter = VFSGlobalEgyptAdapter()
-    mocker.patch("app.core.robots.robot_checker.is_allowed", return_value=True)
-    mocker.patch.object(adapter, "fetch_page", return_value=VFS_MULTI_COUNTRY_HTML)
-    mock_delay = mocker.patch("app.adapters.base_playwright_adapter.polite_delay")
-
-    docs = await adapter.scrape()
-
-    assert len(docs) == 1
-    countries = {r["country"] for r in docs[0]["visa_requirements"]}
-    assert countries == {"Italy", "Czech Republic"}
-    mock_delay.assert_called_once_with(2.0, 3.0)
+    assert urls == [
+        "https://www.gov.uk/student-visa/money",
+        "https://www.gov.uk/student-visa/knowledge-of-english",
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -651,6 +557,35 @@ async def test_spain_visa_egypt_skips_arabic_only_page():
     assert docs == []
 
 
+def test_spain_visa_egypt_extract_urls_discovers_study_visa_link():
+    mock_html = """
+    <html><body>
+      <a href="/Embajadas/elcairo/en/ServiciosConsulares/Paginas/Consular/Work-visas.aspx">Work visas</a>
+      <a href="/Embajadas/elcairo/en/ServiciosConsulares/Paginas/Consular/Student-visa.aspx">Student visa</a>
+    </body></html>
+    """
+    adapter = SpainVisaEgyptAdapter()
+    urls = adapter.extract_urls(mock_html)
+
+    assert urls == [
+        "https://exteriores.gob.es/Embajadas/elcairo/en/ServiciosConsulares/Paginas/Consular/Student-visa.aspx"
+    ]
+
+
+def test_spain_visa_egypt_extract_urls_returns_empty_when_no_dedicated_page_exists():
+    """When the consulate publishes no separate study-visa page, extract_urls must
+    return [] so the base template falls back to scraping the landing page itself,
+    rather than fabricating a link."""
+    mock_html = """
+    <html><body>
+      <a href="/Embajadas/elcairo/en/ServiciosConsulares/Paginas/Consular/Work-visas.aspx">Work visas</a>
+    </body></html>
+    """
+    adapter = SpainVisaEgyptAdapter()
+
+    assert adapter.extract_urls(mock_html) == []
+
+
 # ---------------------------------------------------------------------------
 # Task 15: ItalyEmbassyCairoAdapter
 # ---------------------------------------------------------------------------
@@ -715,3 +650,423 @@ async def test_italy_embassy_cairo_skips_arabic_only_page():
     docs = adapter.extract_documents(ARABIC_ONLY_HTML)
 
     assert docs == []
+
+
+# ---------------------------------------------------------------------------
+# Definition of Done verification: specific extraction fields
+# (fee, setup fee, step count, Declaration of Value, European number formats)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_german_embassy_cairo_parses_aps_requirement_and_european_amount_format():
+    mock_html = """
+    <html><body><main>
+      <h2>National Visa Requirements</h2>
+      <p>Applicants must provide a valid passport and an APS certificate from APS Cairo.</p>
+      <ul>
+        <li>Valid passport</li>
+        <li>APS certificate</li>
+        <li>Proof of funds: EUR 11.208,00 in a blocked account</li>
+      </ul>
+      <p>Processing time: 15-20 working days.</p>
+    </main></body></html>
+    """
+    adapter = GermanEmbassyCairoAdapter()
+    docs = adapter.extract_documents(mock_html)
+    record = docs[0]["visa_requirements"][0]
+
+    assert any("APS certificate" in item for item in record["requirements"]["items"])
+    # European-format amount (period thousands separator, comma decimal) must parse
+    # to the correct value, not be silently understated ~1000x.
+    assert record["proof_of_funds"]["amount_eur"] == 11208.0
+
+
+@pytest.mark.asyncio
+async def test_campus_france_egypt_extracts_proof_of_funds_and_pre_registration_step_count():
+    mock_html = """
+    <html><body><main>
+      <h2>Études en France Procedure</h2>
+      <p>Applicants must show proof of funds of EUR 615 per month.</p>
+      <ol>
+        <li>Create a Campus France Egypt account</li>
+        <li>Complete the online application</li>
+        <li>Submit academic transcripts</li>
+        <li>Attend an interview</li>
+      </ol>
+    </main></body></html>
+    """
+    adapter = CampusFranceEgyptAdapter()
+    docs = adapter.extract_documents(mock_html)
+    record = docs[0]["visa_requirements"][0]
+
+    assert record["proof_of_funds"]["amount_eur"] == 615.0
+    assert record["requirements"]["pre_registration_steps"] == 4
+
+
+@pytest.mark.asyncio
+async def test_fintiba_sperrkonto_extracts_setup_fee_and_egyptian_debit_acceptance():
+    mock_html = """
+    <html><body><main>
+      <h1>Blocked Account (Sperrkonto) for German Student Visa</h1>
+      <p>The blocked account must contain EUR 11208 and be held for 12 months.</p>
+      <p>The setup fee is EUR 49.</p>
+      <p>An Egyptian debit card is accepted for account setup and verification.</p>
+      <ul>
+        <li>Valid passport</li>
+      </ul>
+    </main></body></html>
+    """
+    adapter = FintibaSperrkontoAdapter()
+    docs = adapter.extract_documents(mock_html)
+    record = docs[0]["visa_requirements"][0]
+
+    proof_of_funds = record["proof_of_funds"]
+    assert proof_of_funds["setup_fee_eur"] == 49.0
+    assert proof_of_funds["accepts_egyptian_debit"] is True
+
+
+@pytest.mark.asyncio
+async def test_fintiba_sperrkonto_egyptian_debit_not_accepted_is_detected():
+    mock_html = """
+    <html><body><main>
+      <h1>Blocked Account (Sperrkonto) for German Student Visa</h1>
+      <p>The blocked account must contain EUR 11208.</p>
+      <p>An Egyptian debit card is not accepted for account setup.</p>
+      <ul>
+        <li>Valid passport</li>
+      </ul>
+    </main></body></html>
+    """
+    adapter = FintibaSperrkontoAdapter()
+    docs = adapter.extract_documents(mock_html)
+    record = docs[0]["visa_requirements"][0]
+
+    assert record["proof_of_funds"]["accepts_egyptian_debit"] is False
+
+
+@pytest.mark.asyncio
+async def test_czech_embassy_cairo_extracts_document_checklist_and_processing_time():
+    mock_html = """
+    <html><body><main>
+      <h2>Long-term Student Visa</h2>
+      <ul>
+        <li>Valid passport</li>
+        <li>University acceptance letter</li>
+        <li>Travel insurance</li>
+      </ul>
+      <p>Processing time: 60-90 working days.</p>
+    </main></body></html>
+    """
+    adapter = CzechEmbassyCairoAdapter()
+    docs = adapter.extract_documents(mock_html)
+    record = docs[0]["visa_requirements"][0]
+
+    assert record["requirements"]["items"] == [
+        "Valid passport", "University acceptance letter", "Travel insurance"
+    ]
+    assert record["processing_days_min"] == 60
+    assert record["processing_days_max"] == 90
+
+
+@pytest.mark.asyncio
+async def test_spain_visa_egypt_extracts_checklist_processing_time_and_proof_of_funds():
+    mock_html = """
+    <html><body><main>
+      <h2>National Visa (Type D) Requirements</h2>
+      <ul>
+        <li>Valid passport</li>
+        <li>University enrollment certificate</li>
+        <li>Proof of financial means: EUR 600 per month</li>
+      </ul>
+      <p>Processing time: 30-45 working days.</p>
+    </main></body></html>
+    """
+    adapter = SpainVisaEgyptAdapter()
+    docs = adapter.extract_documents(mock_html)
+    record = docs[0]["visa_requirements"][0]
+
+    assert "Valid passport" in record["requirements"]["items"]
+    assert "University enrollment certificate" in record["requirements"]["items"]
+    assert record["processing_days_min"] == 30
+    assert record["processing_days_max"] == 45
+    assert record["proof_of_funds"]["amount_eur"] == 600.0
+
+
+@pytest.mark.asyncio
+async def test_italy_embassy_cairo_extracts_checklist_processing_time_and_proof_of_funds():
+    mock_html = """
+    <html><body><main>
+      <h2>National Visa (Type D) Requirements</h2>
+      <ul>
+        <li>Valid passport</li>
+        <li>University enrollment certificate</li>
+        <li>Proof of financial means: EUR 448 per month</li>
+      </ul>
+      <p>Processing time: 30-45 working days.</p>
+    </main></body></html>
+    """
+    adapter = ItalyEmbassyCairoAdapter()
+    docs = adapter.extract_documents(mock_html)
+    record = docs[0]["visa_requirements"][0]
+
+    assert "Valid passport" in record["requirements"]["items"]
+    assert record["processing_days_min"] == 30
+    assert record["processing_days_max"] == 45
+    assert record["proof_of_funds"]["amount_eur"] == 448.0
+
+
+@pytest.mark.asyncio
+async def test_italy_embassy_cairo_extracts_declaration_of_value_as_distinct_requirement():
+    mock_html = """
+    <html><body><main>
+      <h2>National Visa (Type D) Requirements</h2>
+      <ul>
+        <li>Valid passport</li>
+        <li>University enrollment certificate</li>
+        <li>Declaration of Value for foreign academic qualifications</li>
+      </ul>
+      <p>Processing time: 30-45 working days.</p>
+    </main></body></html>
+    """
+    adapter = ItalyEmbassyCairoAdapter()
+    docs = adapter.extract_documents(mock_html)
+    record = docs[0]["visa_requirements"][0]
+
+    # Declaration of Value must be reported as its own distinct field...
+    assert record["requirements"]["declaration_of_value"] == (
+        "Declaration of Value for foreign academic qualifications"
+    )
+    # ...and not duplicated inside the general document checklist.
+    assert "Declaration of Value for foreign academic qualifications" not in record["requirements"]["items"]
+    assert "Valid passport" in record["requirements"]["items"]
+    assert "University enrollment certificate" in record["requirements"]["items"]
+
+
+# ---------------------------------------------------------------------------
+# Regression tests: structured-extraction and target-page fixes identified by
+# live inspection of the deployed adapters (post-GOA-086 hardening)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_campus_france_egypt_recovers_sections_wrapped_in_drupal_title_divs():
+    """On the live site, each heading is wrapped in its own single-child title
+    container, with the section body a sibling of that wrapper -- not of the
+    heading itself. The direct-sibling walk finds nothing in that shape; the
+    section must still be recovered via the wrapper's own siblings."""
+    mock_html = """
+    <html><body><main>
+      <div class="layout-content">
+        <div class="node__content">
+          <div class="paragraph paragraph--type--rte">
+            <div class="field field--name-field-title-paragraph"><h2>I create first my studies project</h2></div>
+            <div class="clearfix text-formatted field field--name-field-descriptif">
+              <p>Prepare your academic project and choose your institutions.</p>
+            </div>
+          </div>
+          <div class="paragraph paragraph--type--rte">
+            <div class="field field--name-field-title-paragraph"><h2>Then prepare your documents:</h2></div>
+            <div class="clearfix text-formatted field field--name-field-descriptif">
+              <ul><li>Passport</li><li>Diploma</li></ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main></body></html>
+    """
+    adapter = CampusFranceEgyptAdapter()
+    docs = adapter.extract_documents(mock_html)
+    records = docs[0]["visa_requirements"]
+
+    notes = [r["notes"] for r in records]
+    assert "I create first my studies project" in notes
+    assert "Then prepare your documents:" in notes
+    documents_record = next(r for r in records if r["notes"] == "Then prepare your documents:")
+    assert documents_record["requirements"]["items"] == ["Passport", "Diploma"]
+
+
+@pytest.mark.asyncio
+async def test_campus_france_egypt_skips_sidebar_and_footer_widget_sections():
+    """Related-article and footer-CTA widgets on this site are their own h2-headed
+    sections but are not visa information -- they must not surface as bogus
+    'requirements' records."""
+    mock_html = """
+    <html><body><main>
+      <div class="node__content">
+        <div class="paragraph paragraph--type--rte">
+          <div class="field field--name-field-title-paragraph"><h2>Then prepare your documents:</h2></div>
+          <div class="clearfix text-formatted field field--name-field-descriptif">
+            <ul><li>Passport</li></ul>
+          </div>
+        </div>
+        <div class="sur-le-meme-sujet">
+          <h2>Sur le même sujet</h2>
+          <div>Unrelated related-articles widget content.</div>
+        </div>
+        <div class="push-container">
+          <h2>Follow the main steps to come study in France</h2>
+          <a href="/steps">Some footer CTA link</a>
+        </div>
+      </div>
+    </main></body></html>
+    """
+    adapter = CampusFranceEgyptAdapter()
+    docs = adapter.extract_documents(mock_html)
+    notes = [r["notes"] for r in docs[0]["visa_requirements"]]
+
+    assert notes == ["Then prepare your documents:"]
+
+
+@pytest.mark.asyncio
+async def test_fintiba_sperrkonto_extracts_balance_period_when_duration_follows_amount():
+    """The live page phrases the holding period as '<amount> for 12 months' rather
+    than 'held/blocked/maintained for 12 months' -- both phrasings must resolve to
+    a minimum_balance_period_days value instead of leaving it None."""
+    mock_html = """
+    <html><body><main>
+      <h1>Blocked Account (Sperrkonto) for German Student Visa</h1>
+      <p>The Blocked Account amount for Germany is EUR 11904 for 12 months.</p>
+    </main></body></html>
+    """
+    adapter = FintibaSperrkontoAdapter()
+    docs = adapter.extract_documents(mock_html)
+    record = docs[0]["visa_requirements"][0]
+
+    assert record["proof_of_funds"]["amount_eur"] == 11904.0
+    assert record["proof_of_funds"]["minimum_balance_period_days"] == 360
+
+
+@pytest.mark.asyncio
+async def test_uk_visa_egypt_extracts_processing_days_from_two_week_values():
+    """gov.uk states decision times in weeks (e.g. one figure for applicants outside
+    the UK, another for inside), not a 'N-M days' range -- both figures must be
+    captured as processing_days_min/max rather than left None."""
+    mock_html = """
+    <html><body><main>
+      <h2>How long it takes to get a decision</h2>
+      <p>You'll usually get a decision on your visa within:</p>
+      <ul>
+        <li>3 weeks, if you're outside the UK</li>
+        <li>8 weeks, if you're inside the UK</li>
+      </ul>
+      <h2>Money you need</h2>
+      <p>You need enough money to support yourself during your course.</p>
+    </main></body></html>
+    """
+    adapter = UKVISAEgyptAdapter()
+    docs = adapter.extract_documents(mock_html)
+    record = next(r for r in docs[0]["visa_requirements"] if r["notes"] == "How long it takes to get a decision")
+
+    assert record["processing_days_min"] == 21
+    assert record["processing_days_max"] == 56
+
+
+@pytest.mark.asyncio
+async def test_uk_visa_egypt_extracts_processing_days_from_single_week_value():
+    mock_html = """
+    <html><body><main>
+      <h2>How long it takes to get a decision</h2>
+      <p>You'll usually get a decision within 8 weeks.</p>
+      <h2>Money you need</h2>
+      <p>You need enough money to support yourself during your course.</p>
+    </main></body></html>
+    """
+    adapter = UKVISAEgyptAdapter()
+    docs = adapter.extract_documents(mock_html)
+    record = next(r for r in docs[0]["visa_requirements"] if r["notes"] == "How long it takes to get a decision")
+
+    assert record["processing_days_min"] == 56
+    assert record["processing_days_max"] == 56
+
+
+def test_uk_visa_egypt_extract_urls_dedupes_tracking_query_variants():
+    """gov.uk emits both a plain link and a '?step-by-step-nav=<uuid>'-tagged variant
+    of the same page -- these must not crawl as separate duplicate documents."""
+    mock_html = """
+    <html><body>
+      <a href="/student-visa/money">Money you need</a>
+      <a href="/student-visa/money?step-by-step-nav=abc123">Money you need</a>
+      <a href="/student-visa/documents-you-must-provide">Documents you'll need</a>
+    </body></html>
+    """
+    adapter = UKVISAEgyptAdapter()
+    urls = adapter.extract_urls(mock_html)
+
+    assert urls == [
+        "https://www.gov.uk/student-visa/money",
+        "https://www.gov.uk/student-visa/documents-you-must-provide",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_czech_embassy_cairo_extracts_processing_days_from_up_to_phrasing():
+    """The live page states 'may take up to 60 days' -- a single upper bound, not an
+    explicit 'N-M days' range -- so only processing_days_max should populate."""
+    mock_html = """
+    <html><body><main>
+      <h2>Before you approach the Embassy:</h2>
+      <p>The processing time for the study long-term visa may take up to 60 days.</p>
+      <h2>Attachments</h2>
+      <p>A list of required documents is attached below.</p>
+    </main></body></html>
+    """
+    adapter = CzechEmbassyCairoAdapter()
+    docs = adapter.extract_documents(mock_html)
+    record = next(r for r in docs[0]["visa_requirements"] if r["notes"] == "Before you approach the Embassy:")
+
+    assert record["processing_days_min"] is None
+    assert record["processing_days_max"] == 60
+
+
+@pytest.mark.asyncio
+async def test_spain_visa_egypt_extracts_processing_days_from_spanish_month_phrasing():
+    """This source only publishes in Spanish (e.g. 'en el plazo máximo de un mes') --
+    the English 'N-M days' regex never matches, so a Spanish month/day fallback is
+    required to avoid losing genuinely-present processing-time information."""
+    mock_html = """
+    <html><body><main>
+      <h2>Procedimiento</h2>
+      <p>La Oficina Consular resolverá el visado en el plazo máximo de un mes.</p>
+      <h2>Documentos necesarios</h2>
+      <ul><li>Pasaporte válido</li></ul>
+    </main></body></html>
+    """
+    adapter = SpainVisaEgyptAdapter()
+    docs = adapter.extract_documents(mock_html)
+    record = next(r for r in docs[0]["visa_requirements"] if r["notes"] == "Procedimiento")
+
+    assert record["processing_days_min"] is None
+    assert record["processing_days_max"] == 30
+
+
+@pytest.mark.asyncio
+async def test_italy_embassy_cairo_recovers_checklist_from_plain_paragraphs():
+    """This site authors its checklist as standalone <p> tags (not a <ul><li> list),
+    and wraps the real article body alongside a sidebar nav widget under <main> --
+    the sidebar's nav links must not be mistaken for checklist items, and the real
+    paragraph-based checklist must be recovered instead of an empty items list."""
+    mock_html = """
+    <html><body><main>
+      <div class="entry-content">
+        <p>This is a long narrative introduction describing the visa in general terms
+        at some length so that it clearly exceeds the two hundred character threshold
+        used to tell prose paragraphs apart from short standalone checklist items.</p>
+        <p>– Application form completed in English or Italian</p>
+        <p>Valid passport with at least 18 months validity</p>
+        <p>Declaration of Value if requested by University</p>
+      </div>
+      <aside class="widget-area">
+        <h4>Naviga nella sezione</h4>
+        <ul><li>Home&gt;</li><li>Study in Italy&gt;</li></ul>
+      </aside>
+    </main></body></html>
+    """
+    adapter = ItalyEmbassyCairoAdapter()
+    docs = adapter.extract_documents(mock_html)
+    record = docs[0]["visa_requirements"][0]
+    items = record["requirements"]["items"]
+
+    assert "Application form completed in English or Italian" in items
+    assert "Valid passport with at least 18 months validity" in items
+    assert record["requirements"]["declaration_of_value"] == "Declaration of Value if requested by University"
+    assert not any("Home" in item or "Study in Italy" in item for item in items)
+    assert not any(item.startswith("This is a long narrative") for item in items)

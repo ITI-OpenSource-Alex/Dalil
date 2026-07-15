@@ -11,8 +11,16 @@ from app.adapters.base_adapter import BaseAdapter
 # guessing, per GOA-086's "do not fabricate data" requirement.
 _PROCESSING_DAYS_RE = re.compile(r"(\d+)\s*(?:-|to|–)\s*(\d+)\s*(?:working\s+)?days", re.IGNORECASE)
 _AMOUNT_EUR_RE = re.compile(r"(?:€|EUR)\s?([\d.,]+)", re.IGNORECASE)
+_DECLARATION_OF_VALUE_RE = re.compile(r"declaration\s+of\s+value|dichiarazione\s+di\s+valore", re.IGNORECASE)
 _ARABIC_RE = re.compile(r"[؀-ۿ]")
 _LATIN_RE = re.compile(r"[A-Za-z]")
+
+# This site authors its document checklist as a run of short standalone <p> tags
+# (some manually bulleted with a leading dash, some not) rather than a real <ul><li>
+# list. Used as a last-resort fallback when no <li> items are present at all.
+_BULLET_PREFIX_RE = re.compile(r"^[–—\-•]\s*")
+_HAS_LETTER_RE = re.compile(r"[^\W\d_]", re.UNICODE)
+_CHECKLIST_PARAGRAPH_MAX_LEN = 200
 
 
 def _is_arabic_only(soup: BeautifulSoup) -> bool:
@@ -37,8 +45,24 @@ def _extract_amount_eur(text: str):
     match = _AMOUNT_EUR_RE.search(text)
     if not match:
         return None
+    raw = match.group(1)
+    # Normalize European (1.234,56) vs US (1,234.56) vs plain (1234) number
+    # formats before parsing -- German/European sources conventionally use "."
+    # as the thousands separator and "," as the decimal separator.
+    if "," in raw and "." in raw:
+        if raw.rfind(",") > raw.rfind("."):
+            raw = raw.replace(".", "").replace(",", ".")
+        else:
+            raw = raw.replace(",", "")
+    elif "," in raw:
+        _, _, frac_part = raw.rpartition(",")
+        raw = raw.replace(",", "") if len(frac_part) == 3 else raw.replace(",", ".")
+    elif "." in raw:
+        _, _, frac_part = raw.rpartition(".")
+        if len(frac_part) == 3:
+            raw = raw.replace(".", "")
     try:
-        return float(match.group(1).replace(",", ""))
+        return float(raw)
     except ValueError:
         return None
 
@@ -71,6 +95,36 @@ def _list_items_from_elements(elements) -> list:
     return items
 
 
+def _paragraph_checklist_items(container) -> list:
+    """Last-resort fallback for pages whose checklist is authored as plain
+    paragraphs instead of a <ul><li> list: treats short, letter-containing <p>
+    tags as individual checklist items (stripping any leading bullet dash),
+    while skipping long narrative paragraphs and pure-punctuation dividers."""
+    items = []
+    for p in container.find_all("p"):
+        text = p.get_text(strip=True)
+        if not text or len(text) > _CHECKLIST_PARAGRAPH_MAX_LEN:
+            continue
+        if not _HAS_LETTER_RE.search(text):
+            continue
+        items.append(_BULLET_PREFIX_RE.sub("", text))
+    return items
+
+
+def _split_declaration_of_value(items: list):
+    """Pulls any checklist item describing the Declaration of Value (Dichiarazione di
+    Valore) procedure out of the general document checklist, so it's reported as its
+    own distinct requirement rather than merged in with ordinary checklist items."""
+    remaining = []
+    declaration_of_value = None
+    for item in items:
+        if declaration_of_value is None and _DECLARATION_OF_VALUE_RE.search(item):
+            declaration_of_value = item
+        else:
+            remaining.append(item)
+    return remaining, declaration_of_value
+
+
 class ItalyEmbassyCairoAdapter(BaseAdapter):
     """Scrapes Italian student-visa requirements published by the Italian Embassy in Cairo."""
 
@@ -79,12 +133,10 @@ class ItalyEmbassyCairoAdapter(BaseAdapter):
 
     def __init__(self):
         super().__init__(
-            # The domain follows the Italian MFA's known per-mission subsite pattern
-            # (amb<city>.esteri.it). The exact visa-requirements page path is
-            # unconfirmed (see GOA-086 implementation plan Task 15, Prerequisites)
-            # and must be set before production scraping.
-            base_url="https://ambcairo.esteri.it",
-            target_url="https://ambcairo.esteri.it",
+            # Verified official page (GOA-086 research): the Italian Cultural Institute
+            # in Cairo's study-visa page (iiccairo.esteri.it, an Italian MFA subsite).
+            base_url="https://iiccairo.esteri.it",
+            target_url="https://iiccairo.esteri.it/it/lingua-e-cultura/studiare-in-italia/visto-per-studio-v-s-u-o-v-n/",
             source_name="italy_embassy_cairo",
             category="visa",
             country="Italy",
@@ -98,7 +150,15 @@ class ItalyEmbassyCairoAdapter(BaseAdapter):
         if _is_arabic_only(soup):
             return []
 
-        main_content = soup.find("main") or soup.find("div", id="content") or soup.find("body")
+        # Prefer the real article body over the generic <main>, which also contains
+        # the "Naviga nella sezione" sidebar widget -- its nav links would otherwise
+        # be mistaken for document-checklist items by the <li> fallback below.
+        main_content = (
+            soup.find("div", class_="entry-content")
+            or soup.find("main")
+            or soup.find("div", id="content")
+            or soup.find("body")
+        )
         if not main_content:
             return []
 
@@ -136,13 +196,18 @@ class ItalyEmbassyCairoAdapter(BaseAdapter):
                 return records
 
         items = [li.get_text(strip=True) for li in main_content.find_all("li") if li.get_text(strip=True)]
+        if not items:
+            items = _paragraph_checklist_items(main_content)
         return [self._build_record(None, full_text, items, url)]
 
     def _build_record(self, heading, text: str, items: list, url: str) -> dict:
         days_min, days_max = _extract_processing_days(text)
         amount_eur = _extract_amount_eur(text)
+        items, declaration_of_value = _split_declaration_of_value(items)
 
         requirements = {"items": items} if items else {"summary": text[:2000]}
+        if declaration_of_value:
+            requirements["declaration_of_value"] = declaration_of_value
         visa_type = f"{self.VISA_TYPE_BASE} - {heading}" if heading else self.VISA_TYPE_BASE
 
         record = {

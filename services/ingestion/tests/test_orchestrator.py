@@ -1,14 +1,12 @@
 import pytest
 from app.services.run_orchestrator import run_ingestion
 
-# The 9 GOA-086 Egypt visa adapters, mocked to a neutral no-op ([]) in tests that only
+# The 7 GOA-086 Egypt visa adapters, mocked to a neutral no-op ([]) in tests that only
 # care about the original 6 adapters' behavior, so no real network calls are attempted.
 _EGYPT_ADAPTER_CLASSES = [
     "GermanEmbassyCairoAdapter",
-    "APSCairoAdapter",
     "CampusFranceEgyptAdapter",
     "UKVISAEgyptAdapter",
-    "VFSGlobalEgyptAdapter",
     "FintibaSperrkontoAdapter",
     "CzechEmbassyCairoAdapter",
     "SpainVisaEgyptAdapter",
@@ -108,9 +106,7 @@ async def test_visa_requirements_are_upserted_once_per_record(mocker):
         return_value=[{"content": "Campus France info", "source": "campus_france_egypt",
                        "visa_requirements": [campus_france_record]}],
     )
-    mocker.patch("app.services.run_orchestrator.APSCairoAdapter.scrape", return_value=[])
     mocker.patch("app.services.run_orchestrator.UKVISAEgyptAdapter.scrape", return_value=[])
-    mocker.patch("app.services.run_orchestrator.VFSGlobalEgyptAdapter.scrape", return_value=[])
     mocker.patch("app.services.run_orchestrator.FintibaSperrkontoAdapter.scrape", return_value=[])
     mocker.patch("app.services.run_orchestrator.CzechEmbassyCairoAdapter.scrape", return_value=[])
     mocker.patch("app.services.run_orchestrator.SpainVisaEgyptAdapter.scrape", return_value=[])
@@ -153,9 +149,7 @@ async def test_visa_requirement_failure_does_not_block_other_records_or_document
         return_value=[{"content": "Campus France info", "source": "campus_france_egypt",
                        "visa_requirements": [succeeding_record]}],
     )
-    mocker.patch("app.services.run_orchestrator.APSCairoAdapter.scrape", return_value=[])
     mocker.patch("app.services.run_orchestrator.UKVISAEgyptAdapter.scrape", return_value=[])
-    mocker.patch("app.services.run_orchestrator.VFSGlobalEgyptAdapter.scrape", return_value=[])
     mocker.patch("app.services.run_orchestrator.FintibaSperrkontoAdapter.scrape", return_value=[])
     mocker.patch("app.services.run_orchestrator.CzechEmbassyCairoAdapter.scrape", return_value=[])
     mocker.patch("app.services.run_orchestrator.SpainVisaEgyptAdapter.scrape", return_value=[])

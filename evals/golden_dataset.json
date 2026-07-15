@@ -1,0 +1,520 @@
+{
+  "rag": [
+    {
+      "question": "Dummy RAG question 1",
+      "expected_answer_concepts": [
+        "concept_a_1",
+        "concept_b_1"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 2",
+      "expected_answer_concepts": [
+        "concept_a_2",
+        "concept_b_2"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 3",
+      "expected_answer_concepts": [
+        "concept_a_3",
+        "concept_b_3"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 4",
+      "expected_answer_concepts": [
+        "concept_a_4",
+        "concept_b_4"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 5",
+      "expected_answer_concepts": [
+        "concept_a_5",
+        "concept_b_5"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 6",
+      "expected_answer_concepts": [
+        "concept_a_6",
+        "concept_b_6"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 7",
+      "expected_answer_concepts": [
+        "concept_a_7",
+        "concept_b_7"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 8",
+      "expected_answer_concepts": [
+        "concept_a_8",
+        "concept_b_8"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 9",
+      "expected_answer_concepts": [
+        "concept_a_9",
+        "concept_b_9"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 10",
+      "expected_answer_concepts": [
+        "concept_a_10",
+        "concept_b_10"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 11",
+      "expected_answer_concepts": [
+        "concept_a_11",
+        "concept_b_11"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 12",
+      "expected_answer_concepts": [
+        "concept_a_12",
+        "concept_b_12"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 13",
+      "expected_answer_concepts": [
+        "concept_a_13",
+        "concept_b_13"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 14",
+      "expected_answer_concepts": [
+        "concept_a_14",
+        "concept_b_14"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 15",
+      "expected_answer_concepts": [
+        "concept_a_15",
+        "concept_b_15"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 16",
+      "expected_answer_concepts": [
+        "concept_a_16",
+        "concept_b_16"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 17",
+      "expected_answer_concepts": [
+        "concept_a_17",
+        "concept_b_17"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 18",
+      "expected_answer_concepts": [
+        "concept_a_18",
+        "concept_b_18"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 19",
+      "expected_answer_concepts": [
+        "concept_a_19",
+        "concept_b_19"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 20",
+      "expected_answer_concepts": [
+        "concept_a_20",
+        "concept_b_20"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 21",
+      "expected_answer_concepts": [
+        "concept_a_21",
+        "concept_b_21"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 22",
+      "expected_answer_concepts": [
+        "concept_a_22",
+        "concept_b_22"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 23",
+      "expected_answer_concepts": [
+        "concept_a_23",
+        "concept_b_23"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 24",
+      "expected_answer_concepts": [
+        "concept_a_24",
+        "concept_b_24"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 25",
+      "expected_answer_concepts": [
+        "concept_a_25",
+        "concept_b_25"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 26",
+      "expected_answer_concepts": [
+        "concept_a_26",
+        "concept_b_26"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 27",
+      "expected_answer_concepts": [
+        "concept_a_27",
+        "concept_b_27"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 28",
+      "expected_answer_concepts": [
+        "concept_a_28",
+        "concept_b_28"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 29",
+      "expected_answer_concepts": [
+        "concept_a_29",
+        "concept_b_29"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 30",
+      "expected_answer_concepts": [
+        "concept_a_30",
+        "concept_b_30"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 31",
+      "expected_answer_concepts": [
+        "concept_a_31",
+        "concept_b_31"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 32",
+      "expected_answer_concepts": [
+        "concept_a_32",
+        "concept_b_32"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 33",
+      "expected_answer_concepts": [
+        "concept_a_33",
+        "concept_b_33"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 34",
+      "expected_answer_concepts": [
+        "concept_a_34",
+        "concept_b_34"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 35",
+      "expected_answer_concepts": [
+        "concept_a_35",
+        "concept_b_35"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 36",
+      "expected_answer_concepts": [
+        "concept_a_36",
+        "concept_b_36"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 37",
+      "expected_answer_concepts": [
+        "concept_a_37",
+        "concept_b_37"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 38",
+      "expected_answer_concepts": [
+        "concept_a_38",
+        "concept_b_38"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 39",
+      "expected_answer_concepts": [
+        "concept_a_39",
+        "concept_b_39"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 40",
+      "expected_answer_concepts": [
+        "concept_a_40",
+        "concept_b_40"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 41",
+      "expected_answer_concepts": [
+        "concept_a_41",
+        "concept_b_41"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 42",
+      "expected_answer_concepts": [
+        "concept_a_42",
+        "concept_b_42"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 43",
+      "expected_answer_concepts": [
+        "concept_a_43",
+        "concept_b_43"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 44",
+      "expected_answer_concepts": [
+        "concept_a_44",
+        "concept_b_44"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 45",
+      "expected_answer_concepts": [
+        "concept_a_45",
+        "concept_b_45"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 46",
+      "expected_answer_concepts": [
+        "concept_a_46",
+        "concept_b_46"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 47",
+      "expected_answer_concepts": [
+        "concept_a_47",
+        "concept_b_47"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 48",
+      "expected_answer_concepts": [
+        "concept_a_48",
+        "concept_b_48"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 49",
+      "expected_answer_concepts": [
+        "concept_a_49",
+        "concept_b_49"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 50",
+      "expected_answer_concepts": [
+        "concept_a_50",
+        "concept_b_50"
+      ]
+    }
+  ],
+  "scoring": [
+    {
+      "profile": "00000000-0000-0000-0000-000000000001",
+      "expected_gate": "blocked",
+      "expected_soft_score": 0.0
+    },
+    {
+      "profile": "00000000-0000-0000-0000-000000000002",
+      "expected_gate": "pass",
+      "expected_soft_score": 77.0
+    },
+    {
+      "profile": "00000000-0000-0000-0000-000000000003",
+      "expected_gate": "blocked",
+      "expected_soft_score": 0.0
+    },
+    {
+      "profile": "00000000-0000-0000-0000-000000000004",
+      "expected_gate": "pass",
+      "expected_soft_score": 79.0
+    },
+    {
+      "profile": "00000000-0000-0000-0000-000000000005",
+      "expected_gate": "blocked",
+      "expected_soft_score": 0.0
+    },
+    {
+      "profile": "00000000-0000-0000-0000-000000000006",
+      "expected_gate": "pass",
+      "expected_soft_score": 81.0
+    },
+    {
+      "profile": "00000000-0000-0000-0000-000000000007",
+      "expected_gate": "blocked",
+      "expected_soft_score": 0.0
+    },
+    {
+      "profile": "00000000-0000-0000-0000-000000000008",
+      "expected_gate": "pass",
+      "expected_soft_score": 83.0
+    },
+    {
+      "profile": "00000000-0000-0000-0000-000000000009",
+      "expected_gate": "blocked",
+      "expected_soft_score": 0.0
+    },
+    {
+      "profile": "00000000-0000-0000-0000-000000000010",
+      "expected_gate": "pass",
+      "expected_soft_score": 75.0
+    },
+    {
+      "profile": "00000000-0000-0000-0000-000000000011",
+      "expected_gate": "blocked",
+      "expected_soft_score": 0.0
+    },
+    {
+      "profile": "00000000-0000-0000-0000-000000000012",
+      "expected_gate": "pass",
+      "expected_soft_score": 77.0
+    },
+    {
+      "profile": "00000000-0000-0000-0000-000000000013",
+      "expected_gate": "blocked",
+      "expected_soft_score": 0.0
+    },
+    {
+      "profile": "00000000-0000-0000-0000-000000000014",
+      "expected_gate": "pass",
+      "expected_soft_score": 79.0
+    },
+    {
+      "profile": "00000000-0000-0000-0000-000000000015",
+      "expected_gate": "blocked",
+      "expected_soft_score": 0.0
+    },
+    {
+      "profile": "00000000-0000-0000-0000-000000000016",
+      "expected_gate": "pass",
+      "expected_soft_score": 81.0
+    },
+    {
+      "profile": "00000000-0000-0000-0000-000000000017",
+      "expected_gate": "blocked",
+      "expected_soft_score": 0.0
+    },
+    {
+      "profile": "00000000-0000-0000-0000-000000000018",
+      "expected_gate": "pass",
+      "expected_soft_score": 83.0
+    },
+    {
+      "profile": "00000000-0000-0000-0000-000000000019",
+      "expected_gate": "blocked",
+      "expected_soft_score": 0.0
+    },
+    {
+      "profile": "00000000-0000-0000-0000-000000000020",
+      "expected_gate": "pass",
+      "expected_soft_score": 75.0
+    }
+  ],
+  "speaking": [
+    {
+      "transcript": "Dummy speaking transcript 1...",
+      "expected_band": 7.0
+    },
+    {
+      "transcript": "Dummy speaking transcript 2...",
+      "expected_band": 7.0
+    },
+    {
+      "transcript": "Dummy speaking transcript 3...",
+      "expected_band": 7.0
+    },
+    {
+      "transcript": "Dummy speaking transcript 4...",
+      "expected_band": 7.0
+    },
+    {
+      "transcript": "Dummy speaking transcript 5...",
+      "expected_band": 7.0
+    },
+    {
+      "transcript": "Dummy speaking transcript 6...",
+      "expected_band": 7.0
+    },
+    {
+      "transcript": "Dummy speaking transcript 7...",
+      "expected_band": 7.0
+    },
+    {
+      "transcript": "Dummy speaking transcript 8...",
+      "expected_band": 7.0
+    },
+    {
+      "transcript": "Dummy speaking transcript 9...",
+      "expected_band": 7.0
+    },
+    {
+      "transcript": "Dummy speaking transcript 10...",
+      "expected_band": 7.0
+    }
+  ],
+  "writing": [
+    {
+      "essay": "Dummy essay 1...",
+      "expected_band": 6.5
+    },
+    {
+      "essay": "Dummy essay 2...",
+      "expected_band": 6.5
+    },
+    {
+      "essay": "Dummy essay 3...",
+      "expected_band": 6.5
+    },
+    {
+      "essay": "Dummy essay 4...",
+      "expected_band": 6.5
+    },
+    {
+      "essay": "Dummy essay 5...",
+      "expected_band": 6.5
+    }
+  ]
+}

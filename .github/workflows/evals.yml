@@ -1,0 +1,85 @@
+name: Evals
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'evals/**'
+      - 'services/**'
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    env:
+      STRICT_EVAL_MODE: "false"
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Start Docker Compose Stack
+        run: |
+          docker-compose up -d
+          # Wait for Gateway to become healthy
+          echo "Waiting for services..."
+          for i in {1..20}; do
+            if curl -s http://localhost:8080/health > /dev/null; then
+              echo "Gateway is up!"
+              break
+            fi
+            sleep 5
+          done
+          # Give localstack & postgres extra time to stabilize
+          sleep 10
+
+      - name: Provision Local Infrastructure (DB & S3)
+        run: |
+          # Provision S3 Bucket via AWS CLI to LocalStack
+          aws --endpoint-url=http://localhost:4566 s3 mb s3://goa-eval-reports || true
+          
+          # Provision DB using the dedicated seed script
+          docker exec -i $(docker-compose ps -q postgres) psql -U goa -d rag_db < evals/seed_data.sql
+        env:
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_REGION: us-east-1
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install httpx pydantic anthropic boto3 pytest
+
+      - name: Run Tests
+        run: |
+          pytest evals/tests/
+        
+      - name: Run Evals
+        env:
+          RAG_SERVICE_URL: http://localhost:8084
+          SCORING_SERVICE_URL: http://localhost:8084
+          SPEAKING_SERVICE_URL: http://localhost:8082
+          WRITING_SERVICE_URL: http://localhost:8000
+          AWS_ENDPOINT_URL: http://localhost:4566
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_REGION: us-east-1
+        run: |
+          python evals/runner.py --compare-with s3://goa-eval-reports/latest_report.json --s3-upload-path s3://goa-eval-reports/
+        timeout-minutes: 15
+        continue-on-error: ${{ env.STRICT_EVAL_MODE != 'true' }}
+
+      - name: Upload Report Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: evals-report
+          path: evals/reports/*.json
+
+      - name: Shutdown Docker Compose
+        if: always()
+        run: docker-compose down

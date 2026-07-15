@@ -59,7 +59,7 @@ class FakeSessionService:
 
 
 class FakeQuestionRepository:
-    async def get_random_question(self, exam_type: str, skill_area: str) -> dict[str, Any]:
+    async def get_random_question(self, exam_type: str, skill_area: str, user_id: Any) -> dict[str, Any]:
         question = _public_question()
         question["answer_key"] = {"answers": {"1": "A"}}
         return question
@@ -130,7 +130,7 @@ def test_random_question_does_not_expose_answer_key() -> None:
     client = _client()
 
     response = client.get(
-        "/questions/random?exam_type=academic&skill_area=reading",
+        f"/questions/random?exam_type=academic&skill_area=reading&user_id={uuid4()}",
         headers=INTERNAL_HEADERS,
     )
 

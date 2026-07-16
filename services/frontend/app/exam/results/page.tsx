@@ -2,26 +2,74 @@
 
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import Link from "next/link"; 
+import Link from "next/link";
 import { SkillArea } from "@/app/types/exam";
+import { getResult, getSession } from "@/lib/exam-api";
 import { Sidebar } from "@/components/ui/sidebar";
+import type { ExamSessionResponse, ExamResultResponse } from "@/lib/exam-api";
 
 export default function ResultsPage() {
   const searchParams = useSearchParams();
   const skill = (searchParams.get("skill") || "Reading") as SkillArea;
   const [mounted, setMounted] = useState(false);
+  const sessionId = searchParams.get("session") || "";
+  const [session, setSession] = useState<ExamSessionResponse | null>(null);
+  const [result, setResult] = useState<ExamResultResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
   useEffect(() => {
-    sessionStorage.removeItem("active_exam_session");
-    fetch("/api/profile/update-scores", {
-      method: "POST",
-      body: JSON.stringify({ skill, bandScore: 7.5 }),
-    });
-  }, [skill]);
+    if (!sessionId) return;
+
+    async function loadResult() {
+      try {
+        setLoading(true);
+
+        const [sessionData, resultData] = await Promise.all([
+          getSession(sessionId),
+          getResult(sessionId),
+        ]);
+
+        setSession(sessionData);
+        setResult(resultData);
+
+        sessionStorage.removeItem("active_exam_session");
+
+        await fetch("/api/profile/update-scores", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            skill,
+            bandScore: resultData.band_score,
+          }),
+        });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load result");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadResult();
+  }, [sessionId, skill]);
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  if (error) {
+    return <div>{error}</div>;
+  }
+
+  if (!result) {
+    return <div>No result found.</div>;
+  }
 
   return (
     <div className="flex min-h-screen bg-[#fbfbfa] text-gray-900 font-sans">
@@ -48,8 +96,9 @@ export default function ResultsPage() {
                 OVERALL BAND
               </p>
               <p className="text-4xl font-serif font-bold text-[#0d4d3a]">
-                7.5
+                {result.band_score}
               </p>
+              <p>Raw Score: {result.raw_score}</p>
             </div>
           </div>
 

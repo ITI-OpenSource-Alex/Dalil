@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ExamType, SkillArea } from "@/app/types/exam";
+import { createSession } from "@/lib/exam-api";
 import { Sidebar } from "@/components/ui/sidebar";
 
 export default function ExamLandingPage() {
@@ -17,6 +18,7 @@ export default function ExamLandingPage() {
     },
   );
   const [mounted, setMounted] = useState(false);
+  const [startingExam, setStartingExam] = useState<SkillArea | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -40,17 +42,33 @@ export default function ExamLandingPage() {
   };
 
   const startExam = async (skill: SkillArea) => {
-    const res = await fetch("/api/exams/start", {
-      method: "POST",
-      body: JSON.stringify({ examType, skill }),
-    });
-    const data = await res.json();
+    try {
+      setStartingExam(skill);
 
-    sessionStorage.setItem(
-      "active_exam_session",
-      JSON.stringify({ sessionId: data.sessionId, examType, skillArea: skill }),
-    );
-    router.push(`/exam/shell?session=${data.sessionId}`);
+      /**
+       * TODO:
+       * Replace this with the authenticated user's id.
+       */
+      const userId = "00000000-0000-0000-0000-000000000001";
+
+      const session = await createSession(userId, examType, skill);
+
+      sessionStorage.setItem(
+        "active_exam_session",
+        JSON.stringify({
+          sessionId: session.session_id,
+          examType,
+          skillArea: skill,
+        }),
+      );
+
+      router.push(`/exam/shell?session=${session.session_id}`);
+    } catch (error) {
+      console.error(error);
+      alert("Unable to start exam.");
+    } finally {
+      setStartingExam(null);
+    }
   };
 
   const skillCards: {
@@ -225,10 +243,11 @@ export default function ExamLandingPage() {
                 <div className="flex justify-between items-center pt-4">
                   <div className="flex gap-1.5">
                     <button
+                      disabled={startingExam !== null}
                       onClick={() => startExam(card.key)}
-                      className="bg-white/80 hover:bg-white text-gray-700 text-l font-medium px-3 py-1 rounded-full border border-black/5 transition"
+                      className="bg-white/80 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 text-l font-medium px-3 py-1 rounded-full border border-black/5 transition"
                     >
-                      Take Exam
+                      {startingExam === card.key ? "Starting..." : "Take Exam"}
                     </button>
                   </div>
                 </div>

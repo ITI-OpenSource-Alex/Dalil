@@ -41,6 +41,7 @@ def make_mock_db_pool(monkeypatch, similarity_score=0.85):
         "similarity": similarity_score,
     }
     mock_conn.fetch = AsyncMock(return_value=[mock_row])
+    mock_conn.fetchrow = AsyncMock(return_value=None)
 
     # Create the context manager mock
     mock_ctx = MagicMock()

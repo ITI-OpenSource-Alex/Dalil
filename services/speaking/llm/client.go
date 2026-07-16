@@ -25,11 +25,11 @@ type CompletionResult struct {
 }
 
 // NewClient initializes the Anthropic client wrapper
-func NewClient(apiKey string) *Client {
+func NewClient(model, apiKey string) *Client {
 	c := anthropic.NewClient(option.WithAPIKey(apiKey))
 	return &Client{
 		client: &c,
-		model:  "claude-3-5-haiku-20241022",
+		model:  model,
 	}
 }
 

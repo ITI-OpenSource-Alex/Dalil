@@ -65,10 +65,10 @@ func TestSwarm_RoundingRules(t *testing.T) {
 		scores       []float64
 		expectedBand float64
 	}{
-		{"Round down (<0.25)", []float64{6.0, 6.0, 6.0, 6.5}, 6.0},               // avg = 6.125 -> 6.0
-		{"Round up to half (>=0.25)", []float64{6.0, 6.0, 6.5, 6.5}, 6.5},        // avg = 6.25 -> 6.5
-		{"Round down to half (<0.75)", []float64{6.5, 6.5, 6.5, 7.0}, 6.5},       // avg = 6.625 -> 6.5
-		{"Round up to next whole (>=0.75)", []float64{6.5, 6.5, 7.0, 7.0}, 7.0},  // avg = 6.75 -> 7.0
+		{"Round down (<0.25)", []float64{6.0, 6.0, 6.0, 6.5}, 6.0},              // avg = 6.125 -> 6.0
+		{"Round up to half (>=0.25)", []float64{6.0, 6.0, 6.5, 6.5}, 6.5},       // avg = 6.25 -> 6.5
+		{"Round down to half (<0.75)", []float64{6.5, 6.5, 6.5, 7.0}, 6.5},      // avg = 6.625 -> 6.5
+		{"Round up to next whole (>=0.75)", []float64{6.5, 6.5, 7.0, 7.0}, 7.0}, // avg = 6.75 -> 7.0
 	}
 
 	for _, tt := range tests {

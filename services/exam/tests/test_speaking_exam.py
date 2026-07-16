@@ -114,12 +114,30 @@ def test_concatenated_string_payload_and_agent_response(
 
     mock_speaking_client_instance = mock_speaking_client.return_value
     eval_result = {
-        "band_score": 7.5,
-        "section_scores": {"fluency": 7, "lexical": 8},
-        "part_notes": {"Part 1": "Good"},
-        "examples": [{"part": 1, "quote": "example 1", "issue": "issue 1"}],
-        "raw_score": 0,
-        "feedback": "Good job"
+        "status": "completed",
+        "partial": False,
+        "overall_band": 7.5,
+        "dimensions": {
+            "fluency": {
+                "criterion": "fluency",
+                "band": 7.0,
+                "overall_feedback": "Good",
+                "part_notes": {"Part 1": "Good"},
+                "examples": [{"part": 1, "quote": "example 1", "issue": "issue 1"}],
+                "improvement_tip": "tip",
+                "timed_out": False
+            },
+            "lexical": {
+                "criterion": "lexical",
+                "band": 8.0,
+                "overall_feedback": "Good",
+                "part_notes": {"Part 1": "Good"},
+                "examples": [{"part": 1, "quote": "example 1", "issue": "issue 1"}],
+                "improvement_tip": "tip",
+                "timed_out": False
+            }
+        },
+        "overall_feedback": "Good job"
     }
     mock_speaking_client_instance.evaluate_holistic = AsyncMock(return_value=eval_result)
 
@@ -151,9 +169,9 @@ def test_concatenated_string_payload_and_agent_response(
     mock_result_instance.create.assert_called_once()
     create_kwargs = mock_result_instance.create.call_args[1]
     assert create_kwargs["band_score"] == 7.5
-    assert create_kwargs["section_scores"] == {"fluency": 7, "lexical": 8}
-    assert create_kwargs["agent_responses"]["part_notes"] == {"Part 1": "Good"}
-    assert create_kwargs["agent_responses"]["examples"] == [{"part": 1, "quote": "example 1", "issue": "issue 1"}]
+    assert create_kwargs["section_scores"] == {"fluency": 7.0, "lexical": 8.0}
+    assert create_kwargs["agent_responses"]["status"] == "completed"
+    assert create_kwargs["agent_responses"]["dimensions"]["fluency"]["band"] == 7.0
 
 
 @pytest.mark.asyncio
@@ -192,12 +210,30 @@ async def test_speaking_flow_integration() -> None:
         with patch("app.api.internal.SpeakingServiceClient") as mock_speaking_client:
             mock_speaking_client_instance = mock_speaking_client.return_value
             mock_speaking_client_instance.evaluate_holistic = AsyncMock(return_value={
-                "band_score": 8.0,
-                "section_scores": {"fluency": 8, "lexical": 8},
-                "part_notes": {"Part 1": "Good"},
-                "examples": [{"part": 1, "quote": "test", "issue": "test"}],
-                "raw_score": 0,
-                "feedback": "Great"
+                "status": "completed",
+                "partial": False,
+                "overall_band": 8.0,
+                "dimensions": {
+                    "fluency": {
+                        "criterion": "fluency",
+                        "band": 8.0,
+                        "overall_feedback": "Great",
+                        "part_notes": {"Part 1": "Good"},
+                        "examples": [{"part": 1, "quote": "test", "issue": "test"}],
+                        "improvement_tip": "tip",
+                        "timed_out": False
+                    },
+                    "lexical": {
+                        "criterion": "lexical",
+                        "band": 8.0,
+                        "overall_feedback": "Great",
+                        "part_notes": {"Part 1": "Good"},
+                        "examples": [{"part": 1, "quote": "test", "issue": "test"}],
+                        "improvement_tip": "tip",
+                        "timed_out": False
+                    }
+                },
+                "overall_feedback": "Great"
             })
             
             res1 = await client.post(f"/internal/sessions/{session_id}/speaking/transcripts", headers=INTERNAL_HEADERS, json={"part": 1, "transcript_text": "t1", "duration_s": 60, "question_text": "q1"})

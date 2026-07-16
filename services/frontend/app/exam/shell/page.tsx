@@ -4,12 +4,18 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useExamTimer } from "@/app/hooks/useExamTimer";
 import { ExamType, SkillArea, ExamStatus } from "@/app/types/exam";
+import { getSession, submitSession } from "@/lib/exam-api";
+// import { evaluateEssay } from "@/lib/writing-api";
+import type { ExamSessionResponse } from "@/lib/exam-api";
 import { Sidebar } from "@/components/ui/sidebar";
 
 export default function ExamShell() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("session") || "";
+
+  const [session, setSession] = useState<ExamSessionResponse | null>(null);
+  const [loadingSession, setLoadingSession] = useState(true);
 
   const [examConfig, setExamConfig] = useState<{
     type: ExamType;
@@ -21,14 +27,33 @@ export default function ExamShell() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const saved = sessionStorage.getItem("active_exam_session");
-    if (!saved) {
-      router.push("/exam");
-      return;
+    async function loadSession() {
+      if (!sessionId) {
+        router.push("/exam");
+        return;
+      }
+
+      try {
+        const data = await getSession(sessionId);
+
+        setSession(data);
+
+        setExamConfig({
+          type: data.exam_type === "academic" ? "Academic" : "General",
+
+          skill: (data.skill_area.charAt(0).toUpperCase() +
+            data.skill_area.slice(1)) as SkillArea,
+        });
+      } catch (err) {
+        console.error(err);
+        router.push("/exam");
+      } finally {
+        setLoadingSession(false);
+      }
     }
-    const parsed = JSON.parse(saved);
-    setExamConfig({ type: parsed.examType, skill: parsed.skillArea });
-  }, [router]);
+
+    loadSession();
+  }, [sessionId]);
 
   useEffect(() => {
     if (examConfig) {
@@ -39,28 +64,29 @@ export default function ExamShell() {
 
   const executeSubmission = async () => {
     setShowSubmitModal(false);
-    if (examConfig?.skill === "Speaking") {
+
+    try {
       setStatus("evaluating");
-      setTimeout(() => setStatus("part1_done"), 2000);
-      setTimeout(() => setStatus("part2_done"), 4000);
-      setTimeout(() => setStatus("part3_done"), 6000);
-      setTimeout(() => {
-        router.push(`/exam/results?session=${sessionId}&skill=Speaking`);
-      }, 9000);
-    } else {
-      router.push(
-        `/exam/results?session=${sessionId}&skill=${examConfig?.skill}`,
-      );
+
+      const result = await submitSession(sessionId, {
+        task1: writingInput.task1,
+        task2: writingInput.task2,
+      });
+
+      console.log(result);
+
+      router.push(`/exam/results?session=${sessionId}&skill=Writing`);
+    } catch (err) {
+      console.error(err);
     }
   };
 
-  const { formatTime, isCritical } = useExamTimer(
-    1800,
-    sessionId,
+  const { formattedTime, isCritical } = useExamTimer(
+    session?.remaining_time_seconds ?? 0,
     executeSubmission,
   );
 
-  if (!examConfig)
+  if (loadingSession || !session || !examConfig)
     return (
       <div className="min-h-screen bg-[#fbfbfa] p-8 font-mono text-xs text-gray-500">
         Loading active session...
@@ -104,7 +130,7 @@ export default function ExamShell() {
                     : "bg-gray-100 text-gray-800 border-gray-200"
                 }`}
               >
-                {formatTime()}
+                {formattedTime}
               </div>
               <button
                 onClick={() => setShowSubmitModal(true)}
@@ -126,6 +152,9 @@ export default function ExamShell() {
                       TASK 1 (Report / Letter)
                     </h4>
                   </div>
+                  <div className="mb-4 text-sm whitespace-pre-wrap">
+                    {String(session.questions[0].questions[0].prompt)}
+                  </div>
                   <textarea
                     value={writingInput.task1}
                     onChange={(e) =>
@@ -145,6 +174,9 @@ export default function ExamShell() {
                   <h4 className="font-serif text-sm font-bold mb-3 border-b border-gray-100 pb-2 text-gray-900">
                     TASK 2 (Extended Essay)
                   </h4>
+                  <div className="mb-4 text-sm whitespace-pre-wrap">
+                    {String(session.questions[0].questions[1].prompt)}
+                  </div>
                   <textarea
                     value={writingInput.task2}
                     onChange={(e) =>

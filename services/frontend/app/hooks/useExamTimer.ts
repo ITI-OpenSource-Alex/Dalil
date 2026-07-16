@@ -1,56 +1,41 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-export function useExamTimer(
-  initialSeconds: number,
-  sessionId: string,
-  onTimeUp: () => void,
-) {
+export function useExamTimer(initialSeconds: number, onTimeUp: () => void) {
   const [secondsLeft, setSecondsLeft] = useState(initialSeconds);
-  const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Countdown clock
+  // If the backend sends a different remaining time (for example after
+  // loading or resuming a session), synchronize with it.
+  useEffect(() => {
+    setSecondsLeft(initialSeconds);
+  }, [initialSeconds]);
+
   useEffect(() => {
     if (secondsLeft <= 0) {
       onTimeUp();
       return;
     }
 
-    const timer = setInterval(() => {
-      setSecondsLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          return 0;
-        }
-        return prev - 1;
-      });
+    const interval = window.setInterval(() => {
+      setSecondsLeft((current) => Math.max(0, current - 1));
     }, 1000);
 
-    return () => clearInterval(timer);
+    return () => window.clearInterval(interval);
   }, [secondsLeft, onTimeUp]);
 
-  // Heartbeat system (Every 60s)
-  useEffect(() => {
-    heartbeatIntervalRef.current = setInterval(() => {
-      fetch(`/api/sessions/${sessionId}/heartbeat`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ remaining_seconds: secondsLeft }),
-      }).catch((err) => console.error("Heartbeat failed:", err));
-    }, 60000);
+  const minutes = Math.floor(secondsLeft / 60);
+  const seconds = secondsLeft % 60;
 
-    return () => {
-      if (heartbeatIntervalRef.current)
-        clearInterval(heartbeatIntervalRef.current);
-    };
-  }, [sessionId, secondsLeft]);
+  const formattedTime = useMemo(
+    () =>
+      `${minutes.toString().padStart(2, "0")}:${seconds
+        .toString()
+        .padStart(2, "0")}`,
+    [minutes, seconds],
+  );
 
-  const formatTime = () => {
-    const minutes = Math.floor(secondsLeft / 60);
-    const seconds = secondsLeft % 60;
-    return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+  return {
+    secondsLeft,
+    formattedTime,
+    isCritical: secondsLeft <= 300,
   };
-
-  const isCritical = secondsLeft <= 300; // 5 minutes
-
-  return { secondsLeft, formatTime, isCritical };
 }

@@ -39,12 +39,21 @@ class Example(BaseModel):
     quote: str
     issue: str
 
-
-class EvaluationResponse(BaseModel):
-    band_score: float
-    section_scores: dict[str, float]
+class CriterionDetail(BaseModel):
+    criterion: str
+    band: float
+    overall_feedback: str
     part_notes: dict[str, str]
     examples: list[Example]
+    improvement_tip: str
+    timed_out: bool
+
+class EvaluationResponse(BaseModel):
+    status: str
+    partial: bool
+    overall_band: float
+    dimensions: dict[str, CriterionDetail]
+    overall_feedback: str
 
 
 @router.get("/{session_id}/owner")
@@ -114,6 +123,8 @@ async def submit_transcript(
         # Enforce agent response schema
         eval_data = EvaluationResponse.model_validate(result)
         
+        section_scores = {k: v.band for k, v in eval_data.dimensions.items()}
+        
         result_repo = ResultRepository(db.pool)
         await result_repo.create(
             result_id=uuid4(),
@@ -121,8 +132,8 @@ async def submit_transcript(
             user_id=sessions_res["user_id"],
             skill_area=sessions_res["skill_area"],
             raw_score=0,
-            band_score=eval_data.band_score,
-            section_scores=eval_data.section_scores,
+            band_score=eval_data.overall_band,
+            section_scores=section_scores,
             agent_responses=eval_data.model_dump()
         )
         await session_repo.mark_scored(session_id)

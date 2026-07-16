@@ -8,14 +8,17 @@ logger = structlog.get_logger(__name__)
 
 
 class BasePlaywrightAdapter(ABC):
-    def __init__(self, base_url: str, target_url: str, source_name: str, category: str, country: str, wait_selector: str):
+    def __init__(self, base_url: str, target_url: str, source_name: str, category: str, country: str, wait_selector: str,
+                 min_delay: float = 1.0, max_delay: float = 2.0):
         self.base_url = base_url
         self.target_url = target_url
         self.source_name = source_name
         self.category = category
         self.country = country
         # The specific CSS selector we need to wait for before extracting HTML
-        self.wait_selector = wait_selector 
+        self.wait_selector = wait_selector
+        self.min_delay = min_delay
+        self.max_delay = max_delay
 
     @with_playwright_backoff
     async def fetch_page(self, url: str) -> str:
@@ -54,7 +57,7 @@ class BasePlaywrightAdapter(ABC):
             logger.warning("robots_disallowed", url=self.target_url)
             return []
             
-        await polite_delay()
+        await polite_delay(self.min_delay, self.max_delay)
         index_html = await self.fetch_page(self.target_url)
         
         detail_urls = self.extract_urls(index_html)
@@ -65,7 +68,7 @@ class BasePlaywrightAdapter(ABC):
         for url in detail_urls[:50]:
             if not robot_checker.is_allowed(url):
                 continue
-            await polite_delay()
+            await polite_delay(self.min_delay, self.max_delay)
             try:
                 detail_html = await self.fetch_page(url)
                 docs = self.extract_documents(detail_html, url)

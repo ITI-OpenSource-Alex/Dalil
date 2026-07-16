@@ -24,6 +24,6 @@ export type WritingStatus =
   | "task2_submitted"
   | "task2_evaluating"
   | "combined_results";
-export type StandardStatus = "submitted" | "results";
+export type StandardStatus = "in_progress" | "submitted" | "results";
 
 export type ExamStatus = SpeakingStatus | WritingStatus | StandardStatus;

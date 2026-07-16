@@ -11,7 +11,8 @@ from app.api.scoring import router as scoring_router
 from contextlib import asynccontextmanager
 import asyncio
 from app.services.sqs_consumer import consume_sqs_messages
-
+from app.api.program_requirements import router as program_requirements_router
+from app.api.scholarship_programs import router as scholarship_programs_router
 
 configure_logging()
 logger = structlog.get_logger("rag_service.main")
@@ -65,8 +66,8 @@ async def correlation_id_middleware(request: Request, call_next):
 app.include_router(query_router)
 app.include_router(visa_router)
 app.include_router(documents_router)
-
-
+app.include_router(program_requirements_router)
+app.include_router(scholarship_programs_router)
 # Health endpoint
 @app.get("/health")
 async def health_check():

@@ -18,6 +18,17 @@ goa_speaking_exam_evaluation_ms = Histogram(
 )
 
 
+goa_writing_exam_task1_evaluation_ms = Histogram(
+    "goa_writing_exam_task1_evaluation_ms",
+    "Latency of writing exam task 1 evaluations in milliseconds",
+    labelnames=[],
+)
+
+goa_writing_exam_task2_evaluation_ms = Histogram(
+    "goa_writing_exam_task2_evaluation_ms",
+    "Latency of writing exam task 2 evaluations in milliseconds",
+    labelnames=[],
+)
 
 goa_exam_sessions_total = Counter(
     "goa_exam_sessions_total",

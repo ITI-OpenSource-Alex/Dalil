@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     langfuse_secret_key: Optional[str] = ""
     langfuse_host: str = "https://cloud.langfuse.com"
     speaking_service_url: str
+    writing_service_url: str
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

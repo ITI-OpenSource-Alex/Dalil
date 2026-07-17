@@ -24,6 +24,7 @@ class Essay(Base):
     submission_type = Column(String)
     exam_session_id = Column(String, nullable=True)
     exam_type = Column(String, nullable=True)
+    task_number = Column(Integer, nullable=True)
     evaluation_cache_key = Column(String(64), nullable=True, index=True)
     evaluation_result = Column(JSON().with_variant(JSONB, "postgresql"), nullable=True)
 

@@ -49,3 +49,24 @@ class EssayEvaluationResponse(BaseModel):
 class CVUploadResponse(BaseModel):
     cvId: int
     status: str
+
+
+class ExamTaskEvaluationRequest(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    userId: str = Field(min_length=1, max_length=128)
+    essayText: str = Field(min_length=1, max_length=10000)
+    examType: str = Field(min_length=1, max_length=64)
+    examSessionId: str = Field(min_length=1, max_length=128)
+    taskNumber: int = Field(ge=1, le=2)
+    stimulusS3Key: Optional[str] = Field(default=None, max_length=512)
+    taskPrompt: Optional[str] = Field(default=None, max_length=2000)
+
+
+class ExamTaskEvaluationResponse(BaseModel):
+    essay_id: int
+    exam_session_id: str
+    task_number: int
+    evaluations: list[CriterionEvaluation]
+    overall_band: float = Field(ge=0.0, le=9.0)
+    from_cache: bool

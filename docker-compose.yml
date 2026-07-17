@@ -80,6 +80,7 @@ services:
       - WRITING_MODEL=${WRITING_MODEL:-claude-sonnet-4-6}
       - ANTHROPIC_TIMEOUT_SECONDS=${ANTHROPIC_TIMEOUT_SECONDS:-25}
       - WRITING_CACHE_VERSION=${WRITING_CACHE_VERSION:-v1}
+      - OPENAI_API_KEY=sk-proj-a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8s9T0u1V2w3X4
     volumes:
       - ./services/writing/app:/app/app
       - ./services/writing/migrations:/app/migrations
@@ -227,6 +228,12 @@ services:
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
       - LANGFUSE_HOST=${LANGFUSE_HOST}
+      - WRITING_SERVICE_URL=http://writing:8000
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - S3_BUCKET=goa-writing-files
     volumes:
       - ./services/exam:/app
     depends_on:

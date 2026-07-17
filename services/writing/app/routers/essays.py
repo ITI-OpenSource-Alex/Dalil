@@ -30,6 +30,13 @@ from app.services.evaluation_store import (
     persist_evaluation,
 )
 
+from app.schemas import (
+    EssayEvaluationRequest,
+    EssayEvaluationResponse,
+    ExamTaskEvaluationRequest,
+    ExamTaskEvaluationResponse,
+)
+
 
 router = APIRouter(prefix="/essays", tags=["essays"])
 
@@ -44,6 +51,22 @@ def _response(
         from_cache=from_cache,
     )
 
+def _exam_response(
+    essay: Essay,
+    summary: EvaluationSummary,
+    *,
+    exam_session_id: str,
+    task_number: int,
+    from_cache: bool,
+) -> ExamTaskEvaluationResponse:
+    return ExamTaskEvaluationResponse(
+        essay_id=essay.id,
+        exam_session_id=exam_session_id,
+        task_number=task_number,
+        evaluations=summary.evaluations,
+        overall_band=summary.overall_band,
+        from_cache=from_cache,
+    )
 
 def _record_request(
     essay: Essay,
@@ -125,12 +148,20 @@ async def evaluate_submitted_text(
         from_cache=from_cache,
     )
     try:
-        summary = await _run_evaluation(
-            essay,
-            cached_payload=cached_payload,
-            coordinator=coordinator,
-            trace=trace,
-        )
+        if cached_payload is not None:
+            summary = await coordinator.replay_cached(
+                parse_cached_evaluations(cached_payload),
+                trace=trace,
+            )
+        else:
+            summary = await coordinator.evaluate_exam_task(
+                essay.extracted_text,
+                payload.examType,
+                task_number=payload.taskNumber,
+                stimulus_s3_key=payload.stimulusS3Key,
+                task_prompt=payload.taskPrompt,
+                trace=trace,
+            )
     except EvaluationFailed as exc:
         essay.status = "evaluation_failed"
         db.commit()
@@ -232,4 +263,64 @@ async def stream_essay_evaluation(
             "Cache-Control": "no-cache",
             "X-Accel-Buffering": "no",
         },
+    )
+
+@router.post("/evaluate/exam", response_model=ExamTaskEvaluationResponse)
+async def evaluate_exam_task(
+    payload: ExamTaskEvaluationRequest,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    coordinator: EvaluationCoordinator = Depends(get_evaluation_coordinator),
+    langfuse_client: Any = Depends(get_langfuse_client),
+):
+    started = time.perf_counter()
+    cache_key = evaluation_cache_key(
+        payload.essayText,
+        "exam",
+        payload.examType,
+        settings,
+    )
+    cached_payload = find_cached_evaluation(db, cache_key)
+    essay = Essay(
+        user_id=payload.userId,
+        extracted_text=payload.essayText,
+        submission_type="exam",
+        exam_type=payload.examType,
+        exam_session_id=payload.examSessionId,
+        task_number=payload.taskNumber,
+        evaluation_cache_key=cache_key,
+        status="evaluating",
+    )
+    db.add(essay)
+    db.commit()
+    db.refresh(essay)
+    from_cache = cached_payload is not None
+    trace = start_evaluation_trace(
+        langfuse_client,
+        user_id=essay.user_id,
+        essay_id=essay.id,
+        task_type=payload.examType,
+        from_cache=from_cache,
+    )
+    try:
+        summary = await _run_evaluation(
+            essay,
+            cached_payload=cached_payload,
+            coordinator=coordinator,
+            trace=trace,
+        )
+    except EvaluationFailed as exc:
+        essay.status = "evaluation_failed"
+        db.commit()
+        cache_hit_tracker.record(hit=False)
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    persist_evaluation(db, essay, summary)
+    _record_request(essay, summary, started=started, from_cache=from_cache)
+    return _exam_response(
+        essay,
+        summary,
+        exam_session_id=payload.examSessionId,
+        task_number=payload.taskNumber,
+        from_cache=from_cache,
     )

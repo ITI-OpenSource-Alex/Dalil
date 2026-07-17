@@ -11,6 +11,8 @@ from app.schemas import CreateSessionRequest, SubmitAnswersRequest
 from app.schemas.question import QuestionResponse
 from app.services.grading_service import GradingService
 from app.services.timer_service import TimerService
+from app.repositories.writing_response_repository import WritingResponseRepository
+from app.services.writing_client import WritingClient, WritingServiceError
 
 
 class SessionService:
@@ -28,12 +30,16 @@ class SessionService:
         result_repository: ResultRepository,
         timer_service: TimerService | None = None,
         grading_service: GradingService | None = None,
+        writing_response_repository: WritingResponseRepository | None = None,
+        writing_client: WritingClient | None = None,
     ):
         self.session_repository = session_repository
         self.question_repository = question_repository
         self.result_repository = result_repository
         self.timer_service = timer_service or TimerService()
         self.grading_service = grading_service or GradingService()
+        self.writing_response_repository = writing_response_repository
+        self.writing_client = writing_client
 
     async def create_session(
         self,
@@ -116,6 +122,9 @@ class SessionService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid session state",
             )
+            
+        if session["skill_area"] == "writing":
+            return await self._submit_writing(session_id, session, request)
 
         if self.timer_service.is_expired(
             session["started_at"],
@@ -171,6 +180,9 @@ class SessionService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid session state",
             )
+            
+        if session["skill_area"] == "writing":
+            return await self._get_writing_result(session_id, session)
 
         result = await self.result_repository.get_by_session(session_id)
         if result is None:
@@ -198,7 +210,7 @@ class SessionService:
             "graded_at": result["graded_at"],
             "answer_key": answer_key,
         }
-
+    
     def _time_limit_for(self, skill_area: str) -> int:
         return self.DEFAULT_TIME_LIMITS_SECONDS[skill_area]
 
@@ -269,3 +281,121 @@ class SessionService:
         if isinstance(value, str):
             return json.loads(value)
         return value
+
+
+#The session only flips to submitted/scored once both task rows exist
+# so the frontend's first PUT /submit call for Task 1 gets back "status": "task_submitted",
+# and the second (Task 2) gets "status": "submitted". Your GET /{session_id}
+# and GET /{session_id}/result status checks ({"submitted", "scored"}) keep working unchanged.
+
+    async def _submit_writing(
+            self,
+            session_id: UUID,
+            session: dict[str, Any],
+            request: SubmitAnswersRequest,
+        ) -> dict[str, Any]:
+            if request.task_number is None or request.essay_text is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="essay_text and task_number are required for writing submissions",
+                )
+            if self.writing_response_repository is None or self.writing_client is None:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Writing submission is not configured",
+                )
+
+            word_count = len(request.essay_text.split())
+            await self.writing_response_repository.save_response(
+                session_id=session_id,
+                task_number=request.task_number,
+                response_text=request.essay_text,
+                word_count=word_count,
+            )
+            
+            task_prompt, stimulus_s3_key = await self._resolve_task_context(session, request.task_number)
+
+            try:
+                evaluation = await self.writing_client.evaluate_exam_essay(
+                    user_id=str(session["user_id"]),
+                    essay_text=request.essay_text,
+                    exam_type=session["exam_type"],
+                    exam_session_id=session_id,
+                    task_number=request.task_number,
+                    stimulus_s3_key=stimulus_s3_key,
+                    task_prompt=task_prompt,
+                )
+            except WritingServiceError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail=str(exc),
+                ) from exc
+
+            await self.writing_response_repository.save_evaluation(
+                session_id=session_id,
+                task_number=request.task_number,
+                evaluation_result=evaluation.model_dump(),
+            )
+
+            responses = await self.writing_response_repository.get_all_by_session(session_id)
+            all_tasks_submitted = {1, 2}.issubset({r["task_number"] for r in responses})
+
+            if all_tasks_submitted:
+                await self.session_repository.submit(session_id)
+                await self.session_repository.mark_scored(session_id)
+
+            return {
+                "session_id": session_id,
+                "task_number": request.task_number,
+                "status": "submitted" if all_tasks_submitted else "task_submitted",
+                "overall_band": evaluation.overall_band,
+            }
+            
+    async def _resolve_task_context(
+        self,
+        session: dict[str, Any],
+        task_number: int,
+    ) -> tuple[str | None, str | None]:
+        question = await self.question_repository.get_by_id(session["question_id"])
+        
+        if question is None:
+            return None, None
+        questions_data = self._decode_json(question["questions"])
+        task_key = "task1" if task_number == 1 else "task2"
+        task_data = (questions_data or {}).get(task_key, {})
+        task_prompt = task_data.get("prompt")
+        image_s3_key = task_data.get("image_s3_key") if task_number == 1 else None
+        return task_prompt, image_s3_key
+    
+    async def _get_writing_result(
+        self,
+        session_id: UUID,
+        session: dict[str, Any],
+    ) -> dict[str, Any]:
+        responses = await self.writing_response_repository.get_all_by_session(session_id)
+        if len(responses) < 2:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Result not found",
+            )
+
+        tasks: dict[int, dict[str, Any]] = {}
+        for r in responses:
+            tasks[r["task_number"]] = {
+                "response_text": r["response_text"],
+                "word_count": r["word_count"],
+                "evaluation": self._decode_json(r["evaluation_result"]) or {},
+            }
+
+        band_task1 = tasks.get(1, {}).get("evaluation", {}).get("overall_band", 0.0)
+        band_task2 = tasks.get(2, {}).get("evaluation", {}).get("overall_band", 0.0)
+        # IELTS weighting: Task 2 counts twice Task 1. Confirm this is what you want.
+        overall_band = round((band_task1 + 2 * band_task2) / 3 * 2) / 2  # nearest 0.5
+
+        return {
+            "session_id": session_id,
+            "user_id": session["user_id"],
+            "skill_area": "writing",
+            "overall_band": overall_band,
+            "tasks": tasks,
+        }

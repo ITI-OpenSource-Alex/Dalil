@@ -15,7 +15,12 @@ ALTER TABLE exam_writing_responses ADD CONSTRAINT check_writing_task
 ALTER TABLE exam_writing_responses ADD CONSTRAINT check_word_count_positive 
     CHECK (word_count > 0);
 
-ALTER TABLE exam_writing_responses ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY writing_owner_only ON exam_writing_responses
-    USING (session_id IN (SELECT id FROM exam_sessions WHERE user_id = auth.uid()));
+-- NOTE: a Supabase-style RLS policy using auth.uid() was removed here. This project runs
+-- plain Postgres (pgvector image) with no `auth` schema, so `auth.uid()` does not exist and
+-- the statement aborted the entire migration — leaving BOTH 004 and 005 unapplied, so
+-- exam_writing_responses never existed in any environment and the writing questions were
+-- never seeded. Ownership is enforced in application code instead (session-ownership checks
+-- in the API layer + INTERNAL_API_KEY, plus the Gateway ownership middleware from GOA-059),
+-- and the service connects as a single `goa` role, so per-user RLS keyed to an external auth
+-- provider would not apply here regardless. No other exam table (exam_sessions, exam_results,
+-- exam_speaking_transcripts) uses RLS either.

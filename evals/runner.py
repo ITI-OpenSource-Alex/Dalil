@@ -144,7 +144,8 @@ def run_scoring_eval(data: dict) -> dict:
     
     for item in data.get('scoring', []):
         total += 1
-        payload = {"userId": item["profile"], "programId": "11111111-1111-1111-1111-111111111111"}
+
+        payload = {"userId": item["profile"], "programId": "99999999-9999-9999-9999-999999999999"}
         try:
             response = httpx.post(f"{scoring_url}/scoring/score", json=payload, timeout=30.0)
             service_data = response.json()

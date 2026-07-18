@@ -9,6 +9,20 @@ class EssayCreate(BaseModel):
     submissionType: str
     examSessionId: Optional[str] = None
 
+# TODO (GOA-112): Add EssayCreateRequest {userId, essayText, submissionType (task1|task2), examSessionId (optional)} 
+# and EssayCreateResponse {id, status} — field names per GOA-008's original spec, since GOA-018's Orchestration caller sends exactly that shape.
+
+class EssayCreateRequest(BaseModel):
+    userId: str
+    essayText: str
+    submissionType: str
+    examSessionId: Optional[str] = None
+
+class EssayCreateResponse(BaseModel):
+    id: int
+    status: str
+
+
 
 class EssayEvaluationRequest(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)

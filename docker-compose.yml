@@ -229,6 +229,7 @@ services:
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
       - LANGFUSE_HOST=${LANGFUSE_HOST}
       - WRITING_SERVICE_URL=http://writing:8000
+      - SPEAKING_SERVICE_URL=http://speaking:8082
       - AWS_REGION=us-east-1
       - AWS_ACCESS_KEY_ID=test
       - AWS_SECRET_ACCESS_KEY=test

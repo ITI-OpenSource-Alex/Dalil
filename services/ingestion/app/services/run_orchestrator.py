@@ -9,13 +9,7 @@ from app.adapters.chevening import CheveningAdapter
 from app.adapters.study_in_poland import StudyInPolandAdapter
 from app.adapters.stipendium_hungaricum import StipendiumHungaricumAdapter
 from app.adapters.masters_portal import MastersPortalAdapter
-from app.adapters.german_embassy_cairo import GermanEmbassyCairoAdapter
-from app.adapters.campus_france_egypt import CampusFranceEgyptAdapter
-from app.adapters.uk_visa_egypt import UKVISAEgyptAdapter
-from app.adapters.fintiba_sperrkonto import FintibaSperrkontoAdapter
-from app.adapters.czech_embassy_cairo import CzechEmbassyCairoAdapter
-from app.adapters.spain_visa_egypt import SpainVisaEgyptAdapter
-from app.adapters.italy_embassy_cairo import ItalyEmbassyCairoAdapter
+from app.adapters.visa_adapter import VisaSourceAdapter
 from app.services.s3_reporting import upload_report_to_s3
 from app.core.metrics import DOCS_PROCESSED_TOTAL, RUN_DURATION_SECONDS
 from client import upsert_visa_requirement
@@ -38,13 +32,7 @@ async def run_ingestion():
         StudyInPolandAdapter(),
         StipendiumHungaricumAdapter(),
         MastersPortalAdapter(),
-        GermanEmbassyCairoAdapter(),
-        CampusFranceEgyptAdapter(),
-        UKVISAEgyptAdapter(),
-        FintibaSperrkontoAdapter(),
-        CzechEmbassyCairoAdapter(),
-        SpainVisaEgyptAdapter(),
-        ItalyEmbassyCairoAdapter(),
+        VisaSourceAdapter(),
     ]
 
     #Run all 13 concurrently. return_exceptions=True is critical for isolation!

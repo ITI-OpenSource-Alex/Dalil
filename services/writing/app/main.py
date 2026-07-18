@@ -1,15 +1,16 @@
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile, status
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from sqlalchemy.orm import Session
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, Response
 
 from app.routers import internal
-
 from app.config import MAX_CV_REQUEST_BYTES
 from app.dependencies import get_db
 from app.models import Essay
 from app.routers.cvs import router as cv_router
+from app.routers.essays import router as essay_router
 
 app = FastAPI(
     title="GOA Writing Service",
@@ -41,9 +42,12 @@ async def reject_oversized_cv_request(request: Request, call_next):
 
 @app.get("/health")
 def health():
-    return {
-        "status": "ok"
-    }
+    return {"status": "ok"}
+
+
+@app.get("/metrics")
+def metrics():
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 @app.post("/essays/upload")
@@ -123,8 +127,12 @@ def get_essay(
         "uploadedAt": essay.uploaded_at,
         "status": essay.status,
         "submissionType": essay.submission_type,
-        "examSessionId": essay.exam_session_id
+        "examSessionId": essay.exam_session_id,
+        "examType": essay.exam_type,
+        "evaluationResult": essay.evaluation_result,
     }
+
 
 app.include_router(internal.router)
 app.include_router(cv_router)
+app.include_router(essay_router)

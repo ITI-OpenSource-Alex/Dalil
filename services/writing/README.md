@@ -2,6 +2,8 @@
 
 The Writing service owns essay text and CV file receipt. GOA-089 adds `POST /cv/upload`; CV extraction remains the responsibility of GOA-087.
 
+GOA-014 adds four-agent IELTS evaluation for typed essays. See [the GOA-014 implementation and validation matrix](../../docs/GOA-014-writing-evaluation-swarm.md).
+
 ## CV upload
 
 Send an authenticated multipart request through the Gateway:

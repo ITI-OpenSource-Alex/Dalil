@@ -20,12 +20,15 @@ class QuestionRepository:
         self,
         exam_type: str,
         skill_area: str,
+        user_id: UUID,
     ) -> Record | None:
         query = """
-        SELECT *
-        FROM questions
-        WHERE exam_type=$1
-          AND skill_area=$2
+        SELECT q.*
+        FROM questions q
+        LEFT JOIN exam_sessions s ON s.question_id = q.id AND s.user_id = $3
+        WHERE q.exam_type=$1
+          AND q.skill_area=$2
+          AND s.id IS NULL
         ORDER BY RANDOM()
         LIMIT 1
         """
@@ -35,6 +38,7 @@ class QuestionRepository:
                 query,
                 exam_type,
                 skill_area,
+                user_id,
             )
 
     async def get_random_unseen_question(

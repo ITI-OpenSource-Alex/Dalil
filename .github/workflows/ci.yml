@@ -103,7 +103,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
       postgres:
-        image: postgres:15-alpine
+        image: pgvector/pgvector:pg15
         env:
           POSTGRES_USER: test
           POSTGRES_PASSWORD: test
@@ -203,6 +203,13 @@ jobs:
           else
             echo "No tests folder found. Skipping pytest to avoid fatal exit code 5."
           fi
+
+      - name: Run Writing golden evaluation
+        if: matrix.service == 'writing' && vars.RUN_WRITING_EVAL == '1'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          RUN_WRITING_EVAL: "1"
+        run: pytest tests/evaluation -m evaluation -q
 
       ####################################################
       # NODE

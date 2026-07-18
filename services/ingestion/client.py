@@ -11,6 +11,34 @@ def get_headers() -> dict:
         "X-Internal-Api-Key": settings.internal_api_key
     }
 
+def fetch_visa_sources() -> list[dict]:
+    """
+    Fetches the active visa source config rows (GOA-116) from the RAG service.
+    The generic VisaSourceAdapter crawls whatever this returns instead of shipping one
+    bespoke scraper class per embassy site. Returns a list of dicts matching the
+    VisaSource schema. Raises on transport/HTTP failure so the caller marks the whole
+    adapter failed rather than silently crawling nothing.
+    """
+
+    url = f"{settings.rag_service_url}/internal/visa-sources"
+    headers = get_headers()
+
+    try:
+        logger.info("Fetching visa sources from RAG service at %s", url)
+        response = requests.get(url, headers=headers, timeout=15)
+        if response.status_code == 200:
+            return response.json().get("sources", [])
+        logger.error(
+            "RAG visa-sources endpoint failed with status %d: %s",
+            response.status_code,
+            response.text,
+        )
+        response.raise_for_status()
+    except Exception as e:
+        logger.error("Failed to connect to RAG visa-sources endpoint: %s", str(e))
+        raise e
+
+
 def check_existing_chunks(ids: list[str]) -> list[str]:
     """
     Calls the RAG service's check-existing endpoint to determine which document
@@ -38,6 +66,78 @@ def check_existing_chunks(ids: list[str]) -> list[str]:
         logger.error("Failed to connect to RAG check-existing endpoint: %s", str(e))
         raise e
     
+def upsert_visa_requirement(record: dict) -> bool:
+    """
+    Calls the RAG service's internal visa-requirements endpoint to upsert a single
+    structured visa requirements record. `record` is a dict matching the
+    VisaRequirementsRequest schema. Returns True if the upsert succeeded.
+    """
+
+    url = f"{settings.rag_service_url}/internal/visa-requirements"
+    headers = get_headers()
+
+    try:
+        logger.info("Upserting visa requirement to RAG service at %s", url)
+        response = requests.post(url, json=record, headers=headers, timeout=15)
+
+        if response.status_code == 200:
+            logger.info("Successfully upserted visa requirement to RAG database")
+            return True
+        else:
+            logger.error("RAG visa-requirements endpoint failed with status %d: %s", response.status_code, response.text)
+            response.raise_for_status()
+    except Exception as e:
+        logger.error("Failed to connect to RAG visa-requirements endpoint: %s", str(e))
+        raise e
+
+def upsert_program_requirement(record: dict) -> bool:
+    """
+    Calls the RAG service's internal program-requirements endpoint to upsert a single
+    structured program requirements record. `record` is a dict matching the
+    ProgramRequirementsUpsertRequest schema. Returns True if the upsert succeeded.
+    """
+
+    url = f"{settings.rag_service_url}/internal/program-requirements"
+    headers = get_headers()
+
+    try:
+        logger.info("Upserting program requirement to RAG service at %s", url)
+        response = requests.post(url, json=record, headers=headers, timeout=15)
+
+        if response.status_code == 200:
+            logger.info("Successfully upserted program requirement to RAG database")
+            return True
+        else:
+            logger.error("RAG program-requirements endpoint failed with status %d: %s", response.status_code, response.text)
+            response.raise_for_status()
+    except Exception as e:
+        logger.error("Failed to connect to RAG program-requirements endpoint: %s", str(e))
+        raise e
+
+def upsert_scholarship_program(record: dict) -> bool:
+    """
+    Calls the RAG service's internal scholarship-programs endpoint to upsert a single
+    structured scholarship program record. `record` is a dict matching the
+    ScholarshipProgramUpsertRequest schema. Returns True if the upsert succeeded.
+    """
+
+    url = f"{settings.rag_service_url}/internal/scholarship-programs"
+    headers = get_headers()
+
+    try:
+        logger.info("Upserting scholarship program to RAG service at %s", url)
+        response = requests.post(url, json=record, headers=headers, timeout=15)
+
+        if response.status_code == 200:
+            logger.info("Successfully upserted scholarship program to RAG database")
+            return True
+        else:
+            logger.error("RAG scholarship-programs endpoint failed with status %d: %s", response.status_code, response.text)
+            response.raise_for_status()
+    except Exception as e:
+        logger.error("Failed to connect to RAG scholarship-programs endpoint: %s", str(e))
+        raise e
+
 def upsert_chunks(chunks: list[dict]) -> bool:
     """
     Calls the RAG service's internal documents endpoint to bulk upsert chunks.

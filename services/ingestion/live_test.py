@@ -6,6 +6,7 @@ from app.adapters.chevening import CheveningAdapter
 from app.adapters.study_in_poland import StudyInPolandAdapter
 from app.adapters.stipendium_hungaricum import StipendiumHungaricumAdapter
 from app.adapters.masters_portal import MastersPortalAdapter
+from app.adapters.visa_adapter import VisaSourceAdapter
 
 async def run_live_test():
     adapters = [
@@ -14,7 +15,8 @@ async def run_live_test():
         ("Chevening", CheveningAdapter()),
         ("Poland (NAWA)", StudyInPolandAdapter()),
         ("Stipendium Hungaricum", StipendiumHungaricumAdapter()),
-        ("MastersPortal (Playwright)", MastersPortalAdapter())
+        ("MastersPortal (Playwright)", MastersPortalAdapter()),
+        ("Generic Visa Adapter", VisaSourceAdapter())
     ]
     
     for name, adapter in adapters:

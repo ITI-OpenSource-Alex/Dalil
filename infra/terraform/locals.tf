@@ -78,6 +78,9 @@ locals {
     writing = [
       "DATABASE_URL",
       "ANTHROPIC_API_KEY",
+      "LANGFUSE_PUBLIC_KEY",
+      "LANGFUSE_SECRET_KEY",
+      "LANGFUSE_HOST",
       "OPENAI_API_KEY",
       "INTERNAL_API_KEY",
     ]

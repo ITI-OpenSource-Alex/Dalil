@@ -60,6 +60,18 @@ class Database:
                     with open(file_path, "r", encoding="utf-8") as f:
                         sql = f.read()
 
+                    # An empty (or comment-only) migration file makes asyncpg return None
+                    # for the statement, and the driver then raises
+                    # "AttributeError: 'NoneType' object has no attribute 'decode'",
+                    # which aborts startup entirely. Skip it WITHOUT recording it as
+                    # applied, so it still runs once real SQL is added to the file.
+                    if not sql.strip():
+                        logger.warning(
+                            "Migration %s is empty — skipping (not marked as applied)",
+                            filename,
+                        )
+                        continue
+
                     async with conn.transaction():
                         await conn.execute(sql)
                         await conn.execute(

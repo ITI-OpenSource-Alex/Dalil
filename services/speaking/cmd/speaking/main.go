@@ -49,7 +49,8 @@ func main() {
 
 	// Fetch API keys from environment or config settings
 	anthropicAPIKey := os.Getenv("ANTHROPIC_API_KEY")
-	llmClient := llm.NewClient(anthropicAPIKey)
+	practiceLLMClient := llm.NewClient("claude-3-5-haiku-20241022", anthropicAPIKey)
+	examLLMClient := llm.NewClient("claude-sonnet-4-6", anthropicAPIKey)
 	ttsClient := tts.NewClient(cfg.ElevenLabsAPIKey)
 	langfuseClient := langfuse.NewClient(cfg.LangfusePublicKey, cfg.LangfuseSecretKey, cfg.LangfuseHost)
 
@@ -57,7 +58,12 @@ func main() {
 
 	// 3. HTTP Server configuration
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-		speaking.HandleWebSocket(w, r, cfg, dbRepo, llmClient, ttsClient, langfuseClient)
+		speaking.HandleWebSocket(w, r, cfg, dbRepo, practiceLLMClient, ttsClient, langfuseClient)
+	})
+
+	http.HandleFunc("/internal/evaluate/holistic", func(w http.ResponseWriter, r *http.Request) {
+		speaking.HandleHolisticEvaluation(w, r, cfg, examLLMClient, langfuseClient)
+
 	})
 
 	http.Handle("/metrics", promhttp.Handler())

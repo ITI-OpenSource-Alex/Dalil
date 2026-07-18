@@ -35,8 +35,10 @@ async def get_local_user_profile(user_id: str) -> dict | None:
             return None
 
         # Map snake_case database columns back to camelCase for our Pydantic Schema!
+        # user_id is a UUID column, so asyncpg hands back a uuid.UUID object — coerce to
+        # str here or UserProfile.userId (typed str) rejects every real row.
         return {
-            "userId": row["user_id"],
+            "userId": str(row["user_id"]),
             "ects": row["ects"],
             "gpa": row["gpa"],
             "gpaScale": row["gpa_scale"],

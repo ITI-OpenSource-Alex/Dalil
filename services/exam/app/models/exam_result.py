@@ -14,3 +14,4 @@ class ExamResult:
     band_score: float
     section_scores: Optional[dict]
     graded_at: datetime
+    agent_responses: dict | list | None = None

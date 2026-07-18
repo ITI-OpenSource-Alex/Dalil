@@ -17,6 +17,14 @@ class Settings:
     aws_endpoint_url: str | None
     s3_bucket: str
     cv_uploaded_queue_url: str
+    anthropic_api_key: str = ""
+    writing_model: str = "claude-sonnet-4-6"
+    anthropic_timeout_seconds: float = 25.0
+    openai_api_key: str = ""
+    langfuse_public_key: str = ""
+    langfuse_secret_key: str = ""
+    langfuse_host: str = "https://cloud.langfuse.com"
+    cache_version: str = "v1"
 
 
 @lru_cache
@@ -28,4 +36,14 @@ def get_settings() -> Settings:
         aws_endpoint_url=os.getenv("AWS_ENDPOINT_URL") or None,
         s3_bucket=os.getenv("S3_BUCKET", "goa-writing-files"),
         cv_uploaded_queue_url=os.getenv("CV_UPLOADED_QUEUE_URL", ""),
+        anthropic_api_key=os.getenv("ANTHROPIC_API_KEY", ""),
+        writing_model=os.getenv("WRITING_MODEL", "claude-sonnet-4-6"),
+        anthropic_timeout_seconds=float(
+            os.getenv("ANTHROPIC_TIMEOUT_SECONDS", "25")
+        ),
+        openai_api_key=os.getenv("OPENAI_API_KEY", ""),
+        langfuse_public_key=os.getenv("LANGFUSE_PUBLIC_KEY", ""),
+        langfuse_secret_key=os.getenv("LANGFUSE_SECRET_KEY", ""),
+        langfuse_host=os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com"),
+        cache_version=os.getenv("WRITING_CACHE_VERSION", "v1"),
     )

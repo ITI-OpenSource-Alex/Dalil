@@ -22,6 +22,11 @@ from app.config import Settings, get_settings  # noqa: E402
 from app.database import Base  # noqa: E402
 from app.dependencies import get_db, get_s3_client, get_sqs_client  # noqa: E402
 from app.main import app  # noqa: E402
+from app.agents import AgentExecution  # noqa: E402
+from app.evaluation import EvaluationCoordinator, get_evaluation_coordinator  # noqa: E402
+from app.metrics import cache_hit_tracker  # noqa: E402
+from app.observability import get_langfuse_client  # noqa: E402
+from app.schemas import CriterionEvaluation, HighlightedIssue  # noqa: E402
 
 
 class FakeS3Client:
@@ -102,6 +107,7 @@ def client(db_session, fake_s3, fake_sqs):
         s3_bucket="goa-writing-files",
         cv_uploaded_queue_url="http://localstack:4566/000000000000/goa-cv-uploaded",
     )
+    cache_hit_tracker.reset()
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
@@ -114,3 +120,66 @@ def docx_bytes():
         archive.writestr("[Content_Types].xml", "<Types />")
         archive.writestr("word/document.xml", "<document />")
     return buffer.getvalue()
+
+
+class FakeWritingAgentRunner:
+    def __init__(self, delays=None, bands=None):
+        self.delays = delays or {}
+        self.bands = bands or {
+            "task_response": 6.5,
+            "cohesion": 7.0,
+            "vocabulary": 6.0,
+            "grammar": 6.5,
+        }
+        self.calls = []
+
+    async def evaluate(self, criterion, essay_text, exam_type):
+        import asyncio
+
+        self.calls.append((criterion, essay_text, exam_type))
+        await asyncio.sleep(self.delays.get(criterion, 0))
+        issue_text = essay_text[: min(12, len(essay_text))]
+        result = CriterionEvaluation(
+            criterion=criterion,
+            band_score=self.bands[criterion],
+            feedback=(
+                "Focused criterion feedback.\n\nSentence-level examples:\n"
+                "1. First exact example.\n2. Second exact example.\n"
+                "3. Third exact example."
+            ),
+            highlighted_issues=[
+                HighlightedIssue(
+                    text=issue_text,
+                    issue="Specific test issue",
+                    suggestion="Specific test revision",
+                    start=0,
+                    end=len(issue_text),
+                )
+            ],
+        )
+        return AgentExecution(
+            result=result,
+            prompt_tokens=100,
+            completion_tokens=50,
+            latency_ms=self.delays.get(criterion, 0) * 1000,
+            cost_usd=0.001,
+        )
+
+
+@pytest.fixture
+def fake_agent_runner():
+    return FakeWritingAgentRunner()
+
+
+@pytest.fixture
+def evaluation_client(client, fake_agent_runner):
+    from unittest.mock import MagicMock
+
+    langfuse = MagicMock()
+    trace = MagicMock()
+    langfuse.trace.return_value = trace
+    app.dependency_overrides[get_evaluation_coordinator] = lambda: EvaluationCoordinator(
+        fake_agent_runner
+    )
+    app.dependency_overrides[get_langfuse_client] = lambda: langfuse
+    yield client, fake_agent_runner, langfuse, trace

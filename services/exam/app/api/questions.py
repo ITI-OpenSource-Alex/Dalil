@@ -20,15 +20,19 @@ def get_question_repository() -> QuestionRepository:
     return QuestionRepository(db.pool)
 
 
+from uuid import UUID
+
 @router.get("/random")
 async def get_random_question(
     exam_type: ExamType,
     skill_area: SkillArea,
+    user_id: UUID,
     repository: QuestionRepository = Depends(get_question_repository),
 ) -> dict[str, Any]:
     question = await repository.get_random_question(
         exam_type=exam_type.value,
         skill_area=skill_area.value,
+        user_id=user_id,
     )
     if question is None:
         raise HTTPException(

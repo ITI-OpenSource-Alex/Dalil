@@ -3,7 +3,10 @@ import datetime
 import httpx
 import structlog
 import pybreaker
+import contextvars
 from typing import AsyncGenerator, List, Optional
+
+correlation_id_var = contextvars.ContextVar("correlation_id", default="unknown")
 from app.core.config import settings
 from app.core.metrics import goa_orchestration_downstream_latency_ms, goa_orchestration_circuit_breaker_state
 from app.schemas.chat import ChatStreamEvent
@@ -26,14 +29,21 @@ class MetricsCircuitBreakerListener(pybreaker.CircuitBreakerListener):
                 "Circuit breaker opened",
                 service=self.service_name,
                 failure_count=cb.fail_counter,
-                opened_at=time.time()
+                opened_at=time.time(),
+                correlation_id=correlation_id_var.get()
             )
         elif new_state.name == "closed":
             goa_orchestration_circuit_breaker_state.labels(service=self.service_name).set(0)
+            
+            downtime_s = 0.0
+            if cb._state_storage.opened_at:
+                downtime_s = (datetime.datetime.now(pybreaker.UTC) - cb._state_storage.opened_at).total_seconds()
+                
             logger.info(
                 "Circuit breaker closed",
                 service=self.service_name,
-                closed_at=time.time()
+                closed_at=time.time(),
+                downtime_s=downtime_s
             )
 
 
@@ -65,6 +75,14 @@ async def call_with_breaker(breaker: pybreaker.CircuitBreaker, client: httpx.Asy
         response = await client.post(url, json=payload, headers=headers)
         response.raise_for_status()
         data = response.json()
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code < 500:
+            raise e
+        if breaker.is_system_error(e):
+            def fail(): raise e
+            try: breaker.call(fail)
+            except Exception: pass
+        raise e
     except Exception as e:
         if breaker.is_system_error(e):
             def fail(): raise e
@@ -108,6 +126,7 @@ async def forward_downstream_stream(
     }
 
     intent = intent.upper()
+    correlation_id_var.set(correlation_id)
     
     if intent == "SPEAKING":
         ws_url = f"{settings.speaking_service_url.replace('http', 'ws')}/ws"

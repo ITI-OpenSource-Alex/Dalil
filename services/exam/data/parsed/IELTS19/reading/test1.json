@@ -1,0 +1,53 @@
+{
+  "book_ref": "IELTS-unknown",
+  "test_number": 1,
+  "exam_type": "academic",
+  "skill_area": "reading",
+  "passage_text": "READING PASSAGE 1\nYou should spend about 20 minutes on Questions 1313, which are based on Reading\nPassage 1 below.\nHow tennis rackets have changed\nIn 2016, the British professional tennis player Andy Murray was ranked as the world9s number\none. It was an incredible achievement by any standard 3 made even more remarkable by the\nfact that he did this during a period considered to be one of the strongest in the sport9s history,\ncompeting against the likes of Rafael Nadal, Roger Federer and Novak Djokovic, to name just a\nfew. Yet ove years previously, he had been regarded as a talented outsider who entered but never\nwon the major tournaments.\nOf the changes that account for this transformation, one was visible and widely publicised: in\n2011, Murray invited former number one player Ivan Lendl onto his coaching team 3 a valuable\naddition that had a visible impact on the player9s playing style. Another change was so subtle\nas to pass more or less unnoticed. Like many players, Murray has long preferred a racket\nthat consists of two types of string: one for the mains (verticals) and another for the crosses\n(horizontals). While he continued to use natural string in the crosses, in 2012 he switched\nto a synthetic string for the mains. A small change, perhaps, but its importance should not\nbe underestimated.\nThe modiocation that Murray made is just one of a number of options available to players\nlooking to tweak their rackets in order to improve their games. 8Touring professionals have their\nrackets customised to their specioc needs,9 says Colin Triplow, a UK-based professional racket\nstringer. 8It9s a highly important part of performance maximisation.9 Consequently, the specioc\nrackets used by the world9s elite are not actually readily available to the public; rather, each\nracket is individually made to suit the player who uses it. Take the US professional tennis players\nMike and Bob Bryan, for example: 8We9re very particular with our racket speciocations,9 they\nsay. 8All our rackets are sent from our manufacturer to Tampa, Florida, where our frames go\nthrough a . . . thorough customisation process.9 They explain how they have adjusted not\nonly racket length, but even experimented with different kinds of paint. The rackets they use\nnow weigh more than the average model and also have a denser string pattern (i.e. more crosses\nand mains).\nThe primary reason for these modiocations is simple: as the line between winning and losing\nbecomes thinner and thinner, even these slight changes become more and more important. As a\nresult, players and their teams are becoming increasingly creative with the modiocations to their\nrackets as they look to maximise their competitive advantage.\nRacket modiocations mainly date back to the 1970s, when the amateur German tennis player\nWerner Fischer started playing with the so-called spaghetti-strung racket. It created a string bed\nthat generated so much topspin that it was quickly banned by the International Tennis Federation.\nHowever, within a decade or two, racket modiocation became a regularity. Today it is, in many\nways, an aspect of the game that is equal in signiocance to nutrition or training.\nModiocations can be divided into two categories: those to the string bed and those to the racket\nframe. The former is far more common than the latter: the choice of the strings and the tension\nwith which they are installed is something that nearly all professional players experiment with.\nThey will continually change it depending on various factors including the court surface, climatic\nconditions, and game styles. Some will even change it depending on how they feel at the time.\nAt one time, all tennis rackets were strung with natural gut made from the outer layer of sheep or\ncow intestines. This all changed in the early 1990s with the development of synthetic strings that\nwere cheaper and more durable. They are made from three materials: nylon (relatively durable\nand affordable), Kevlar (too stiff to be used alone) or co-polyester (polyester combined with\nadditives that enhance its performance). Even so, many professional players continue to use a\n8hybrid set-up9, where a combination of both synthetic and natural strings are used.\nOf the synthetics, co-polyester is by far the most widely used. It9s a perfect ot for the style of\ntennis now played, where players tend to battle it out from the back of the court rather than\ncoming to the net. Studies indicate that the average spin from a co-polyester string is 25% greater\nthan that from natural string or other synthetics. In a sense, the development of co-polyester\nstrings has revolutionised the game.\nHowever, many players go beyond these basic adjustments to the strings and make changes\nto the racket frame itself. For example, much of the serving power of US professional player\nPete Sampras was attributed to the addition of four to ove lead weights onto his rackets, and\ntoday many professionals have the weight adjusted during the manufacturing process.\nOther changes to the frame involve the handle. Players have individual preferences for the\nshape of the handle and some will have the handle of one racket moulded onto the frame of\na different racket. Other players make different changes. The professional Portuguese player\nGonçalo Oliveira replaced the original grips of his rackets with something thinner because they\nhad previously felt uncomfortable to hold.\nRacket customisation and modiocation have pushed the standards of the game to greater levels\nthat few could have anticipated in the days of natural strings and heavy, wooden frames, and it9s\nexciting to see what further developments there will be in the future.\nQuestions 137\nDo the following statements agree with the information given in Reading Passage 1?\nIn boxes 1–7 on your answer sheet, write\nTRUE if the statement agrees with the information\nFALSE if the statement contradicts the information\nNOT GIVEN if there is no information on this\n1 People had expected Andy Murray to become the world’s top tennis player for at\nleast five years before 2016.\n2 The change that Andy Murray made to his rackets attracted a lot of attention.\n3 Most of the world’s top players take a professional racket stringer on tour with them.\n4 Mike and Bob Bryan use rackets that are light in comparison to the majority\nof rackets.\n5 Werner Fischer played with a spaghetti-strung racket that he designed himself.\n6 The weather can affect how professional players adjust the strings on their rackets.\n7 It was believed that the change Pete Sampras made to his rackets contributed to\nhis strong serve.",
+  "questions": [
+    {
+      "number": 8,
+      "prompt": "Mike and Bob Bryan made changes to the types of 8 used on their racket frames.",
+      "question_type": "Sentence Completion",
+      "instructions": null,
+      "passage_number": 1,
+      "section_number": null
+    },
+    {
+      "number": 9,
+      "prompt": "Players were not allowed to use the spaghetti-strung racket because of the amount of 9 it created.",
+      "question_type": "Sentence Completion",
+      "instructions": null,
+      "passage_number": 1,
+      "section_number": null
+    },
+    {
+      "number": 10,
+      "prompt": "Changes to rackets can be regarded as being as important as players’ diets or the 10 they do.",
+      "question_type": "Sentence Completion",
+      "instructions": null,
+      "passage_number": 1,
+      "section_number": null
+    },
+    {
+      "number": 11,
+      "prompt": "All rackets used to have natural strings made from the 11 of animals.",
+      "question_type": "Sentence Completion",
+      "instructions": null,
+      "passage_number": 1,
+      "section_number": null
+    },
+    {
+      "number": 12,
+      "prompt": "Pete Sampras had metal 12 put into the frames of his rackets.",
+      "question_type": "Sentence Completion",
+      "instructions": null,
+      "passage_number": 1,
+      "section_number": null
+    }
+  ],
+  "answer_key": {
+    "20": "minutes on"
+  },
+  "time_limit_seconds": 3600
+}

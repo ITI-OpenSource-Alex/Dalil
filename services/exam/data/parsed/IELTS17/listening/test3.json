@@ -1,0 +1,13 @@
+{
+  "book_ref": "IELTS-unknown",
+  "test_number": 3,
+  "exam_type": "academic",
+  "skill_area": "listening",
+  "passage_text": null,
+  "questions": [],
+  "answer_key": {
+    "4": "Izone.edu.vn"
+  },
+  "audio_s3_key": "exam-audio/IELTS-unknown/3/section1.mp3",
+  "time_limit_seconds": 1800
+}

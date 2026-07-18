@@ -8,6 +8,14 @@ from app.schemas.exam_session import (
 )
 from app.schemas.common import ExamType, SessionStatus, SkillArea
 from app.schemas.question import QuestionResponse, QuestionWithAnswerKey
+from app.schemas.reading import (
+    QuestionResult,
+    ReadingStartRequest,
+    ReadingStartResponse,
+    ReadingSubmitRequest,
+    ReadingSubmitResponse,
+    SectionBreakdown,
+)
 
 __all__ = [
     "CreateSessionRequest",
@@ -15,7 +23,13 @@ __all__ = [
     "ExamResultResponse",
     "ExamType",
     "QuestionResponse",
+    "QuestionResult",
     "QuestionWithAnswerKey",
+    "ReadingStartRequest",
+    "ReadingStartResponse",
+    "ReadingSubmitRequest",
+    "ReadingSubmitResponse",
+    "SectionBreakdown",
     "SessionDetailsResponse",
     "SessionResponse",
     "SessionStatus",

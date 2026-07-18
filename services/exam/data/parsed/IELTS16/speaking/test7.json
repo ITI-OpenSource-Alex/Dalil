@@ -1,0 +1,790 @@
+{
+  "book_ref": "IELTS-16",
+  "test_number": 7,
+  "exam_type": "academic",
+  "skill_area": "speaking",
+  "passage_text": null,
+  "questions": [
+    {
+      "number": 1,
+      "prompt": "¢ Are there times when you study/work better by yourself?",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 2,
+      "prompt": "Describe a tourist attraction you enjoyed visiting.",
+      "question_type": "Speaking Part 2",
+      "instructions": "Speak for 1-2 minutes on this topic.",
+      "passage_number": null,
+      "section_number": 2,
+      "bullet_points": [
+        "and explain why you enjoyed visiting this tourist"
+      ]
+    },
+    {
+      "number": 3,
+      "prompt": "What are the most popular tourist attractions in your country?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 4,
+      "prompt": "those that older people like to visit?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 5,
+      "prompt": "free to visit?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 6,
+      "prompt": "Why is tourism important to a country?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 7,
+      "prompt": "What are the benefits to individuals of visiting another country as tourists?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 8,
+      "prompt": "How necessary is it for tourists to learn the language of the country they're visiting?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 9,
+      "prompt": "= | p. 123 p. 104",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 10,
+      "prompt": "What is planned with regard to the lower school?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 11,
+      "prompt": "What does the speaker say about the existing canteen?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 12,
+      "prompt": "Food Hall?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 13,
+      "prompt": "Which TWO optional after-school lessons are new?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 14,
+      "prompt": "Dp. 123 p. 105",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 15,
+      "prompt": "What do Luke and Susie agree about dreams predicting the future?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 16,
+      "prompt": "dreams?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 17,
+      "prompt": "14 What point does the writer make about microbes in the first paragraph?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 18,
+      "prompt": "416 Whatis the writer doing in the fifth paragraph?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 19,
+      "prompt": "Do the following statements agree with the claims of the writer in Reading Passage 2?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 20,
+      "prompt": "27 What point does the writer make in the first paragraph?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 21,
+      "prompt": "28 What does Igor Grossmann suggest about the ability to make wise decisions?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 22,
+      "prompt": "30 What is described in the fifth paragraph?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 23,
+      "prompt": "_... of any situation. Another key characteristic is being aware of the",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 24,
+      "prompt": "Do the following statements agree with the information given in Reading Passage 3?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 25,
+      "prompt": "Why is this? Do you think it is a positive or negative development?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 26,
+      "prompt": "What kinds of things do people write online reviews about in your country?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 27,
+      "prompt": "Why do some people write online reviews?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 28,
+      "prompt": "Do you think that online reviews are good for both shoppers and companies?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 29,
+      "prompt": "What do you think it might be like to work in a customer service job?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 30,
+      "prompt": "Do you agree that customers are more likely to complain nowadays?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 31,
+      "prompt": "How important is it for companies to take all customer complaints seriously?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 32,
+      "prompt": "and horticulture sectors?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 33,
+      "prompt": "Which TWO of the following are likely to be disadvantages for people working outdoors?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 34,
+      "prompt": "What information does Megan give about each of the following job opportunities?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 35,
+      "prompt": "Which TWO points does Adam make about his experiment on artificial sweeteners?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 36,
+      "prompt": "Which TWO problems did Rosie have when measuring the fat content of nuts?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 37,
+      "prompt": "27 What does Rosie say about levels of exercise in England?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 38,
+      "prompt": "presentation?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 39,
+      "prompt": "30 What are the students going to do next for their presentation?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 40,
+      "prompt": "Which section contains the following information?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 41,
+      "prompt": "Barrett's team?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 42,
+      "prompt": "Which TWO of the following statements does the writer make about the Viking Age?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 43,
+      "prompt": "Plants grow faster in sunlight than in shade.",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 44,
+      "prompt": "Do you agree or disagree?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 45,
+      "prompt": "Which expensive items would many young people (in your country) like to buy?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 46,
+      "prompt": "people want to buy?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 47,
+      "prompt": "themselves?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 48,
+      "prompt": "How difficult is it to become very rich in today’s world?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 49,
+      "prompt": "Do you agree that money does not necessarily bring happiness?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 50,
+      "prompt": "In what ways might rich people use their money to heip society?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 51,
+      "prompt": "12 Which change will shortly be made to the cycle path next to the river?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 52,
+      "prompt": "most important?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 53,
+      "prompt": "schemes?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 54,
+      "prompt": "following cities?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 55,
+      "prompt": "11 What type of mineral were the Dolaucothi mines in Wales built to extract?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 56,
+      "prompt": "12 In addition to the patron, whose name might be carved onto a tunnel?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 57,
+      "prompt": "13 What part of Seleuceia Pieria was the Gevlik tunnel built to protect?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 58,
+      "prompt": "What are the implications of the way we read today?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 59,
+      "prompt": "What is the writer’s main point in the first paragraph?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 60,
+      "prompt": "What main point does Sherry Turkle make about innovation?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 61,
+      "prompt": "What point is the writer making in the fourth paragraph?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 62,
+      "prompt": "Do the following statements agree with the views of the writer in Reading Passage 2?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 63,
+      "prompt": "Section E",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 64,
+      "prompt": "33 What is the writer doing in Section A?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 65,
+      "prompt": "34 According to Section C, why might some people be reluctant to accept Al?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 66,
+      "prompt": "35 What does the writer say about the media in Section C of the text?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 67,
+      "prompt": "Do the following statements agree with the claims of the writer in Reading Passage 3?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 68,
+      "prompt": "disadvantages?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 69,
+      "prompt": "What kinds of computer games do people play in your country?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 70,
+      "prompt": "Why do people enjoy playing computer games?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 71,
+      "prompt": "Do you think that all computer games should have a minimum age for players?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 72,
+      "prompt": "In what ways can technology in the classroom be helpful?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 73,
+      "prompt": "Do you agree that students are often better at using technology than their teachers?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 74,
+      "prompt": "Do you believe that computers will ever replace human teachers?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 75,
+      "prompt": "four — do you take children as young as that?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 76,
+      "prompt": "FATHER: What sorts of activities do they do?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 77,
+      "prompt": "FATHER: Right. And Lydia loves building things. Is there any opportunity for her to do that?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 78,
+      "prompt": "FATHER?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 79,
+      "prompt": "SARAH?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 80,
+      "prompt": "presumably she'd be in a different group?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 81,
+      "prompt": "And do they do the same sorts of activities?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 82,
+      "prompt": "So they learn a bit of coding?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 83,
+      "prompt": "Right. And do they have competitions too?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 84,
+      "prompt": "FATHER: Perfect. So, is it the same price as the Tiny Engineers?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 85,
+      "prompt": "FATHER! And are the classes on a Monday, too?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 86,
+      "prompt": "the workshops held?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 87,
+      "prompt": "FATHER: Sorry?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 88,
+      "prompt": "FATHER: And that’s in Grasford, isn’t it?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 89,
+      "prompt": "FATHER: And will | have any parking problems there?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 90,
+      "prompt": "SARAH: No, there's always plenty available. So would you like to enrol Lydia and Carly now?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 91,
+      "prompt": "JESS: How are you getting on with your art project, Tom?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 92,
+      "prompt": "JESS: Have you drafted your proposal yet?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 93,
+      "prompt": "timeline for the project?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 94,
+      "prompt": "What?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 95,
+      "prompt": "can I?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 96,
+      "prompt": "TOM: So you could discuss it in relatian to predators and food chains?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 97,
+      "prompt": "TOM: So we can use a personal link?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    }
+  ],
+  "answer_key": {},
+  "time_limit_seconds": 900
+}

@@ -6,13 +6,7 @@ from app.adapters.chevening import CheveningAdapter
 from app.adapters.study_in_poland import StudyInPolandAdapter
 from app.adapters.stipendium_hungaricum import StipendiumHungaricumAdapter
 from app.adapters.masters_portal import MastersPortalAdapter
-from app.adapters.german_embassy_cairo import GermanEmbassyCairoAdapter
-from app.adapters.campus_france_egypt import CampusFranceEgyptAdapter
-from app.adapters.uk_visa_egypt import UKVISAEgyptAdapter
-from app.adapters.fintiba_sperrkonto import FintibaSperrkontoAdapter
-from app.adapters.czech_embassy_cairo import CzechEmbassyCairoAdapter
-from app.adapters.spain_visa_egypt import SpainVisaEgyptAdapter
-from app.adapters.italy_embassy_cairo import ItalyEmbassyCairoAdapter
+from app.adapters.visa_adapter import VisaSourceAdapter
 
 async def run_live_test():
     adapters = [
@@ -22,13 +16,7 @@ async def run_live_test():
         ("Poland (NAWA)", StudyInPolandAdapter()),
         ("Stipendium Hungaricum", StipendiumHungaricumAdapter()),
         ("MastersPortal (Playwright)", MastersPortalAdapter()),
-        ("German Embassy Cairo", GermanEmbassyCairoAdapter()),
-        ("Campus France Egypt", CampusFranceEgyptAdapter()),
-        ("UK Visa Egypt", UKVISAEgyptAdapter()),
-        ("Fintiba Sperrkonto", FintibaSperrkontoAdapter()),
-        ("Czech Embassy Cairo", CzechEmbassyCairoAdapter()),
-        ("Spain Visa Egypt", SpainVisaEgyptAdapter()),
-        ("Italy Embassy Cairo", ItalyEmbassyCairoAdapter())
+        ("Generic Visa Adapter", VisaSourceAdapter())
     ]
     
     for name, adapter in adapters:

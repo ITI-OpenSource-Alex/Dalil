@@ -8,6 +8,8 @@ from app.api.visa import router as visa_router
 from app.api.documents import router as documents_router
 from app.core.redis import redis_client
 from app.api.scoring import router as scoring_router
+from app.api.scoring import match_router as match_router
+
 from contextlib import asynccontextmanager
 import asyncio
 from app.services.sqs_consumer import consume_sqs_messages
@@ -78,3 +80,4 @@ async def health_check():
 metrics_app = make_asgi_app()
 app.mount("/metrics", metrics_app)
 app.include_router(scoring_router)
+app.include_router(match_router)

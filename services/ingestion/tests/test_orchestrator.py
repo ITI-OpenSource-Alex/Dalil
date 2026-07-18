@@ -4,13 +4,7 @@ from app.services.run_orchestrator import run_ingestion
 # The 7 GOA-086 Egypt visa adapters, mocked to a neutral no-op ([]) in tests that only
 # care about the original 6 adapters' behavior, so no real network calls are attempted.
 _EGYPT_ADAPTER_CLASSES = [
-    "GermanEmbassyCairoAdapter",
-    "CampusFranceEgyptAdapter",
-    "UKVISAEgyptAdapter",
-    "FintibaSperrkontoAdapter",
-    "CzechEmbassyCairoAdapter",
-    "SpainVisaEgyptAdapter",
-    "ItalyEmbassyCairoAdapter",
+    "VisaSourceAdapter"
 ]
 
 
@@ -97,20 +91,12 @@ async def test_visa_requirements_are_upserted_once_per_record(mocker):
     german_record = {"country": "Germany", "visa_type": "Student Visa", "issuing_body": "German Embassy Cairo"}
     campus_france_record = {"country": "France", "visa_type": "Student Visa", "issuing_body": "Campus France Egypt"}
     mocker.patch(
-        "app.services.run_orchestrator.GermanEmbassyCairoAdapter.scrape",
-        return_value=[{"content": "German visa info", "source": "german_embassy_cairo",
-                       "visa_requirements": [german_record]}],
+        "app.services.run_orchestrator.VisaSourceAdapter.scrape",
+        return_value=[
+            {"content": "German visa info", "source": "german_embassy_cairo", "visa_requirements": [german_record]},
+            {"content": "Campus France info", "source": "campus_france_egypt", "visa_requirements": [campus_france_record]}
+        ],
     )
-    mocker.patch(
-        "app.services.run_orchestrator.CampusFranceEgyptAdapter.scrape",
-        return_value=[{"content": "Campus France info", "source": "campus_france_egypt",
-                       "visa_requirements": [campus_france_record]}],
-    )
-    mocker.patch("app.services.run_orchestrator.UKVISAEgyptAdapter.scrape", return_value=[])
-    mocker.patch("app.services.run_orchestrator.FintibaSperrkontoAdapter.scrape", return_value=[])
-    mocker.patch("app.services.run_orchestrator.CzechEmbassyCairoAdapter.scrape", return_value=[])
-    mocker.patch("app.services.run_orchestrator.SpainVisaEgyptAdapter.scrape", return_value=[])
-    mocker.patch("app.services.run_orchestrator.ItalyEmbassyCairoAdapter.scrape", return_value=[])
 
     mock_upsert_visa = mocker.patch("app.services.run_orchestrator.upsert_visa_requirement", return_value=True)
     upload_mock = mocker.patch("app.services.run_orchestrator.upload_report_to_s3")
@@ -140,20 +126,12 @@ async def test_visa_requirement_failure_does_not_block_other_records_or_document
     failing_record = {"country": "Germany", "visa_type": "Student Visa", "issuing_body": "German Embassy Cairo"}
     succeeding_record = {"country": "France", "visa_type": "Student Visa", "issuing_body": "Campus France Egypt"}
     mocker.patch(
-        "app.services.run_orchestrator.GermanEmbassyCairoAdapter.scrape",
-        return_value=[{"content": "German visa info", "source": "german_embassy_cairo",
-                       "visa_requirements": [failing_record]}],
+        "app.services.run_orchestrator.VisaSourceAdapter.scrape",
+        return_value=[
+            {"content": "German visa info", "source": "german_embassy_cairo", "visa_requirements": [failing_record]},
+            {"content": "Campus France info", "source": "campus_france_egypt", "visa_requirements": [succeeding_record]}
+        ],
     )
-    mocker.patch(
-        "app.services.run_orchestrator.CampusFranceEgyptAdapter.scrape",
-        return_value=[{"content": "Campus France info", "source": "campus_france_egypt",
-                       "visa_requirements": [succeeding_record]}],
-    )
-    mocker.patch("app.services.run_orchestrator.UKVISAEgyptAdapter.scrape", return_value=[])
-    mocker.patch("app.services.run_orchestrator.FintibaSperrkontoAdapter.scrape", return_value=[])
-    mocker.patch("app.services.run_orchestrator.CzechEmbassyCairoAdapter.scrape", return_value=[])
-    mocker.patch("app.services.run_orchestrator.SpainVisaEgyptAdapter.scrape", return_value=[])
-    mocker.patch("app.services.run_orchestrator.ItalyEmbassyCairoAdapter.scrape", return_value=[])
 
     mock_upsert_visa = mocker.patch(
         "app.services.run_orchestrator.upsert_visa_requirement",
@@ -171,9 +149,14 @@ async def test_visa_requirement_failure_does_not_block_other_records_or_document
     assert report_payload["visa_requirements_failed"] == 1
 
     # The document for the page whose visa upsert failed was still processed.
-    german_source = next(
-        (s for s in report_payload["sources"] if s["name"] == "german_embassy_cairo"), None
+    # GOA-116 note: one generic VisaSourceAdapter now covers every visa source, so both
+    # pages report under a single adapter entry — docs_processed is 2, not the 1-per-page
+    # of the pre-GOA-116 world where each embassy had its own adapter class. What this
+    # assertion guards is unchanged: the failed upsert did not stop either Document from
+    # being built (dual-write isolation).
+    visa_source_entry = next(
+        (s for s in report_payload["sources"] if s["name"] == "visa_adapter"), None
     )
-    assert german_source is not None
-    assert german_source["docs_processed"] == 1
-    assert german_source["docs_failed"] == 0
+    assert visa_source_entry is not None
+    assert visa_source_entry["docs_processed"] == 2
+    assert visa_source_entry["docs_failed"] == 0

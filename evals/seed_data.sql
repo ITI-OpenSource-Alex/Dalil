@@ -1,6 +1,11 @@
-TRUNCATE local_user_profiles CASCADE;
-TRUNCATE program_requirements CASCADE;
-INSERT INTO program_requirements (id, university, country, degree_level, min_ects, min_gpa, min_ielts) VALUES ('11111111-1111-1111-1111-111111111111', 'Test Uni', 'Test Country', 'Master', 120, 3.0, 6.5);
+-- TODO (GOA-115): Replace TRUNCATE with targeted DELETEs of only eval-owned rows 
+-- (the 00000000-…-0001→…-0020 profile UUIDs and the eval program row).
+DELETE FROM local_user_profiles WHERE user_id::text LIKE '00000000-%';
+DELETE FROM program_requirements WHERE id = '99999999-9999-9999-9999-999999999999';
+
+-- TODO (GOA-115): Move the eval program off UUID 11111111-... to a clearly eval-owned UUID 
+-- (e.g. 99999999-9999-9999-9999-999999999999) to avoid colliding with TU Munich's actual row.
+INSERT INTO program_requirements (id, university, country, degree_level, min_ects, min_gpa, min_ielts) VALUES ('99999999-9999-9999-9999-999999999999', 'Test Uni', 'Test Country', 'Master', 120, 3.0, 6.5);
 
 DO $$ 
 BEGIN 
@@ -11,7 +16,7 @@ BEGIN
     END; 
 END $$;
 
-UPDATE program_requirements SET min_work_experience = 2 WHERE id = '11111111-1111-1111-1111-111111111111';
+UPDATE program_requirements SET min_work_experience = 2 WHERE id = '99999999-9999-9999-9999-999999999999';
 
 DO $$ 
 BEGIN 

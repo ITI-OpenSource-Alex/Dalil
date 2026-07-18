@@ -76,3 +76,48 @@ def log_evaluation(
             separators=(",", ":"),
         )
     )
+
+
+def trace_cv_extraction(
+    client: Any,
+    *,
+    user_id: str,
+    cv_id: int,
+    model: str,
+    input_tokens: int,
+    output_tokens: int,
+    latency_ms: float,
+    cost_usd: float,
+    fields_extracted: int,
+) -> None:
+    """Record CV extraction metadata without sending the CV text to Langfuse."""
+    if client is None:
+        return
+    try:
+        trace = client.trace(
+            name="cv-structured-extraction",
+            user_id=user_id,
+            metadata={"cv_id": cv_id},
+        )
+        generation = trace.generation(
+            name="extract-structured-cv-fields",
+            model=model,
+            input={"cv_id": cv_id, "content": "redacted"},
+        )
+        generation.end(
+            output={"fields_extracted": fields_extracted},
+            usage={"input": input_tokens, "output": output_tokens},
+            metadata={
+                "model": model,
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "latency_ms": round(latency_ms, 2),
+                "cost_usd": round(cost_usd, 8),
+                "fields_extracted": fields_extracted,
+            },
+        )
+        flush = getattr(client, "flush", None)
+        if flush:
+            flush()
+    except Exception as exc:
+        logger.warning("Unable to record Langfuse CV extraction trace: %s", exc)

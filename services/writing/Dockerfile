@@ -16,6 +16,7 @@ WORKDIR /app
 COPY --from=builder /install /usr/local
 
 COPY services/writing/app ./app
+COPY services/writing/cv_processor ./cv_processor
 COPY services/writing/migrations ./migrations
 COPY packages/contracts/py /packages/contracts/py
 

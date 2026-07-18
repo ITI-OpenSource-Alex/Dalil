@@ -24,12 +24,11 @@ export interface CVUploaded extends BaseEvent {
 }
 
 export interface CVProcessed extends BaseEvent {
-    type: 'cv.processed';
-    payload: {
-        userId: string;
-        extractedText: string;
-        status: 'success' | 'failed';
-    }
+    type: 'CVProcessed';
+    userId: string;
+    cvId: number;
+    s3Key: string;
+    status: 'ready' | 'failed';
 }
 
 export interface ScholarshipMatched extends BaseEvent {

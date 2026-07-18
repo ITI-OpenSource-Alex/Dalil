@@ -28,7 +28,10 @@ resource "aws_security_group" "interface_endpoints" {
 }
 
 resource "aws_vpc_security_group_ingress_rule" "interface_endpoints_https" {
-  for_each = toset(var.allowed_security_group_ids)
+  for_each = {
+    for index, security_group_id in var.allowed_security_group_ids :
+    tostring(index) => security_group_id
+  }
 
   security_group_id            = aws_security_group.interface_endpoints.id
   description                  = "Allow HTTPS from private application security groups."

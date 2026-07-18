@@ -1,3 +1,4 @@
+import hashlib
 import re
 import zipfile
 from pathlib import PurePath
@@ -59,7 +60,7 @@ async def validate_upload(upload: UploadFile) -> tuple[str, str]:
         if total > MAX_CV_SIZE_BYTES:
             await upload.seek(0)
             raise HTTPException(
-                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                status_code=413,
                 detail="CV files must be 10 MB or smaller",
             )
         if len(header) < 8:
@@ -99,13 +100,31 @@ def make_s3_key(user_id: str, extension: str) -> str:
     return f"cvs/{user_id}/{uuid4()}.{extension}"
 
 
-def upload_to_s3(s3_client, upload: UploadFile, bucket: str, key: str) -> None:
+def content_sha256(upload: UploadFile) -> str:
     upload.file.seek(0)
+    digest = hashlib.sha256()
+    while chunk := upload.file.read(READ_CHUNK_SIZE):
+        digest.update(chunk)
+    upload.file.seek(0)
+    return digest.hexdigest()
+
+
+def upload_to_s3(
+    s3_client,
+    upload: UploadFile,
+    bucket: str,
+    key: str,
+    content_hash: str | None = None,
+) -> None:
+    upload.file.seek(0)
+    extra_args = {"ContentType": upload.content_type}
+    if content_hash:
+        extra_args["Metadata"] = {"sha256": content_hash}
     s3_client.upload_fileobj(
         upload.file,
         bucket,
         key,
-        ExtraArgs={"ContentType": upload.content_type},
+        ExtraArgs=extra_args,
     )
 
 

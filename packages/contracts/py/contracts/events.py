@@ -29,14 +29,12 @@ class CVUploaded(BaseEvent):
     payload: CVUploadedPayload
 
 
-class CVProcessedPayload(BaseModel):
-    userId: str
-    extractedText: str
-    status: Literal["success", "failed"]
-
 class CVProcessed(BaseEvent):
-    type: Literal["cv.processed"] = "cv.processed"
-    payload: CVProcessedPayload
+    type: Literal["CVProcessed"] = "CVProcessed"
+    userId: str
+    cvId: int
+    s3Key: str
+    status: Literal["ready", "failed"]
 
 class ScholarshipMatchedPayload(BaseModel):
     userId: str

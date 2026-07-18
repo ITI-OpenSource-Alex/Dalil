@@ -1,12 +1,13 @@
 from fastapi import FastAPI, Request
 from prometheus_client import make_asgi_app
 import structlog
+from app.api.internal import router as internal_router
 from app.api.questions import router as questions_router
+from app.api.reading import router as reading_router
 from app.api.results import router as results_router
 from app.api.sessions import router as sessions_router
 from app.core.database import db
 from app.core.logging import configure_logging, correlation_id_var
-from app.api.internal import router as internal_router
 
 configure_logging()
 logger = structlog.get_logger("exam_service.main")
@@ -48,6 +49,8 @@ async def correlation_id_middleware(request: Request, call_next):
 app.include_router(sessions_router)
 app.include_router(questions_router)
 app.include_router(results_router)
+app.include_router(reading_router)
+app.include_router(internal_router)
 
 # Health endpoint
 @app.get("/health")
@@ -57,4 +60,3 @@ async def health_check():
 # Metrics endpoint using standard prometheus client exporter
 metrics_app = make_asgi_app()
 app.mount("/metrics", metrics_app)
-app.include_router(internal_router)

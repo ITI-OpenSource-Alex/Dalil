@@ -1,0 +1,291 @@
+"""
+Stage 2 — Parse
+================
+TXT → JSON
+
+Reads OCR text files from ``data/ocr/``, runs the appropriate skill parser,
+and writes normalized JSON under ``data/parsed/``.
+
+No OCR code.  No database code.
+
+Output layout::
+
+    data/parsed/
+        IELTS14/
+            metadata.json
+            reading/
+                test1.json
+                test2.json
+                test3.json
+                test4.json
+            listening/
+                test1.json
+                ...
+            writing/
+                test1.json
+                ...
+            speaking/
+                test1.json
+                ...
+
+Usage::
+
+    python scripts/parse_books.py
+    python scripts/parse_books.py --book IELTS14
+    python scripts/parse_books.py --book IELTS14 --skill reading --test 1
+    python scripts/parse_books.py --force
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import re
+import sys
+import time
+from pathlib import Path
+from typing import Any
+
+# Allow imports from project root
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from app.ingestion.pipeline_config import (
+    OCR_DIR,
+    PARSED_DIR,
+    SKILLS,
+    discover_ocr_texts,
+)
+from app.ingestion.reading_parser import ReadingParser
+from app.ingestion.listening_parser import ListeningParser
+from app.ingestion.writing_parser import WritingParser
+from app.ingestion.speaking_parser import SpeakingParser
+
+PARSERS = {
+    "reading": ReadingParser(),
+    "listening": ListeningParser(),
+    "writing": WritingParser(),
+    "speaking": SpeakingParser(),
+}
+
+
+def _compute_text_hash(text: str) -> str:
+    """SHA-256 of text content (first 16 hex chars)."""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+
+
+def _split_into_tests(text: str) -> dict[int, str]:
+    """Split full book text into per-test blocks.
+
+    Uses the same boundary regex as ReadingParser._split_into_tests().
+    Returns the full text as test 1 if no test boundaries are found.
+    """
+    matches = list(re.finditer(r"(?i)^Test\s+(\d+)\b", text, re.MULTILINE))
+    if not matches:
+        return {1: text}
+
+    tests: dict[int, str] = {}
+    for i, m in enumerate(matches):
+        t_num = int(m.group(1))
+        start = m.start()
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+        tests[t_num] = text[start:end]
+    return tests
+
+
+def _find_answer_key_section(text: str) -> str:
+    """Extract the answer key section from the full book text.
+
+    Parsers need the answer key appended to test blocks so they can
+    extract correct answers.
+    """
+    m = re.search(r"(?i)\bAnswer\s*keys?\b", text)
+    if m:
+        return text[m.start():]
+    return ""
+
+
+def _write_json(path: Path, data: dict[str, Any]) -> None:
+    """Write JSON with consistent formatting."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(data, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _write_metadata(book_dir: Path, slug: str, test_numbers: list[int], source_hash: str) -> None:
+    """Write a metadata.json summarizing what was parsed for this book."""
+    meta = {
+        "book_slug": slug,
+        "tests": sorted(set(test_numbers)),
+        "skills": SKILLS,
+        "source_hash": source_hash,
+    }
+    _write_json(book_dir / "metadata.json", meta)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Stage 2: Parse OCR text into normalized JSON.",
+    )
+    parser.add_argument(
+        "--ocr-dir",
+        type=Path,
+        default=OCR_DIR,
+        help="Directory containing OCR text files.",
+    )
+    parser.add_argument(
+        "--parsed-dir",
+        type=Path,
+        default=PARSED_DIR,
+        help="Output directory for parsed JSON.",
+    )
+    parser.add_argument(
+        "--book",
+        type=str,
+        default=None,
+        help="Parse only this book slug (e.g. IELTS14).",
+    )
+    parser.add_argument(
+        "--skill",
+        type=str,
+        default=None,
+        choices=SKILLS,
+        help="Parse only this skill area.",
+    )
+    parser.add_argument(
+        "--test",
+        type=int,
+        default=None,
+        help="Parse only this test number.",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Re-parse even if source text has not changed.",
+    )
+    args = parser.parse_args()
+
+    print("=" * 70)
+    print("STAGE 2: PARSE — TXT → JSON")
+    print("=" * 70)
+    print(f"  Source:  {args.ocr_dir}")
+    print(f"  Output:  {args.parsed_dir}")
+    if args.book:
+        print(f"  Book:    {args.book}")
+    if args.skill:
+        print(f"  Skill:   {args.skill}")
+    if args.test:
+        print(f"  Test:    {args.test}")
+    print()
+
+    ocr_texts = discover_ocr_texts(args.ocr_dir, book=args.book)
+    if not ocr_texts:
+        print("[ERROR] No OCR text files found. Run ocr_books.py first.")
+        return 1
+
+    skills_to_parse = [args.skill] if args.skill else SKILLS
+    results: list[dict] = []
+    errors: list[str] = []
+
+    for txt_path, slug in ocr_texts:
+        print(f"--- {slug} ---")
+        full_text = txt_path.read_text(encoding="utf-8")
+        source_hash = _compute_text_hash(full_text)
+
+        # Check if already parsed with same source
+        sha_path = args.parsed_dir / slug / ".source_sha256"
+        if not args.force and sha_path.exists():
+            stored_hash = sha_path.read_text(encoding="utf-8").strip()
+            if stored_hash == source_hash and not args.test and not args.skill:
+                print(f"  [SKIP] Source unchanged (hash: {source_hash})")
+                results.append({"slug": slug, "status": "skipped"})
+                continue
+
+        tests = _split_into_tests(full_text)
+        answer_key_section = _find_answer_key_section(full_text)
+
+        if not tests:
+            print(f"  [WARN] No test blocks found in {txt_path.name}")
+            continue
+
+        test_numbers_to_parse = [args.test] if args.test else sorted(tests.keys())
+        all_test_numbers: list[int] = []
+
+        for test_num in test_numbers_to_parse:
+            if test_num not in tests:
+                print(f"  [WARN] Test {test_num} not found in {slug}")
+                continue
+
+            test_block = tests[test_num]
+            # Append answer key section so parsers can extract answers
+            parser_input = test_block
+            if answer_key_section and answer_key_section not in test_block:
+                parser_input = test_block + "\n" + answer_key_section
+
+            for skill in skills_to_parse:
+                skill_parser = PARSERS.get(skill)
+                if not skill_parser:
+                    continue
+
+                label = f"{slug}/test{test_num}/{skill}"
+                t0 = time.time()
+
+                try:
+                    parsed = skill_parser.parse_text(parser_input)
+                    elapsed = time.time() - t0
+
+                    # Ensure correct metadata
+                    parsed["book_ref"] = parsed.get("book_ref", f"IELTS-{slug.replace('IELTS', '')}")
+                    parsed["test_number"] = test_num
+
+                    q_count = len(parsed.get("questions", []))
+                    ak_count = len(parsed.get("answer_key", {}))
+
+                    out_path = args.parsed_dir / slug / skill / f"test{test_num}.json"
+                    _write_json(out_path, parsed)
+
+                    print(f"  [{skill:<10}] Test {test_num}: {q_count} questions, "
+                          f"{ak_count} answers [{elapsed:.1f}s] → {out_path.name}")
+                    results.append({"label": label, "status": "parsed", "questions": q_count})
+                    all_test_numbers.append(test_num)
+
+                except Exception as e:
+                    elapsed = time.time() - t0
+                    print(f"  [{skill:<10}] Test {test_num}: [ERROR] {e} [{elapsed:.1f}s]")
+                    errors.append(f"{label}: {e}")
+
+        # Write metadata and source hash
+        if all_test_numbers:
+            _write_metadata(args.parsed_dir / slug, slug, all_test_numbers, source_hash)
+            sha_path.parent.mkdir(parents=True, exist_ok=True)
+            sha_path.write_text(source_hash + "\n", encoding="utf-8")
+
+        print()
+
+    # Summary
+    print("=" * 70)
+    print("SUMMARY")
+    print("=" * 70)
+    parsed_count = sum(1 for r in results if r.get("status") == "parsed")
+    skipped_count = sum(1 for r in results if r.get("status") == "skipped")
+    total_questions = sum(r.get("questions", 0) for r in results if r.get("status") == "parsed")
+    print(f"  Parsed:    {parsed_count} file(s)")
+    print(f"  Skipped:   {skipped_count} book(s)")
+    print(f"  Questions: {total_questions} total")
+    print(f"  Errors:    {len(errors)}")
+
+    if errors:
+        print()
+        print("ERRORS:")
+        for err in errors:
+            print(f"  - {err}")
+        return 1
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

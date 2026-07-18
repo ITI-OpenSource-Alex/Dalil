@@ -1,0 +1,70 @@
+{
+  "book_ref": "IELTS-unknown",
+  "test_number": 1,
+  "exam_type": "academic",
+  "skill_area": "speaking",
+  "passage_text": null,
+  "questions": [
+    {
+      "number": 1,
+      "prompt": "Describe a book that you enjoyed reading because You will have to talk",
+      "question_type": "Speaking Part 2",
+      "instructions": "Speak for 1-2 minutes on this topic.",
+      "passage_number": null,
+      "section_number": 2,
+      "bullet_points": [
+        "and explain why you enjoyed reading this book. to help you if you wish."
+      ]
+    },
+    {
+      "number": 2,
+      "prompt": "What are the most popular types of children’s books in your country?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 3,
+      "prompt": "What are the benefits of parents reading books to their children?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 4,
+      "prompt": "Should parents always let children choose the books they read?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 5,
+      "prompt": "How popular are electronic books are in your country?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 6,
+      "prompt": "printed books)?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 7,
+      "prompt": "Will electronic books ever completely replace printed books in the future?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    }
+  ],
+  "answer_key": {},
+  "time_limit_seconds": 900
+}

@@ -114,3 +114,9 @@ variable "lambda_sqs_queue_arns" {
   type        = list(string)
   default     = []
 }
+
+variable "lambda_s3_bucket_arns" {
+  description = "S3 bucket ARNs Lambda workers may read objects from."
+  type        = list(string)
+  default     = []
+}

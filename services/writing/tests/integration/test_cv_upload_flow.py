@@ -1,6 +1,7 @@
 import json
 import os
 import time
+from dataclasses import replace
 from uuid import uuid4
 
 import boto3
@@ -11,9 +12,35 @@ from app.config import get_settings
 from app.database import SessionLocal
 from app.main import app
 from app.models import CVReview
+from cv_processor.handler import CVProcessor
+from cv_processor.structured import StructuredCV, StructuredExecution
+from tests.cv_fixtures import minimal_pdf_bytes
 
 
 pytestmark = pytest.mark.integration
+
+
+class MockStructuredExtractor:
+    model = "claude-haiku-4-5-20251001"
+
+    def __init__(self):
+        self.calls = []
+
+    def extract(self, text):
+        self.calls.append(text)
+        return StructuredExecution(
+            data=StructuredCV(
+                name="Jane Doe",
+                email="jane@example.com",
+                skills=["Python"],
+                work_experience=[],
+                languages=["English"],
+            ),
+            input_tokens=100,
+            output_tokens=40,
+            latency_ms=10,
+            cost_usd=0.0003,
+        )
 
 
 @pytest.fixture(scope="module")
@@ -43,7 +70,13 @@ def test_pdf_upload_persists_object_row_event_and_s3_trigger(integration_clients
     response = client.post(
         "/cv/upload",
         data={"userId": user_id},
-        files={"file": ("resume.pdf", b"%PDF-1.7\nintegration\n%%EOF", "application/pdf")},
+        files={
+            "file": (
+                "resume.pdf",
+                minimal_pdf_bytes("Jane Doe integration CV"),
+                "application/pdf",
+            )
+        },
     )
 
     assert response.status_code == 202
@@ -85,6 +118,83 @@ def test_pdf_upload_persists_object_row_event_and_s3_trigger(integration_clients
             pytest.fail("GOA-087 did not transition the CV review to ready")
 
     s3.delete_object(Bucket=settings.s3_bucket, Key=s3_key)
+    with SessionLocal() as db:
+        db.query(CVReview).filter(CVReview.id == cv_id).delete()
+        db.commit()
+
+
+def test_processor_uses_real_postgres_s3_and_sqs_with_mocked_llm(
+    integration_clients,
+):
+    client, s3, sqs = integration_clients
+    settings = get_settings()
+    processor_queue_url = sqs.get_queue_url(QueueName="goa-cv-processing")["QueueUrl"]
+    processed_queue_url = sqs.get_queue_url(QueueName="goa-cv-processed")["QueueUrl"]
+    sqs.purge_queue(QueueUrl=processor_queue_url)
+    sqs.purge_queue(QueueUrl=processed_queue_url)
+    user_id = f"processor-{uuid4().hex}"
+
+    response = client.post(
+        "/cv/upload",
+        data={"userId": user_id},
+        files={
+            "file": (
+                "resume.pdf",
+                minimal_pdf_bytes("Jane Doe Python Engineer jane@example.com"),
+                "application/pdf",
+            )
+        },
+    )
+    assert response.status_code == 202
+    cv_id = response.json()["cvId"]
+
+    messages = sqs.receive_message(
+        QueueUrl=processor_queue_url,
+        WaitTimeSeconds=10,
+        MaxNumberOfMessages=1,
+    ).get("Messages", [])
+    assert len(messages) == 1
+    s3_event = json.loads(messages[0]["Body"])
+
+    extractor = MockStructuredExtractor()
+    processor = CVProcessor(
+        s3_client=s3,
+        sqs_client=sqs,
+        session_factory=SessionLocal,
+        structured_extractor=extractor,
+        settings=replace(
+            settings,
+            cv_processed_queue_url=processed_queue_url,
+        ),
+    )
+
+    first = processor.process_record(s3_event["Records"][0])
+    second = processor.process_record(s3_event["Records"][0])
+
+    assert first["status"] == "ready"
+    assert first["outcome"] == "success"
+    assert second["outcome"] == "skipped"
+    assert len(extractor.calls) == 1
+    with SessionLocal() as db:
+        review = db.get(CVReview, cv_id)
+        assert review.status == "ready"
+        assert "Jane Doe" in review.extracted_text
+        assert review.structured_data["email"] == "jane@example.com"
+
+    processed_messages = sqs.receive_message(
+        QueueUrl=processed_queue_url,
+        WaitTimeSeconds=10,
+        MaxNumberOfMessages=10,
+    ).get("Messages", [])
+    events = [json.loads(message["Body"]) for message in processed_messages]
+    assert any(
+        event["type"] == "CVProcessed"
+        and event["cvId"] == cv_id
+        and event["status"] == "ready"
+        for event in events
+    )
+
+    s3.delete_object(Bucket=settings.s3_bucket, Key=first["s3Key"])
     with SessionLocal() as db:
         db.query(CVReview).filter(CVReview.id == cv_id).delete()
         db.commit()

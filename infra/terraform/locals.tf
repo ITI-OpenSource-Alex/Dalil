@@ -168,6 +168,21 @@ locals {
         extended_statistic  = "p95"
         treat_missing_data  = "notBreaching"
       }
+
+      cv_processor_failure_queue_depth = {
+        alarm_name          = "${local.name_prefix}-cv-processor-failure-queue-depth"
+        description         = "CV processor asynchronous invocation failures are waiting for replay."
+        namespace           = "AWS/SQS"
+        metric_name         = "ApproximateNumberOfMessagesVisible"
+        dimensions          = { QueueName = aws_sqs_queue.cv_processor_failures.name }
+        comparison_operator = "GreaterThanOrEqualToThreshold"
+        threshold           = 1
+        evaluation_periods  = 1
+        datapoints_to_alarm = 1
+        period              = 60
+        statistic           = "Maximum"
+        treat_missing_data  = "notBreaching"
+      }
     },
     {
       for service in local.service_names :

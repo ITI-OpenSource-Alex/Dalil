@@ -9,6 +9,7 @@ from app.dependencies import get_db, get_s3_client, get_sqs_client
 from app.models import CVReview
 from app.schemas import CVUploadResponse
 from app.services.cv_storage import (
+    content_sha256,
     delete_from_s3,
     make_s3_key,
     upload_to_s3,
@@ -43,7 +44,7 @@ def _delete_object(s3_client, bucket: str, key: str) -> None:
     response_model=CVUploadResponse,
     status_code=status.HTTP_202_ACCEPTED,
     responses={
-        status.HTTP_413_REQUEST_ENTITY_TOO_LARGE: {"description": "CV exceeds 10 MB"},
+        413: {"description": "CV exceeds 10 MB"},
         status.HTTP_415_UNSUPPORTED_MEDIA_TYPE: {"description": "Unsupported CV format"},
     },
 )
@@ -58,12 +59,14 @@ async def upload_cv(
 ) -> CVUploadResponse:
     validate_user_id(userId)
     extension, original_filename = await validate_upload(file)
+    content_hash = content_sha256(file)
     s3_key = make_s3_key(userId, extension)
     review = CVReview(
         user_id=userId,
         s3_key=s3_key,
         original_filename=original_filename,
         status="processing",
+        content_hash=content_hash,
     )
 
     try:
@@ -79,7 +82,13 @@ async def upload_cv(
         ) from exc
 
     try:
-        upload_to_s3(s3_client, file, settings.s3_bucket, s3_key)
+        upload_to_s3(
+            s3_client,
+            file,
+            settings.s3_bucket,
+            s3_key,
+            content_hash=content_hash,
+        )
     except Exception as exc:
         _delete_review(db, review)
         logger.exception("Failed to store CV", extra={"s3_key": s3_key})

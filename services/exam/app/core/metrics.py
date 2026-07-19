@@ -1,20 +1,17 @@
 from prometheus_client import Counter, Histogram
 
 
-
 goa_speaking_exam_evaluations_total = Counter(
     "goa_speaking_exam_evaluations_total",
     "Total speaking exam evaluations requested",
-    labelnames = [
-        "status"
-    ]
+    labelnames=["status"],
 )
 
 
 goa_speaking_exam_evaluation_ms = Histogram(
     "goa_speaking_exam_evaluation_ms",
     "Latency of speaking exam evaluations in milliseconds",
-    labelnames = []
+    labelnames=[],
 )
 
 

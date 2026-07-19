@@ -9,7 +9,7 @@ def test_grading_service_returns_expected_score() -> None:
     )
 
     assert result == {
-            "raw_score": 2,
-            "band_score": 6.5,
-            "section_scores": {"overall": {"correct": 2, "total": 3}},
-        }
+        "raw_score": 2,
+        "band_score": 6.5,
+        "section_scores": {"overall": {"correct": 2, "total": 3}},
+    }

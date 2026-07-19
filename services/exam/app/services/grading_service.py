@@ -111,8 +111,7 @@ class GradingService:
 
         per_question_result: dict[str, dict[str, Any]] = {}
         section_breakdown: dict[str, dict[str, int]] = {
-            name: {"correct": 0, "total": 0}
-            for name in self.READING_SECTION_RANGES
+            name: {"correct": 0, "total": 0} for name in self.READING_SECTION_RANGES
         }
         raw_score = 0
 
@@ -122,9 +121,7 @@ class GradingService:
             raw_score += int(is_correct)
 
             correct_display = (
-                correct_value
-                if isinstance(correct_value, str)
-                else str(correct_value)
+                correct_value if isinstance(correct_value, str) else str(correct_value)
             )
             per_question_result[q_key] = {
                 "submitted_answer": submitted_value,
@@ -164,9 +161,7 @@ class GradingService:
 
         return 0.0
 
-    def _reading_band_table(
-        self, exam_type: str
-    ) -> tuple[tuple[int, float], ...]:
+    def _reading_band_table(self, exam_type: str) -> tuple[tuple[int, float], ...]:
         if exam_type == "general":
             return self.READING_GENERAL_BAND_BY_RAW_SCORE
         return self.READING_ACADEMIC_BAND_BY_RAW_SCORE

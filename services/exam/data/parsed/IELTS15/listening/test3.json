@@ -1,37 +1,329 @@
 {
-  "book_ref": "IELTS-unknown",
+  "book_ref": "IELTS-15",
   "test_number": 3,
   "exam_type": "academic",
   "skill_area": "listening",
   "passage_text": null,
   "questions": [
     {
-      "prompt": "Why is there a statue of Diane Gosforth in the park?",
-      "question_type": "Multiple Choice"
+      "number": 1,
+      "prompt": "Administrative assistant in a company that produces 1 occ (North",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 1
     },
     {
-      "prompt": "On leaving school, Moore did what his father wanted him to do.",
-      "question_type": "Multiple Choice"
+      "number": 2,
+      "prompt": "2 Moore began studying sculpture in his first term at the Leeds School of Art.",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 1
     },
     {
-      "prompt": "Whaley has plans to go to Africa to set up a similar project.",
-      "question_type": "Multiple Choice"
+      "number": 3,
+      "prompt": "3 When Moore started at the Royal College of Art, its reputation for teaching",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 1
     },
     {
-      "prompt": "3/0) p. 126",
-      "question_type": "Multiple Choice"
+      "number": 4,
+      "prompt": "e attention to 4",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 1
     },
     {
-      "prompt": "| wouldn't call her until the afternoon if | were you — she's always really busy in",
-      "question_type": "Multiple Choice"
+      "number": 5,
+      "prompt": ", which are based on Reading Nutmeg - a valuable spice The nutmeg tree, Myristica fragrans, is a large evergreen tree native to Southeast Asia. Until the late 18th century, it only grew in one place in the world: a small group of islands in the Banda Sea, part of the Moluccas - or Spice Islands - in northeastern Indonesia. The tree is thickly branched with dense foliage of tough, dark green oval leaves, and produces small, yellow, bell-shaped flowers and pale yellow pear-shaped fruits. The fruit is encased in a fleshy husk. When the fruit is ripe, this husk splits into two halves along a ridge running the length of the fruit. Inside is a purple-brown shiny seed, 2-3cm long by about 2 em across, surrounded by a lacy red or crimson covering called an \"aril'. These ' are the sources of the two spices nutmeg and mace, the former being produced from the dried seed and the latter from the aril. Nutmeg was a highly prized and costly ingredient in European cuisine in the Middle Ages, and was used as a flavouring, medicinal, and preservative agent. Throughout this period, the Arabs were the exclusive importers of the spice to Furope. They sold nutmeg for high prices to merchants based in Venice, but they never revealed the exact location of the source of this extremely valuable commodity. The Arab-Venetian dominance of the trade finally ended in 1512, when the Portuguese reached the Banda Islands and began exploiting its precious resources. Always in danger of competition from neighbouring Spain, the Portuguese began subcontracting their spice distribution to Dutch traders. Profits began to flow into the Netherlands, and the Dutch commercial fleet swiftly grew into one of the largest in the world. The Dutch quietly gained control of most of the shipping and trading of spices in Northern Europe. Then, in 1580, Portugal fell under Spanish rule, and by the end of the 16th century the Dutch found themselves locked out of the market, As prices for pepper, nutmeg, and other spices soared across Europe, they decided to fight back. 1n 1602, Dutch merchants founded the VOC, a trading corporation better known as the Dutch East India Company. By 1617, the VOC was the richest commercial operation in the world. The company had 50,000 employees worldwide, with a private army of 30,000 men and a fleet of 200 ships. At the same time, thousands of people across Europe were dying of the plague, a highly contagious and deadly disease. Doctors were desperate for a way to stop the spread of this disease, and they decided nutmeg held the cure. Everybody wanted nutmeg, and many were willing to spare no expense to have it. Nutmeg bought for a few pennies in Indonesia could be sold for 68,000 times its original cost on the streets of London. The only problem was the short supply. And that's where the Dutch found The Banda Islands were ruled by local sultans who insisted on maintaining a neutral trading policy towards foreign powers. This allowed them to avoid the presence of Portuguese or Spanish troops on their soil, but it also left them unprotected from other invaders. In 1621, the Dutch arrived and took over. Once securely in control of the Bandas, the Dutch went to work protecting their new investrent. They concentrated all nutmeg production into a few easily guarded areas, uprooting and destroying any trees outside the plantation zones. Anyone caught growing a nutmeg seedling or carrying seeds without the proper authority was severely punished. In addition, all exported nutmeg was covered with lime to make sure there was no chance a fertile seed which could be grown elsewhere would leave the islands. There was only one obstacle to Dutch domination. One of the Banda Islands, a sliver of land called Run, only 3km long by less than 1 km wide, was under the control of the British. After decades of fighting for control of this tiny island, the Dutch and British arrived at a compromise settlement, the Treaty of Breda, in 1667. Intent on securing their hold over every nutmeg-producing island, the Dutch offered a trade: if the British would give them the island of Run, they would in turn give Britain a distant and much less vatuable island in North America. The British agreed. That other island was Manhattan, which is how New Amsterdam became New York. The Dutch now had a monopoly over the nutmeg trade which would last for another century. Then, in 1770, a Frenchman named Pierre Poivre successfully smuggled nutmeg plants to safety in Mauritius, an island off the coast of Africa. Some of these were later exported to the Caribbean where they thrived, especially on the island of Grenada. Next, in 1778, a volcanic eruption in the Banda region caused a tsunami that wiped out half the nutmeg groves. Finally, in 1809, the British returned to Indonesia and seized the Banda Islands by force. They returned the islands to the Dutch in 1817, but not before transplanting hundreds of nutmeg seedlings to plantations in several locations across southern Asia. The Dutch nutmeg monopoly was over. Today, nutmeg is grown in Indonesia, the Caribbean, India, Malaysia, Papua New Guinea and Sri Lanka, and world nutmeg production is estimated to average between 10,000 and 12,000 tonnes",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 1
     },
     {
-      "prompt": "drought 22° direction",
-      "question_type": "Multiple Choice"
+      "number": 6,
+      "prompt": "6 Moore thought the Mayan sculpture was similar in certain respects to other stone",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 1
     },
     {
-      "prompt": "TRUE 29 =F",
-      "question_type": "Multiple Choice"
+      "number": 7,
+      "prompt": "e very organised and 7",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 8,
+      "prompt": "• 8 p.123|[Bp.107] 53",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 9,
+      "prompt": ", which are based on Reading Nutmeg - a valuable spice The nutmeg tree, Myristica fragrans, is a large evergreen tree native to Southeast Asia. Until the late 18th century, it only grew in one place in the world: a small group of islands in the Banda Sea, part of the Moluccas - or Spice Islands - in northeastern Indonesia. The tree is thickly branched with dense foliage of tough, dark green oval leaves, and produces small, yellow, bell-shaped flowers and pale yellow pear-shaped fruits. The fruit is encased in a fleshy husk. When the fruit is ripe, this husk splits into two halves along a ridge running the length of the fruit. Inside is a purple-brown shiny seed, 2-3cm long by about 2 em across, surrounded by a lacy red or crimson covering called an \"aril'. These ' are the sources of the two spices nutmeg and mace, the former being produced from the dried seed and the latter from the aril. Nutmeg was a highly prized and costly ingredient in European cuisine in the Middle Ages, and was used as a flavouring, medicinal, and preservative agent. Throughout this period, the Arabs were the exclusive importers of the spice to Furope. They sold nutmeg for high prices to merchants based in Venice, but they never revealed the exact location of the source of this extremely valuable commodity. The Arab-Venetian dominance of the trade finally ended in 1512, when the Portuguese reached the Banda Islands and began exploiting its precious resources. Always in danger of competition from neighbouring Spain, the Portuguese began subcontracting their spice distribution to Dutch traders. Profits began to flow into the Netherlands, and the Dutch commercial fleet swiftly grew into one of the largest in the world. The Dutch quietly gained control of most of the shipping and trading of spices in Northern Europe. Then, in 1580, Portugal fell under Spanish rule, and by the end of the 16th century the Dutch found themselves locked out of the market, As prices for pepper, nutmeg, and other spices soared across Europe, they decided to fight back. 1n 1602, Dutch merchants founded the VOC, a trading corporation better known as the Dutch East India Company. By 1617, the VOC was the richest commercial operation in the world. The company had 50,000 employees worldwide, with a private army of 30,000 men and a fleet of 200 ships. At the same time, thousands of people across Europe were dying of the plague, a highly contagious and deadly disease. Doctors were desperate for a way to stop the spread of this disease, and they decided nutmeg held the cure. Everybody wanted nutmeg, and many were willing to spare no expense to have it. Nutmeg bought for a few pennies in Indonesia could be sold for 68,000 times its original cost on the streets of London. The only problem was the short supply. And that's where the Dutch found The Banda Islands were ruled by local sultans who insisted on maintaining a neutral trading policy towards foreign powers. This allowed them to avoid the presence of Portuguese or Spanish troops on their soil, but it also left them unprotected from other invaders. In 1621, the Dutch arrived and took over. Once securely in control of the Bandas, the Dutch went to work protecting their new investrent. They concentrated all nutmeg production into a few easily guarded areas, uprooting and destroying any trees outside the plantation zones. Anyone caught growing a nutmeg seedling or carrying seeds without the proper authority was severely punished. In addition, all exported nutmeg was covered with lime to make sure there was no chance a fertile seed which could be grown elsewhere would leave the islands. There was only one obstacle to Dutch domination. One of the Banda Islands, a sliver of land called Run, only 3km long by less than 1 km wide, was under the control of the British. After decades of fighting for control of this tiny island, the Dutch and British arrived at a compromise settlement, the Treaty of Breda, in 1667. Intent on securing their hold over every nutmeg-producing island, the Dutch offered a trade: if the British would give them the island of Run, they would in turn give Britain a distant and much less vatuable island in North America. The British agreed. That other island was Manhattan, which is how New Amsterdam became New York. The Dutch now had a monopoly over the nutmeg trade which would last for another century. Then, in 1770, a Frenchman named Pierre Poivre successfully smuggled nutmeg plants to safety in Mauritius, an island off the coast of Africa. Some of these were later exported to the Caribbean where they thrived, especially on the island of Grenada. Next, in 1778, a volcanic eruption in the Banda region caused a tsunami that wiped out half the nutmeg groves. Finally, in 1809, the British returned to Indonesia and seized the Banda Islands by force. They returned the islands to the Dutch in 1817, but not before transplanting hundreds of nutmeg seedlings to plantations in several locations across southern Asia. The Dutch nutmeg monopoly was over. Today, nutmeg is grown in Indonesia, the Caribbean, India, Malaysia, Papua New Guinea and Sri Lanka, and world nutmeg production is estimated to average between 10,000 and 12,000 tonnes",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 10,
+      "prompt": ", which are based on Reading Nutmeg - a valuable spice The nutmeg tree, Myristica fragrans, is a large evergreen tree native to Southeast Asia. Until the late 18th century, it only grew in one place in the world: a small group of islands in the Banda Sea, part of the Moluccas - or Spice Islands - in northeastern Indonesia. The tree is thickly branched with dense foliage of tough, dark green oval leaves, and produces small, yellow, bell-shaped flowers and pale yellow pear-shaped fruits. The fruit is encased in a fleshy husk. When the fruit is ripe, this husk splits into two halves along a ridge running the length of the fruit. Inside is a purple-brown shiny seed, 2-3cm long by about 2 em across, surrounded by a lacy red or crimson covering called an \"aril'. These ' are the sources of the two spices nutmeg and mace, the former being produced from the dried seed and the latter from the aril. Nutmeg was a highly prized and costly ingredient in European cuisine in the Middle Ages, and was used as a flavouring, medicinal, and preservative agent. Throughout this period, the Arabs were the exclusive importers of the spice to Furope. They sold nutmeg for high prices to merchants based in Venice, but they never revealed the exact location of the source of this extremely valuable commodity. The Arab-Venetian dominance of the trade finally ended in 1512, when the Portuguese reached the Banda Islands and began exploiting its precious resources. Always in danger of competition from neighbouring Spain, the Portuguese began subcontracting their spice distribution to Dutch traders. Profits began to flow into the Netherlands, and the Dutch commercial fleet swiftly grew into one of the largest in the world. The Dutch quietly gained control of most of the shipping and trading of spices in Northern Europe. Then, in 1580, Portugal fell under Spanish rule, and by the end of the 16th century the Dutch found themselves locked out of the market, As prices for pepper, nutmeg, and other spices soared across Europe, they decided to fight back. 1n 1602, Dutch merchants founded the VOC, a trading corporation better known as the Dutch East India Company. By 1617, the VOC was the richest commercial operation in the world. The company had 50,000 employees worldwide, with a private army of 30,000 men and a fleet of 200 ships. At the same time, thousands of people across Europe were dying of the plague, a highly contagious and deadly disease. Doctors were desperate for a way to stop the spread of this disease, and they decided nutmeg held the cure. Everybody wanted nutmeg, and many were willing to spare no expense to have it. Nutmeg bought for a few pennies in Indonesia could be sold for 68,000 times its original cost on the streets of London. The only problem was the short supply. And that's where the Dutch found The Banda Islands were ruled by local sultans who insisted on maintaining a neutral trading policy towards foreign powers. This allowed them to avoid the presence of Portuguese or Spanish troops on their soil, but it also left them unprotected from other invaders. In 1621, the Dutch arrived and took over. Once securely in control of the Bandas, the Dutch went to work protecting their new investrent. They concentrated all nutmeg production into a few easily guarded areas, uprooting and destroying any trees outside the plantation zones. Anyone caught growing a nutmeg seedling or carrying seeds without the proper authority was severely punished. In addition, all exported nutmeg was covered with lime to make sure there was no chance a fertile seed which could be grown elsewhere would leave the islands. There was only one obstacle to Dutch domination. One of the Banda Islands, a sliver of land called Run, only 3km long by less than 1 km wide, was under the control of the British. After decades of fighting for control of this tiny island, the Dutch and British arrived at a compromise settlement, the Treaty of Breda, in 1667. Intent on securing their hold over every nutmeg-producing island, the Dutch offered a trade: if the British would give them the island of Run, they would in turn give Britain a distant and much less vatuable island in North America. The British agreed. That other island was Manhattan, which is how New Amsterdam became New York. The Dutch now had a monopoly over the nutmeg trade which would last for another century. Then, in 1770, a Frenchman named Pierre Poivre successfully smuggled nutmeg plants to safety in Mauritius, an island off the coast of Africa. Some of these were later exported to the Caribbean where they thrived, especially on the island of Grenada. Next, in 1778, a volcanic eruption in the Banda region caused a tsunami that wiped out half the nutmeg groves. Finally, in 1809, the British returned to Indonesia and seized the Banda Islands by force. They returned the islands to the Dutch in 1817, but not before transplanting hundreds of nutmeg seedlings to plantations in several locations across southern Asia. The Dutch nutmeg monopoly was over. Today, nutmeg is grown in Indonesia, the Caribbean, India, Malaysia, Papua New Guinea and Sri Lanka, and world nutmeg production is estimated to average between 10,000 and 12,000 tonnes",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 11,
+      "prompt": "When did the Street Play Scheme first take place? B_ three years ago How often is Beechwood Road closed to traffic now? Bon Saturdays and Sundays C¢ once a month Who is responsible for closing the road? Residents who want to use their cars B_ must drive very slowly. Alice says that Street Play Schemes are most needed in Cc areas with heavy traffic. What has been the reaction of residents who are not parents? A_ Many of them were unhappy at first. Cc They are surprised by the lack of noise.",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 2
+    },
+    {
+      "number": 12,
+      "prompt": "When did the Street Play Scheme first take place? B_ three years ago How often is Beechwood Road closed to traffic now? Bon Saturdays and Sundays C¢ once a month Who is responsible for closing the road? Residents who want to use their cars B_ must drive very slowly. Alice says that Street Play Schemes are most needed in Cc areas with heavy traffic. What has been the reaction of residents who are not parents? A_ Many of them were unhappy at first. Cc They are surprised by the lack of noise.",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 2
+    },
+    {
+      "number": 13,
+      "prompt": "When did the Street Play Scheme first take place? B_ three years ago How often is Beechwood Road closed to traffic now? Bon Saturdays and Sundays C¢ once a month Who is responsible for closing the road? Residents who want to use their cars B_ must drive very slowly. Alice says that Street Play Schemes are most needed in Cc areas with heavy traffic. What has been the reaction of residents who are not parents? A_ Many of them were unhappy at first. Cc They are surprised by the lack of noise.",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 2
+    },
+    {
+      "number": 14,
+      "prompt": "When did the Street Play Scheme first take place? B_ three years ago How often is Beechwood Road closed to traffic now? Bon Saturdays and Sundays C¢ once a month Who is responsible for closing the road? Residents who want to use their cars B_ must drive very slowly. Alice says that Street Play Schemes are most needed in Cc areas with heavy traffic. What has been the reaction of residents who are not parents? A_ Many of them were unhappy at first. Cc They are surprised by the lack of noise.",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 2
+    },
+    {
+      "number": 15,
+      "prompt": "When did the Street Play Scheme first take place? B_ three years ago How often is Beechwood Road closed to traffic now? Bon Saturdays and Sundays C¢ once a month Who is responsible for closing the road? Residents who want to use their cars B_ must drive very slowly. Alice says that Street Play Schemes are most needed in Cc areas with heavy traffic. What has been the reaction of residents who are not parents? A_ Many of them were unhappy at first. Cc They are surprised by the lack of noise.",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 2
+    },
+    {
+      "number": 16,
+      "prompt": "When did the Street Play Scheme first take place? B_ three years ago How often is Beechwood Road closed to traffic now? Bon Saturdays and Sundays C¢ once a month Who is responsible for closing the road? Residents who want to use their cars B_ must drive very slowly. Alice says that Street Play Schemes are most needed in Cc areas with heavy traffic. What has been the reaction of residents who are not parents? A_ Many of them were unhappy at first. Cc They are surprised by the lack of noise.",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 2
+    },
+    {
+      "number": 17,
+      "prompt": "Which TWO benefits for children does Alice think are the most important? increased sense of independence opportunity to learn new games opportunity to be part of a community opportunity to make new friends",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 2
+    },
+    {
+      "number": 18,
+      "prompt": "Which TWO benefits for children does Alice think are the most important? increased sense of independence opportunity to learn new games opportunity to be part of a community opportunity to make new friends",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 2
+    },
+    {
+      "number": 19,
+      "prompt": "Which TWO results of the King Street experiment surprised Alice? WWW.IELTSPOP.COM 9/@9 5 123|[Bp. 108] 55",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 2
+    },
+    {
+      "number": 20,
+      "prompt": "Which TWO results of the King Street experiment surprised Alice? WWW.IELTSPOP.COM 9/@9 5 123|[Bp. 108] 55",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 2
+    },
+    {
+      "number": 21,
+      "prompt": "What 21 nn nnemmmenene the item is on",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 22,
+      "prompt": "IO TmMmo O o>",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 23,
+      "prompt": "competitive",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 24,
+      "prompt": "Position in family",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 25,
+      "prompt": "theeldestchid",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 26,
+      "prompt": "a middle child",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 27,
+      "prompt": "What does Hazel decide to do about each of the following types of articles? Write the correct letter, A, B or C, next to Questions 27-30. 27 national news item eee 28 editorial i aaenesnstenten BO arts enentetnt sent 56 ->(@ p. 123|/G p. 109 Early history of keeping clean • water was used to wash off 31 ¢ - soap-like material found in 32 cylinders ¢ people cleaned themselves with sand and other substances e used a strigil - scraper made of 33 e - washed clothes in streams Ancient Germany and Gaul: e -_used soap to colour their 34 ¢ animal fat, ashes and clay mixed through action of rain, used for e from about 312 BC, water carried to Roman 35 Europe in Middle Ages: e decline in bathing contributed to occurrence of 36 . began to be added to soap Europe from 17th century: 1600s: cleanliness and bathing started becoming usual 1791: Leblanc invented a way of making soda ash from 38 early 1800s: Chevreul turned soapmaking into a 39... from 1800s, there was no longer a 40 on soap The British sculptor Henry Moore was a leading figure in the 20th-century art world Henry Moore was bom in Castleford, a small town near Leeds in the north of England. He was the seventh child of Raymond Moore and his wife Mary Baker. He studied at Castleford Grammar School from 1909 to 1915, where his early interest in art was encouraged by his teacher Alice Gostick. After leaving school, Moore hoped to become a sculptor, but instead he complied with his father's wish that he train as a schoolteacher. He had to abandon his training in 1917 when he was sent to France to fight in the First World War. After the war, Moore enrolled at the Leeds School of Art, where he studied for two years. In his first year, he spent most of his time drawing. Although he wanted to study sculpture, no teacher was appointed until his second year. At the end of that year, he passed the sculpture examination and was awarded a scholarship to the Royal College of Art in London. In September 1921, he moved to London and began three years of advanced study in sculpture. Alongside the instruction he received at the Royal College, Moore visited many of the London museums, particularly the British Museum, which had a wide-ranging collection of ancient sculpture. During these visits, he discovered the power and beauty of ancient Egyptian and African sculpture. As he became increasingly interested in these 'primitive' forms of art, he turned away from European sculptural traditions. After graduating, Moore spent the first six months of 1925 travelling in France. When he visited the Trocadero Museum in Paris, he was impressed by a cast of a Mayan\" sculpture of the rain spirit. It was a male reclining figure with its knees drawn up together, and its head at a right angle to its body. Moore became fascinated with this stone sculpture, which he thought had a power and originality that no other stone sculpture possessed. He himself started carving a variety of subjects in stone, including depictions of reclining women, mother-and-child groups, and masks. Moore's exceptional talent soon gained recognition, and in 1926 he started work as a sculpture instructor at the Royal College. In 1933, he became a member of a group of young artists called Unit One. The aim of the group was to convince the English public of the merits of the emerging international movement in modern art and architecture. \"Mayan: belonging to an ancient civilisation that inhabited parts of current-day Mexico, Guatemala, Belize, El Salvador and Honduras. Around this time, Moore moved away from the human figure to experiment with abstract shapes. In 1931, he held an exhibition at the Leicester Galleries in London. His work was enthusiastically welcomed by fellow sculptors, but the reviews in the press were extremely negative and turned Moore into a notorious figure. There were calls for his resignation from the Royal College, and the following year, when his contract expired, he left to start a sculpture department at the Chelsea School of Art in London. Throughout the 1930s, Moore did not show any inclination to please the British public. He became interested in the paintings of the Spanish artist Pablo Picasso, whose work inspired him to distort the human body in a radical way. At times, he seemed to abandon the human figure altogether. The pages of his sketchbooks from this period show his ideas for abstract sculptures that bore little resemblance to the human form. In 1940, during the Second World War, Moore stopped teaching at the Chelsea School and moved to a farmhouse about 20 miles north of London. A shortage of materials forced him to focus on drawing. He did numerous small sketches of Londoners, later turning these ideas into large coloured drawings in his studio. In 1942, he returned to Castleford to make a series of sketches of the miners who worked there. In 1944, Harlow, a town near London, offered Moore a commission for a sculpture depicting a family. The resulting work signifies a dramatic change in Moore's style, away from the experimentation of the 1930s towards a more natural and humanistic subject matter. He did dozens of studies in clay for the sculpture, and these were cast in bronze and issued in editions of seven to nine copies each. In this way, Moore's work became available to collectors all over the world, The boost to his income cnabled him to take on ambitious projects and start working on the scale he felt his sculpture demanded. Critics who had begun to think that Moore had become less revolutionary were proven wrong by the appearance, in 1950, of the first of Moore's series of standing figures in bronze, with their harsh and angular pierced forms and distinct impression of menace. Moore also varied his subject matter in the 1950s with such works as Warrior with Shield and Falling Warrior. These were rare examples of Moore's use of the male figure and owe something to his visit to Greece in 1951, when he had the opportunity to study ancient works of art. In his final years, Moore created the Henry Moore Foundation to promote art appreciation and to display his work. Moore was the first modern English sculptor to achieve international critical acclaim and he is still regarded as one of the most important sculptors of the 20th century.",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 28,
+      "prompt": "What does Hazel decide to do about each of the following types of articles? Write the correct letter, A, B or C, next to Questions 27-30. 27 national news item eee 28 editorial i aaenesnstenten BO arts enentetnt sent 56 ->(@ p. 123|/G p. 109 Early history of keeping clean • water was used to wash off 31 ¢ - soap-like material found in 32 cylinders ¢ people cleaned themselves with sand and other substances e used a strigil - scraper made of 33 e - washed clothes in streams Ancient Germany and Gaul: e -_used soap to colour their 34 ¢ animal fat, ashes and clay mixed through action of rain, used for e from about 312 BC, water carried to Roman 35 Europe in Middle Ages: e decline in bathing contributed to occurrence of 36 . began to be added to soap Europe from 17th century: 1600s: cleanliness and bathing started becoming usual 1791: Leblanc invented a way of making soda ash from 38 early 1800s: Chevreul turned soapmaking into a 39... from 1800s, there was no longer a 40 on soap The British sculptor Henry Moore was a leading figure in the 20th-century art world Henry Moore was bom in Castleford, a small town near Leeds in the north of England. He was the seventh child of Raymond Moore and his wife Mary Baker. He studied at Castleford Grammar School from 1909 to 1915, where his early interest in art was encouraged by his teacher Alice Gostick. After leaving school, Moore hoped to become a sculptor, but instead he complied with his father's wish that he train as a schoolteacher. He had to abandon his training in 1917 when he was sent to France to fight in the First World War. After the war, Moore enrolled at the Leeds School of Art, where he studied for two years. In his first year, he spent most of his time drawing. Although he wanted to study sculpture, no teacher was appointed until his second year. At the end of that year, he passed the sculpture examination and was awarded a scholarship to the Royal College of Art in London. In September 1921, he moved to London and began three years of advanced study in sculpture. Alongside the instruction he received at the Royal College, Moore visited many of the London museums, particularly the British Museum, which had a wide-ranging collection of ancient sculpture. During these visits, he discovered the power and beauty of ancient Egyptian and African sculpture. As he became increasingly interested in these 'primitive' forms of art, he turned away from European sculptural traditions. After graduating, Moore spent the first six months of 1925 travelling in France. When he visited the Trocadero Museum in Paris, he was impressed by a cast of a Mayan\" sculpture of the rain spirit. It was a male reclining figure with its knees drawn up together, and its head at a right angle to its body. Moore became fascinated with this stone sculpture, which he thought had a power and originality that no other stone sculpture possessed. He himself started carving a variety of subjects in stone, including depictions of reclining women, mother-and-child groups, and masks. Moore's exceptional talent soon gained recognition, and in 1926 he started work as a sculpture instructor at the Royal College. In 1933, he became a member of a group of young artists called Unit One. The aim of the group was to convince the English public of the merits of the emerging international movement in modern art and architecture. \"Mayan: belonging to an ancient civilisation that inhabited parts of current-day Mexico, Guatemala, Belize, El Salvador and Honduras. Around this time, Moore moved away from the human figure to experiment with abstract shapes. In 1931, he held an exhibition at the Leicester Galleries in London. His work was enthusiastically welcomed by fellow sculptors, but the reviews in the press were extremely negative and turned Moore into a notorious figure. There were calls for his resignation from the Royal College, and the following year, when his contract expired, he left to start a sculpture department at the Chelsea School of Art in London. Throughout the 1930s, Moore did not show any inclination to please the British public. He became interested in the paintings of the Spanish artist Pablo Picasso, whose work inspired him to distort the human body in a radical way. At times, he seemed to abandon the human figure altogether. The pages of his sketchbooks from this period show his ideas for abstract sculptures that bore little resemblance to the human form. In 1940, during the Second World War, Moore stopped teaching at the Chelsea School and moved to a farmhouse about 20 miles north of London. A shortage of materials forced him to focus on drawing. He did numerous small sketches of Londoners, later turning these ideas into large coloured drawings in his studio. In 1942, he returned to Castleford to make a series of sketches of the miners who worked there. In 1944, Harlow, a town near London, offered Moore a commission for a sculpture depicting a family. The resulting work signifies a dramatic change in Moore's style, away from the experimentation of the 1930s towards a more natural and humanistic subject matter. He did dozens of studies in clay for the sculpture, and these were cast in bronze and issued in editions of seven to nine copies each. In this way, Moore's work became available to collectors all over the world, The boost to his income cnabled him to take on ambitious projects and start working on the scale he felt his sculpture demanded. Critics who had begun to think that Moore had become less revolutionary were proven wrong by the appearance, in 1950, of the first of Moore's series of standing figures in bronze, with their harsh and angular pierced forms and distinct impression of menace. Moore also varied his subject matter in the 1950s with such works as Warrior with Shield and Falling Warrior. These were rare examples of Moore's use of the male figure and owe something to his visit to Greece in 1951, when he had the opportunity to study ancient works of art. In his final years, Moore created the Henry Moore Foundation to promote art appreciation and to display his work. Moore was the first modern English sculptor to achieve international critical acclaim and he is still regarded as one of the most important sculptors of the 20th century.",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 29,
+      "prompt": "What does Hazel decide to do about each of the following types of articles? Write the correct letter, A, B or C, next to Questions 27-30. 27 national news item eee 28 editorial i aaenesnstenten BO arts enentetnt sent 56 ->(@ p. 123|/G p. 109 Early history of keeping clean • water was used to wash off 31 ¢ - soap-like material found in 32 cylinders ¢ people cleaned themselves with sand and other substances e used a strigil - scraper made of 33 e - washed clothes in streams Ancient Germany and Gaul: e -_used soap to colour their 34 ¢ animal fat, ashes and clay mixed through action of rain, used for e from about 312 BC, water carried to Roman 35 Europe in Middle Ages: e decline in bathing contributed to occurrence of 36 . began to be added to soap Europe from 17th century: 1600s: cleanliness and bathing started becoming usual 1791: Leblanc invented a way of making soda ash from 38 early 1800s: Chevreul turned soapmaking into a 39... from 1800s, there was no longer a 40 on soap The British sculptor Henry Moore was a leading figure in the 20th-century art world Henry Moore was bom in Castleford, a small town near Leeds in the north of England. He was the seventh child of Raymond Moore and his wife Mary Baker. He studied at Castleford Grammar School from 1909 to 1915, where his early interest in art was encouraged by his teacher Alice Gostick. After leaving school, Moore hoped to become a sculptor, but instead he complied with his father's wish that he train as a schoolteacher. He had to abandon his training in 1917 when he was sent to France to fight in the First World War. After the war, Moore enrolled at the Leeds School of Art, where he studied for two years. In his first year, he spent most of his time drawing. Although he wanted to study sculpture, no teacher was appointed until his second year. At the end of that year, he passed the sculpture examination and was awarded a scholarship to the Royal College of Art in London. In September 1921, he moved to London and began three years of advanced study in sculpture. Alongside the instruction he received at the Royal College, Moore visited many of the London museums, particularly the British Museum, which had a wide-ranging collection of ancient sculpture. During these visits, he discovered the power and beauty of ancient Egyptian and African sculpture. As he became increasingly interested in these 'primitive' forms of art, he turned away from European sculptural traditions. After graduating, Moore spent the first six months of 1925 travelling in France. When he visited the Trocadero Museum in Paris, he was impressed by a cast of a Mayan\" sculpture of the rain spirit. It was a male reclining figure with its knees drawn up together, and its head at a right angle to its body. Moore became fascinated with this stone sculpture, which he thought had a power and originality that no other stone sculpture possessed. He himself started carving a variety of subjects in stone, including depictions of reclining women, mother-and-child groups, and masks. Moore's exceptional talent soon gained recognition, and in 1926 he started work as a sculpture instructor at the Royal College. In 1933, he became a member of a group of young artists called Unit One. The aim of the group was to convince the English public of the merits of the emerging international movement in modern art and architecture. \"Mayan: belonging to an ancient civilisation that inhabited parts of current-day Mexico, Guatemala, Belize, El Salvador and Honduras. Around this time, Moore moved away from the human figure to experiment with abstract shapes. In 1931, he held an exhibition at the Leicester Galleries in London. His work was enthusiastically welcomed by fellow sculptors, but the reviews in the press were extremely negative and turned Moore into a notorious figure. There were calls for his resignation from the Royal College, and the following year, when his contract expired, he left to start a sculpture department at the Chelsea School of Art in London. Throughout the 1930s, Moore did not show any inclination to please the British public. He became interested in the paintings of the Spanish artist Pablo Picasso, whose work inspired him to distort the human body in a radical way. At times, he seemed to abandon the human figure altogether. The pages of his sketchbooks from this period show his ideas for abstract sculptures that bore little resemblance to the human form. In 1940, during the Second World War, Moore stopped teaching at the Chelsea School and moved to a farmhouse about 20 miles north of London. A shortage of materials forced him to focus on drawing. He did numerous small sketches of Londoners, later turning these ideas into large coloured drawings in his studio. In 1942, he returned to Castleford to make a series of sketches of the miners who worked there. In 1944, Harlow, a town near London, offered Moore a commission for a sculpture depicting a family. The resulting work signifies a dramatic change in Moore's style, away from the experimentation of the 1930s towards a more natural and humanistic subject matter. He did dozens of studies in clay for the sculpture, and these were cast in bronze and issued in editions of seven to nine copies each. In this way, Moore's work became available to collectors all over the world, The boost to his income cnabled him to take on ambitious projects and start working on the scale he felt his sculpture demanded. Critics who had begun to think that Moore had become less revolutionary were proven wrong by the appearance, in 1950, of the first of Moore's series of standing figures in bronze, with their harsh and angular pierced forms and distinct impression of menace. Moore also varied his subject matter in the 1950s with such works as Warrior with Shield and Falling Warrior. These were rare examples of Moore's use of the male figure and owe something to his visit to Greece in 1951, when he had the opportunity to study ancient works of art. In his final years, Moore created the Henry Moore Foundation to promote art appreciation and to display his work. Moore was the first modern English sculptor to achieve international critical acclaim and he is still regarded as one of the most important sculptors of the 20th century.",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 30,
+      "prompt": "What does Hazel decide to do about each of the following types of articles? Write the correct letter, A, B or C, next to Questions 27-30. 27 national news item eee 28 editorial i aaenesnstenten BO arts enentetnt sent 56 ->(@ p. 123|/G p. 109 Early history of keeping clean • water was used to wash off 31 ¢ - soap-like material found in 32 cylinders ¢ people cleaned themselves with sand and other substances e used a strigil - scraper made of 33 e - washed clothes in streams Ancient Germany and Gaul: e -_used soap to colour their 34 ¢ animal fat, ashes and clay mixed through action of rain, used for e from about 312 BC, water carried to Roman 35 Europe in Middle Ages: e decline in bathing contributed to occurrence of 36 . began to be added to soap Europe from 17th century: 1600s: cleanliness and bathing started becoming usual 1791: Leblanc invented a way of making soda ash from 38 early 1800s: Chevreul turned soapmaking into a 39... from 1800s, there was no longer a 40 on soap The British sculptor Henry Moore was a leading figure in the 20th-century art world Henry Moore was bom in Castleford, a small town near Leeds in the north of England. He was the seventh child of Raymond Moore and his wife Mary Baker. He studied at Castleford Grammar School from 1909 to 1915, where his early interest in art was encouraged by his teacher Alice Gostick. After leaving school, Moore hoped to become a sculptor, but instead he complied with his father's wish that he train as a schoolteacher. He had to abandon his training in 1917 when he was sent to France to fight in the First World War. After the war, Moore enrolled at the Leeds School of Art, where he studied for two years. In his first year, he spent most of his time drawing. Although he wanted to study sculpture, no teacher was appointed until his second year. At the end of that year, he passed the sculpture examination and was awarded a scholarship to the Royal College of Art in London. In September 1921, he moved to London and began three years of advanced study in sculpture. Alongside the instruction he received at the Royal College, Moore visited many of the London museums, particularly the British Museum, which had a wide-ranging collection of ancient sculpture. During these visits, he discovered the power and beauty of ancient Egyptian and African sculpture. As he became increasingly interested in these 'primitive' forms of art, he turned away from European sculptural traditions. After graduating, Moore spent the first six months of 1925 travelling in France. When he visited the Trocadero Museum in Paris, he was impressed by a cast of a Mayan\" sculpture of the rain spirit. It was a male reclining figure with its knees drawn up together, and its head at a right angle to its body. Moore became fascinated with this stone sculpture, which he thought had a power and originality that no other stone sculpture possessed. He himself started carving a variety of subjects in stone, including depictions of reclining women, mother-and-child groups, and masks. Moore's exceptional talent soon gained recognition, and in 1926 he started work as a sculpture instructor at the Royal College. In 1933, he became a member of a group of young artists called Unit One. The aim of the group was to convince the English public of the merits of the emerging international movement in modern art and architecture. \"Mayan: belonging to an ancient civilisation that inhabited parts of current-day Mexico, Guatemala, Belize, El Salvador and Honduras. Around this time, Moore moved away from the human figure to experiment with abstract shapes. In 1931, he held an exhibition at the Leicester Galleries in London. His work was enthusiastically welcomed by fellow sculptors, but the reviews in the press were extremely negative and turned Moore into a notorious figure. There were calls for his resignation from the Royal College, and the following year, when his contract expired, he left to start a sculpture department at the Chelsea School of Art in London. Throughout the 1930s, Moore did not show any inclination to please the British public. He became interested in the paintings of the Spanish artist Pablo Picasso, whose work inspired him to distort the human body in a radical way. At times, he seemed to abandon the human figure altogether. The pages of his sketchbooks from this period show his ideas for abstract sculptures that bore little resemblance to the human form. In 1940, during the Second World War, Moore stopped teaching at the Chelsea School and moved to a farmhouse about 20 miles north of London. A shortage of materials forced him to focus on drawing. He did numerous small sketches of Londoners, later turning these ideas into large coloured drawings in his studio. In 1942, he returned to Castleford to make a series of sketches of the miners who worked there. In 1944, Harlow, a town near London, offered Moore a commission for a sculpture depicting a family. The resulting work signifies a dramatic change in Moore's style, away from the experimentation of the 1930s towards a more natural and humanistic subject matter. He did dozens of studies in clay for the sculpture, and these were cast in bronze and issued in editions of seven to nine copies each. In this way, Moore's work became available to collectors all over the world, The boost to his income cnabled him to take on ambitious projects and start working on the scale he felt his sculpture demanded. Critics who had begun to think that Moore had become less revolutionary were proven wrong by the appearance, in 1950, of the first of Moore's series of standing figures in bronze, with their harsh and angular pierced forms and distinct impression of menace. Moore also varied his subject matter in the 1950s with such works as Warrior with Shield and Falling Warrior. These were rare examples of Moore's use of the male figure and owe something to his visit to Greece in 1951, when he had the opportunity to study ancient works of art. In his final years, Moore created the Henry Moore Foundation to promote art appreciation and to display his work. Moore was the first modern English sculptor to achieve international critical acclaim and he is still regarded as one of the most important sculptors of the 20th century.",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 31,
+      "prompt": "e it provides 31 and food for a wide range of species",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 32,
+      "prompt": "e its leaves provide 32 which is used to make a disinfectant",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 33,
+      "prompt": "e Cause - lime used for making 33 was absorbed",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 34,
+      "prompt": "o Cause -34 feed on eucalyptus leaves",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 35,
+      "prompt": ", which are based on Reading What is exploration? We are all explorers. Our desire to discover, and then share that new-found knowledge, is part of what makes us human - indeed, this has played an important part in our success as a species. Long before the first caveman slumped down beside the fire and grunted news that there were plenty of wildebeest over yonder, our ancestors had learnt the value of sending out scouts to investigate the unknown. This questing nature of ours undoubtedly helped our species spread around the globe, just as it nowadays no doubt helps the last nomadic Penan maintain their existence in the depleted forests of Borneo, and a visitor negotiate the subways of New York. Over the years, we've come to think of explorers as a peculiar breed - different from the rest of us, different from those of us who are merely 'well travelled', even; and perhaps there is a type of person more suited to seeking out the new, a type of caveman more inclined to risk venturing out. That, however, doesn't take away from the fact that we all have this enquiring instinct, even today; and that in all sorts of professions - whether artist, marine biologist or astronomer - borders of the unknown are being tested each day. Thomas Hardy set some of his novels in Egdon Heath, a fictional area of uncultivated land, and used the landscape to suggest the desires and fears of his characters. He is delving into matters we all recognise because they are common to humanity. This is surely an act of exploration, and into a world as remote as the author chooses. Explorer and travel writer Peter Fleming talks of the moment when the explorer returns to the existence he has left behind with his loved ones. The traveller 'who has for weeks or months seen himself only as a puny and irrelevant alien crawling laboriously over a country in which he has no roots and no background, suddenly encounters his other self, a relatively solid figure, with a place in the minds of certain people'. In this book about the exploration of the earth's surface, I have confined myself to those whose travels were real and who also aimed at more than personal discovery. But that still left me with another problem: the word 'explorer\" has become associated with a past era. We think back to a golden age, as if exploration peaked somehow in the 19th century - as if the process of discovery is now on the decline, though the truth is that we have named only one and a half million of this planet's species, and there may be more than 10 million - and that's not including bacteria. We have studied only 5 per cent of the species we know. We have scarcely mapped the ocean floors, and know even less about ourselves; we fully understand the workings of only 10 per cent of our Here is how some of today's 'explorers' define the word. Ran Fiennes, dubbed the 'greatest living explorer', said, 'An explorer is someone who has done something that no human has done before - and also done something scientifically useful.\" Chris Bonington, a leading mountaineer, felt exploration was to be found in the act of physically touching the unknown: 'You have to have gone somewhere new.\" Then Robin Hanbury-Tenison, a campaigner on behalf of remote so-called \"tribal' peoples, said, 'A traveller simply records information about some far-off world, and reports back; but an explorer changes the world.\" Wilfred Thesiger, who crossed Arabia's Empty Quarter in 1946, and belongs to an era of unmechanised travel now lost to the rest of us, told me, \"If I'd gone across by camel when I could have gone by car, it would have been a stunt.\" To him, exploration meant bringing back information from a remote place regardless of any great Each definition is slightly different - and tends to reflect the field of endeavour of each pioneer. It was the same whoever [ asked: the prominent historian would say exploration was a thing of the past, the cutting-cdge scientist would say it was of the present. And so on. They each set their own particular criteria; the common factor in their approach being that they all had, unlike many of us who simply enjoy travel or discovering new things, both a very definite objective from the outset and also a desire to record their findings. I'd best declare my own bias. As a writer, I'm interested in the exploration of ideas. I've done a great many expeditions and each one was unique. I've lived for months alone with isolated groups of people all around the world, even two 'uncontacted tribes'. But none of these things is of the slightest interest to anyone unless, through my books, I've found a new slant, explored a new idea. Why? Because the world has moved on. The time has long passed for the great continental voyages - another walk to the poles, another crossing of the Empty Quarter. We know how the land surface of our planet lies; exploration of it is now down to the details - the habits of microbes, say, or the grazing behaviour of buffalo. Aside from the deep sea and deep underground, it's the era of specialists. However, this is to disregard the role the human mind has in conveying remote places; and this is what interests me: how a fresh interpretation, even of a well-travelled route, can give its readers new insights.",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 36,
+      "prompt": "~ make more 36 . available to the trees",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 37,
+      "prompt": "~- maintain the quality of the 37 .",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 38,
+      "prompt": "low-frequency bushfires result in the growth of 38 ° rainforest',",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 39,
+      "prompt": ", which are based on Reading What is exploration? We are all explorers. Our desire to discover, and then share that new-found knowledge, is part of what makes us human - indeed, this has played an important part in our success as a species. Long before the first caveman slumped down beside the fire and grunted news that there were plenty of wildebeest over yonder, our ancestors had learnt the value of sending out scouts to investigate the unknown. This questing nature of ours undoubtedly helped our species spread around the globe, just as it nowadays no doubt helps the last nomadic Penan maintain their existence in the depleted forests of Borneo, and a visitor negotiate the subways of New York. Over the years, we've come to think of explorers as a peculiar breed - different from the rest of us, different from those of us who are merely 'well travelled', even; and perhaps there is a type of person more suited to seeking out the new, a type of caveman more inclined to risk venturing out. That, however, doesn't take away from the fact that we all have this enquiring instinct, even today; and that in all sorts of professions - whether artist, marine biologist or astronomer - borders of the unknown are being tested each day. Thomas Hardy set some of his novels in Egdon Heath, a fictional area of uncultivated land, and used the landscape to suggest the desires and fears of his characters. He is delving into matters we all recognise because they are common to humanity. This is surely an act of exploration, and into a world as remote as the author chooses. Explorer and travel writer Peter Fleming talks of the moment when the explorer returns to the existence he has left behind with his loved ones. The traveller 'who has for weeks or months seen himself only as a puny and irrelevant alien crawling laboriously over a country in which he has no roots and no background, suddenly encounters his other self, a relatively solid figure, with a place in the minds of certain people'. In this book about the exploration of the earth's surface, I have confined myself to those whose travels were real and who also aimed at more than personal discovery. But that still left me with another problem: the word 'explorer\" has become associated with a past era. We think back to a golden age, as if exploration peaked somehow in the 19th century - as if the process of discovery is now on the decline, though the truth is that we have named only one and a half million of this planet's species, and there may be more than 10 million - and that's not including bacteria. We have studied only 5 per cent of the species we know. We have scarcely mapped the ocean floors, and know even less about ourselves; we fully understand the workings of only 10 per cent of our Here is how some of today's 'explorers' define the word. Ran Fiennes, dubbed the 'greatest living explorer', said, 'An explorer is someone who has done something that no human has done before - and also done something scientifically useful.\" Chris Bonington, a leading mountaineer, felt exploration was to be found in the act of physically touching the unknown: 'You have to have gone somewhere new.\" Then Robin Hanbury-Tenison, a campaigner on behalf of remote so-called \"tribal' peoples, said, 'A traveller simply records information about some far-off world, and reports back; but an explorer changes the world.\" Wilfred Thesiger, who crossed Arabia's Empty Quarter in 1946, and belongs to an era of unmechanised travel now lost to the rest of us, told me, \"If I'd gone across by camel when I could have gone by car, it would have been a stunt.\" To him, exploration meant bringing back information from a remote place regardless of any great Each definition is slightly different - and tends to reflect the field of endeavour of each pioneer. It was the same whoever [ asked: the prominent historian would say exploration was a thing of the past, the cutting-cdge scientist would say it was of the present. And so on. They each set their own particular criteria; the common factor in their approach being that they all had, unlike many of us who simply enjoy travel or discovering new things, both a very definite objective from the outset and also a desire to record their findings. I'd best declare my own bias. As a writer, I'm interested in the exploration of ideas. I've done a great many expeditions and each one was unique. I've lived for months alone with isolated groups of people all around the world, even two 'uncontacted tribes'. But none of these things is of the slightest interest to anyone unless, through my books, I've found a new slant, explored a new idea. Why? Because the world has moved on. The time has long passed for the great continental voyages - another walk to the poles, another crossing of the Empty Quarter. We know how the land surface of our planet lies; exploration of it is now down to the details - the habits of microbes, say, or the grazing behaviour of buffalo. Aside from the deep sea and deep underground, it's the era of specialists. However, this is to disregard the role the human mind has in conveying remote places; and this is what interests me: how a fresh interpretation, even of a well-travelled route, can give its readers new insights.",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 40,
+      "prompt": "- an ideal environment for the 40",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 4
     }
   ],
   "answer_key": {},

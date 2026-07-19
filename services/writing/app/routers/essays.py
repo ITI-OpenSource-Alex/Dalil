@@ -15,7 +15,11 @@ from app.evaluation import (
     EvaluationSummary,
     get_evaluation_coordinator,
 )
-from app.metrics import EVALUATION_LATENCY_MS, cache_hit_tracker
+from app.metrics import (
+    EVALUATION_LATENCY_MS,
+    cache_hit_tracker,
+    goa_writing_exam_evaluation_ms,
+)
 from app.models import Essay
 from app.observability import (
     get_langfuse_client,
@@ -321,13 +325,23 @@ async def evaluate_exam_task(
         task_type=payload.examType,
         from_cache=from_cache,
     )
+    task_type_label = f"task{payload.taskNumber}"
     try:
-        summary = await _run_evaluation(
-            essay,
-            cached_payload=cached_payload,
-            coordinator=coordinator,
-            trace=trace,
-        )
+        with goa_writing_exam_evaluation_ms.labels(task_type=task_type_label).time():
+            if cached_payload is not None:
+                summary = await coordinator.replay_cached(
+                    parse_cached_evaluations(cached_payload),
+                    trace=trace,
+                )
+            else:
+                summary = await coordinator.evaluate_exam_task(
+                    payload.essayText,
+                    payload.examType,
+                    task_number=payload.taskNumber,
+                    stimulus_s3_key=payload.stimulusS3Key,
+                    task_prompt=payload.taskPrompt,
+                    trace=trace,
+                )
     except EvaluationFailed as exc:
         essay.status = "evaluation_failed"
         db.commit()

@@ -17,7 +17,10 @@ def test_writing_parser_extracts_task1_and_task2() -> None:
     task1 = parsed["questions"][0]
     assert task1["number"] == 1
     assert task1["question_type"] == "Writing Task 1"
-    assert "graph" in task1["prompt"].lower() or "summarise" in task1["instructions"].lower()
+    assert (
+        "graph" in task1["prompt"].lower()
+        or "summarise" in task1["instructions"].lower()
+    )
 
     task2 = parsed["questions"][1]
     assert task2["number"] == 2

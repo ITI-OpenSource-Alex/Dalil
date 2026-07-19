@@ -67,9 +67,7 @@ class TestFillBlankNormalization:
 
 
 class TestBandConversion:
-    def _check_band(
-        self, raw: int, exam_type: str, expected: float
-    ) -> None:
+    def _check_band(self, raw: int, exam_type: str, expected: float) -> None:
         gs = GradingService()
         key = {str(i): f"A{i}" for i in range(1, 41)}
         correct = {str(i): f"A{i}" for i in range(1, raw + 1)}

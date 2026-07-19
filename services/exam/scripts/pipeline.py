@@ -81,7 +81,9 @@ def main() -> int:
     parser.add_argument("--skill", type=str, default=None, help="Filter by skill area.")
     parser.add_argument("--test", type=int, default=None, help="Filter by test number.")
     parser.add_argument("--force", action="store_true", help="Force re-processing.")
-    parser.add_argument("--dry-run", action="store_true", help="Dry run (ingest stage only).")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Dry run (ingest stage only)."
+    )
     parser.add_argument("--strict", action="store_true", help="Strict validation.")
 
     args = parser.parse_args()
@@ -91,7 +93,7 @@ def main() -> int:
     print("=" * 70)
     print("CAMBRIDGE IELTS INGESTION PIPELINE")
     print("=" * 70)
-    print(f"  Stages: {' → '.join(stages)}")
+    print(f"  Stages: {' -> '.join(stages)}")
     if args.book:
         print(f"  Book:   {args.book}")
     if args.skill:
@@ -110,7 +112,9 @@ def main() -> int:
         if result.returncode != 0:
             print()
             print(f"[ABORT] Stage '{stage}' failed with exit code {result.returncode}.")
-            print(f"        Fix the issue and re-run: python scripts/pipeline.py --stage {stage}")
+            print(
+                f"        Fix the issue and re-run: python scripts/pipeline.py --stage {stage}"
+            )
             return result.returncode
 
         print()

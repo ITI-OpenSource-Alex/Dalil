@@ -57,6 +57,7 @@ from app.ingestion.pipeline_config import (
     SKILLS,
     discover_ocr_texts,
 )
+from app.ingestion.ocr_normalizer import DEFAULT_NORMALIZER
 from app.ingestion.reading_parser import ReadingParser
 from app.ingestion.listening_parser import ListeningParser
 from app.ingestion.writing_parser import WritingParser
@@ -70,28 +71,12 @@ PARSERS = {
 }
 
 
+from app.ingestion.test_splitter import TestSplitter
+
+
 def _compute_text_hash(text: str) -> str:
     """SHA-256 of text content (first 16 hex chars)."""
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
-
-
-def _split_into_tests(text: str) -> dict[int, str]:
-    """Split full book text into per-test blocks.
-
-    Uses the same boundary regex as ReadingParser._split_into_tests().
-    Returns the full text as test 1 if no test boundaries are found.
-    """
-    matches = list(re.finditer(r"(?i)^Test\s+(\d+)\b", text, re.MULTILINE))
-    if not matches:
-        return {1: text}
-
-    tests: dict[int, str] = {}
-    for i, m in enumerate(matches):
-        t_num = int(m.group(1))
-        start = m.start()
-        end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
-        tests[t_num] = text[start:end]
-    return tests
 
 
 def _find_answer_key_section(text: str) -> str:
@@ -100,9 +85,18 @@ def _find_answer_key_section(text: str) -> str:
     Parsers need the answer key appended to test blocks so they can
     extract correct answers.
     """
-    m = re.search(r"(?i)\bAnswer\s*keys?\b", text)
+    # Look for the formal header first
+    m = re.search(r"(?i)\bListening\s+and\s+Reading\s+answer\s+keys?\b", text)
     if m:
-        return text[m.start():]
+        return text[m.start() :]
+
+    # Fallback: find the LAST occurrence of "Answer key" in the text
+    # or search in the last 20% of the book
+    search_start = int(len(text) * 0.7)
+    m = re.search(r"(?i)\bAnswer\s*keys?\b", text[search_start:])
+    if m:
+        return text[search_start + m.start() :]
+
     return ""
 
 
@@ -115,7 +109,9 @@ def _write_json(path: Path, data: dict[str, Any]) -> None:
     )
 
 
-def _write_metadata(book_dir: Path, slug: str, test_numbers: list[int], source_hash: str) -> None:
+def _write_metadata(
+    book_dir: Path, slug: str, test_numbers: list[int], source_hash: str
+) -> None:
     """Write a metadata.json summarizing what was parsed for this book."""
     meta = {
         "book_slug": slug,
@@ -166,10 +162,15 @@ def main() -> int:
         action="store_true",
         help="Re-parse even if source text has not changed.",
     )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Write intermediate parser text to debug/ for manual inspection.",
+    )
     args = parser.parse_args()
 
     print("=" * 70)
-    print("STAGE 2: PARSE — TXT → JSON")
+    print("STAGE 2: PARSE -> TXT -> JSON")
     print("=" * 70)
     print(f"  Source:  {args.ocr_dir}")
     print(f"  Output:  {args.parsed_dir}")
@@ -192,8 +193,8 @@ def main() -> int:
 
     for txt_path, slug in ocr_texts:
         print(f"--- {slug} ---")
-        full_text = txt_path.read_text(encoding="utf-8")
-        source_hash = _compute_text_hash(full_text)
+        raw_text = txt_path.read_text(encoding="utf-8")
+        source_hash = _compute_text_hash(raw_text)
 
         # Check if already parsed with same source
         sha_path = args.parsed_dir / slug / ".source_sha256"
@@ -204,7 +205,9 @@ def main() -> int:
                 results.append({"slug": slug, "status": "skipped"})
                 continue
 
-        tests = _split_into_tests(full_text)
+        full_text = DEFAULT_NORMALIZER.normalize(raw_text)
+        splitter = TestSplitter()
+        tests = splitter.split(full_text)
         answer_key_section = _find_answer_key_section(full_text)
 
         if not tests:
@@ -220,15 +223,23 @@ def main() -> int:
                 continue
 
             test_block = tests[test_num]
-            # Append answer key section so parsers can extract answers
-            parser_input = test_block
-            if answer_key_section and answer_key_section not in test_block:
-                parser_input = test_block + "\n" + answer_key_section
 
             for skill in skills_to_parse:
                 skill_parser = PARSERS.get(skill)
                 if not skill_parser:
                     continue
+
+                # Append answer key section only for Reading and Listening
+                parser_input = test_block
+                if (
+                    skill in ["reading", "listening"]
+                    and answer_key_section
+                    and answer_key_section not in test_block
+                ):
+                    parser_input = test_block + "\n" + answer_key_section
+
+                if args.debug:
+                    skill_parser.debug_dir = Path("debug") / slug / f"test{test_num}"
 
                 label = f"{slug}/test{test_num}/{skill}"
                 t0 = time.time()
@@ -238,7 +249,7 @@ def main() -> int:
                     elapsed = time.time() - t0
 
                     # Ensure correct metadata
-                    parsed["book_ref"] = parsed.get("book_ref", f"IELTS-{slug.replace('IELTS', '')}")
+                    parsed["book_ref"] = f"IELTS-{slug.replace('IELTS', '')}"
                     parsed["test_number"] = test_num
 
                     q_count = len(parsed.get("questions", []))
@@ -247,14 +258,20 @@ def main() -> int:
                     out_path = args.parsed_dir / slug / skill / f"test{test_num}.json"
                     _write_json(out_path, parsed)
 
-                    print(f"  [{skill:<10}] Test {test_num}: {q_count} questions, "
-                          f"{ak_count} answers [{elapsed:.1f}s] → {out_path.name}")
-                    results.append({"label": label, "status": "parsed", "questions": q_count})
+                    print(
+                        f"  [{skill:<10}] Test {test_num}: {q_count} questions, "
+                        f"{ak_count} answers [{elapsed:.1f}s] → {out_path.name}"
+                    )
+                    results.append(
+                        {"label": label, "status": "parsed", "questions": q_count}
+                    )
                     all_test_numbers.append(test_num)
 
                 except Exception as e:
                     elapsed = time.time() - t0
-                    print(f"  [{skill:<10}] Test {test_num}: [ERROR] {e} [{elapsed:.1f}s]")
+                    print(
+                        f"  [{skill:<10}] Test {test_num}: [ERROR] {e} [{elapsed:.1f}s]"
+                    )
                     errors.append(f"{label}: {e}")
 
         # Write metadata and source hash
@@ -271,7 +288,9 @@ def main() -> int:
     print("=" * 70)
     parsed_count = sum(1 for r in results if r.get("status") == "parsed")
     skipped_count = sum(1 for r in results if r.get("status") == "skipped")
-    total_questions = sum(r.get("questions", 0) for r in results if r.get("status") == "parsed")
+    total_questions = sum(
+        r.get("questions", 0) for r in results if r.get("status") == "parsed"
+    )
     print(f"  Parsed:    {parsed_count} file(s)")
     print(f"  Skipped:   {skipped_count} book(s)")
     print(f"  Questions: {total_questions} total")

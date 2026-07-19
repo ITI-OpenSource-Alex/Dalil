@@ -25,45 +25,70 @@ class SpeakingParser(BaseParser):
         metadata = self._infer_metadata(text)
         metadata["skill_area"] = "speaking"
 
-        part1 = self._extract_part1(text)
-        part2 = self._extract_part2(text)
-        part3 = self._extract_part3(text)
+        # Isolate the speaking section first to avoid matching Listening or Reading parts
+        # Since Speaking is always at the end of the test block, we can safely restrict our search
+        # to the last 3000 characters.
+        search_text = text[-3000:] if len(text) > 3000 else text
+
+        m_examiner = re.search(
+            r"(?i)The\s+examiner\s+asks\s+the\s+candidate", search_text
+        )
+        m_part2 = re.search(
+            r"(?i)(PART\s+2\b|Describe\s+a\b|Talk\s+about\b)", search_text
+        )
+
+        if m_examiner:
+            search_text = search_text[m_examiner.start() :]
+        elif m_part2:
+            # Go back ~1000 chars from Part 2 to capture Part 1
+            start_idx = max(0, m_part2.start() - 1000)
+            search_text = search_text[start_idx:]
+
+        part1 = self._extract_part1(search_text)
+        part2 = self._extract_part2(search_text)
+        part3 = self._extract_part3(search_text)
 
         questions: list[dict[str, Any]] = []
         q_number = 1
 
         for topic in part1:
-            questions.append({
-                "number": q_number,
-                "prompt": topic,
-                "question_type": "Speaking Part 1",
-                "instructions": "Answer the question in 1-2 sentences.",
-                "passage_number": None,
-                "section_number": 1,
-            })
+            questions.append(
+                {
+                    "number": q_number,
+                    "prompt": topic,
+                    "question_type": "Speaking Part 1",
+                    "instructions": "Answer the question in 1-2 sentences.",
+                    "passage_number": None,
+                    "section_number": 1,
+                }
+            )
             q_number += 1
 
         if part2:
-            questions.append({
-                "number": q_number,
-                "prompt": part2["topic"],
-                "question_type": "Speaking Part 2",
-                "instructions": "Speak for 1-2 minutes on this topic.",
-                "passage_number": None,
-                "section_number": 2,
-                "bullet_points": part2.get("bullets", []),
-            })
+            questions.append(
+                {
+                    "number": q_number,
+                    "prompt": part2["topic"],
+                    "question_type": "Speaking Part 2",
+                    "instructions": "Speak for 1-2 minutes on this topic.",
+                    "passage_number": None,
+                    "section_number": 2,
+                    "bullet_points": part2.get("bullets", []),
+                }
+            )
             q_number += 1
 
         for discussion_q in part3:
-            questions.append({
-                "number": q_number,
-                "prompt": discussion_q,
-                "question_type": "Speaking Part 3",
-                "instructions": "Discuss this question in detail.",
-                "passage_number": None,
-                "section_number": 3,
-            })
+            questions.append(
+                {
+                    "number": q_number,
+                    "prompt": discussion_q,
+                    "question_type": "Speaking Part 3",
+                    "instructions": "Discuss this question in detail.",
+                    "passage_number": None,
+                    "section_number": 3,
+                }
+            )
             q_number += 1
 
         return {
@@ -77,82 +102,116 @@ class SpeakingParser(BaseParser):
             "time_limit_seconds": 900,
         }
 
-    def _extract_part1(self, text: str) -> list[str]:
-        pattern = re.compile(
-            r"(?i)PART\s+1\b(.*?)(?=PART\s+[23]\b|$)", re.DOTALL
-        )
-        m = pattern.search(text)
-        if not m:
-            return []
+    def _extract_part1(self, search_text: str) -> list[str]:
+        m = re.search(r"(?i)(PART\s+2\b|Describe\s+a\b|Talk\s+about\b)", search_text)
+        block = search_text[: m.start()] if m else search_text
 
-        block = m.group(1).strip()
         questions = []
         for line in block.splitlines():
             stripped = line.strip()
             if not stripped:
                 continue
-            if re.match(r"(?i)^(the examiner|introduction|let)", stripped):
+            if re.match(
+                r"(?i)^(the examiner|introduction|let|example|part 1|speaking)",
+                stripped,
+            ):
                 continue
-            if stripped.endswith("?") or re.match(r"^\d+[.)]\s+", stripped):
+            if "?" in stripped or re.match(r"^\d+[.)]\s+", stripped):
                 cleaned = re.sub(r"^\d+[.)]\s+", "", stripped)
                 if cleaned:
                     questions.append(cleaned)
-
         return questions
 
-    def _extract_part2(self, text: str) -> dict[str, Any] | None:
-        pattern = re.compile(
-            r"(?i)PART\s+2\b(.*?)(?=PART\s+3\b|$)", re.DOTALL
-        )
-        m = pattern.search(text)
+    def _extract_part2(self, search_text: str) -> dict[str, Any] | None:
+        m = re.search(r"(?i)(PART\s+2\b|Describe\s+a\b|Talk\s+about\b)", search_text)
         if not m:
             return None
 
-        block = m.group(1).strip()
-        lines = [ln.strip() for ln in block.splitlines() if ln.strip()]
+        block = search_text[m.start() :]
+        m3 = re.search(r"(?i)(PART\s+3\b)", block)
+        if m3:
+            block = block[: m3.start()]
+        else:
+            lines = block.splitlines()
+            end_idx = len(lines)
+            for i, line in enumerate(lines):
+                if i > 0 and "?" in line:
+                    end_idx = i
+                    if (
+                        i > 1
+                        and len(lines[i - 1].split()) <= 4
+                        and not lines[i - 1].endswith(".")
+                    ):
+                        end_idx = i - 1
+                    break
+            block = "\n".join(lines[:end_idx])
 
-        topic = ""
-        bullets: list[str] = []
-        found_describe = False
-
-        for line in lines:
-            if re.match(r"(?i)^(the examiner|you will have|you should say)", line):
-                continue
-            if re.match(r"(?i)^(describe|talk about|you should)", line):
-                topic = line
-                found_describe = True
-                continue
-            if found_describe and re.match(r"^[-•·*]\s*", line):
-                bullet = re.sub(r"^[-•·*]\s*", "", line).strip()
-                if bullet:
-                    bullets.append(bullet)
-            elif found_describe and re.match(r"(?i)^(and\s+)?(explain|say)\b", line):
-                bullets.append(line)
-
-        if not topic and lines:
-            topic = lines[0]
-
-        return {"topic": topic, "bullets": bullets} if topic else None
-
-    def _extract_part3(self, text: str) -> list[str]:
-        pattern = re.compile(
-            r"(?i)PART\s+3\b(.*?)(?=PART\s+\d|SPEAKING\s+TEST|$)", re.DOTALL
-        )
-        m = pattern.search(text)
-        if not m:
-            return []
-
-        block = m.group(1).strip()
-        questions = []
+        prompt = ""
+        bullets = []
+        in_bullets = False
         for line in block.splitlines():
             stripped = line.strip()
             if not stripped:
                 continue
-            if re.match(r"(?i)^(the examiner|discussion)", stripped):
+            if re.match(r"(?i)^(part 2)", stripped):
                 continue
-            if stripped.endswith("?") or re.match(r"^\d+[.)]\s+", stripped):
+
+            if (
+                re.match(r"(?i)^(you should say|and explain)", stripped)
+                or stripped.startswith("e ")
+                or stripped.startswith("o ")
+                or stripped.startswith("- ")
+                or stripped.startswith("what ")
+                or stripped.startswith("how ")
+                or stripped.startswith("who ")
+                or stripped.startswith("where ")
+                or stripped.startswith("when ")
+                or stripped.startswith("why ")
+            ):
+                in_bullets = True
+                bullets.append(stripped)
+            elif not in_bullets:
+                prompt += stripped + " "
+            else:
+                bullets.append(stripped)
+
+        return {"topic": prompt.strip(), "bullets": bullets}
+
+    def _extract_part3(self, search_text: str) -> list[str]:
+        m2 = re.search(r"(?i)(PART\s+2\b|Describe\s+a\b|Talk\s+about\b)", search_text)
+        if not m2:
+            return []
+
+        block2 = search_text[m2.start() :]
+        m3 = re.search(r"(?i)(PART\s+3\b)", block2)
+        if m3:
+            block3 = block2[m3.start() :]
+        else:
+            lines = block2.splitlines()
+            start_idx = 0
+            for i, line in enumerate(lines):
+                if i > 0 and "?" in line:
+                    start_idx = i
+                    if (
+                        i > 1
+                        and len(lines[i - 1].split()) <= 4
+                        and not lines[i - 1].endswith(".")
+                    ):
+                        start_idx = i - 1
+                    break
+            if start_idx == 0:
+                return []
+            block3 = "\n".join(lines[start_idx:])
+
+        questions = []
+        for line in block3.splitlines():
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if re.match(r"(?i)^(part 3|discussion|speaking test)", stripped):
+                continue
+            if "?" in stripped or re.match(r"^\d+[.)]\s+", stripped):
                 cleaned = re.sub(r"^\d+[.)]\s+", "", stripped)
                 if cleaned:
                     questions.append(cleaned)
-
         return questions

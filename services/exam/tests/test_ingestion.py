@@ -21,9 +21,7 @@ class FakeQuestionRepository:
             (
                 record
                 for record in self.records
-                if (
-                    record["book_ref"], record["test_number"], record["skill_area"]
-                )
+                if (record["book_ref"], record["test_number"], record["skill_area"])
                 == (
                     payload["book_ref"],
                     payload["test_number"],
@@ -193,35 +191,43 @@ def test_gt_reading_parser_tags_passage_section_types() -> None:
     for q in passage2_qs:
         assert q.get("section_type") == "work", f"Q{q['number']} should be 'work'"
     for q in passage3_qs:
-        assert q.get("section_type") == "general_interest", f"Q{q['number']} should be 'general_interest'"
+        assert q.get("section_type") == "general_interest", (
+            f"Q{q['number']} should be 'general_interest'"
+        )
 
 
 def test_stats_endpoint_includes_by_book_breakdown() -> None:
     repo = FakeQuestionRepository()
-    repo.records.append({
-        "book_ref": "IELTS-14",
-        "test_number": 1,
-        "exam_type": "academic",
-        "skill_area": "reading",
-        "questions": [],
-        "answer_key": {},
-    })
-    repo.records.append({
-        "book_ref": "IELTS-14",
-        "test_number": 1,
-        "exam_type": "academic",
-        "skill_area": "listening",
-        "questions": [],
-        "answer_key": {},
-    })
-    repo.records.append({
-        "book_ref": "IELTS-15",
-        "test_number": 1,
-        "exam_type": "academic",
-        "skill_area": "reading",
-        "questions": [],
-        "answer_key": {},
-    })
+    repo.records.append(
+        {
+            "book_ref": "IELTS-14",
+            "test_number": 1,
+            "exam_type": "academic",
+            "skill_area": "reading",
+            "questions": [],
+            "answer_key": {},
+        }
+    )
+    repo.records.append(
+        {
+            "book_ref": "IELTS-14",
+            "test_number": 1,
+            "exam_type": "academic",
+            "skill_area": "listening",
+            "questions": [],
+            "answer_key": {},
+        }
+    )
+    repo.records.append(
+        {
+            "book_ref": "IELTS-15",
+            "test_number": 1,
+            "exam_type": "academic",
+            "skill_area": "reading",
+            "questions": [],
+            "answer_key": {},
+        }
+    )
 
     app = FastAPI()
     app.include_router(internal_router)
@@ -819,3 +825,22 @@ Do you think people read less nowadays than in the past?
 Why do some people prefer reading e-books to printed books?
 How important is it for children to develop a reading habit?
 """
+
+
+def test_reading_parser_stops_at_answer_key_when_writing_marker_missing() -> None:
+    parser = ReadingParser()
+    test_block = """Test 3
+READING
+READING PASSAGE 1
+This is passage 1.
+Questions 1-3
+1 A
+2 B
+3 C
+Answer key
+Reading Passage 1, Questions 1-3
+1 A
+"""
+    reading_section = parser._isolate_reading_section(test_block)
+    assert "Answer key" not in reading_section
+    assert "This is passage 1." in reading_section

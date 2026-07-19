@@ -1,18 +1,111 @@
 {
-  "book_ref": "IELTS-unknown",
+  "book_ref": "IELTS-17",
   "test_number": 3,
-  "exam_type": "academic",
+  "exam_type": "general",
   "skill_area": "speaking",
   "passage_text": null,
   "questions": [
     {
       "number": 1,
-      "prompt": "The candidate is given a task card with prompts and is asked to talk on a particular topic.",
+      "prompt": "• What do you like to drink with your dinner? [Why?]",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 2,
+      "prompt": "• Do you drink a lot of water every day? [Why/Why not?]",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 3,
+      "prompt": "• Do you prefer drinking tea or coffee? [Why?]",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 4,
+      "prompt": "• If people visit you in your home, what do you usually offer them to drink?",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 5,
+      "prompt": "• Why/Why not?]",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 6,
+      "prompt": "Describe a monument (e.g., a statue or sculpture) You will have to talk that you like. about the topic for one",
       "question_type": "Speaking Part 2",
       "instructions": "Speak for 1-2 minutes on this topic.",
       "passage_number": null,
       "section_number": 2,
-      "bullet_points": []
+      "bullet_points": [
+        "what this monument is",
+        "where this monument is",
+        "what it looks like",
+        "and explain why you like this monument. to help you if you wish."
+      ]
+    },
+    {
+      "number": 7,
+      "prompt": "What kinds of monuments do tourists in your country enjoy visiting?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 8,
+      "prompt": "Why do you think there are often statues of famous people in public places?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 9,
+      "prompt": "Do you agree that old monuments and buildings should always be preserved?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 10,
+      "prompt": "Why is architecture such a popular university subject?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 11,
+      "prompt": "In what ways has the design of homes changed in recent years?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 12,
+      "prompt": "To what extent does the design of buildings affect people's moods?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
     }
   ],
   "answer_key": {},

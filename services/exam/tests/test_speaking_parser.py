@@ -21,7 +21,9 @@ def test_speaking_parser_extracts_part1_questions() -> None:
 
     parsed = parser.parse_text(_cambridge_speaking_fixture())
 
-    part1_qs = [q for q in parsed["questions"] if q["question_type"] == "Speaking Part 1"]
+    part1_qs = [
+        q for q in parsed["questions"] if q["question_type"] == "Speaking Part 1"
+    ]
     assert len(part1_qs) >= 2
     assert part1_qs[0]["section_number"] == 1
     for q in part1_qs:
@@ -33,7 +35,9 @@ def test_speaking_parser_extracts_part2_cue_card() -> None:
 
     parsed = parser.parse_text(_cambridge_speaking_fixture())
 
-    part2_qs = [q for q in parsed["questions"] if q["question_type"] == "Speaking Part 2"]
+    part2_qs = [
+        q for q in parsed["questions"] if q["question_type"] == "Speaking Part 2"
+    ]
     assert len(part2_qs) == 1
     cue_card = part2_qs[0]
     assert cue_card["section_number"] == 2
@@ -46,7 +50,9 @@ def test_speaking_parser_extracts_part3_discussion() -> None:
 
     parsed = parser.parse_text(_cambridge_speaking_fixture())
 
-    part3_qs = [q for q in parsed["questions"] if q["question_type"] == "Speaking Part 3"]
+    part3_qs = [
+        q for q in parsed["questions"] if q["question_type"] == "Speaking Part 3"
+    ]
     assert len(part3_qs) >= 2
     assert part3_qs[0]["section_number"] == 3
     for q in part3_qs:

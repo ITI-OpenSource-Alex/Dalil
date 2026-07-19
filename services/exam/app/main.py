@@ -15,8 +15,9 @@ logger = structlog.get_logger("exam_service.main")
 app = FastAPI(
     title="GOA Exam Service",
     description="Python-based Exam Service scaffold for GOA",
-    version="1.0.0"
+    version="1.0.0",
 )
+
 
 # Startup & Shutdown lifecycle handlers
 @app.on_event("startup")
@@ -25,11 +26,13 @@ async def startup_event():
     await db.connect()
     logger.info("Exam service database connected and migrations checked.")
 
+
 @app.on_event("shutdown")
 async def shutdown_event():
     logger.info("Shutting down Exam service...")
     await db.disconnect()
     logger.info("Exam service database connection closed.")
+
 
 # Inject Correlation ID middleware
 @app.middleware("http")
@@ -45,6 +48,7 @@ async def correlation_id_middleware(request: Request, call_next):
         if token is not None:
             correlation_id_var.reset(token)
 
+
 # Mount routers directly
 app.include_router(sessions_router)
 app.include_router(questions_router)
@@ -52,10 +56,12 @@ app.include_router(results_router)
 app.include_router(reading_router)
 app.include_router(internal_router)
 
+
 # Health endpoint
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
 
 # Metrics endpoint using standard prometheus client exporter
 metrics_app = make_asgi_app()

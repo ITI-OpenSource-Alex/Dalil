@@ -12,7 +12,6 @@ def _decode_json(value: Any) -> Any:
 
 
 class QuestionRepository:
-
     def __init__(self, pool: Pool):
         self.pool = pool
 
@@ -107,7 +106,11 @@ class QuestionRepository:
             answer_key
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb)
-        ON CONFLICT (book_ref, test_number, skill_area) DO NOTHING
+        ON CONFLICT (book_ref, test_number, skill_area) DO UPDATE SET
+            passage_text = EXCLUDED.passage_text,
+            audio_s3_key = EXCLUDED.audio_s3_key,
+            questions = EXCLUDED.questions,
+            answer_key = EXCLUDED.answer_key
         RETURNING *
         """
 

@@ -1,4 +1,5 @@
 import os
+
 os.environ["SPEAKING_SERVICE_URL"] = "http://test-speaking"
 
 from typing import Any
@@ -41,10 +42,18 @@ def test_part_2_duration_rejection() -> None:
 
 @patch("app.api.internal.SessionRepository")
 @patch("app.api.internal.TranscriptRepository")
-def test_no_feedback_leaks_mid_exam(mock_transcript_repo: Any, mock_session_repo: Any) -> None:
+def test_no_feedback_leaks_mid_exam(
+    mock_transcript_repo: Any, mock_session_repo: Any
+) -> None:
     # Setup mocks
     mock_session_instance = mock_session_repo.return_value
-    mock_session_instance.get_by_id = AsyncMock(return_value={"status": "in_progress", "user_id": uuid4(), "skill_area": "speaking"})
+    mock_session_instance.get_by_id = AsyncMock(
+        return_value={
+            "status": "in_progress",
+            "user_id": uuid4(),
+            "skill_area": "speaking",
+        }
+    )
 
     mock_transcript_instance = mock_transcript_repo.return_value
     mock_transcript_instance.create_or_update = AsyncMock()
@@ -95,22 +104,26 @@ def test_concatenated_string_payload_and_agent_response(
     session_id = str(session_id_uuid)
 
     mock_session_instance = mock_session_repo.return_value
-    mock_session_instance.get_by_id = AsyncMock(return_value={
-        "status": "in_progress",
-        "user_id": uuid4(),
-        "skill_area": "speaking"
-    })
+    mock_session_instance.get_by_id = AsyncMock(
+        return_value={
+            "status": "in_progress",
+            "user_id": uuid4(),
+            "skill_area": "speaking",
+        }
+    )
     mock_session_instance.submit = AsyncMock()
     mock_session_instance.mark_scored = AsyncMock()
     mock_session_instance.try_submit = AsyncMock(return_value=True)
 
     mock_transcript_instance = mock_transcript_repo.return_value
     mock_transcript_instance.create_or_update = AsyncMock()
-    mock_transcript_instance.get_all_for_session = AsyncMock(return_value=[
-        {"part": 1, "transcript_text": "I like apples."},
-        {"part": 2, "transcript_text": "I went to the store."},
-        {"part": 3, "transcript_text": "Fruits are healthy."}
-    ])
+    mock_transcript_instance.get_all_for_session = AsyncMock(
+        return_value=[
+            {"part": 1, "transcript_text": "I like apples."},
+            {"part": 2, "transcript_text": "I went to the store."},
+            {"part": 3, "transcript_text": "Fruits are healthy."},
+        ]
+    )
 
     mock_speaking_client_instance = mock_speaking_client.return_value
     eval_result = {
@@ -125,7 +138,7 @@ def test_concatenated_string_payload_and_agent_response(
                 "part_notes": {"Part 1": "Good"},
                 "examples": [{"part": 1, "quote": "example 1", "issue": "issue 1"}],
                 "improvement_tip": "tip",
-                "timed_out": False
+                "timed_out": False,
             },
             "lexical": {
                 "criterion": "lexical",
@@ -134,12 +147,14 @@ def test_concatenated_string_payload_and_agent_response(
                 "part_notes": {"Part 1": "Good"},
                 "examples": [{"part": 1, "quote": "example 1", "issue": "issue 1"}],
                 "improvement_tip": "tip",
-                "timed_out": False
-            }
+                "timed_out": False,
+            },
         },
-        "overall_feedback": "Good job"
+        "overall_feedback": "Good job",
     }
-    mock_speaking_client_instance.evaluate_holistic = AsyncMock(return_value=eval_result)
+    mock_speaking_client_instance.evaluate_holistic = AsyncMock(
+        return_value=eval_result
+    )
 
     mock_result_instance = mock_result_repo.return_value
     mock_result_instance.create = AsyncMock()
@@ -185,73 +200,112 @@ async def test_speaking_flow_integration() -> None:
         await db.connect()
     except Exception:
         pytest.skip("Database not available for integration test")
-        
+
     session_id = str(uuid4())
     user_id = str(uuid4())
     question_id = str(uuid4())
-    
+
     async with db.pool.acquire() as conn:
         await conn.execute(
             """
             INSERT INTO questions (id, book_ref, test_number, exam_type, skill_area, passage_text, audio_s3_key, answer_key, questions)
             VALUES ($1, 'test_book', 1, 'academic', 'speaking', '', '', '{}', '[]')
             """,
-            UUID(question_id)
+            UUID(question_id),
         )
         await conn.execute(
             """
             INSERT INTO exam_sessions (id, user_id, question_id, exam_type, skill_area, status, started_at, time_limit_seconds)
             VALUES ($1, $2, $3, 'academic', 'speaking', 'in_progress', NOW(), 900)
             """,
-            UUID(session_id), UUID(user_id), UUID(question_id)
+            UUID(session_id),
+            UUID(user_id),
+            UUID(question_id),
         )
-    
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
         with patch("app.api.internal.SpeakingServiceClient") as mock_speaking_client:
             mock_speaking_client_instance = mock_speaking_client.return_value
-            mock_speaking_client_instance.evaluate_holistic = AsyncMock(return_value={
-                "status": "completed",
-                "partial": False,
-                "overall_band": 8.0,
-                "dimensions": {
-                    "fluency": {
-                        "criterion": "fluency",
-                        "band": 8.0,
-                        "overall_feedback": "Great",
-                        "part_notes": {"Part 1": "Good"},
-                        "examples": [{"part": 1, "quote": "test", "issue": "test"}],
-                        "improvement_tip": "tip",
-                        "timed_out": False
+            mock_speaking_client_instance.evaluate_holistic = AsyncMock(
+                return_value={
+                    "status": "completed",
+                    "partial": False,
+                    "overall_band": 8.0,
+                    "dimensions": {
+                        "fluency": {
+                            "criterion": "fluency",
+                            "band": 8.0,
+                            "overall_feedback": "Great",
+                            "part_notes": {"Part 1": "Good"},
+                            "examples": [{"part": 1, "quote": "test", "issue": "test"}],
+                            "improvement_tip": "tip",
+                            "timed_out": False,
+                        },
+                        "lexical": {
+                            "criterion": "lexical",
+                            "band": 8.0,
+                            "overall_feedback": "Great",
+                            "part_notes": {"Part 1": "Good"},
+                            "examples": [{"part": 1, "quote": "test", "issue": "test"}],
+                            "improvement_tip": "tip",
+                            "timed_out": False,
+                        },
                     },
-                    "lexical": {
-                        "criterion": "lexical",
-                        "band": 8.0,
-                        "overall_feedback": "Great",
-                        "part_notes": {"Part 1": "Good"},
-                        "examples": [{"part": 1, "quote": "test", "issue": "test"}],
-                        "improvement_tip": "tip",
-                        "timed_out": False
-                    }
+                    "overall_feedback": "Great",
+                }
+            )
+
+            res1 = await client.post(
+                f"/internal/sessions/{session_id}/speaking/transcripts",
+                headers=INTERNAL_HEADERS,
+                json={
+                    "part": 1,
+                    "transcript_text": "t1",
+                    "duration_s": 60,
+                    "question_text": "q1",
                 },
-                "overall_feedback": "Great"
-            })
-            
-            res1 = await client.post(f"/internal/sessions/{session_id}/speaking/transcripts", headers=INTERNAL_HEADERS, json={"part": 1, "transcript_text": "t1", "duration_s": 60, "question_text": "q1"})
+            )
             assert res1.status_code == 200
-            
-            res2 = await client.post(f"/internal/sessions/{session_id}/speaking/transcripts", headers=INTERNAL_HEADERS, json={"part": 2, "transcript_text": "t2", "duration_s": 120, "question_text": "q2"})
+
+            res2 = await client.post(
+                f"/internal/sessions/{session_id}/speaking/transcripts",
+                headers=INTERNAL_HEADERS,
+                json={
+                    "part": 2,
+                    "transcript_text": "t2",
+                    "duration_s": 120,
+                    "question_text": "q2",
+                },
+            )
             assert res2.status_code == 200
-            
-            res3 = await client.post(f"/internal/sessions/{session_id}/speaking/transcripts", headers=INTERNAL_HEADERS, json={"part": 3, "transcript_text": "t3", "duration_s": 120, "question_text": "q3"})
+
+            res3 = await client.post(
+                f"/internal/sessions/{session_id}/speaking/transcripts",
+                headers=INTERNAL_HEADERS,
+                json={
+                    "part": 3,
+                    "transcript_text": "t3",
+                    "duration_s": 120,
+                    "question_text": "q3",
+                },
+            )
             assert res3.status_code == 200
-            
+
             async with db.pool.acquire() as conn:
-                status = await conn.fetchval("SELECT status FROM exam_sessions WHERE id = $1", UUID(session_id))
+                status = await conn.fetchval(
+                    "SELECT status FROM exam_sessions WHERE id = $1", UUID(session_id)
+                )
                 assert status == "scored"
 
     async with db.pool.acquire() as conn:
-        await conn.execute("DELETE FROM exam_results WHERE session_id = $1", UUID(session_id))
-        await conn.execute("DELETE FROM exam_speaking_transcripts WHERE session_id = $1", UUID(session_id))
+        await conn.execute(
+            "DELETE FROM exam_results WHERE session_id = $1", UUID(session_id)
+        )
+        await conn.execute(
+            "DELETE FROM exam_speaking_transcripts WHERE session_id = $1",
+            UUID(session_id),
+        )
         await conn.execute("DELETE FROM exam_sessions WHERE id = $1", UUID(session_id))
         await conn.execute("DELETE FROM questions WHERE id = $1", UUID(question_id))
-

@@ -36,7 +36,10 @@ def check(label: str, ok: bool, detail: str) -> None:
 def run_version(cmd: list[str]) -> str | None:
     try:
         result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=10,
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         output = (result.stdout or result.stderr or "").strip()
         return output.splitlines()[0] if output else None
@@ -115,12 +118,14 @@ def main() -> int:
 
     try:
         import pdfplumber
+
         check("pdfplumber", True, pdfplumber.__version__)
     except ImportError:
         check("pdfplumber", False, "not installed (pip install pdfplumber)")
 
     try:
         import pytesseract
+
         tess_cmd = pytesseract.pytesseract.tesseract_cmd
         check("pytesseract", True, f"{pytesseract.__version__} (cmd={tess_cmd})")
     except ImportError:
@@ -129,6 +134,7 @@ def main() -> int:
     try:
         import pdf2image
         from importlib.metadata import version
+
         check("pdf2image", True, version("pdf2image"))
     except ImportError:
         check("pdf2image", False, "not installed (pip install pdf2image)")
@@ -136,6 +142,7 @@ def main() -> int:
     try:
         from PIL import Image
         import PIL
+
         check("Pillow", True, PIL.__version__)
     except ImportError:
         check("Pillow", False, "not installed (pip install Pillow)")
@@ -148,7 +155,8 @@ def main() -> int:
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
     try:
-        from app.ingestion.ocr_service import OcrService, _resolve_poppler_path
+        from app.ingestion.ocr_service import _resolve_poppler_path
+
         resolved = _resolve_poppler_path()
         check("OcrService imports", True, f"poppler_path={resolved or '(system PATH)'}")
     except Exception as e:
@@ -207,7 +215,9 @@ def main() -> int:
         if not pdftoppm_bin:
             print("FIX: Install poppler:")
             if platform.system() == "Windows":
-                print("  1. Download from https://github.com/oschwartz10612/poppler-windows/releases")
+                print(
+                    "  1. Download from https://github.com/oschwartz10612/poppler-windows/releases"
+                )
                 print("  2. Extract to C:\\tools\\poppler\\")
                 print("  3. Set POPPLER_PATH=C:\\tools\\poppler\\Library\\bin")
             elif platform.system() == "Darwin":

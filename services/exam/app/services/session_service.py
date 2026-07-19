@@ -1,9 +1,14 @@
 import json
+import time
 from typing import Any
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException, status
 
+from app.core.metrics import (
+    goa_writing_exam_task1_evaluation_ms,
+    goa_writing_exam_task2_evaluation_ms,
+)
 from app.repositories.question_repository import QuestionRepository
 from app.repositories.result_repository import ResultRepository
 from app.repositories.session_repository import SessionRepository
@@ -122,7 +127,7 @@ class SessionService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid session state",
             )
-            
+
         if session["skill_area"] == "writing":
             return await self._submit_writing(session_id, session, request)
 
@@ -180,7 +185,7 @@ class SessionService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid session state",
             )
-            
+
         if session["skill_area"] == "writing":
             return await self._get_writing_result(session_id, session)
 
@@ -332,16 +337,18 @@ class SessionService:
             "questions": questions_data,
         }
         return QuestionResponse.model_validate(payload).model_dump()
-    
 
-
-    def _shape_speaking_questions(self, raw_questions: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        parts = [{"part": 1, "type": "general", "questions": []}, {"part": 2, "type": "cue_card", "topic": "", "bullet_points": []}, {"part": 3, "type": "discussion", "questions": []}]
-
+    def _shape_speaking_questions(
+        self, raw_questions: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        parts = [
+            {"part": 1, "type": "general", "questions": []},
+            {"part": 2, "type": "cue_card", "topic": "", "bullet_points": []},
+            {"part": 3, "type": "discussion", "questions": []},
+        ]
 
         for item in raw_questions:
             part = item.get("part")
-
 
             if part == 1:
                 questions = item.get("questions", [])
@@ -352,11 +359,11 @@ class SessionService:
             elif part == 2:
                 if not parts[1]["topic"]:
                     parts[1]["topic"] = item.get("topic", "")
-                
+
                 bullets = item.get("bullet_points", [])
                 if isinstance(bullets, list):
                     parts[1]["bullet_points"].extend(bullets)
-            
+
             elif part == 3:
                 questions = item.get("questions", [])
                 if isinstance(questions, list):
@@ -365,7 +372,6 @@ class SessionService:
                     parts[2]["questions"].append(questions)
 
         return parts
-
 
     def _question_list(self, value: Any) -> list[dict[str, Any]]:
         decoded = self._decode_json(value)
@@ -385,82 +391,99 @@ class SessionService:
             return json.loads(value)
         return value
 
-
-#The session only flips to submitted/scored once both task rows exist
-# so the frontend's first PUT /submit call for Task 1 gets back "status": "task_submitted",
-# and the second (Task 2) gets "status": "submitted". Your GET /{session_id}
-# and GET /{session_id}/result status checks ({"submitted", "scored"}) keep working unchanged.
+    # The session only flips to submitted/scored once both task rows exist
+    # so the frontend's first PUT /submit call for Task 1 gets back "status": "task_submitted",
+    # and the second (Task 2) gets "status": "submitted". Your GET /{session_id}
+    # and GET /{session_id}/result status checks ({"submitted", "scored"}) keep working unchanged.
 
     async def _submit_writing(
-            self,
-            session_id: UUID,
-            session: dict[str, Any],
-            request: SubmitAnswersRequest,
-        ) -> dict[str, Any]:
-            if request.task_number is None or request.essay_text is None:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="essay_text and task_number are required for writing submissions",
-                )
-            if self.writing_response_repository is None or self.writing_client is None:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Writing submission is not configured",
-                )
-
-            word_count = len(request.essay_text.split())
-            await self.writing_response_repository.save_response(
-                session_id=session_id,
-                task_number=request.task_number,
-                response_text=request.essay_text,
-                word_count=word_count,
+        self,
+        session_id: UUID,
+        session: dict[str, Any],
+        request: SubmitAnswersRequest,
+    ) -> dict[str, Any]:
+        if request.task_number is None or request.essay_text is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="essay_text and task_number are required for writing submissions",
             )
-            
-            task_prompt, stimulus_s3_key = await self._resolve_task_context(session, request.task_number)
-
-            try:
-                evaluation = await self.writing_client.evaluate_exam_essay(
-                    user_id=str(session["user_id"]),
-                    essay_text=request.essay_text,
-                    exam_type=session["exam_type"],
-                    exam_session_id=session_id,
-                    task_number=request.task_number,
-                    stimulus_s3_key=stimulus_s3_key,
-                    task_prompt=task_prompt,
-                )
-            except WritingServiceError as exc:
-                raise HTTPException(
-                    status_code=status.HTTP_502_BAD_GATEWAY,
-                    detail=str(exc),
-                ) from exc
-
-            await self.writing_response_repository.save_evaluation(
-                session_id=session_id,
-                task_number=request.task_number,
-                evaluation_result=evaluation.model_dump(),
+        if self.writing_response_repository is None or self.writing_client is None:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Writing submission is not configured",
             )
 
-            responses = await self.writing_response_repository.get_all_by_session(session_id)
-            all_tasks_submitted = {1, 2}.issubset({r["task_number"] for r in responses})
+        word_count = len(request.essay_text.split())
+        penalty_flag = (request.task_number == 1 and word_count < 150) or (
+            request.task_number == 2 and word_count < 250
+        )
+        await self.writing_response_repository.save_response(
+            session_id=session_id,
+            task_number=request.task_number,
+            response_text=request.essay_text,
+            word_count=word_count,
+            penalty_flag=penalty_flag,
+        )
 
-            if all_tasks_submitted:
-                await self.session_repository.submit(session_id)
-                await self.session_repository.mark_scored(session_id)
+        task_prompt, stimulus_s3_key = await self._resolve_task_context(
+            session, request.task_number
+        )
 
-            return {
-                "session_id": session_id,
-                "task_number": request.task_number,
-                "status": "submitted" if all_tasks_submitted else "task_submitted",
-                "overall_band": evaluation.overall_band,
-            }
-            
+        task_histogram = (
+            goa_writing_exam_task1_evaluation_ms
+            if request.task_number == 1
+            else goa_writing_exam_task2_evaluation_ms
+        )
+        started = time.perf_counter()
+        try:
+            evaluation = await self.writing_client.evaluate_exam_essay(
+                user_id=str(session["user_id"]),
+                essay_text=request.essay_text,
+                exam_type=session["exam_type"],
+                exam_session_id=session_id,
+                task_number=request.task_number,
+                stimulus_s3_key=stimulus_s3_key,
+                task_prompt=task_prompt,
+            )
+        except WritingServiceError as exc:
+            task_histogram.observe((time.perf_counter() - started) * 1000)
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=str(exc),
+            ) from exc
+        task_histogram.observe((time.perf_counter() - started) * 1000)
+
+        await self.writing_response_repository.save_evaluation(
+            session_id=session_id,
+            task_number=request.task_number,
+            evaluation_result=evaluation.model_dump(),
+        )
+
+        responses = await self.writing_response_repository.get_all_by_session(
+            session_id
+        )
+        all_tasks_submitted = {1, 2}.issubset({r["task_number"] for r in responses})
+
+        if all_tasks_submitted:
+            await self.session_repository.submit(session_id)
+            await self.session_repository.mark_scored(session_id)
+
+        return {
+            "session_id": session_id,
+            "task_number": request.task_number,
+            "status": "submitted" if all_tasks_submitted else "task_submitted",
+            "overall_band": evaluation.overall_band,
+            "word_count": word_count,
+            "penalty_flag": penalty_flag,
+        }
+
     async def _resolve_task_context(
         self,
         session: dict[str, Any],
         task_number: int,
     ) -> tuple[str | None, str | None]:
         question = await self.question_repository.get_by_id(session["question_id"])
-        
+
         if question is None:
             return None, None
         questions_data = self._decode_json(question["questions"])
@@ -469,13 +492,15 @@ class SessionService:
         task_prompt = task_data.get("prompt")
         image_s3_key = task_data.get("image_s3_key") if task_number == 1 else None
         return task_prompt, image_s3_key
-    
+
     async def _get_writing_result(
         self,
         session_id: UUID,
         session: dict[str, Any],
     ) -> dict[str, Any]:
-        responses = await self.writing_response_repository.get_all_by_session(session_id)
+        responses = await self.writing_response_repository.get_all_by_session(
+            session_id
+        )
         if len(responses) < 2:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -487,6 +512,9 @@ class SessionService:
             tasks[r["task_number"]] = {
                 "response_text": r["response_text"],
                 "word_count": r["word_count"],
+                "penalty_flag": bool(r["penalty_flag"])
+                if "penalty_flag" in r.keys()
+                else False,
                 "evaluation": self._decode_json(r["evaluation_result"]) or {},
             }
 

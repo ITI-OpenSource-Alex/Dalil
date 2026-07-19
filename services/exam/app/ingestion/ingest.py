@@ -21,6 +21,8 @@ class IngestionService:
         return await self.loader.ingest_directory(directory)
 
 
-def ingest_question_bank(content: str, *, skill_area: str, repository: QuestionRepository) -> Any:
+def ingest_question_bank(
+    content: str, *, skill_area: str, repository: QuestionRepository
+) -> Any:
     service = IngestionService(repository)
     return service.ingest(content, skill_area=skill_area)

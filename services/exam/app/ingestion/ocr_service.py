@@ -43,7 +43,9 @@ def _resolve_poppler_path() -> str | None:
 
 def _check_poppler_available(poppler_path: str | None) -> None:
     if poppler_path:
-        pdftoppm = Path(poppler_path) / ("pdftoppm.exe" if platform.system() == "Windows" else "pdftoppm")
+        pdftoppm = Path(poppler_path) / (
+            "pdftoppm.exe" if platform.system() == "Windows" else "pdftoppm"
+        )
         if not pdftoppm.exists():
             raise RuntimeError(
                 f"Poppler binary 'pdftoppm' not found at {poppler_path}.\n"
@@ -216,7 +218,9 @@ class OcrService:
                 return cached
 
             try:
-                rendered = convert_from_path(str(path), dpi=dpi, first_page=idx, last_page=idx, **poppler_kw)
+                rendered = convert_from_path(
+                    str(path), dpi=dpi, first_page=idx, last_page=idx, **poppler_kw
+                )
                 if not rendered:
                     return ""
                 image = rendered[0]
@@ -253,20 +257,21 @@ class OcrService:
 
     def normalize_text(self, text: str) -> str:
         cleaned_lines: list[str] = []
-        seen: set[str] = set()
         for raw_line in text.splitlines():
             line = re.sub(r"\s+", " ", raw_line).strip()
             if not line:
                 continue
             if re.fullmatch(r"\d+", line):
                 continue
-            if "copyright" in line.lower() or "cambridge university press" in line.lower():
+            if (
+                "copyright" in line.lower()
+                or "cambridge university press" in line.lower()
+            ):
                 continue
             if line.lower().startswith("page "):
                 continue
-            if line not in seen:
+            if not cleaned_lines or cleaned_lines[-1] != line:
                 cleaned_lines.append(line)
-                seen.add(line)
         return "\n".join(cleaned_lines)
 
     # ------------------------------------------------------------------

@@ -1,79 +1,401 @@
 {
-  "book_ref": "IELTS-unknown",
+  "book_ref": "IELTS-14",
   "test_number": 2,
   "exam_type": "general",
   "skill_area": "reading",
-  "passage_text": "Passage 2 has nine sections, A—|.\nWhich section contains the following information?\nWrite the correct letter, A—l, in boxes 14—18 on your answer sheet.\nwhy some people avoided:hospitals in the 19th century\n2 suggestion that the popularity of tall buildings is linked to prestige\na comparison between the circulation of air in a 19th-century building and modern\nstandards\nhow Short tested the circulation of air in a 18th-century buiiding\nan implication that advertising led to the large increase in the use of air conditioning\nQuestions 19-26\nWrite your answers in boxes 19-26 on your answer sheet.\nVentilation in 19th-century hospital wards\nProfessor Alan Short examined the work of John Shaw Billings, who influenced the\narchitectural 19 ... of hospitals to ensure they had good ventilation.\nHe calculated that 20 .. <IN the @i coming from patients suffering from\n21 .. would not have harmed other patients. He also found that the air\nin 22 ..in hospitals could change as often as in a modern operating\ntheatre. He suggests that energy use could be reduced by locating more patients in\n23 reas.\nA major reason for improving ventilation in 19th-century hospitals was the demand from\nthe 24 ... .. for protection against bad air, known as 25 .. S\nThese were blamed for the spread of disease for hundreds of years, including epidemics\nof 26 ...... ..in London and Paris in the middle of the 19th century.\nYou should spend about 20 minutes on Questions 27-40, which are based on Reading\nPassage 3 on pages 47 and 48.\n\n---\n\nReading Passage 3 has eight sections, A-H.\nChaose the correct heading for each section from the list of headings below.\nWhite the correct number, i-ix, in boxes 27-34 on your answer sheet.\nList of Headings\ni Complaints about the impact of a certain approach\nii Fundamental beliefs that are in fact incorrect\niii Early recommendations concerning business activities\niv Organisations that put a new approach into practice\nv Companies that have suffered from changing their approach\nvi What people ars increasingly expected to do\nvii How to achieve outcomes that are currently impossible\nviil Neither approach guarantees continuous improvement\nix Evidence that a certain approach can have more\ndisadvantages than advantages\n27 Section A\n28 SectionB\n28 Section C\n30 Section D\n31 SectionE\n32 Section F\n33 Section G\n34 Section H\nWhy companies should welcome disorder\nOrganisation is big business. Whether it is of our lives — all those inboxes and calendars —\nor how companies are structured, a multi-billion dollar industry helps to meet this need.\n‘We have more strategies for time management, project management and\nself-organisation than at any other time in human history. We are told that we ought to\norganise our company, our home life, our week, our day and even our sleep, all as a means\nto becoming more productive. Every week, countless seminars and workshops take place\naround the world to tell a paying public that they ought to structure their lives in order to\nachieve this.\nThis rhetoric has also crept into the thinking of business leaders and entrepreneurs, much\nto the delight of self-proclaimed perfectionists with the need to get everything right. The\nnumber of business schools and graduates has massively increased over the past 50 years,\nessentially teaching people how to organise well.\nIronically, however, the number of businesses that fail has also steadily increased.\nWork-related stress has increased. A large proportion of workers from all demographics\nclaim to be dissatisfied with the way their work is structured and the way they are managed.\nThis begs the question: what has gone wrong? Why is it that on paper the drive for\norganisation seems a sure shot for increasing productivity, but in reality falls well short of\nwhat is expected?\nThis has been a problem for a while now. Frederick Taylor was one of the forefathers of\nscientific management. Writing in the first half of the 20th century, he designed a number\nof principles to improve the efficiency of the work process, which have since become\nwidespread in nodern companies. So the approach has been around for a while.\nNew research suggests that this obsession with efficiency is misguided. The problem is not\nnecessarily the management theories or strategies we use to organise our work; it’s the basic\nassumptions we hold in approaching how we work. Here it’s the assumption that order is a\nnecessary condition for productivity. This assumption has also fostered the idea that disorder\nmust be detrimental to organisational productivity. The result is that businesses and people\nspend time and money organising themselves for the sake of organising, rather than actually\nlooking at the end goal and usefulness of such an effort.\n‘What’s more, recent studies show that order actually has diminishing returns. Order does\nincrease productivity to a certain extent, but eventually the usefulness of the process of\norganisation, and the benefit it yields, reduce until the point where any further increase in\norder reduces productivity. Some argue that in a business, if the cost of formally structuring\nsomething outweighs the benefit of doing it, then that thing ought not to be formally\nstructured. Instead, the resources involved can be better used elsewhere.\na7\nIn fact, research shows that, when innovating, the best approach is to create an environment\ndevoid of structure and hierarchy and enable everyone involved to engage as one organic\ngroup. These environments can lead to new solutions that, under conventionally structured\nenvironments (filled with bottlenecks in terms of information flow, power structures, rules,\nand routines) would never be reached.\nIn recent times companies have slowly started to embrace this disorganisation. Many of\nthem embrace it in terms of perception (embracing the idea of disorder, as opposed to\nfearing it) and in terms of process (putting mechanisms in place to reduce structure).\nFor example, Oticon, a large Danish manufacturer of hearing aids, used what it called a\n“spaghetti” structure in order to reduce the organisation’s rigid hierarchies. This involved\nscrapping formal job titles and giving staff huge amounts of ownership over their own time\nand projects. This approach proved to be highly successful initially, with clear improvements\nin worker productivity in all facets of the business.\nIn similar fashion, the former chairman of General Electric embraced disorganisation,\npuiting forward the idea of the ‘boundaryless’ organisation. Again, it involves breaking\ndown the barriers between different parts of a company and encouraging virtual\ncollaboration and flexible working. Google and a number of other tech companies have\nembraced (at least in part) these kinds of flexible structures, facilitated by technology and\nstrong company values which glue people together.\nA word of warning to others thinking of jumping on this bandwagon: the evidence so far\nsuggests disorder, much like order, also seems to have diminishing utility, and can also have\ndetrimental effects on performance if overused. Like order, disorder should be embraced\nonly so far as it is useful. But we should not fear it — nor venerate one over the other.\nThis research also shows that we should continually question whether or not our existing\nassumptions work.",
+  "passage_text": "READING PASSAGE 1\nYou should spend about 20 minutes on Questions 1-13, which are based on Reading\nPassage 1 below.\nAlexander Henderson (1831-1913)\nBorn in Scotland, Henderson emigrated to Canada in 1855 and became a\nwell-known landscape photographer\nAlexander Henderson was born in Scotland in 1831 and was the son of a successful merchant.\nHis grandfather, also called Alexander, had founded the family business, and later became\nthe first chairman of the National Bank of Scotland. The family had extensive landholdings in\nScotland. Besides its residence in Edinburgh, it owned Press Estate, 650 acres of farmland about\n35 miles southeast of the city. The family often stayed at Press Castle, the large mansion on the\nnorthern edge of the property, and Alexander spent much of his childhood in the area, playing on\nthe beach near Eyemouth or fishing in the streams nearby.\nEven after he went to school at Murcheston Academy on the outskirts of Edinburgh, Henderson\nreturned to Press at weekends. In 1849 he began a three-year apprenticeship to become an\naccountant. Although he never liked the prospect of a business career, he stayed with it to\nplease his family. In October 1855, liowever, he emigrated to Canada with his wife Agnes Elder\nRobertson and they settled in Montreal.\nHenderson learned photography in Montreal around the year 1857 and quickly took it up\nas a serious amateur. He became a personal friend and colleague of the Scottish-Canadian\nphotographer William Notman. The two men made a photographic excursion to Niagara Falls in\n1860 and they cooperated on éxperiments with magnesium flares as a source of artificial light\nin 1865. They belonged to the same societies and were among the founding members of the Art\nAssociation of Montreal. Henderson acted as chairman of the association's first meeting, which\nwas held in Notman's studio on 11 January 1860.\nIn spite of their friendship, their styles of photography were quite different. While Notman's\nlandscapes were noted for their bold realism, Henderson for the first 20 years of his career\nproduced romantic images, showing the strong influence of the British landscape tradition. His\nartistic and technical progress was rapid and in 1865 he published his first major collection of\nlandscape photographs. The publication had limited circulation (only seven copies have ever been\nfound), and was called Canadian Views and Studies. The contents of each copy vary significantly\nand have proved a useful source for evaluating Henderson's early work.\nThis text s taken, for the most part, verbatim from the Dictionary of Canadian Biography Volume XIV (18111 920}, For design purposes,\nquotation marks have been omitied. Source: hitp:/www.biographi ca/en/bicmenderson_alexander_1831_1913_14E.html. Reproduced\nwith parmission.\nReading\nIn 1866, he gave up his business to open a photographic studio, advertising himself as a portrait\nand landscape photographer. From about 1870 he dropped portraiture to specialize in landscape\nphotography and other views. His numerous photographs of city life revealed in street scezes,\nhouses, and markets are alive with human activity, and although his favourite subject was\nlandscape he usually composed his scenes around such human pursuits as farming the land,\ncutting ice on a river, or sailing down a woodland strearn. There was sufficient demand for these\ntypes of scenes and others he took depicting the lumber trade, steamboats and waterfalls to enable\nhim to make a living. There was little competing hobby or amateur photography before the late\n1880s because of the time-consuming techniques involved and the weight of the equipment.\nPeople wanted to buy photographs as souvenits of a trip or as gifts, and catering to this market,\nHenderson had stock photographs on display at his studio for mounting, framing, or inclusion\nin albuns.\nHenderson frequently exhibited his photographs in Montreal and abroad, in London, Edinburgh,\nDublin, Paris, New York, and Philadelphia. He met with greater success in 1877 and 1878 in\nNew York when he won first prizes in the exhibition held by E and H T Anthony and Company\nfor landscapes using the Lambertype process. In 1878 his work won second prize at the world\nexhibition in Paris.\nIn the 1870s and 1880s Henderson travelled widely throughout Quebec and Ontario, in Canada,\ndocumenting the major cities of the two provinces and many of the villages in Quebec. He was\nespecially fond of the wilderness and often travelled by canoe on the Blanche, du Liévre, and\nother noted eastern rivers. He went on several occasions to the Maritimes and in 1872 he sailed\nby yacht along the lower north shore of the St Lawrence River. That same year, while in the lower\nSt Lawrence River region, he took some photographs of the construction of the Intercolonial\nRailway. This undertaking led in 1875 to a commission from the railway to record the principal\nstructures along the almost-completed line connecting Montreal to Halifax. Commissions from\nother railways followed. In 1876 he photographed bridges on the Quebec, Montreal, Ottawa and\nOccidental Railway between Montreal and Ottawa. In 1885 he went west along the Canadian\nPacific Railway (CPR) as far as Rogers Pass in British Columbia, whete he took photographs of\nthe mountains and the progress of construction.\nIn 1892 Henderson accepted a full-time position with the CPR as manager of a photographic\ndepartment which he was to set up and administer. His duties included spending four months\nin the field each year. That summer he made his second trip west, photographing extensively\nalong the railway line as far as Victoria. He continued in this post until 1897, when he retired\ncompletely from photography.\n'When Henderson died in 1913, his huge collection of glass negatives was stored in the basement\nof his house. Today collections of his work are held at the National Archives of Canada, Ottawa,\nand the McCord Museum of Canadian History, Montreal.\nThis text s taken, for the most part, verbatim from the Dictionary of Canadian Blography Volume XV (3811-1920). For design purposes,\nquotation marks have been omitted. Saurce: hitp:/www.biographl.ca/envbio/enderson_slexander_1831_1813_14E.nim. Reproduced\nwith permission,\nTest 2\n\n---\n\nREADING PASSAGE 2\nYou should spend about 20 minutes on Questions 14-26, which are based on Reading\nPassage 2 below.\nA\nBack to the future of skyscraper design\nAnswers fo the problem of excessive electricity use by skyscrapers\nand large public buildings can be found in ingenious but forgoften\narchitectural designs of the 19th and early-20th centuries\nThe Recovery of Natural Environments in Architecture by Professor Alan Short is\nthe culmination of 30 years of research and award-winning green building design\nby Short and colleagues in Architecture, Engineering, Applied Maths and Earth\nSciences at the University of Cambridge.\n\"The crisis in building design is already here,' said Short. 'Policy makers think\nyou can solve energy and building problems with gadgets. You can't. As global\ntemperatures continue to rise, we are going to continue to squander more and more\nenergy on keeping our buildings mechanically cool until we have run out of capacity.'\nShort is calling for a sweeping reinvention of how skyscrapers and major public\nbuildings are designed - to end the reliance on sealed buildings which exist solely\nvia the 'life support' system of vast air conditioning units.\nInstead, he shows it is entirely possible to accommodate natural ventilation\nand cooling in large buildings by looking into the past, before the widespread\nintroduction of air conditioning systems, which were 'relentlessly and aggressively\nmarketed' by their inventors.\nShort points out that to make most contemporary buildings habitable, they have\nto be sealed and air conditioned. The energy use and carbon emissions this\ngenerates is spectacular and largely unnecessary. Buildings in the West account for\n40-50% of electricity usage, generating substantial carbon emissions, and the rest\nof the world is catching up at a frightening rate. Short regards glass, steel and\nair-conditioned skyscrapers as symbols of status, rather than practical ways of\nmeeting our requirements.\nShort's book highlights a developing and sophisticated art and science of ventilating\nbuildings through the 18th and earlier-20th centuries, including the design of\ningeniously ventilated hospitals. Of particular interest were those built to the\ndesigns of John Shaw Billings, including the first Johns Hopkins Hospital in the US\ncity of Baitimore (1873-1888).\n'We spent three years digitally modelling Billings' final designs,' says Short. 'We\nput pathogens'\" in the airstreams, modelled for someone with tuberculosis (TB)\ncoughing in the wards and we found the ventilation systems in the room would\nhave kept other patients safe from harm.\n• pathogens: microorganisms that can cause disease\nReading\n'We discovered that 19th-century hospital wards could generate up to 24 air changes\nan hour - that's similar to the performance of a modem-day, computer-controlled\noperating theatre. We believe you coulid build wards based on these principles now.\nSingle rooms are not appropriate for all patients. Communal wards appropriate for\ncertain patients - older people with dementia, for example - would work just as well\nin today's hospitals, at a fraction of the energy cost.'\nProfessor Short contends the mindset and skill-sets behind these designs have\nbeen completely lost, lamenting the disappearance of expertly designed theatres,\nopera houses, and other buildings where up to half the volume of the building was\ngiven over to ensuring everyone got fresh air.\nMuch of the ingenuity present in 19th-century hospital and building design was\ndriven by a panicked public clamouring for buildings that could protect against\nwhat was thought to be the lethal threat of miasmas - toxic air that spread disease.\nMiasmas were feared as the principal agents of disease and epidemics for\ncenturies, and were used to explain the spread of infection from the Middle Ages\nright through to the cholera outbreaks in London and Paris during the 1850s. Foul .\nair, rather than germs, was believed to be the main driver of 'hospital fever', leading\nto disease and frequent death. The prosperous steered clear of hospitals.\nWhile miasma theory has been long since disproved, Short has for the last 30 years\nadvocated a retum to some of the building design principles produced in its wake.\nToday, huge amounts of a building's space and construction cost are given over to\nair conditioning. 'But | have designed and built a series of buildings over the past\nthree decades which have tried to reinvent some of these ideas and then measure\nwhat happens.\n\"To go forward into our new low-energy, low-carbon future, we would be well\nadvised to look back at design before our high-energy, high-carbon present\nappeared. What is surprising is what a rich legacy we have abandoned.'\nSuccessful examples of Short's approach include the Queen's Building at De\nMontfort University in Leicester. Containing as many as 2,000 staff and students,\nthe entire building is naturatly ventilated, passively cooled and naturally {it, including\nthe two largest auditoria, each seating more than 150 people. The award-winning\nbuilding uses a fraction of the electricity of comparable buildings in the UK.\nShort contends that glass skyscrapers in London and around the world will become\na liability over the next 20 or 30 years if climate modelling predictions and energy\nprice rises come to pass as expected.\nHe is convinced that sufficiently cooled skyscrapers using the natural environment\ncan be produced in almost any climate. He and his team have worked on hybrid\nbuildings in the harsh climates of Beijing and Chicago - built with natural ventilation\nassisted by back-up air conditioning - which, surprisingly perhaps, can be switched\noff more than half the time on milder days and during the spring and autumn.\nShort looks at how we might reimagine the cities, offices and homes of the future.\nMaybe it's time we changed our outlook. 43\nTest2\n\n---\n\nREADING PASSAGE 3\nYou should spend about 20 minutes on Questions 27-40, which are based on Reading\nPassage 3 on pages 47 and 48.",
   "questions": [
+    {
+      "number": 1,
+      "prompt": "Henderson rarely visited the area around Press estate when he was younger.",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": 1,
+      "section_number": null,
+      "section_type": "social"
+    },
+    {
+      "number": 2,
+      "prompt": "Henderson pursued a business career because it was what his family wanted.",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": 1,
+      "section_number": null,
+      "section_type": "social"
+    },
+    {
+      "number": 3,
+      "prompt": "Henderson and Notman were surprised by the resuiits of their 1865 experiment.",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": 1,
+      "section_number": null,
+      "section_type": "social"
+    },
+    {
+      "number": 4,
+      "prompt": "There were many similarities between Henderson's early landscapes and those of Notman.",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": 1,
+      "section_number": null,
+      "section_type": "social"
+    },
+    {
+      "number": 5,
+      "prompt": "The studio that Henderson opened in 1866 was close to his home.",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": 1,
+      "section_number": null,
+      "section_type": "social"
+    },
+    {
+      "number": 6,
+      "prompt": "Henderson gave up portraiture so that he could focus on taking photographs of",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": 1,
+      "section_number": null,
+      "section_type": "social"
+    },
+    {
+      "number": 7,
+      "prompt": "When Henderson began work for the Intercolonial Railway, the Montreal to Halifax",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": 1,
+      "section_number": null,
+      "section_type": "social"
+    },
+    {
+      "number": 8,
+      "prompt": "line had been finished.",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": 1,
+      "section_number": null,
+      "section_type": "social"
+    },
+    {
+      "number": 9,
+      "prompt": "Alexander Henderson Early life • was born in Scotland in 1831 - fatherwas a9...... • trained as an accountant, emigrated to Canada in 1855 Start of a photographic career • opened up a photographic studio in 1866 « took photos of city life, but preferred landscape photography • people bought Henderson's photos because photography took up considerable time and the 10 e WAS hEAVY ...",
+      "question_type": "Notes Completion",
+      "instructions": null,
+      "passage_number": 1,
+      "section_number": null,
+      "section_type": "social"
+    },
+    {
+      "number": 10,
+      "prompt": "• trained as an accountant, emigrated to Canada in 1855 Start of a photographic career • opened up a photographic studio in 1866 « took photos of city life, but preferred landscape photography • people bought Henderson's photos because photography took up considerable time and the 10 e WAS hEAVY ...",
+      "question_type": "Notes Completion",
+      "instructions": null,
+      "passage_number": 1,
+      "section_number": null,
+      "section_type": "social"
+    },
+    {
+      "number": 11,
+      "prompt": "OF SOUVENIrs • the photographs Henderson sold were 11 ... Travelling as a professional photographer .",
+      "question_type": "Notes Completion",
+      "instructions": null,
+      "passage_number": 1,
+      "section_number": null,
+      "section_type": "social"
+    },
+    {
+      "number": 12,
+      "prompt": "took many trips along eastern rivers ina 12 « workedfor Canadian railways between 1875 and 1897 « worked.for CPR in 1885 and photographed the 13 .",
+      "question_type": "Notes Completion",
+      "instructions": null,
+      "passage_number": 1,
+      "section_number": null,
+      "section_type": "social"
+    },
+    {
+      "number": 13,
+      "prompt": "took many trips along eastern rivers ina 12 « workedfor Canadian railways between 1875 and 1897 « worked.for CPR in 1885 and photographed the 13 .",
+      "question_type": "Notes Completion",
+      "instructions": null,
+      "passage_number": 1,
+      "section_number": null,
+      "section_type": "social"
+    },
+    {
+      "number": 14,
+      "prompt": "why some people avoided:hospitals in the 19th century",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": 2,
+      "section_number": null,
+      "section_type": "work"
+    },
+    {
+      "number": 15,
+      "prompt": "suggestion that the popularity of tall buildings is linked to prestige",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": 2,
+      "section_number": null,
+      "section_type": "work"
+    },
+    {
+      "number": 16,
+      "prompt": "a comparison between the circulation of air in a 19th-century building and modern",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": 2,
+      "section_number": null,
+      "section_type": "work"
+    },
+    {
+      "number": 17,
+      "prompt": "how Short tested the circulation of air in a 18th-century buiiding",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": 2,
+      "section_number": null,
+      "section_type": "work"
+    },
+    {
+      "number": 18,
+      "prompt": "an implication that advertising led to the large increase in the use of air conditioning",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": 2,
+      "section_number": null,
+      "section_type": "work"
+    },
+    {
+      "number": 19,
+      "prompt": "Ventilation in 19th-century hospital wards Professor Alan Short examined the work of John Shaw Billings, who influenced the architectural 19 ... of hospitals to ensure they had good ventilation.",
+      "question_type": "Summary Completion",
+      "instructions": null,
+      "passage_number": 2,
+      "section_number": null,
+      "section_type": "work"
+    },
+    {
+      "number": 20,
+      "prompt": "He calculated that 20 .. <IN the @i coming from patients suffering from 21 ..",
+      "question_type": "Summary Completion",
+      "instructions": null,
+      "passage_number": 2,
+      "section_number": null,
+      "section_type": "work"
+    },
+    {
+      "number": 21,
+      "prompt": "<IN the @i coming from patients suffering from 21 .. would not have harmed other patients.",
+      "question_type": "Summary Completion",
+      "instructions": null,
+      "passage_number": 2,
+      "section_number": null,
+      "section_type": "work"
+    },
+    {
+      "number": 22,
+      "prompt": "He also found that the air in 22 ..in hospitals could change as often as in a modern operating theatre.",
+      "question_type": "Summary Completion",
+      "instructions": null,
+      "passage_number": 2,
+      "section_number": null,
+      "section_type": "work"
+    },
+    {
+      "number": 23,
+      "prompt": "He suggests that energy use could be reduced by locating more patients in 23 reas.",
+      "question_type": "Summary Completion",
+      "instructions": null,
+      "passage_number": 2,
+      "section_number": null,
+      "section_type": "work"
+    },
+    {
+      "number": 24,
+      "prompt": "A major reason for improving ventilation in 19th-century hospitals was the demand from the 24 ... ..",
+      "question_type": "Summary Completion",
+      "instructions": null,
+      "passage_number": 2,
+      "section_number": null,
+      "section_type": "work"
+    },
+    {
+      "number": 25,
+      "prompt": "for protection against bad air, known as 25 .. S These were blamed for the spread of disease for hundreds of years, including epidemics of 26 ......",
+      "question_type": "Summary Completion",
+      "instructions": null,
+      "passage_number": 2,
+      "section_number": null,
+      "section_type": "work"
+    },
+    {
+      "number": 26,
+      "prompt": "S These were blamed for the spread of disease for hundreds of years, including epidemics of 26 ...... ..in London and Paris in the middle of the 19th century.",
+      "question_type": "Summary Completion",
+      "instructions": null,
+      "passage_number": 2,
+      "section_number": null,
+      "section_type": "work"
+    },
+    {
+      "number": 27,
+      "prompt": "i Complaints about the impact of a certain approach",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": 3,
+      "section_number": null,
+      "section_type": "general_interest"
+    },
+    {
+      "number": 28,
+      "prompt": "ii Fundamental beliefs that are in fact incorrect",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": 3,
+      "section_number": null,
+      "section_type": "general_interest"
+    },
+    {
+      "number": 29,
+      "prompt": "iii Early recommendations concerning business activities",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": 3,
+      "section_number": null,
+      "section_type": "general_interest"
+    },
+    {
+      "number": 30,
+      "prompt": "iv Organisations that put a new approach into practice",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": 3,
+      "section_number": null,
+      "section_type": "general_interest"
+    },
+    {
+      "number": 31,
+      "prompt": "v Companies that have suffered from changing their approach",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": 3,
+      "section_number": null,
+      "section_type": "general_interest"
+    },
+    {
+      "number": 32,
+      "prompt": "vi What people ars increasingly expected to do",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": 3,
+      "section_number": null,
+      "section_type": "general_interest"
+    },
+    {
+      "number": 33,
+      "prompt": "vii How to achieve outcomes that are currently impossible",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": 3,
+      "section_number": null,
+      "section_type": "general_interest"
+    },
+    {
+      "number": 34,
+      "prompt": "viil Neither approach guarantees continuous improvement ix Evidence that a certain approach can have more disadvantages than advantages",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": 3,
+      "section_number": null,
+      "section_type": "general_interest"
+    },
     {
       "number": 35,
       "prompt": "Numerous training sessions are aimed at people who feel they are not .o @NOUGH. :",
       "question_type": "Sentence Completion",
       "instructions": null,
-      "passage_number": 2,
+      "passage_number": 3,
       "section_number": null,
-      "section_type": "work"
+      "section_type": "general_interest"
     },
     {
       "number": 36,
       "prompt": "Being organised appeals to people who regard themselves as",
       "question_type": "Sentence Completion",
       "instructions": null,
-      "passage_number": 2,
+      "passage_number": 3,
       "section_number": null,
-      "section_type": "work"
+      "section_type": "general_interest"
     },
     {
       "number": 37,
-      "prompt": "Many people feel ..... with aspects of their work. Questions 38—40",
+      "prompt": "Many people feel ..... with aspects of their work.",
       "question_type": "Sentence Completion",
       "instructions": null,
-      "passage_number": 2,
+      "passage_number": 3,
       "section_number": null,
-      "section_type": "work"
+      "section_type": "general_interest"
+    },
+    {
+      "number": 38,
+      "prompt": "NOT GIVEN ifthere is no information on this",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": 3,
+      "section_number": null,
+      "section_type": "general_interest"
+    },
+    {
+      "number": 39,
+      "prompt": "Innovation is most successful if the people involved have distinct roles.",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": 3,
+      "section_number": null,
+      "section_type": "general_interest"
+    },
+    {
+      "number": 40,
+      "prompt": "Google was insbired to adopt flexibility by the success of General Electric.",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": 3,
+      "section_number": null,
+      "section_type": "general_interest"
     }
   ],
   "answer_key": {
-    "1": "four/",
-    "2": "young D",
-    "23": "A",
-    "3": "food",
-    "24": "B",
-    "4": "light B",
-    "25": "B",
-    "26": "F",
-    "6": "location",
-    "9": "FALSE",
-    "10": "TRUE",
-    "27": "FALSE",
-    "28": "NOTGIVEN",
-    "29": "FALSE",
-    "13": "TRUE",
-    "30": "TRUE",
-    "31": "FALSE",
-    "34": "large",
-    "35": "micropiastic",
-    "15": "E",
-    "36": "poputations",
-    "16": "B",
-    "37": "concentrations",
-    "17": "A",
-    "38": "predators",
-    "39": "disasters",
-    "19": "TRUE",
-    "40": "A",
-    "20": "NOT GIVEN",
-    "21": "FALSE",
-    "5": "aggressively E",
-    "7": "cabins",
-    "8": "C",
-    "12": "NOT GIVEN",
-    "32": "TRUE",
-    "33": "NOTGIVEN",
-    "14": "B",
-    "22": "NOT GIVEN",
-    "11": "FALSE",
-    "18": "TRUE"
+    "1": "FALSE",
+    "2": "ORNDNRWN -",
+    "3": "NOTGIVEN",
+    "4": "FALSE",
+    "5": "NOTGIVEN",
+    "6": "TRUE",
+    "7": "FALSE",
+    "8": "TRUE",
+    "9": "merchant",
+    "10": "equipment",
+    "11": "gifts",
+    "12": "canoce",
+    "13": "mountains",
+    "14": "F",
+    "16": "A",
+    "19": "D",
+    "31": "violin",
+    "32": "energy",
+    "33": "complex",
+    "34": "opera",
+    "35": "disturbing",
+    "36": "clarinet",
+    "15": "F",
+    "37": "diversity",
+    "38": "physics",
+    "17": "E",
+    "39": "dance",
+    "18": "G",
+    "40": "Olympics"
   },
   "time_limit_seconds": 3600
 }

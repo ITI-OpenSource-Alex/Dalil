@@ -9,7 +9,7 @@ class EssayCreate(BaseModel):
     submissionType: str
     examSessionId: Optional[str] = None
 
-# TODO (GOA-112): Add EssayCreateRequest {userId, essayText, submissionType (task1|task2), examSessionId (optional)} 
+# TODO (GOA-112): Add EssayCreateRequest {userId, essayText, submissionType (task1|task2), examSessionId (optional)}
 # and EssayCreateResponse {id, status} — field names per GOA-008's original spec, since GOA-018's Orchestration caller sends exactly that shape.
 
 class EssayCreateRequest(BaseModel):
@@ -33,12 +33,16 @@ class EssayEvaluationRequest(BaseModel):
     examType: str = Field(min_length=1, max_length=64)
 
 
-class HighlightedIssue(BaseModel):
+class InlineIssue(BaseModel):
     text: str
-    issue: str
+    issue_type: str
     suggestion: str
-    start: int = Field(ge=0)
-    end: int = Field(ge=0)
+    start_char: int = Field(ge=0)
+    end_char: int = Field(ge=0)
+
+
+# Alias kept for backwards-compat imports elsewhere in the codebase.
+HighlightedIssue = InlineIssue
 
 
 class CriterionEvaluation(BaseModel):
@@ -50,7 +54,9 @@ class CriterionEvaluation(BaseModel):
     ]
     band_score: float = Field(ge=0.0, le=9.0)
     feedback: str
-    highlighted_issues: list[HighlightedIssue]
+    improvement_tip: str
+    word_count: int = Field(ge=0)
+    inline_issues: list[InlineIssue]
 
 
 class EssayEvaluationResponse(BaseModel):

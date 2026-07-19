@@ -215,3 +215,14 @@ If OCR dependencies are missing, ingestion raises a descriptive runtime error in
 - OCR works entirely inside the Exam Docker image.
 - Native OCR dependencies (`tesseract-ocr`, `poppler-utils`) are installed automatically during `docker compose build exam`.
 - No manual Windows installation of Tesseract or Poppler is required when running Exam through Docker.
+
+
+## Pipeline Diagram
+
+`mermaid
+flowchart TD
+    A[PDF] -->|pdfplumber or OCR| B[OCR Text / full.txt]
+    B -->|Parse Books| C[Parsed JSON]
+    C -->|Validate Books| D[Validation Report]
+    C -->|Ingest Books| E[(PostgreSQL)]
+`

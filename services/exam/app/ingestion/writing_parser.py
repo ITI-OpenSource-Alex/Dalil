@@ -30,23 +30,27 @@ class WritingParser(BaseParser):
 
         questions: list[dict[str, Any]] = []
         if task1_prompt:
-            questions.append({
-                "number": 1,
-                "prompt": task1_prompt,
-                "question_type": "Writing Task 1",
-                "instructions": self._detect_task1_type(task1_prompt),
-                "passage_number": None,
-                "section_number": None,
-            })
+            questions.append(
+                {
+                    "number": 1,
+                    "prompt": task1_prompt,
+                    "question_type": "Writing Task 1",
+                    "instructions": self._detect_task1_type(task1_prompt),
+                    "passage_number": None,
+                    "section_number": None,
+                }
+            )
         if task2_prompt:
-            questions.append({
-                "number": 2,
-                "prompt": task2_prompt,
-                "question_type": "Writing Task 2",
-                "instructions": "Write an essay of at least 250 words.",
-                "passage_number": None,
-                "section_number": None,
-            })
+            questions.append(
+                {
+                    "number": 2,
+                    "prompt": task2_prompt,
+                    "question_type": "Writing Task 2",
+                    "instructions": "Write an essay of at least 250 words.",
+                    "passage_number": None,
+                    "section_number": None,
+                }
+            )
 
         return {
             "book_ref": metadata.get("book_ref", "IELTS-unknown"),

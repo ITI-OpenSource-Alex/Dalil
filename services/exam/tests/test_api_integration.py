@@ -59,7 +59,9 @@ class FakeSessionService:
 
 
 class FakeQuestionRepository:
-    async def get_random_question(self, exam_type: str, skill_area: str, user_id: Any) -> dict[str, Any]:
+    async def get_random_question(
+        self, exam_type: str, skill_area: str, user_id: Any
+    ) -> dict[str, Any]:
         question = _public_question()
         question["answer_key"] = {"answers": {"1": "A"}}
         return question

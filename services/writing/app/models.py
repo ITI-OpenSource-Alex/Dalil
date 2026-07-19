@@ -37,6 +37,14 @@ class CVReview(Base):
     s3_key = Column(String(512), nullable=False, unique=True)
     original_filename = Column(String(255), nullable=False)
     status = Column(String(32), nullable=False, default="processing")
+    content_hash = Column(String(64), nullable=True, index=True)
+    extracted_text = Column(Text, nullable=True)
+    structured_data = Column(
+        JSON().with_variant(JSONB, "postgresql"),
+        nullable=True,
+    )
+    error_message = Column(Text, nullable=True)
+    processed_at = Column(DateTime(timezone=True), nullable=True)
     uploaded_at = Column(
         DateTime(timezone=True),
         nullable=False,

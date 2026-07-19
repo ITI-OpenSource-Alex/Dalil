@@ -71,6 +71,7 @@ services:
       - AWS_ENDPOINT_URL=http://localstack:4566
       - S3_BUCKET=goa-writing-files
       - CV_UPLOADED_QUEUE_URL=http://localstack:4566/000000000000/goa-cv-uploaded
+      - CV_PROCESSED_QUEUE_URL=http://localstack:4566/000000000000/goa-cv-processed
       - PYTHONPATH=/app:/packages/contracts/py
       - OTEL_SERVICE_NAME=writing-service
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
@@ -78,6 +79,7 @@ services:
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
       - LANGFUSE_HOST=${LANGFUSE_HOST}
       - WRITING_MODEL=${WRITING_MODEL:-claude-sonnet-4-6}
+      - CV_EXTRACTION_MODEL=${CV_EXTRACTION_MODEL:-claude-haiku-4-5-20251001}
       - ANTHROPIC_TIMEOUT_SECONDS=${ANTHROPIC_TIMEOUT_SECONDS:-25}
       - WRITING_CACHE_VERSION=${WRITING_CACHE_VERSION:-v1}
       - OPENAI_API_KEY=sk-proj-a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8s9T0u1V2w3X4
@@ -95,6 +97,39 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  cv-processor:
+    build:
+      context: .
+      dockerfile: services/writing/Dockerfile
+    command: [ "sh", "-c", "python -m app.init_db && python -m cv_processor.local_worker" ]
+    environment:
+      - DATABASE_URL=postgresql://goa:goa_pass@postgres:5432/writing_db
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - S3_BUCKET=goa-writing-files
+      - CV_PROCESSOR_QUEUE_URL=http://localstack:4566/000000000000/goa-cv-processing
+      - CV_PROCESSED_QUEUE_URL=http://localstack:4566/000000000000/goa-cv-processed
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - CV_EXTRACTION_MODEL=${CV_EXTRACTION_MODEL:-claude-haiku-4-5-20251001}
+      - ANTHROPIC_TIMEOUT_SECONDS=${ANTHROPIC_TIMEOUT_SECONDS:-25}
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
+      - LANGFUSE_HOST=${LANGFUSE_HOST}
+      - PYTHONPATH=/app:/packages/contracts/py
+      - OTEL_SERVICE_NAME=cv-processor
+    volumes:
+      - ./services/writing/app:/app/app
+      - ./services/writing/cv_processor:/app/cv_processor
+      - ./services/writing/migrations:/app/migrations
+      - ./packages/contracts/py:/packages/contracts/py
+    depends_on:
+      postgres:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
 
   postgres:
     image: pgvector/pgvector:pg15

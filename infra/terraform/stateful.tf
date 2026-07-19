@@ -27,10 +27,10 @@ resource "aws_security_group" "rds_proxy" {
 }
 
 resource "aws_vpc_security_group_ingress_rule" "rds_proxy_from_workload" {
-  for_each = toset([
-    module.security_groups.ecs_services_security_group_id,
-    module.security_groups.lambda_security_group_id,
-  ])
+  for_each = {
+    ecs    = module.security_groups.ecs_services_security_group_id
+    lambda = module.security_groups.lambda_security_group_id
+  }
 
   security_group_id            = aws_security_group.rds_proxy.id
   referenced_security_group_id = each.value

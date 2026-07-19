@@ -14,6 +14,14 @@ resource "aws_lambda_function" "this" {
   # actual arg AWS expects is simply omitted in that case.
   reserved_concurrent_executions = var.reserved_concurrent_executions
 
+  dynamic "image_config" {
+    for_each = var.package_type == "Image" && (length(var.image_command) > 0 || length(var.image_entry_point) > 0) ? [1] : []
+    content {
+      command     = length(var.image_command) > 0 ? var.image_command : null
+      entry_point = length(var.image_entry_point) > 0 ? var.image_entry_point : null
+    }
+  }
+
   layers = var.enable_lambda_insights && var.lambda_insights_layer_arn != "" ? [var.lambda_insights_layer_arn] : []
 
   vpc_config {

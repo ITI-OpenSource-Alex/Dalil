@@ -8,6 +8,13 @@
 environment = "production"
 aws_region  = "eu-west-1"
 
+aws_account_id = "123456789012"
+image_tag       = "replace-with-immutable-git-sha"
+
+ecr_cv_processor_repo_url        = "123456789012.dkr.ecr.eu-west-1.amazonaws.com/goa-cv-processor"
+ecr_scholarship_matcher_repo_url = "123456789012.dkr.ecr.eu-west-1.amazonaws.com/goa-scholarship-matcher"
+ecr_notification_sender_repo_url = "123456789012.dkr.ecr.eu-west-1.amazonaws.com/goa-notification-sender"
+
 vpc_cidr = "10.0.0.0/16"
 
 availability_zones = [

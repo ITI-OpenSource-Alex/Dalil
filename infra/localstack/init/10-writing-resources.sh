@@ -6,10 +6,12 @@ ACCOUNT_ID="000000000000"
 BUCKET="goa-writing-files"
 DOMAIN_QUEUE="goa-cv-uploaded"
 PROCESSOR_QUEUE="goa-cv-processing"
+PROCESSED_QUEUE="goa-cv-processed"
 
 awslocal s3api create-bucket --bucket "$BUCKET" >/dev/null 2>&1 || true
 awslocal sqs create-queue --queue-name "$DOMAIN_QUEUE" >/dev/null
 PROCESSOR_QUEUE_URL="$(awslocal sqs create-queue --queue-name "$PROCESSOR_QUEUE" --query QueueUrl --output text)"
+awslocal sqs create-queue --queue-name "$PROCESSED_QUEUE" >/dev/null
 PROCESSOR_QUEUE_ARN="arn:aws:sqs:${REGION}:${ACCOUNT_ID}:${PROCESSOR_QUEUE}"
 
 awslocal sqs set-queue-attributes \

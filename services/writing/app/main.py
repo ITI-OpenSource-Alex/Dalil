@@ -29,7 +29,7 @@ async def reject_oversized_cv_request(request: Request, call_next):
             try:
                 if int(content_length) > MAX_CV_REQUEST_BYTES:
                     return JSONResponse(
-                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        status_code=413,
                         content={"detail": "CV files must be 10 MB or smaller"},
                     )
             except ValueError:

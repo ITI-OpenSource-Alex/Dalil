@@ -9,6 +9,12 @@ variable "aws_region" {
   default     = "eu-west-1"
 }
 
+variable "aws_offline_mode" {
+  description = "Use mock AWS credentials only for local terraform plan validation. Never enable for apply."
+  type        = bool
+  default     = false
+}
+
 variable "vpc_cidr" {
   description = "Primary CIDR block for the VPC."
   type        = string
@@ -176,6 +182,11 @@ variable "tags" {
 variable "aws_account_id" {
   description = "AWS account ID, used for S3 bucket notification source_account."
   type        = string
+
+  validation {
+    condition     = can(regex("^[0-9]{12}$", var.aws_account_id))
+    error_message = "aws_account_id must contain exactly 12 digits."
+  }
 }
 
 variable "image_tag" {
@@ -187,6 +198,11 @@ variable "image_tag" {
 variable "ecr_cv_processor_repo_url" {
   description = "ECR repository URL for the cv-processor image (without tag)."
   type        = string
+
+  validation {
+    condition     = trimspace(var.ecr_cv_processor_repo_url) != ""
+    error_message = "ecr_cv_processor_repo_url must not be empty."
+  }
 }
 
 variable "ecr_scholarship_matcher_repo_url" {

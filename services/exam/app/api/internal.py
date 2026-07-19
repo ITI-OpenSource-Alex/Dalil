@@ -78,7 +78,9 @@ async def question_bank_stats(
         exam_type = row["exam_type"]
         skill_area = row["skill_area"]
         payload.setdefault(exam_type, {})
-        payload[exam_type][skill_area] = payload[exam_type].get(skill_area, 0) + row["count"]
+        payload[exam_type][skill_area] = (
+            payload[exam_type].get(skill_area, 0) + row["count"]
+        )
 
     if not raw_stats:
         payload["academic"]["reading"] = 1
@@ -97,7 +99,9 @@ async def question_bank_stats(
         book = row["book_ref"]
         exam_type = row["exam_type"]
         skill_area = row["skill_area"]
-        by_book.setdefault(book, {}).setdefault(exam_type, {})[skill_area] = row["count"]
+        by_book.setdefault(book, {}).setdefault(exam_type, {})[skill_area] = row[
+            "count"
+        ]
 
     return {**payload, "by_book": by_book}
 

@@ -50,7 +50,9 @@ class QuestionLoader:
             if path.suffix.lower() == ".pdf":
                 parsed = self._parser_for(skill_area).parse_pdf(path)
             else:
-                parsed = self._parser_for(skill_area).parse_text(path.read_text(encoding="utf-8"))
+                parsed = self._parser_for(skill_area).parse_text(
+                    path.read_text(encoding="utf-8")
+                )
 
             record = await self.save(parsed)
             ingested.append(record)
@@ -69,7 +71,9 @@ class QuestionLoader:
             return "speaking"
         return None
 
-    def _parser_for(self, skill_area: str) -> ReadingParser | ListeningParser | WritingParser | SpeakingParser:
+    def _parser_for(
+        self, skill_area: str
+    ) -> ReadingParser | ListeningParser | WritingParser | SpeakingParser:
         if skill_area == "listening":
             return self.listening_parser
         if skill_area == "writing":

@@ -22,6 +22,7 @@ def get_question_repository() -> QuestionRepository:
 
 from uuid import UUID
 
+
 @router.get("/random")
 async def get_random_question(
     exam_type: ExamType,

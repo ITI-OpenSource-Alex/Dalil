@@ -20,9 +20,7 @@ class FakeReadingSessionService:
         return {
             "session_id": self.session_id,
             "passages": ["Passage 1", "Passage 2", "Passage 3"],
-            "questions": [
-                {"id": str(i), "prompt": f"Q{i}"} for i in range(1, 41)
-            ],
+            "questions": [{"id": str(i), "prompt": f"Q{i}"} for i in range(1, 41)],
             "time_limit_seconds": 3600,
         }
 

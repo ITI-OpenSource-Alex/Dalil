@@ -30,11 +30,13 @@ DATABASE_URL = os.getenv(
 
 MIGRATIONS_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "app", "migrations",
+    "app",
+    "migrations",
 )
 
 
 # ── Realistic Cambridge IELTS 14 style fixtures ──────────────────────────────
+
 
 def reading_academic_t1():
     return """
@@ -628,8 +630,10 @@ Questions 31-40
 
 # ── Database helpers ──────────────────────────────────────────────────────────
 
+
 async def run_migrations(pool):
     import pathlib
+
     migrations = sorted(pathlib.Path(MIGRATIONS_DIR).glob("*.sql"))
     async with pool.acquire() as conn:
         for mig in migrations:
@@ -648,7 +652,9 @@ async def upsert(pool, payload):
     async with pool.acquire() as conn:
         existing = await conn.fetchrow(
             "SELECT * FROM questions WHERE book_ref=$1 AND test_number=$2 AND skill_area=$3 LIMIT 1",
-            payload["book_ref"], payload["test_number"], payload["skill_area"],
+            payload["book_ref"],
+            payload["test_number"],
+            payload["skill_area"],
         )
         if existing:
             return dict(existing)
@@ -657,9 +663,12 @@ async def upsert(pool, payload):
                passage_text, audio_s3_key, questions, answer_key)
                VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb)
                RETURNING *""",
-            payload["book_ref"], payload["test_number"],
-            payload.get("exam_type", "academic"), payload.get("skill_area", "reading"),
-            payload.get("passage_text"), payload.get("audio_s3_key"),
+            payload["book_ref"],
+            payload["test_number"],
+            payload.get("exam_type", "academic"),
+            payload.get("skill_area", "reading"),
+            payload.get("passage_text"),
+            payload.get("audio_s3_key"),
             json.dumps(payload.get("questions", [])),
             json.dumps(payload.get("answer_key", {})),
         )
@@ -667,6 +676,7 @@ async def upsert(pool, payload):
 
 
 # ── Verification ──────────────────────────────────────────────────────────────
+
 
 async def main():
     issues = []
@@ -691,7 +701,9 @@ async def main():
     ak = parsed["answer_key"]
     pt = parsed["passage_text"]
 
-    print(f"   Book: {parsed['book_ref']}, Test: {parsed['test_number']}, Type: {parsed['exam_type']}")
+    print(
+        f"   Book: {parsed['book_ref']}, Test: {parsed['test_number']}, Type: {parsed['exam_type']}"
+    )
     print(f"   Questions: {len(q)}")
     print(f"   Answer keys: {len(ak)}")
     passages = pt.split("\n\n---\n\n") if pt else []
@@ -710,7 +722,9 @@ async def main():
     for k, expected in [("1", "FALSE"), ("2", "TRUE"), ("14", "B"), ("40", "B")]:
         actual = ak.get(k, "MISSING")
         if actual != expected:
-            issues.append(f"Academic Reading: answer key {k} = '{actual}', expected '{expected}'")
+            issues.append(
+                f"Academic Reading: answer key {k} = '{actual}', expected '{expected}'"
+            )
         else:
             print(f"   Answer key Q{k}: {actual} ✓")
 
@@ -728,7 +742,9 @@ async def main():
     print(f"   Questions: {len(q_gt)}")
 
     if parsed_gt["exam_type"] != "general":
-        issues.append(f"GT Reading: exam_type = '{parsed_gt['exam_type']}', expected 'general'")
+        issues.append(
+            f"GT Reading: exam_type = '{parsed_gt['exam_type']}', expected 'general'"
+        )
 
     # Check section_type tags
     p1_types = set(x.get("section_type") for x in q_gt if x.get("passage_number") == 1)
@@ -739,11 +755,15 @@ async def main():
     print(f"   Passage 3 section_type: {p3_types}")
 
     if p1_types != {"social"}:
-        issues.append(f"GT Reading P1: section_type = {p1_types}, expected {{'social'}}")
+        issues.append(
+            f"GT Reading P1: section_type = {p1_types}, expected {{'social'}}"
+        )
     if p2_types != {"work"}:
         issues.append(f"GT Reading P2: section_type = {p2_types}, expected {{'work'}}")
     if p3_types != {"general_interest"}:
-        issues.append(f"GT Reading P3: section_type = {p3_types}, expected {{'general_interest'}}")
+        issues.append(
+            f"GT Reading P3: section_type = {p3_types}, expected {{'general_interest'}}"
+        )
 
     record_gt = await upsert(pool, parsed_gt)
     print(f"   [DB] Stored → id={str(record_gt['id'])[:8]}...")
@@ -845,9 +865,11 @@ async def main():
             "FROM questions ORDER BY book_ref, exam_type, skill_area"
         )
         print(f"\n   {'Book':<12} {'Type':<10} {'Skill':<12} {'Questions':<10}")
-        print(f"   {'-'*12} {'-'*10} {'-'*12} {'-'*10}")
+        print(f"   {'-' * 12} {'-' * 10} {'-' * 12} {'-' * 10}")
         for row in rows:
-            print(f"   {row['book_ref']:<12} {row['exam_type']:<10} {row['skill_area']:<12} {row['q_count']:<10}")
+            print(
+                f"   {row['book_ref']:<12} {row['exam_type']:<10} {row['skill_area']:<12} {row['q_count']:<10}"
+            )
 
         # Stats endpoint query
         stats = await conn.fetch(
@@ -857,7 +879,9 @@ async def main():
         )
         print("\n   Stats by book:")
         for s in stats:
-            print(f"   {s['book_ref']}/{s['exam_type']}/{s['skill_area']}: {s['count']}")
+            print(
+                f"   {s['book_ref']}/{s['exam_type']}/{s['skill_area']}: {s['count']}"
+            )
 
         # Verify all 4 skill areas present
         skills = set(row["skill_area"] for row in rows)

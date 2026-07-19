@@ -65,13 +65,17 @@ def _validate_reading(payload: dict, label: str, *, strict: bool = False) -> lis
     if len(questions) < 30:
         issues.append(f"{label}: expected ~40 questions, got {len(questions)}")
     if strict and len(questions) != 40:
-        issues.append(f"{label}: strict: expected exactly 40 questions, got {len(questions)}")
+        issues.append(
+            f"{label}: strict: expected exactly 40 questions, got {len(questions)}"
+        )
 
     # Answer keys
     if len(answer_key) < 30:
         issues.append(f"{label}: expected ~40 answer keys, got {len(answer_key)}")
     if strict and len(answer_key) != 40:
-        issues.append(f"{label}: strict: expected exactly 40 answer keys, got {len(answer_key)}")
+        issues.append(
+            f"{label}: strict: expected exactly 40 answer keys, got {len(answer_key)}"
+        )
 
     # Duplicate question numbers
     numbers = [q.get("number") for q in questions if q.get("number") is not None]
@@ -90,7 +94,9 @@ def _validate_reading(payload: dict, label: str, *, strict: bool = False) -> lis
     return issues
 
 
-def _validate_listening(payload: dict, label: str, *, strict: bool = False) -> list[str]:
+def _validate_listening(
+    payload: dict, label: str, *, strict: bool = False
+) -> list[str]:
     issues: list[str] = []
     questions = payload.get("questions", [])
     audio_key = payload.get("audio_s3_key")
@@ -98,7 +104,9 @@ def _validate_listening(payload: dict, label: str, *, strict: bool = False) -> l
     if len(questions) < 30:
         issues.append(f"{label}: expected ~40 questions, got {len(questions)}")
     if strict and len(questions) != 40:
-        issues.append(f"{label}: strict: expected exactly 40 questions, got {len(questions)}")
+        issues.append(
+            f"{label}: strict: expected exactly 40 questions, got {len(questions)}"
+        )
 
     if not audio_key:
         issues.append(f"{label}: no audio S3 key")
@@ -110,7 +118,9 @@ def _validate_listening(payload: dict, label: str, *, strict: bool = False) -> l
         if s:
             sections.add(s)
     if len(sections) < 4:
-        issues.append(f"{label}: expected 4 sections, got {len(sections)} ({sorted(sections)})")
+        issues.append(
+            f"{label}: expected 4 sections, got {len(sections)} ({sorted(sections)})"
+        )
 
     return issues
 
@@ -120,7 +130,9 @@ def _validate_writing(payload: dict, label: str, *, strict: bool = False) -> lis
     questions = payload.get("questions", [])
 
     if len(questions) < 2:
-        issues.append(f"{label}: expected 2 tasks (Task 1 + Task 2), got {len(questions)}")
+        issues.append(
+            f"{label}: expected 2 tasks (Task 1 + Task 2), got {len(questions)}"
+        )
         return issues
 
     task1 = questions[0]
@@ -132,9 +144,13 @@ def _validate_writing(payload: dict, label: str, *, strict: bool = False) -> lis
         issues.append(f"{label}: Task 2 type mismatch: {task2.get('question_type')}")
 
     if len(task1.get("prompt", "")) < 20:
-        issues.append(f"{label}: Task 1 prompt too short ({len(task1.get('prompt', ''))} chars)")
+        issues.append(
+            f"{label}: Task 1 prompt too short ({len(task1.get('prompt', ''))} chars)"
+        )
     if len(task2.get("prompt", "")) < 20:
-        issues.append(f"{label}: Task 2 prompt too short ({len(task2.get('prompt', ''))} chars)")
+        issues.append(
+            f"{label}: Task 2 prompt too short ({len(task2.get('prompt', ''))} chars)"
+        )
 
     return issues
 

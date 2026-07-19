@@ -18,9 +18,7 @@ class Database:
         if not self.pool:
             logger.info("Initializing asyncpg connection pool...")
             self.pool = await asyncpg.create_pool(
-                dsn=settings.database_url,
-                min_size=2,
-                max_size=10
+                dsn=settings.database_url, min_size=2, max_size=10
             )
             await self.run_migrations()
             await self.seed_band_tables()
@@ -76,7 +74,7 @@ class Database:
                         await conn.execute(sql)
                         await conn.execute(
                             "INSERT INTO migrations_log (migration_file) VALUES ($1)",
-                            filename
+                            filename,
                         )
                     logger.info("Migration %s executed successfully", filename)
                 else:
@@ -88,20 +86,44 @@ class Database:
                 "skill_area": "reading",
                 "exam_type": "academic",
                 "conversion": [
-                    [39, 9.0], [37, 8.5], [35, 8.0], [33, 7.5],
-                    [30, 7.0], [27, 6.5], [23, 6.0], [19, 5.5],
-                    [15, 5.0], [13, 4.5], [10, 4.0], [6, 3.5],
-                    [4, 3.0], [3, 2.5], [2, 2.0], [0, 0.0],
+                    [39, 9.0],
+                    [37, 8.5],
+                    [35, 8.0],
+                    [33, 7.5],
+                    [30, 7.0],
+                    [27, 6.5],
+                    [23, 6.0],
+                    [19, 5.5],
+                    [15, 5.0],
+                    [13, 4.5],
+                    [10, 4.0],
+                    [6, 3.5],
+                    [4, 3.0],
+                    [3, 2.5],
+                    [2, 2.0],
+                    [0, 0.0],
                 ],
             },
             {
                 "skill_area": "reading",
                 "exam_type": "general",
                 "conversion": [
-                    [40, 9.0], [39, 8.5], [37, 8.0], [36, 7.5],
-                    [34, 7.0], [32, 6.5], [30, 6.0], [27, 5.5],
-                    [23, 5.0], [19, 4.5], [15, 4.0], [12, 3.5],
-                    [9, 3.0], [6, 2.5], [3, 2.0], [0, 0.0],
+                    [40, 9.0],
+                    [39, 8.5],
+                    [37, 8.0],
+                    [36, 7.5],
+                    [34, 7.0],
+                    [32, 6.5],
+                    [30, 6.0],
+                    [27, 5.5],
+                    [23, 5.0],
+                    [19, 4.5],
+                    [15, 4.0],
+                    [12, 3.5],
+                    [9, 3.0],
+                    [6, 2.5],
+                    [3, 2.0],
+                    [0, 0.0],
                 ],
             },
         ]

@@ -1,18 +1,105 @@
 {
-  "book_ref": "IELTS-unknown",
+  "book_ref": "IELTS-17",
   "test_number": 4,
-  "exam_type": "academic",
+  "exam_type": "general",
   "skill_area": "speaking",
   "passage_text": null,
   "questions": [
     {
       "number": 1,
-      "prompt": "The candidate is given a task card with prompts and is asked to talk on a particular topic.",
-      "question_type": "Speaking Part 2",
-      "instructions": "Speak for 1-2 minutes on this topic.",
+      "prompt": "Do the following statements agree with the information given in Reading Passage 3?",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
       "passage_number": null,
-      "section_number": 2,
-      "bullet_points": []
+      "section_number": 1
+    },
+    {
+      "number": 2,
+      "prompt": "Do you think this is a positive or a negative development?",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 3,
+      "prompt": "• Do you think it's better to use a paper map or a map on your phone? [Why?]",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 4,
+      "prompt": "• When was the last time you needed to use a map? [Why/Why not?]",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 5,
+      "prompt": "• If you visit a new city, do you always use a map to find your way around?",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 6,
+      "prompt": "• In general, do you find it easy to read maps? [Why/Why not?]",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 7,
+      "prompt": "Do you think it's OK to arrive late when meeting a friend?",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 8,
+      "prompt": "What should happen to people who arrive late for work?",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 9,
+      "prompt": "Can you suggest how people can make sure they don't arrive late?",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 10,
+      "prompt": "Is it better to study for long periods or in shorter blocks of time?",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 11,
+      "prompt": "What are the likely effects of students not managing their study time well?",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 12,
+      "prompt": "How important is it for students to have enough leisure time?",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
+      "passage_number": null,
+      "section_number": 1
     }
   ],
   "answer_key": {},

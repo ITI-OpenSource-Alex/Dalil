@@ -44,7 +44,9 @@ DATABASE_URL = os.getenv(
 )
 
 MIGRATIONS_DIR = Path(
-    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "app", "migrations")
+    os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "app", "migrations"
+    )
 )
 
 
@@ -101,7 +103,7 @@ async def main() -> int:
     args = parser.parse_args()
 
     print("=" * 70)
-    print("STAGE 3: INGEST — JSON → PostgreSQL")
+    print("STAGE 3: INGEST -> JSON -> PostgreSQL")
     print("=" * 70)
     print(f"  Source:    {args.parsed_dir}")
     print(f"  Database:  {DATABASE_URL}")
@@ -151,16 +153,69 @@ async def main() -> int:
 
             if args.dry_run:
                 print(f"  [DRY] {label}: {q_count} questions, {ak_count} answers")
-                results.append({"label": label, "status": "dry_run", "questions": q_count})
+                results.append(
+                    {"label": label, "status": "dry_run", "questions": q_count}
+                )
             elif repo:
-                record = await repo.upsert_question(payload)
-                record_id = record.get("id") if isinstance(record, dict) else None
-                if record_id and record_id != payload.get("id"):
-                    print(f"  [+] {label}: {q_count} questions → id={str(record_id)[:8]}...")
-                    results.append({"label": label, "status": "inserted", "questions": q_count})
+                existing = await repo.get_by_unique_key(
+                    payload["book_ref"],
+                    payload["test_number"],
+                    payload.get("skill_area", "reading"),
+                )
+
+                # Check for changes if it already exists
+                needs_update = False
+                if existing:
+                    ex_questions = (
+                        json.loads(existing["questions"])
+                        if isinstance(existing["questions"], str)
+                        else existing["questions"]
+                    )
+                    ex_answers = (
+                        json.loads(existing["answer_key"])
+                        if isinstance(existing["answer_key"], str)
+                        else existing["answer_key"]
+                    )
+
+                    if ex_questions != payload.get(
+                        "questions", []
+                    ) or ex_answers != payload.get("answer_key", {}):
+                        needs_update = True
+
+                if existing and not needs_update:
+                    print(f"  [=] {label}: already exists and identical — skipped")
+                    results.append(
+                        {"label": label, "status": "skipped", "questions": q_count}
+                    )
                 else:
-                    print(f"  [=] {label}: already exists — skipped")
-                    results.append({"label": label, "status": "skipped", "questions": q_count})
+                    record = await repo.upsert_question(payload)
+                    record_id = record.get("id") if isinstance(record, dict) else None
+                    if record_id:
+                        if existing:
+                            print(
+                                f"  [*] {label}: {q_count} questions → updated id={str(record_id)[:8]}..."
+                            )
+                            results.append(
+                                {
+                                    "label": label,
+                                    "status": "updated",
+                                    "questions": q_count,
+                                }
+                            )
+                        else:
+                            print(
+                                f"  [+] {label}: {q_count} questions → inserted id={str(record_id)[:8]}..."
+                            )
+                            results.append(
+                                {
+                                    "label": label,
+                                    "status": "inserted",
+                                    "questions": q_count,
+                                }
+                            )
+                    else:
+                        print(f"  [!] {label}: failed to get record id")
+                        errors.append(f"{label}: failed to get record id")
 
         except Exception as e:
             print(f"  [!] {label}: {e}")
@@ -175,10 +230,12 @@ async def main() -> int:
     print("SUMMARY")
     print("=" * 70)
     inserted = sum(1 for r in results if r["status"] == "inserted")
+    updated = sum(1 for r in results if r["status"] == "updated")
     skipped = sum(1 for r in results if r["status"] == "skipped")
     dry_run = sum(1 for r in results if r["status"] == "dry_run")
     total_q = sum(r.get("questions", 0) for r in results)
     print(f"  Inserted:  {inserted}")
+    print(f"  Updated:   {updated}")
     print(f"  Skipped:   {skipped}")
     if dry_run:
         print(f"  Dry run:   {dry_run}")

@@ -16,6 +16,13 @@ EVALUATION_LATENCY_MS = Histogram(
     buckets=[100, 250, 500, 1000, 2500, 5000, 10000, 15000, 20000, 30000, 60000],
 )
 
+goa_writing_exam_evaluation_ms = Histogram(
+    "goa_writing_exam_evaluation_ms",
+    "Wall-clock latency for an exam-task writing evaluation in milliseconds",
+    labelnames=["task_type"],
+    buckets=[100, 250, 500, 1000, 2500, 5000, 10000, 15000, 20000, 30000, 60000],
+)
+
 CACHE_HIT_RATE = Gauge(
     "goa_writing_cache_hit_rate",
     "Ratio of cached writing evaluations to all writing evaluation requests",

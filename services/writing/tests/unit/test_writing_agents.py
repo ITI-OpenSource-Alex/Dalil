@@ -37,7 +37,9 @@ async def test_four_public_agent_functions_return_required_contract(function, cr
         "criterion",
         "band_score",
         "feedback",
-        "highlighted_issues",
+        "improvement_tip",
+        "word_count",
+        "inline_issues",
     }
     assert len(result["feedback"].split("Sentence-level examples:")[1].splitlines()) == 4
 
@@ -91,11 +93,12 @@ class FakeMessages:
         body = {
             "band_score": self.band_score,
             "feedback": "Precise feedback.",
+            "improvement_tip": "Vary sentence structure and use precise vocabulary.",
             "sentence_examples": ["Example one.", "Example two.", "Example three."],
             "highlighted_issues": [
                 {
                     "text": "word choice",
-                    "issue": "Imprecise phrase",
+                    "issue_type": "vocabulary",
                     "suggestion": "precise wording",
                 }
             ],
@@ -116,6 +119,6 @@ async def test_agent_band_is_clamped_and_rounded(raw_band, expected):
     execution = await runner.evaluate("vocabulary", essay, "academic_task_2")
 
     assert execution.result.band_score == expected
-    issue = execution.result.highlighted_issues[0]
-    assert essay[issue.start : issue.end] == issue.text
+    issue = execution.result.inline_issues[0]
+    assert essay[issue.start_char : issue.end_char] == issue.text
     assert 0.0 <= execution.result.band_score <= 9.0

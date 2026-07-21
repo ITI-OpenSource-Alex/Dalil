@@ -30,6 +30,7 @@ func HandleHolisticEvaluation(w http.ResponseWriter, r *http.Request, cfg *Confi
 
 	var payload struct {
 		ConcatenatedTranscript string `json:"concatenated_transcript"`
+		UserID                 string `json:"user_id"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
@@ -42,7 +43,12 @@ func HandleHolisticEvaluation(w http.ResponseWriter, r *http.Request, cfg *Confi
 		return
 	}
 
+	if payload.UserID == "" {
+		payload.UserID = "anonymous"
+	}
+
 	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	ctx = context.WithValue(ctx, "userID", payload.UserID)
 	defer cancel()
 
 	res, err := agents.EvaluateHolisticSwarm(ctx, llmClient, payload.ConcatenatedTranscript)

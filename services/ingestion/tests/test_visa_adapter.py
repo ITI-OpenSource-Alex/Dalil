@@ -458,3 +458,64 @@ async def test_missing_fields_yield_nulls_not_guesses(mocker, dummy_source):
     assert outcomes[0].processing_days_max is None
     assert outcomes[0].proof_of_funds is None
     assert "Valid passport" in outcomes[0].requirements["items"]
+
+def test_extraction_model_is_config_driven():
+    from app.adapters.visa_adapter import EXTRACTION_MODEL
+    import os
+    assert EXTRACTION_MODEL == os.environ.get("EXTRACTION_MODEL", "claude-opus-4-8")
+
+@pytest.mark.asyncio
+async def test_extraction_evidence_quotes_are_verbatim(mocker, dummy_source):
+    adapter = VisaSourceAdapter()
+    text = "The applicant must provide a valid passport and two photos."
+    mocker.patch.object(adapter, "_fetch_text", return_value=text)
+    mocker.patch.object(
+        adapter,
+        "_call_llm",
+        return_value=_llm(
+            {
+                "extraction_valid": True,
+                "requirements": {"passport": "Valid passport required", "photos": "Two photos"},
+                "extraction_evidence": {
+                    "passport": "valid passport",
+                    "photos": "two photos"
+                }
+            }
+        ),
+    )
+    
+    outcomes = await adapter.run([dummy_source])
+    assert len(outcomes) == 1
+    evidence = outcomes[0].extraction_evidence
+    for key, quote in evidence.items():
+        assert quote.lower() in text.lower(), f"Quote '{quote}' for '{key}' not found in source text!"
+
+@pytest.mark.asyncio
+async def test_usage_tokens_recorded_in_telemetry(mocker, dummy_source):
+    adapter = VisaSourceAdapter()
+    text = "Some source text"
+    mocker.patch.object(adapter, "_fetch_text", return_value=text)
+    
+    class MockUsage:
+        input_tokens = 123
+        output_tokens = 456
+    
+    class MockMessage:
+        text = '{"extraction_valid": true}'
+    
+    class MockContent:
+        content = [MockMessage()]
+        usage = MockUsage()
+    
+    class MockMessages:
+        async def create(self, **kwargs):
+            return MockContent()
+    
+    class MockAnthropic:
+        messages = MockMessages()
+        
+    adapter.anthropic = MockAnthropic()
+    
+    raw_data, telemetry = await adapter._call_llm(text, dummy_source)
+    assert telemetry["input_tokens"] == 123
+    assert telemetry["output_tokens"] == 456

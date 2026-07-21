@@ -13,34 +13,31 @@ import (
 )
 
 type Client struct {
-	apiKey     string
-	voiceID    string
+	url        string
 	httpClient *http.Client
 }
 
-// NewClient initializes the ElevenLabs TTS client helper
-func NewClient(apiKey string) *Client {
+// NewClient initializes the TTS client helper
+func NewClient(url string) *Client {
 	return &Client{
-		apiKey:  apiKey,
-		voiceID: "21m00Tcm4TlvDq8ikWAM", // Default voice "Rachel"
+		url:  url,
 		httpClient: &http.Client{
-			Timeout: 30 * time.Second, // Streaming synthesis requires a higher timeout threshold
+			Timeout: 30 * time.Second,
 		},
 	}
 }
 
 // StreamTTS requests text-to-speech conversion and pumps binary audio chunks to the writer callback
 func (c *Client) StreamTTS(ctx context.Context, text string, writeAudio func([]byte) error) error {
-	if c.apiKey == "" {
-		log.Warn().Msg("ElevenLabs API Key missing, skipping TTS synthesis")
-		return fmt.Errorf("ElevenLabs API key is not configured")
+	if c.url == "" {
+		log.Warn().Msg("Speech service URL missing, skipping TTS synthesis")
+		return fmt.Errorf("speech service URL is not configured")
 	}
 
-	url := fmt.Sprintf("https://api.elevenlabs.io/v1/text-to-speech/%s/stream?output_format=mp3_22050_32", c.voiceID)
+	url := fmt.Sprintf("%s/tts", c.url)
 
 	reqBody, err := json.Marshal(map[string]interface{}{
-		"text":     text,
-		"model_id": "eleven_monolingual_v1",
+		"text": text,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to marshal JSON request body: %w", err)
@@ -52,7 +49,6 @@ func (c *Client) StreamTTS(ctx context.Context, text string, writeAudio func([]b
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("xi-api-key", c.apiKey)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -66,7 +62,7 @@ func (c *Client) StreamTTS(ctx context.Context, text string, writeAudio func([]b
 		return fmt.Errorf("TTS API returned non-OK status %d: %s", resp.StatusCode, errBuf.String())
 	}
 
-	// Stream chunks as they arrive from ElevenLabs
+	// Stream chunks as they arrive from the local sidecar
 	buf := make([]byte, 4096)
 	for {
 		n, err := resp.Body.Read(buf)

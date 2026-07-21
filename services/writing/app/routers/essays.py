@@ -139,8 +139,32 @@ async def _run_evaluation(
     return await coordinator.evaluate(
         essay.extracted_text,
         essay.exam_type or essay.submission_type or "IELTS Writing",
+        user_id=essay.user_id,
         trace=trace,
         on_partial=on_partial,
+    )
+
+async def _run_exam_evaluation(
+    essay: Essay,
+    payload: ExamTaskEvaluationRequest,
+    *,
+    cached_payload: dict | None,
+    coordinator: EvaluationCoordinator,
+    trace: Any,
+) -> EvaluationSummary:
+    if cached_payload is not None:
+        return await coordinator.replay_cached(
+            parse_cached_evaluations(cached_payload),
+            trace=trace,
+        )
+    return await coordinator.evaluate_exam_task(
+        essay_text=payload.essayText,
+        exam_type=payload.examType,
+        task_number=payload.taskNumber,
+        user_id=payload.userId,
+        stimulus_s3_key=payload.stimulusS3Key,
+        task_prompt=payload.taskPrompt,
+        trace=trace,
     )
 
 
@@ -328,20 +352,13 @@ async def evaluate_exam_task(
     task_type_label = f"task{payload.taskNumber}"
     try:
         with goa_writing_exam_evaluation_ms.labels(task_type=task_type_label).time():
-            if cached_payload is not None:
-                summary = await coordinator.replay_cached(
-                    parse_cached_evaluations(cached_payload),
-                    trace=trace,
-                )
-            else:
-                summary = await coordinator.evaluate_exam_task(
-                    payload.essayText,
-                    payload.examType,
-                    task_number=payload.taskNumber,
-                    stimulus_s3_key=payload.stimulusS3Key,
-                    task_prompt=payload.taskPrompt,
-                    trace=trace,
-                )
+            summary = await _run_exam_evaluation(
+                essay,
+                payload,
+                cached_payload=cached_payload,
+                coordinator=coordinator,
+                trace=trace,
+            )
     except EvaluationFailed as exc:
         essay.status = "evaluation_failed"
         db.commit()

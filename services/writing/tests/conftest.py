@@ -12,7 +12,10 @@ from sqlalchemy.pool import StaticPool
 
 
 SERVICE_ROOT = Path(__file__).resolve().parents[1]
-REPOSITORY_ROOT = SERVICE_ROOT.parents[1]
+try:
+    REPOSITORY_ROOT = SERVICE_ROOT.parents[1]
+except IndexError:
+    REPOSITORY_ROOT = Path("/")
 CONTRACTS_ROOT = REPOSITORY_ROOT / "packages" / "contracts" / "py"
 sys.path.insert(0, str(SERVICE_ROOT))
 sys.path.insert(0, str(CONTRACTS_ROOT))
@@ -133,7 +136,7 @@ class FakeWritingAgentRunner:
         }
         self.calls = []
 
-    async def evaluate(self, criterion, essay_text, exam_type):
+    async def evaluate(self, criterion, essay_text, exam_type, user_id="anonymous", **kwargs):
         import asyncio
 
         self.calls.append((criterion, essay_text, exam_type))
@@ -167,6 +170,17 @@ class FakeWritingAgentRunner:
             latency_ms=self.delays.get(criterion, 0) * 1000,
             cost_usd=0.001,
         )
+
+    async def evaluate_exam_task(
+        self,
+        criterion,
+        essay_text,
+        exam_type,
+        task_number,
+        user_id="anonymous",
+        **kwargs
+    ):
+        return await self.evaluate(criterion, essay_text, exam_type, user_id=user_id)
 
 
 @pytest.fixture

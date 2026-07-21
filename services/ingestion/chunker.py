@@ -11,22 +11,12 @@ def get_chunker() -> RecursiveCharacterTextSplitter:
     in tokens using the cl100k_base tiktoken encoding.
     """
 
-    try:
-        # Direct lookup using the cl100k_base encoding (used by text-embedding-3-small)
-        # to avoid internal model-to-encoding lookup failures on older/newer package versions.
-        return RecursiveCharacterTextSplitter.from_tiktoken_encoder(
-            encoding_name="cl100k_base",
-            chunk_size=500,
-            chunk_overlap=50,
-        )
-    
-    except Exception as e:
-        # Fallback to model name if encoding_name parameter is not supported by a specific version
-        return RecursiveCharacterTextSplitter.from_tiktoken_encoder(
-            model_name = 'text-embedding-3-small',
-            chunk_size=500,
-            chunk_overlap=50
-        )
+    # Direct lookup using the cl100k_base encoding to avoid internal model-to-encoding lookup failures.
+    return RecursiveCharacterTextSplitter.from_tiktoken_encoder(
+        encoding_name="cl100k_base",
+        chunk_size=500,
+        chunk_overlap=50,
+    )
     
 def generate_chunk_id(source_url: str, content: str) -> str:
     """Generates a deterministic UUID v5 from a source URL and content prefix."""

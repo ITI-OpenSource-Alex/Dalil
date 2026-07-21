@@ -47,9 +47,9 @@ async def setup_database(conn):
 
 
 async def get_embedding(text: str) -> list:
-    """Generate a 1536-dimensional vector embedding using OpenAI's model."""
+    """Generate a 768-dimensional vector embedding using OpenAI's model."""
     response = await openai_client.embeddings.create(
-        input=[text.replace("\n", " ")], model="text-embedding-3-small"
+        input=[text.replace("\n", " ")], model="nomic-embed-text"
     )
     return response.data[0].embedding
 

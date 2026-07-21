@@ -25,6 +25,9 @@ type Config struct {
 	WritingServiceURL string        `envconfig:"WRITING_SERVICE_URL" required:"true"`
 	UserServiceURL    string        `envconfig:"USER_SERVICE_URL" required:"true"`
 	InternalApiKey    string        `envconfig:"INTERNAL_API_KEY" required:"true"`
+	BudgetUSD           float64       `envconfig:"BUDGET_USD" default:"150.0"`
+	CostPromptPer1M     float64       `envconfig:"COST_PROMPT_PER_1M" default:"2.0"`
+	CostCompletionPer1M float64       `envconfig:"COST_COMPLETION_PER_1M" default:"10.0"`
 }
 
 func LoadConfig() (Config, error) {

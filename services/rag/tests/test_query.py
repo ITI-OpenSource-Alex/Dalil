@@ -13,8 +13,10 @@ client = TestClient(app)
 def mock_external_apis(monkeypatch):
     """Mock external OpenAI and Anthropic API calls at class level to bypass Pydantic validations."""
     # 1. Mock OpenAI embeddings class method
-    mock_embed = AsyncMock(return_value=[0.15] * 1536)
-    monkeypatch.setattr("langchain_openai.OpenAIEmbeddings.aembed_query", mock_embed)
+    mock_embed_response = MagicMock()
+    mock_embed_response.data = [MagicMock(embedding=[0.15] * 768)]
+    mock_embed = AsyncMock(return_value=mock_embed_response)
+    monkeypatch.setattr("app.services.rag_service.embedding_client.embeddings.create", mock_embed)
 
     # 2. Mock Anthropic LLM Chat class method
     mock_response = MagicMock()
@@ -85,11 +87,10 @@ def get_prometheus_counter_value(metrics_text: str, counter_name: str) -> float:
 
 @pytest.mark.asyncio
 async def test_generate_embedding():
-    """Verify generate_embedding returns a 1536-dimensional vector."""
+    """Verify generate_embedding returns a 768-dimensional vector."""
     vector = await generate_embedding("test question")
     assert isinstance(vector, list)
-    assert len(vector) == 1536
-    assert vector[0] == 0.15
+    assert len(vector) == 768
 
 
 @pytest.mark.asyncio

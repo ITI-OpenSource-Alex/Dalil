@@ -71,7 +71,7 @@ def test_scoring_returns_425_if_no_local_profile(monkeypatch):
     make_mock_db_pool(monkeypatch, return_user=False)
 
     response = client.post(
-        "/scoring/score", json={"userId": "user-123", "programId": "prog-1"}
+        "/score", json={"userId": "user-123", "programId": "prog-1"}
     )
     assert response.status_code == 425
     assert "Profile not yet replicated" in response.json()["detail"]
@@ -81,7 +81,7 @@ def test_scoring_success(monkeypatch):
     make_mock_db_pool(monkeypatch, return_user=True)
 
     response = client.post(
-        "/scoring/score", json={"userId": "user-123", "programId": "prog-1"}
+        "/score", json={"userId": "user-123", "programId": "prog-1"}
     )
     assert response.status_code == 200
     assert "score" in response.json()
@@ -90,7 +90,7 @@ def test_scoring_success(monkeypatch):
 def test_score_path_unchanged(monkeypatch):
     make_mock_db_pool(monkeypatch, return_user=True)
     response = client.post(
-        "/scoring/score", json={"userId": "user-123", "programId": "prog-1"}
+        "/score", json={"userId": "user-123", "programId": "prog-1"}
     )
     assert response.status_code == 200
 
@@ -133,7 +133,7 @@ def test_match_response_key_is_programs(monkeypatch):
         mock_prog_2, mock_user   # calculation for prog-2
     ]
     
-    # For prog-2, make the LLM boost higher so it wins
+    # For prog-2, make the LLM boost higher so it wins (only applies to /score now)
     def mock_llm(cv_text=None, program_description=None, **kwargs):
         if program_description and "prog-2" in program_description:
             return {"boost_value": 20.0, "justification_tokens": ["Amazing"]}
@@ -153,8 +153,6 @@ def test_match_response_key_is_programs(monkeypatch):
     assert len(programs) == 2
     # Ensure descending sort
     assert programs[0]["result"]["score"] >= programs[1]["result"]["score"]
-    assert programs[0]["programId"] == "prog-2" # prog-2 got higher boost
-    assert programs[1]["programId"] == "prog-1"
 
 def test_match_entries_carry_display_fields(monkeypatch):
     _, mock_conn = make_mock_db_pool(monkeypatch, return_user=True)
@@ -330,3 +328,31 @@ async def test_local_user_profile_coerces_uuid_user_id(monkeypatch):
     # And it must satisfy the Pydantic model that consumes it — the actual failure point.
     from app.schemas.scoring import UserProfile
     assert UserProfile(**profile).userId == "00000000-0000-0000-0000-000000000002"
+
+def test_match_issues_zero_llm_calls(monkeypatch):
+    make_mock_db_pool(monkeypatch, return_user=True)
+    mock_llm = AsyncMock(return_value={"boost_value": 10.0, "justification_tokens": ["Great CV"]})
+    monkeypatch.setattr("app.services.scoring.get_llm_boost", mock_llm)
+    
+    response = client.post("/match", json={"userId": "user-123"})
+    assert response.status_code == 200
+    assert mock_llm.call_count == 0
+
+def test_score_still_applies_boost(monkeypatch):
+    make_mock_db_pool(monkeypatch, return_user=True)
+    mock_llm = AsyncMock(return_value={"boost_value": 10.0, "justification_tokens": ["Great CV"]})
+    monkeypatch.setattr("app.services.scoring.get_llm_boost", mock_llm)
+    
+    response = client.post("/score", json={"userId": "user-123", "programId": "prog-1"})
+    assert response.status_code == 200
+    assert mock_llm.call_count == 1
+
+def test_match_ranking_order_unchanged(monkeypatch):
+    make_mock_db_pool(monkeypatch, return_user=True)
+    response = client.post("/match", json={"userId": "user-123"})
+    assert response.status_code == 200
+    programs = response.json()["programs"]
+    assert len(programs) > 0
+    scores = [p["result"]["score"] for p in programs]
+    assert scores == sorted(scores, reverse=True)
+

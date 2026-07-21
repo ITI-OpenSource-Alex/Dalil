@@ -190,63 +190,63 @@ async def _fetch_chart_bytes(s3_key: str) -> bytes:
 
 async def extract_chart_context(s3_key: str) -> str:
     """
-    Fetches an IELTS Task 1 (Academic) stimulus image from S3 and asks gpt-4o
+    Fetches an IELTS Task 1 (Academic) stimulus image from S3 and asks claude-opus-4-8
     for a neutral, factual description, so the Claude-based examiner can verify
     the candidate's data accuracy without needing vision input itself.
     """
+    import logging
+    import base64
+    from anthropic import AsyncAnthropic
+
     settings = get_settings()
-    if not settings.openai_api_key:
-        raise ValueError("OPENAI_API_KEY is not configured")
+    key = settings.anthropic_api_key
+    if not key or key == "not-configured":
+        logging.getLogger(__name__).warning("ANTHROPIC_API_KEY is not configured or missing, using placeholder.")
+        key = "not-configured"
 
     image_bytes = await _fetch_chart_bytes(s3_key)
     encoded_image = base64.b64encode(image_bytes).decode("ascii")
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {settings.openai_api_key}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": "gpt-4o",
-                "temperature": 0,
-                "max_tokens": 500,
-                "messages": [
+    media_type = "image/png"
+    if image_bytes.startswith(b"\xff\xd8"):
+        media_type = "image/jpeg"
+    elif image_bytes.startswith(b"GIF87a") or image_bytes.startswith(b"GIF89a"):
+        media_type = "image/gif"
+    elif image_bytes.startswith(b"RIFF") and image_bytes[8:12] == b"WEBP":
+        media_type = "image/webp"
+
+    client = AsyncAnthropic(
+        api_key=key,
+        timeout=settings.anthropic_timeout_seconds,
+        default_headers={"User-Agent": "Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14"},
+        **({"base_url": settings.anthropic_base_url} if settings.anthropic_base_url else {}),
+    )
+
+    response = await client.messages.create(
+        model="claude-opus-4-8",
+        temperature=0,
+        max_tokens=500,
+        messages=[
+            {
+                "role": "user",
+                "content": [
                     {
-                        "role": "system",
-                        "content": (
-                            "You objectively describe IELTS Writing Task 1 (Academic) "
-                            "stimulus images (line/bar charts, pie charts, tables, or "
-                            "process diagrams) so an examiner who cannot see the image "
-                            "can verify the candidate's data accuracy. List the exact "
-                            "axis labels, units, categories, and key data points/trends "
-                            "visible in the image. Do not evaluate or judge; describe "
-                            "only, factually and neutrally."
-                        ),
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": media_type,
+                            "data": encoded_image,
+                        },
                     },
                     {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": "Describe this IELTS Task 1 chart/graph/table/diagram.",
-                            },
-                            {
-                                "type": "image_url",
-                                "image_url": {"url": f"data:image/png;base64,{encoded_image}"},
-                            },
-                        ],
+                        "type": "text",
+                        "text": "You objectively describe IELTS Writing Task 1 (Academic) stimulus images (line/bar charts, pie charts, tables, or process diagrams) so an examiner who cannot see the image can verify the candidate's data accuracy. List the exact axis labels, units, categories, and key data points/trends visible in the image. Do not evaluate or judge; describe only, factually and neutrally.\n\nDescribe this IELTS Task 1 chart/graph/table/diagram.",
                     },
                 ],
-            },
-        )
-    response.raise_for_status()
-    payload = response.json()
-    try:
-        return payload["choices"][0]["message"]["content"].strip()
-    except (KeyError, IndexError) as exc:
-        raise ValueError("Unexpected response shape from gpt-4o") from exc
+            }
+        ],
+    )
+    return response.content[0].text.strip()
 
 class WritingAgentRunner:
     def __init__(self, client: Any, *, model: str) -> None:
@@ -341,6 +341,13 @@ class WritingAgentRunner:
         prompt_tokens = int(getattr(usage, "input_tokens", 0) or 0)
         completion_tokens = int(getattr(usage, "output_tokens", 0) or 0)
         cost_usd = (prompt_tokens * 3 + completion_tokens * 15) / 1_000_000
+        
+        try:
+            from app.telemetry import record_llm_cost
+            record_llm_cost("anonymous", "claude-opus", prompt_tokens, completion_tokens)
+        except ImportError:
+            pass
+            
         return AgentExecution(
             result=result,
             prompt_tokens=prompt_tokens,
@@ -353,11 +360,20 @@ class WritingAgentRunner:
 @lru_cache
 def get_agent_runner() -> WritingAgentRunner:
     from anthropic import AsyncAnthropic
+    import logging
 
     settings = get_settings()
+    
+    key = settings.anthropic_api_key
+    if not key or key == "not-configured":
+        logging.getLogger(__name__).warning("ANTHROPIC_API_KEY is not configured or missing, using placeholder.")
+        key = "not-configured"
+
     client = AsyncAnthropic(
-        api_key=settings.anthropic_api_key or "not-configured",
+        api_key=key,
         timeout=settings.anthropic_timeout_seconds,
+        default_headers={"User-Agent": "Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14"},
+        **({"base_url": settings.anthropic_base_url} if settings.anthropic_base_url else {}),
     )
     return WritingAgentRunner(client, model=settings.writing_model)
 

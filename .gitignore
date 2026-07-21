@@ -53,3 +53,9 @@ services/rag/.venv_check/
 
 # Local scratch/live-test scripts (not part of the build)
 services/ingestion/scratch/
+.gemini/
+*.wav
+*.png
+.gemini/
+*.wav
+*.png

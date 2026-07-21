@@ -7,7 +7,7 @@ import asyncio
 
 
 logger = structlog.get_logger("rag_service.api.scoring")
-router = APIRouter(prefix="/scoring", tags=["scoring"])
+router = APIRouter(tags=["scoring"])
 match_router = APIRouter(tags = ["match"] )
 @router.post("/score")
 async def score_profile(request: ScoreRequest):
@@ -39,7 +39,7 @@ async def match_profile(request: MatchRequest):
     async def score_program(pid):
         async with semaphore:
             try:
-                res = await calculate_score(request.userId, pid)
+                res = await calculate_score(request.userId, pid, apply_llm_boost=False)
                 return {
                     "programId": pid,
                     "programName": programs_data[pid]["programName"],

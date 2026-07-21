@@ -3,6 +3,7 @@ import time
 import logging
 from datetime import datetime
 from typing import List, Tuple, Dict, Any
+from openai import AsyncOpenAI
 
 from langchain_openai import OpenAIEmbeddings
 from langchain_anthropic import ChatAnthropic
@@ -22,19 +23,28 @@ if settings.langfuse_public_key and settings.langfuse_secret_key:
         host=settings.langfuse_host,
     )
 
-openai_key = settings.openai_api_key or "mock-key"
 anthropic_key = settings.anthropic_api_key or "mock-key"
 
-embeddings_model = OpenAIEmbeddings(
-    model="text-embedding-3-small", openai_api_key=openai_key
+embedding_client = AsyncOpenAI(
+    api_key=settings.embedding_api_key,
+    base_url=settings.embedding_base_url
 )
 
-llm = ChatAnthropic(model="claude-haiku-4-5-20251001", anthropic_api_key=anthropic_key)
+llm = ChatAnthropic(
+    model=settings.llm_model,
+    anthropic_api_key=settings.anthropic_auth_token or settings.anthropic_api_key,
+    **({"anthropic_api_url": settings.anthropic_base_url} if settings.anthropic_base_url else {}),
+    model_kwargs={"extra_headers": {"User-Agent": "Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14"}},
+)
 
 
 async def generate_embedding(text: str) -> List[float]:
-    """Generate 1536-dimensional vector embedding for the input text."""
-    return await embeddings_model.aembed_query(text)
+    """Generate 768-dimensional vector embedding for the input text."""
+    response = await embedding_client.embeddings.create(
+        model=settings.embedding_model,
+        input=[text]
+    )
+    return response.data[0].embedding
 
 
 # Fuzzy-match threshold for the FAQ short-circuit below, per the architecture doc's
@@ -156,11 +166,21 @@ Answer:"""
 
     # Extract token usage
     token_usage = response.response_metadata.get("usage", {})
-    input_tokens = token_usage.get("input_tokens", 0)
-    output_tokens = token_usage.get("output_tokens", 0)
+    if hasattr(token_usage, "input_tokens"):
+        input_tokens = getattr(token_usage, "input_tokens", 0)
+        output_tokens = getattr(token_usage, "output_tokens", 0)
+    else:
+        input_tokens = token_usage.get("input_tokens", 0) if isinstance(token_usage, dict) else 0
+        output_tokens = token_usage.get("output_tokens", 0) if isinstance(token_usage, dict) else 0
 
     # Estimated cost calculation for claude-haiku-4-5-20251001 ($0.25/M input, $1.25/M output tokens)
     cost_usd = (input_tokens * 0.25 + output_tokens * 1.25) / 1_000_000
+    
+    try:
+        from app.telemetry import record_llm_cost
+        record_llm_cost(user_id, settings.llm_model, input_tokens, output_tokens)
+    except ImportError:
+        logger.warning("telemetry helper not found")
 
     total_latency_ms = (time.time() - start_time) * 1000
 
@@ -189,7 +209,7 @@ Answer:"""
 
             trace.generation(
                 name="answer-generation",
-                model="claude-haiku-4-5-20251001",
+                model=settings.llm_model,
                 start_time=datetime.fromtimestamp(
                     start_time + (total_latency_ms - llm_latency_ms) / 1000
                 ),

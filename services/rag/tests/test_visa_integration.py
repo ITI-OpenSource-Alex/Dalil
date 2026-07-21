@@ -42,8 +42,8 @@ def live_client():
         yield c
 
 
-FIXED_EMBEDDING = [0.15] * 1536
-UNRELATED_EMBEDDING = [-0.15] * 1536
+FIXED_EMBEDDING = [0.15] * 768
+UNRELATED_EMBEDDING = [-0.15] * 768
 
 
 @pytest.fixture(autouse=True)
@@ -325,19 +325,69 @@ def test_query_answers_blocked_account_question_from_real_retrieval(live_client,
         _run(_delete_documents([fintiba_id, distractor_id]))
 
 
-# ---------------------------------------------------------------------------
-# FAQ cache-hit -- explicitly deferred, not faked (see main plan Dependencies /
-# Question #1 and implementation plan Task 17's Notes)
-# ---------------------------------------------------------------------------
+def test_exact_faq_question_short_circuits(live_client, mock_ai_apis):
+    req = {
+        "question": "What is a Studienkolleg?",
+        "userId": "test-user"
+    }
+    res = live_client.post("/query", json=req)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["answer"] == "A Studienkolleg is a preparatory college for foreign students whose school-leaving certificate is not equivalent to the German Abitur. It lasts one year."
+    
+    _, mock_llm = mock_ai_apis
+    assert mock_llm.call_count == 0
 
-@pytest.mark.skip(
-    reason=(
-        "GOA-045 (FAQ fuzzy-match-then-skip-LLM short-circuit) is not implemented. "
-        "app/services/rag_service.py::query_rag() never checks faq_entries before "
-        "answering -- there is no code path to exercise here yet. The 6 Egypt FAQ rows "
-        "seeded in migration 010 (Task 17) are not reachable at query time until GOA-045 "
-        "lands. See GOA-086 main implementation plan, Dependencies section and Question #1."
-    )
-)
-def test_faq_cache_hit_for_egypt_specific_question():
-    pass
+def test_paraphrased_faq_question_short_circuits(live_client, mock_ai_apis):
+    req = {
+        "question": "What is a studienkolleg?",
+        "userId": "test-user"
+    }
+    res = live_client.post("/query", json=req)
+    assert res.status_code == 200
+    assert "A Studienkolleg is a preparatory college" in res.json()["answer"]
+    
+    _, mock_llm = mock_ai_apis
+    assert mock_llm.call_count == 0
+
+def test_unrelated_question_falls_through_to_llm(live_client, mock_ai_apis):
+    req = {
+        "question": "What is the capital of Mongolia?",
+        "userId": "test-user"
+    }
+    res = live_client.post("/query", json=req)
+    assert res.status_code == 200
+    
+    _, mock_llm = mock_ai_apis
+    assert mock_llm.call_count == 1
+
+def test_threshold_boundary(live_client, mock_ai_apis):
+    _, mock_llm = mock_ai_apis
+
+    # 1. Below threshold (0.847 - "France")
+    res_below = live_client.post("/query", json={
+        "question": "Is the Egyptian Thanaweya Amma certificate recognized for university admission in France?",
+        "userId": "test-user"
+    })
+    assert res_below.status_code == 200
+    assert mock_llm.call_count == 1
+    
+    # 2. Above threshold (0.89 - "uni admission")
+    res_above = live_client.post("/query", json={
+        "question": "Is the Egyptian Thanaweya Amma certificate recognized for uni admission in Germany?",
+        "userId": "test-user"
+    })
+    assert res_above.status_code == 200
+    assert "The Thanaweya Amma" in res_above.json()["answer"]
+    assert mock_llm.call_count == 1 # didn't increment
+
+def test_faq_seed_count(live_client):
+    async def get_count():
+        conn = await _connect()
+        try:
+            return await conn.fetchval("SELECT count(*) FROM faq_entries")
+        finally:
+            await conn.close()
+    
+    count = _run(get_count())
+    assert count >= 30

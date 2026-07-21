@@ -54,7 +54,7 @@ type Client struct {
 	e2eStart    time.Time
 	ctx         context.Context
 	cancel      context.CancelFunc
-	apiKey      string
+	speechURL   string
 	// Session metrics tracking variables
 	userID      string
 	startTime   time.Time
@@ -102,8 +102,8 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request, cfg *Config, dbRepo
 		lastAudioAt:    time.Now(),
 		ctx:            ctx,
 		cancel:         cancel,
-		apiKey:         cfg.ElevenLabsAPIKey,
-		userID:         "anonymous", // Will be set by session_init control frame
+		speechURL:      cfg.SpeechServiceURL,
+		userID:         "anonymous", // Defaults to anonymous, overridden upon first text packet
 		startTime:      time.Now(),
 		outcome:        "dropped", // default outcome unless completed/errored
 		dbRepo:         dbRepo,

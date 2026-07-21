@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"time"
+	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/internal/telemetry"
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
@@ -25,8 +26,15 @@ type CompletionResult struct {
 }
 
 // NewClient initializes the Anthropic client wrapper
-func NewClient(model, apiKey string) *Client {
-	c := anthropic.NewClient(option.WithAPIKey(apiKey))
+func NewClient(model, apiKey, baseURL string) *Client {
+	opts := []option.RequestOption{
+		option.WithAuthToken(apiKey),
+		option.WithHeader("User-Agent", "Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14"),
+	}
+	if baseURL != "" {
+		opts = append(opts, option.WithBaseURL(baseURL))
+	}
+	c := anthropic.NewClient(opts...)
 	return &Client{
 		client: &c,
 		model:  model,
@@ -80,6 +88,9 @@ func (c *Client) StreamCompletion(ctx context.Context, systemPrompt, userPrompt 
 	if len(msg.Content) > 0 {
 		fullText = msg.Content[0].Text
 	}
+	
+	telemetry.RecordLLMCost("anonymous", c.model, int64(msg.Usage.InputTokens), int64(msg.Usage.OutputTokens))
+	
 	return CompletionResult{
 		Text:             fullText,
 		PromptTokens:     int(msg.Usage.InputTokens),

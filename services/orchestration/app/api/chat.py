@@ -55,7 +55,8 @@ async def chat_endpoint(request: ChatRequest, req: Request):
             intent_result = await classify_intent(
                 message=request.message,
                 trace_id=trace_id,
-                parent_span_id=parent_span_id
+                parent_span_id=parent_span_id,
+                user_id=request.userId
             )
             intent = intent_result.intent
             downstream_service = intent.lower()

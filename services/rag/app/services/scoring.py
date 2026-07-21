@@ -79,11 +79,11 @@ async def get_program_requirements(program_id: str) -> ProgramRequirements | Non
 
 
 @observe(as_type="trace", name="GOA-012-scoring-pipeline")
-async def calculate_score(user_id: str, program_id: str) -> dict:
+async def calculate_score(user_id: str, program_id: str, apply_llm_boost: bool = True) -> dict:
     start_time = time.time()
 
     # CACHE-FIRST PRECEDENCE
-    cache_key = f"score:{user_id}:{program_id}"
+    cache_key = f"score:{user_id}:{program_id}:boost_{apply_llm_boost}"
     if redis_client.redis:
         cached_result = await redis_client.redis.get(cache_key)
         if cached_result:
@@ -120,19 +120,24 @@ async def calculate_score(user_id: str, program_id: str) -> dict:
         soft_score = compute_soft_score(profile, program)
 
         # STAGE 3: LLM BOOST
-        cv_text = await get_user_cv(user_id)
-        llm_result = await get_llm_boost(
-            cv_text=cv_text, program_description=str(program.model_dump())
-        )
-        boost_value = llm_result["boost_value"]
+        if apply_llm_boost:
+            cv_text = await get_user_cv(user_id)
+            llm_result = await get_llm_boost(
+                cv_text=cv_text, program_description=str(program.model_dump())
+            )
+            boost_value = llm_result["boost_value"]
+            llm_feedback = llm_result.get("justification_tokens")
+        else:
+            boost_value = 0
+            llm_feedback = None
 
         # Calculate Final Score (Clamped strictly to 0-100)
         final_score = max(0.0, min(100.0, soft_score + boost_value))
 
         # 6. GAP REPORT
         gap_report = generate_gap_report(profile, program)
-        if llm_result.get("justification_tokens"):
-            gap_report["llm_feedback"] = llm_result["justification_tokens"]
+        if llm_feedback:
+            gap_report["llm_feedback"] = llm_feedback
 
         final_result = {
             "score": final_score,

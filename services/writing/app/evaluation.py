@@ -167,8 +167,12 @@ class EvaluationCoordinator:
         trace: Any = None,
         on_partial: PartialCallback | None = None,
     ) -> EvaluationSummary:
+        is_academic_task1 = exam_type.lower() == "academic" and task_number == 1
+        if is_academic_task1 and not stimulus_s3_key:
+            raise EvaluationFailed("Academic Task 1 requires a stimulus image.")
+
         chart_context: str | None = None
-        if stimulus_s3_key:
+        if is_academic_task1 and stimulus_s3_key:
             chart_context = await extract_chart_context(stimulus_s3_key)
 
         async def run_one(criterion: Criterion) -> AgentExecution:

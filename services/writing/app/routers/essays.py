@@ -139,6 +139,28 @@ async def _run_evaluation(
         on_partial=on_partial,
     )
 
+async def _run_exam_evaluation(
+    essay: Essay,
+    payload: ExamTaskEvaluationRequest,
+    *,
+    cached_payload: dict | None,
+    coordinator: EvaluationCoordinator,
+    trace: Any,
+) -> EvaluationSummary:
+    if cached_payload is not None:
+        return await coordinator.replay_cached(
+            parse_cached_evaluations(cached_payload),
+            trace=trace,
+        )
+    return await coordinator.evaluate_exam_task(
+        essay.extracted_text,
+        essay.exam_type or "Academic",
+        task_number=payload.taskNumber,
+        stimulus_s3_key=payload.stimulusS3Key,
+        task_prompt=payload.taskPrompt,
+        trace=trace,
+    )
+
 
 @router.post("/evaluate", response_model=EssayEvaluationResponse)
 async def evaluate_submitted_text(
@@ -322,8 +344,9 @@ async def evaluate_exam_task(
         from_cache=from_cache,
     )
     try:
-        summary = await _run_evaluation(
+        summary = await _run_exam_evaluation(
             essay,
+            payload,
             cached_payload=cached_payload,
             coordinator=coordinator,
             trace=trace,

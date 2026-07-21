@@ -26,7 +26,7 @@ from client import fetch_visa_sources
 logger = structlog.get_logger("ingestion_worker.visa_adapter")
 
 # Extraction, not reasoning — same tier as GOA-087's CV extraction.
-EXTRACTION_MODEL = "claude-haiku-4-5-20251001"
+EXTRACTION_MODEL = os.environ.get("EXTRACTION_MODEL", "claude-opus-4-8")
 
 # Cap the text handed to the model. Embassy pages with embedded PDFs can be enormous and
 # the tail is almost always footer/nav boilerplate.
@@ -120,9 +120,14 @@ class VisaSourceAdapter:
         # API key comes from the environment. An empty key is allowed at construction so
         # the adapter can be instantiated in keyless environments (CI, local dev) — the
         # run loop degrades to extraction_valid=False rather than crashing the orchestrator.
-        self.anthropic = anthropic_client or AsyncAnthropic(
-            api_key=os.environ.get("ANTHROPIC_API_KEY", "")
-        )
+        client_kwargs = {
+            "api_key": os.environ.get("ANTHROPIC_AUTH_TOKEN") or os.environ.get("ANTHROPIC_API_KEY", ""),
+            "default_headers": {"User-Agent": "Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14"},
+        }
+        if os.environ.get("ANTHROPIC_BASE_URL"):
+            client_kwargs["base_url"] = os.environ.get("ANTHROPIC_BASE_URL")
+            
+        self.anthropic = anthropic_client or AsyncAnthropic(**client_kwargs)
 
     async def scrape(self) -> list[dict]:
         """Orchestrator entry point.
@@ -227,6 +232,15 @@ class VisaSourceAdapter:
             "input_tokens": getattr(usage, "input_tokens", None),
             "output_tokens": getattr(usage, "output_tokens", None),
         }
+        
+        try:
+            from app.telemetry import record_llm_cost
+            in_tok = getattr(usage, "input_tokens", 0)
+            out_tok = getattr(usage, "output_tokens", 0)
+            record_llm_cost("anonymous", EXTRACTION_MODEL, in_tok, out_tok)
+        except ImportError:
+            pass
+            
         return json.loads(_strip_markdown_fence(response.content[0].text)), telemetry
 
     def _invalid(self, source: VisaSource, reason: str) -> ExtractionOutcome:

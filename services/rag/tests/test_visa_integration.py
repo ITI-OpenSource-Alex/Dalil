@@ -50,8 +50,10 @@ UNRELATED_EMBEDDING = [-0.15] * 768
 def mock_ai_apis(monkeypatch):
     """Mock only the external OpenAI/Anthropic calls -- no real API keys are configured
     for this project. Retrieval itself still hits the real, live Postgres."""
-    mock_embed = AsyncMock(return_value=FIXED_EMBEDDING)
-    monkeypatch.setattr("langchain_openai.OpenAIEmbeddings.aembed_query", mock_embed)
+    mock_embed_response = MagicMock()
+    mock_embed_response.data = [MagicMock(embedding=[0.15] * 768)]
+    mock_embed = AsyncMock(return_value=mock_embed_response)
+    monkeypatch.setattr("app.services.rag_service.embedding_client.embeddings.create", mock_embed)
 
     mock_response = MagicMock()
     mock_response.content = "Mocked answer."

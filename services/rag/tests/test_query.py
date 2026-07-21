@@ -13,8 +13,10 @@ client = TestClient(app)
 def mock_external_apis(monkeypatch):
     """Mock external OpenAI and Anthropic API calls at class level to bypass Pydantic validations."""
     # 1. Mock OpenAI embeddings class method
-    mock_embed = AsyncMock(return_value=[0.15] * 768)
-    monkeypatch.setattr("langchain_openai.OpenAIEmbeddings.aembed_query", mock_embed)
+    mock_embed_response = MagicMock()
+    mock_embed_response.data = [MagicMock(embedding=[0.15] * 768)]
+    mock_embed = AsyncMock(return_value=mock_embed_response)
+    monkeypatch.setattr("app.services.rag_service.embedding_client.embeddings.create", mock_embed)
 
     # 2. Mock Anthropic LLM Chat class method
     mock_response = MagicMock()

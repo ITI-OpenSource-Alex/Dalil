@@ -9,7 +9,7 @@ This document defines the branching strategy, pull request (PR) process, review 
 We use a modified Git Flow strategy:
 
 * **`main`**: Represents the current production-ready code. Direct push is blocked.
-* **`develop`**: Represents the current staging/integration state of active development. All feature branches are merged here. Direct push is blocked.
+* **`dev`**: Represents the current staging/integration state of active development. All feature branches are merged here. Direct push is blocked.
 * **`feat/GOA-XXX-Name`**: Feature branches created off `develop` to implement a specific ticket.
 * **`fix/GOA-XXX-Name`**: Bugfix branches created off `develop` to resolve issues.
 
@@ -33,9 +33,9 @@ To merge code into `develop` or `main`:
 ## Deployment Gates
 
 ### Staging Deployment
-* Triggered automatically upon a push or merge to the `develop` branch.
+* Triggered automatically upon a push or merge to the `dev` branch.
 * GitHub Actions leverages OpenID Connect (OIDC) to assume the staging AWS deployment IAM role (no static keys in repo) and deploys to the ECS staging cluster.
 
 ### Production Deployment
-* Triggered upon merging `develop` into `main`.
+* Triggered upon merging `dev` into `main`.
 * A **named reviewer approval gate** must be clicked and approved in the GitHub Actions environment before deployment to production begins.

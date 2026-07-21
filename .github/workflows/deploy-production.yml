@@ -1,0 +1,39 @@
+name: Deploy Production
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  # After running `terraform apply`, replace with output value of production_deploy_role_arn
+  ROLE_TO_ASSUME: arn:aws:iam::114403655381:role/goa-production-deploy
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: production # Requires named reviewer approval in GitHub
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify AWS Identity
+        run: aws sts get-caller-identity
+
+      # TODO (GOA-070): Uncomment once ECS cluster and ECR repos exist
+      # - name: Login to Amazon ECR
+      #   uses: aws-actions/amazon-ecr-login@v2
+      #
+      # - name: Deploy to ECS
+      #   run: aws ecs update-service --cluster goa-production --service goa-gateway --force-new-deployment

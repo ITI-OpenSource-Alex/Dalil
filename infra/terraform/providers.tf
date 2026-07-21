@@ -11,6 +11,19 @@ terraform {
       source  = "hashicorp/random"
       version = "~> 3.6"
     }
+
+
+    # NOTE: GitHub provider requires a paid org plan for branch protection.
+    # Uncomment when the org is upgraded.
+    # github = {
+    #   source  = "integrations/github"
+    #   version = "~> 6.0"
+    # }
+
+    tls = {
+      source  = "hashicorp/tls"
+      version = "~> 4.0"
+
   }
 }
 
@@ -27,3 +40,10 @@ provider "aws" {
   skip_region_validation      = var.aws_offline_mode
   s3_use_path_style           = var.aws_offline_mode
 }
+
+# NOTE: GitHub provider requires a paid org plan for branch protection.
+# Uncomment when the org is upgraded.
+# provider "github" {
+#   owner = var.github_org
+#   token = var.github_token
+# }

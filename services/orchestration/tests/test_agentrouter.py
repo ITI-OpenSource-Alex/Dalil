@@ -4,9 +4,9 @@ from app.services.supervisor import classify_intent, IntentResult, structured_ll
 import os
 
 @pytest.mark.skipif(
-    (not os.getenv("ANTHROPIC_API_KEY") or os.getenv("ANTHROPIC_API_KEY") == "not-configured") and 
-    (not os.getenv("ANTHROPIC_AUTH_TOKEN") or os.getenv("ANTHROPIC_AUTH_TOKEN") == "not-configured"), 
-    reason="Requires either ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN"
+    (not os.getenv("ANTHROPIC_API_KEY") or os.getenv("ANTHROPIC_API_KEY") in ["not-configured", "dummy-key"]) and 
+    (not os.getenv("ANTHROPIC_AUTH_TOKEN") or os.getenv("ANTHROPIC_AUTH_TOKEN") in ["not-configured", "dummy-key"]), 
+    reason="Requires valid ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN"
 )
 @pytest.mark.asyncio
 async def test_structured_output_returns_intentresult_instance():
@@ -14,9 +14,9 @@ async def test_structured_output_returns_intentresult_instance():
     assert isinstance(result, (IntentResult, dict))
 
 @pytest.mark.skipif(
-    (not os.getenv("ANTHROPIC_API_KEY") or os.getenv("ANTHROPIC_API_KEY") == "not-configured") and 
-    (not os.getenv("ANTHROPIC_AUTH_TOKEN") or os.getenv("ANTHROPIC_AUTH_TOKEN") == "not-configured"), 
-    reason="Requires either ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN"
+    (not os.getenv("ANTHROPIC_API_KEY") or os.getenv("ANTHROPIC_API_KEY") in ["not-configured", "dummy-key"]) and 
+    (not os.getenv("ANTHROPIC_AUTH_TOKEN") or os.getenv("ANTHROPIC_AUTH_TOKEN") in ["not-configured", "dummy-key"]), 
+    reason="Requires valid ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN"
 )
 @pytest.mark.asyncio
 @pytest.mark.parametrize("message, expected_intent", [

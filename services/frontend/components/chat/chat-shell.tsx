@@ -415,7 +415,16 @@ export default function ChatShell() {
 
   const startSpeaking = async () => {
     setSpeakingOpen(true);
+    setSpeakingState("listening");
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+      }
+    } catch (e) {
+      console.error("Mic permission error:", e);
+    }
   };
+
 
   const stopSpeaking = () => {
     recorderRef.current?.stop();

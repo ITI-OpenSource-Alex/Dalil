@@ -139,6 +139,7 @@ async def _run_evaluation(
     return await coordinator.evaluate(
         essay.extracted_text,
         essay.exam_type or essay.submission_type or "IELTS Writing",
+        user_id=essay.user_id,
         trace=trace,
         on_partial=on_partial,
     )
@@ -157,9 +158,10 @@ async def _run_exam_evaluation(
             trace=trace,
         )
     return await coordinator.evaluate_exam_task(
-        essay.extracted_text,
-        essay.exam_type or "Academic",
+        essay_text=payload.essayText,
+        exam_type=payload.examType,
         task_number=payload.taskNumber,
+        user_id=payload.userId,
         stimulus_s3_key=payload.stimulusS3Key,
         task_prompt=payload.taskPrompt,
         trace=trace,

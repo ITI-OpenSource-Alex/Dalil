@@ -25,6 +25,7 @@ class Settings(BaseSettings):
 
     anthropic_base_url: str = ""
     llm_model: str = "claude-opus-4-8"
+    anthropic_user_agent: str = "Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14"
 
     
     model_config = SettingsConfigDict(

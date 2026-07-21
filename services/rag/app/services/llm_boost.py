@@ -35,8 +35,10 @@ async def get_llm_boost(cv_text: str | None, program_description: str, user_id: 
             model_name=settings.llm_model,
             api_key=settings.anthropic_auth_token or settings.anthropic_api_key,
             **({"anthropic_api_url": settings.anthropic_base_url} if settings.anthropic_base_url else {}),
-            model_kwargs={"extra_headers": {"User-Agent": "Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14"}},
+            model_kwargs={"extra_headers": {"User-Agent": settings.anthropic_user_agent}},
             temperature=0.0,
+            timeout=25.0,
+            max_retries=1,
         )
 
         # Enforce structured output via Pydantic

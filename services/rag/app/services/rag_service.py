@@ -34,7 +34,9 @@ llm = ChatAnthropic(
     model=settings.llm_model,
     anthropic_api_key=settings.anthropic_auth_token or settings.anthropic_api_key,
     **({"anthropic_api_url": settings.anthropic_base_url} if settings.anthropic_base_url else {}),
-    model_kwargs={"extra_headers": {"User-Agent": "Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14"}},
+    model_kwargs={"extra_headers": {"User-Agent": settings.anthropic_user_agent}},
+    timeout=25.0,
+    max_retries=1,
 )
 
 

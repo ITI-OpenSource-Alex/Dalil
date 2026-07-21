@@ -27,7 +27,7 @@ Baseline timings captured under local E2E runs:
 | Speaking Holistic (4 Agents) | ~15.11s |
 | STT & TTS (Speech Sidecar) | <3s |
 
-*Note: RAG cache misses and Orchestration intent classifications may experience higher latencies on the gateway depending on the backend provider's load, but parallel swarms complete reliably fast.*
+*Note: The high tail latencies (up to 110s for RAG/Orchestration) are **not** a property of the model (Opus) nor output length, but are caused by erratic gateway channel queueing. An identical 4-token call ranges from 2.5s to 110s. This is mitigated client-side by applying a 20-30s timeout and exactly one retry (which typically lands the request on a fast channel).*
 
 ## Budget & Quota Tracking
 We have instrumented a strict $150 budget guardrail for AgentRouter usage.
@@ -45,6 +45,6 @@ If AgentRouter fails or quota is exhausted, you can seamlessly fall back to nati
 ## Known Limitations / Open Blockers
 The following structural blockers remain open and affect the current demo surface:
 - **B1**: Cambridge content (Reading/Listening) is unseeded.
-- **B2**: CV Processor Lambda does not exist locally.
+- **B2**: ~~CV Processor Lambda does not exist locally.~~ (Resolved: Extracted to `services/writing/cv_processor` and running correctly via Docker volume).
 - **B3**: LocalStack provisions only 3 of 6+ resources (missing dead-letter queues, event queues).
 - **B4**: Addressed partially by the local speech sidecar (`GOA-127`), meaning Speaking and Speech are mostly functional.

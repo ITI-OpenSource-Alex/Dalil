@@ -255,6 +255,7 @@ func (c *Client) writePump() {
 func (c *Client) runEvaluationAndTTS(transcript string, transcriptionMs int64) {
 	// 1. Run parallel evaluation swarm with a 3.5s timeout context
 	swarmCtx, swarmCancel := context.WithTimeout(c.ctx, 3500*time.Millisecond)
+	swarmCtx = context.WithValue(swarmCtx, "userID", c.userID)
 	defer swarmCancel()
 
 	swarmStart := time.Now()

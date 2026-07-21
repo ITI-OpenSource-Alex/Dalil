@@ -23,6 +23,7 @@ class Settings:
     anthropic_base_url: str = ""
     writing_model: str = "claude-opus-4-8"
     cv_extraction_model: str = "claude-haiku-4-5-20251001"
+    anthropic_user_agent: str = "Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14"
     anthropic_timeout_seconds: float = 25.0
     openai_api_key: str = ""
     langfuse_public_key: str = ""

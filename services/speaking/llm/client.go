@@ -3,6 +3,7 @@ package llm
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/internal/telemetry"
 
@@ -27,13 +28,22 @@ type CompletionResult struct {
 
 // NewClient initializes the Anthropic client wrapper
 func NewClient(model, apiKey, baseURL string) *Client {
-	opts := []option.RequestOption{
-		option.WithAuthToken(apiKey),
-		option.WithHeader("User-Agent", "Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14"),
+	userAgent := os.Getenv("ANTHROPIC_USER_AGENT")
+	if userAgent == "" {
+		userAgent = "Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14"
 	}
+
+	opts := []option.RequestOption{
+		option.WithHeader("User-Agent", userAgent),
+	}
+
 	if baseURL != "" {
 		opts = append(opts, option.WithBaseURL(baseURL))
+		opts = append(opts, option.WithAuthToken(apiKey))
+	} else {
+		opts = append(opts, option.WithAPIKey(apiKey))
 	}
+
 	c := anthropic.NewClient(opts...)
 	return &Client{
 		client: &c,
@@ -89,7 +99,12 @@ func (c *Client) StreamCompletion(ctx context.Context, systemPrompt, userPrompt 
 		fullText = msg.Content[0].Text
 	}
 	
-	telemetry.RecordLLMCost("anonymous", c.model, int64(msg.Usage.InputTokens), int64(msg.Usage.OutputTokens))
+	userID, ok := ctx.Value("userID").(string)
+	if !ok || userID == "" {
+		userID = "anonymous"
+	}
+	
+	telemetry.RecordLLMCost(userID, c.model, int64(msg.Usage.InputTokens), int64(msg.Usage.OutputTokens))
 	
 	return CompletionResult{
 		Text:             fullText,

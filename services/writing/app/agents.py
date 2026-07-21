@@ -239,7 +239,7 @@ async def extract_chart_context(s3_key: str) -> str:
     client = AsyncAnthropic(
         api_key=key,
         timeout=settings.anthropic_timeout_seconds,
-        default_headers={"User-Agent": "Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14"},
+        default_headers={"User-Agent": settings.anthropic_user_agent},
         **({"base_url": settings.anthropic_base_url} if settings.anthropic_base_url else {}),
     )
 
@@ -279,6 +279,7 @@ class WritingAgentRunner:
         criterion: Criterion,
         essay_text: str,
         exam_type: str,
+        user_id: str = "anonymous",
     ) -> AgentExecution:
         prompt = (
             f"IELTS exam/task type: {exam_type}\n"
@@ -291,7 +292,7 @@ class WritingAgentRunner:
             + "\n\nCriterion-specific examiner instruction: "
             + CRITERION_PROMPTS[criterion]
         )
-        return await self._execute(criterion, essay_text, prompt, system)
+        return await self._execute(criterion, essay_text, prompt, system, user_id=user_id)
 
     async def evaluate_exam_task(
         self,
@@ -299,6 +300,7 @@ class WritingAgentRunner:
         essay_text: str,
         exam_type: str,
         task_number: TaskNumber,
+        user_id: str = "anonymous",
         chart_context: str | None = None,
         task_prompt: str | None = None,
     ) -> AgentExecution:
@@ -329,7 +331,7 @@ class WritingAgentRunner:
             + "\n\nTask-specific examiner instruction: "
             + task_instructions
         )
-        return await self._execute(criterion, essay_text, prompt, system)
+        return await self._execute(criterion, essay_text, prompt, system, user_id=user_id)
 
     async def _execute(
         self,
@@ -337,6 +339,7 @@ class WritingAgentRunner:
         essay_text: str,
         prompt: str,
         system: str,
+        user_id: str = "anonymous",
     ) -> AgentExecution:
         started = time.perf_counter()
         response = await self.client.messages.create(
@@ -367,7 +370,7 @@ class WritingAgentRunner:
         
         try:
             from app.telemetry import record_llm_cost
-            record_llm_cost("anonymous", "claude-opus", prompt_tokens, completion_tokens)
+            record_llm_cost(user_id, self.model, prompt_tokens, completion_tokens)
         except ImportError:
             pass
             
@@ -395,7 +398,7 @@ def get_agent_runner() -> WritingAgentRunner:
     client = AsyncAnthropic(
         api_key=key,
         timeout=settings.anthropic_timeout_seconds,
-        default_headers={"User-Agent": "Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14"},
+        default_headers={"User-Agent": settings.anthropic_user_agent},
         **({"base_url": settings.anthropic_base_url} if settings.anthropic_base_url else {}),
     )
     return WritingAgentRunner(client, model=settings.writing_model)
@@ -406,32 +409,33 @@ async def _public_evaluation(
     essay_text: str,
     exam_type: str,
     runner: WritingAgentRunner | None,
+    user_id: str = "anonymous",
 ) -> dict[str, Any]:
     execution = await (runner or get_agent_runner()).evaluate(
-        criterion, essay_text, exam_type
+        criterion, essay_text, exam_type, user_id=user_id
     )
     return execution.result.model_dump()
 
 
 async def evaluate_task_response(
-    essay_text: str, exam_type: str, runner: WritingAgentRunner | None = None
+    essay_text: str, exam_type: str, runner: WritingAgentRunner | None = None, user_id: str = "anonymous"
 ) -> dict[str, Any]:
-    return await _public_evaluation("task_response", essay_text, exam_type, runner)
+    return await _public_evaluation("task_response", essay_text, exam_type, runner, user_id)
 
 
 async def evaluate_cohesion(
-    essay_text: str, exam_type: str, runner: WritingAgentRunner | None = None
+    essay_text: str, exam_type: str, runner: WritingAgentRunner | None = None, user_id: str = "anonymous"
 ) -> dict[str, Any]:
-    return await _public_evaluation("cohesion", essay_text, exam_type, runner)
+    return await _public_evaluation("cohesion", essay_text, exam_type, runner, user_id)
 
 
 async def evaluate_vocabulary(
-    essay_text: str, exam_type: str, runner: WritingAgentRunner | None = None
+    essay_text: str, exam_type: str, runner: WritingAgentRunner | None = None, user_id: str = "anonymous"
 ) -> dict[str, Any]:
-    return await _public_evaluation("vocabulary", essay_text, exam_type, runner)
+    return await _public_evaluation("vocabulary", essay_text, exam_type, runner, user_id)
 
 
 async def evaluate_grammar(
-    essay_text: str, exam_type: str, runner: WritingAgentRunner | None = None
+    essay_text: str, exam_type: str, runner: WritingAgentRunner | None = None, user_id: str = "anonymous"
 ) -> dict[str, Any]:
-    return await _public_evaluation("grammar", essay_text, exam_type, runner)
+    return await _public_evaluation("grammar", essay_text, exam_type, runner, user_id)

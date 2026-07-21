@@ -57,7 +57,9 @@ async def test_academic_task1_sends_image_block(mock_fetch_bytes, mock_anthropic
                     criterion=criterion,
                     band_score=7.0,
                     feedback="Good",
-                    highlighted_issues=[]
+                    improvement_tip="Tip",
+                    word_count=200,
+                    inline_issues=[]
                 ),
                 prompt_tokens=10,
                 completion_tokens=10,
@@ -91,7 +93,9 @@ async def test_general_task1_sends_no_image_block(mock_fetch_bytes, mock_anthrop
                     criterion=criterion,
                     band_score=7.0,
                     feedback="Good",
-                    highlighted_issues=[]
+                    improvement_tip="Tip",
+                    word_count=200,
+                    inline_issues=[]
                 ),
                 prompt_tokens=10,
                 completion_tokens=10,
@@ -125,7 +129,9 @@ async def test_task2_sends_no_image_block(mock_fetch_bytes, mock_anthropic):
                     criterion=criterion,
                     band_score=7.0,
                     feedback="Good",
-                    highlighted_issues=[]
+                    improvement_tip="Tip",
+                    word_count=200,
+                    inline_issues=[]
                 ),
                 prompt_tokens=10,
                 completion_tokens=10,

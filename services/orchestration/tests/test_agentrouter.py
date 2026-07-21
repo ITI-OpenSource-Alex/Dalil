@@ -1,11 +1,15 @@
 import pytest
 from app.services.supervisor import classify_intent, IntentResult, structured_llm
 
+import os
+
+@pytest.mark.skipif(not os.getenv("ANTHROPIC_API_KEY") or os.getenv("ANTHROPIC_API_KEY") == "not-configured", reason="Requires ANTHROPIC_API_KEY")
 @pytest.mark.asyncio
 async def test_structured_output_returns_intentresult_instance():
     result = await structured_llm.ainvoke([{"role": "user", "content": "I want to practice speaking"}])
     assert isinstance(result, (IntentResult, dict))
 
+@pytest.mark.skipif(not os.getenv("ANTHROPIC_API_KEY") or os.getenv("ANTHROPIC_API_KEY") == "not-configured", reason="Requires ANTHROPIC_API_KEY")
 @pytest.mark.asyncio
 @pytest.mark.parametrize("message, expected_intent", [
     ("What are the IELTS band requirements?", "RAG"),

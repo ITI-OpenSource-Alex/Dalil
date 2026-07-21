@@ -89,6 +89,7 @@ services:
     volumes:
       - ./services/writing/app:/app/app
       - ./services/writing/migrations:/app/migrations
+      - ./services/writing/tests:/app/tests
       - ./packages/contracts/py:/packages/contracts/py
     depends_on:
       postgres:

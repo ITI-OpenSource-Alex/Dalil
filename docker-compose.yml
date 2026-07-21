@@ -88,6 +88,7 @@ services:
       - OPENAI_API_KEY=sk-proj-a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8s9T0u1V2w3X4
     volumes:
       - ./services/writing/app:/app/app
+      - ./services/writing/cv_processor:/app/cv_processor
       - ./services/writing/migrations:/app/migrations
       - ./services/writing/tests:/app/tests
       - ./packages/contracts/py:/packages/contracts/py

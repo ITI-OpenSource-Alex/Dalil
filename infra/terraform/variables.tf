@@ -172,3 +172,88 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "aws_offline_mode" {
+  description = "Use mock AWS credentials only for local terraform plan validation. Never enable for apply."
+  type        = bool
+  default     = false
+}
+
+variable "aws_account_id" {
+  description = "AWS account ID, used for S3 bucket notification source_account and ECR ARNs."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[0-9]{12}$", var.aws_account_id))
+    error_message = "aws_account_id must contain exactly 12 digits."
+  }
+}
+
+variable "image_tag" {
+  description = "Container image tag to deploy for all Lambda workers (CI passes the git SHA)."
+  type        = string
+  default     = "latest"
+}
+
+variable "ecr_cv_processor_repo_url" {
+  description = "ECR repository URL for the cv-processor image (without tag)."
+  type        = string
+
+  validation {
+    condition     = trimspace(var.ecr_cv_processor_repo_url) != ""
+    error_message = "ecr_cv_processor_repo_url must not be empty."
+  }
+}
+
+variable "ecr_scholarship_matcher_repo_url" {
+  description = "ECR repository URL for the scholarship-matcher image (without tag)."
+  type        = string
+}
+
+variable "ecr_notification_sender_repo_url" {
+  description = "ECR repository URL for the notification-sender image (without tag)."
+  type        = string
+}
+
+variable "lambda_secret_arns" {
+  description = "Secret ARNs Lambda workers may read. Empty until modules/secrets exists."
+  type        = list(string)
+  default     = []
+}
+
+variable "sqs_notification_queue_arn" {
+  description = "ARN of the SQS queue notification-sender consumes. Null until modules/sqs exists."
+  type        = string
+  default     = null
+}
+
+variable "sqs_notification_queue_url" {
+  description = "URL of the SQS queue notification-sender consumes. Null until modules/sqs exists."
+  type        = string
+  default     = null
+}
+
+# -----------------------------------------------------------------------------
+# GOA-074: GitHub & OIDC Configuration
+# -----------------------------------------------------------------------------
+
+variable "github_org" {
+  description = "GitHub organization or username that owns the repository."
+  type        = string
+  default     = "ITI-OpenSource-Alex"
+}
+
+variable "github_repo" {
+  description = "GitHub repository name (without the org prefix)."
+  type        = string
+  default     = "GOA"
+}
+
+# NOTE: GitHub provider requires a paid org plan for branch protection.
+# Uncomment when the org is upgraded.
+# variable "github_token" {
+#   description = "GitHub token for the Terraform GitHub provider. Pass via TF_VAR_github_token env var."
+#   type        = string
+#   sensitive   = true
+#   default     = ""
+# }

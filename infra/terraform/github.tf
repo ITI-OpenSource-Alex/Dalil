@@ -1,55 +1,45 @@
-terraform {
-  required_providers {
-    github = {
-      source  = "integrations/github"
-      version = "~> 6.0"
-    }
-  }
-}
+# -----------------------------------------------------------------------------
+# GOA-074: GitHub Branch Protection Rules
+# NOTE: Commented out — requires a GitHub token and a paid GitHub plan for
+# branch protection on private repos. Uncomment and run terraform apply
+# once the GitHub token is configured via TF_VAR_github_token.
+# -----------------------------------------------------------------------------
 
-# The GitHub repository name (e.g., "goa-backend")
-variable "github_repository_name" {
-  type    = string
-  default = "goa"
-}
+# resource "github_branch_protection" "main" {
+#   repository_id                   = var.github_repo
+#   pattern                         = "main"
+#   enforce_admins                  = true
+#   require_conversation_resolution = true
+#   allows_deletions                = false
+#   allows_force_pushes             = false
+#
+#   required_pull_request_reviews {
+#     dismiss_stale_reviews           = true
+#     required_approving_review_count = 1
+#     require_code_owner_reviews      = false
+#   }
+#
+#   required_status_checks {
+#     strict   = true
+#     contexts = ["test-services"]
+#   }
+# }
 
-# Branch Protection for main (Production)
-resource "github_branch_protection" "main" {
-  repository_id                   = var.github_repository_name
-  pattern                         = "main"
-  enforce_admins                  = true
-  require_conversation_resolution = true
-  allows_deletions                = false
-  allows_force_pushes             = false
-
-  required_pull_request_reviews {
-    dismiss_stale_reviews           = true
-    required_approving_review_count = 1
-    require_code_owner_reviews      = false
-  }
-
-  required_status_checks {
-    strict   = true
-    contexts = ["CI"] # Ensure your PR test action is named "CI"
-  }
-}
-
-# Branch Protection for develop (Staging)
-resource "github_branch_protection" "develop" {
-  repository_id                   = var.github_repository_name
-  pattern                         = "develop"
-  enforce_admins                  = true
-  require_conversation_resolution = true
-  allows_deletions                = false
-  allows_force_pushes             = false
-
-  required_pull_request_reviews {
-    dismiss_stale_reviews           = true
-    required_approving_review_count = 1
-  }
-
-  required_status_checks {
-    strict   = true
-    contexts = ["CI"] # Ensure your PR test action is named "CI"
-  }
-}
+# resource "github_branch_protection" "dev" {
+#   repository_id                   = var.github_repo
+#   pattern                         = "dev"
+#   enforce_admins                  = true
+#   require_conversation_resolution = true
+#   allows_deletions                = false
+#   allows_force_pushes             = false
+#
+#   required_pull_request_reviews {
+#     dismiss_stale_reviews           = true
+#     required_approving_review_count = 1
+#   }
+#
+#   required_status_checks {
+#     strict   = true
+#     contexts = ["test-services"]
+#   }
+# }

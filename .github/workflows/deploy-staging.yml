@@ -3,17 +3,16 @@ name: Deploy Staging
 on:
   push:
     branches:
-      - develop
+      - dev
 
-# CHANGE 1: Added explicit permissions required for AWS OIDC authentication
 permissions:
   id-token: write
   contents: read
 
 env:
   AWS_REGION: us-east-1
-  # PLACEHOLDER: Whoever runs the Terraform will replace this placeholder ARN
-  ROLE_TO_ASSUME: arn:aws:iam::REPLACE_WITH_YOUR_AWS_ACCOUNT_ID:role/goa-staging-deploy
+  # After running `terraform apply`, replace with output value of staging_deploy_role_arn
+  ROLE_TO_ASSUME: arn:aws:iam::114403655381:role/goa-staging-deploy
 
 jobs:
   deploy:
@@ -24,28 +23,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Display deployment info
-        run: echo "Deploying to STAGING"
-
-      # CHANGE 2: Configured the dynamic AWS credentials action using OIDC
       - name: Configure AWS Credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ env.ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Verify AWS Connection
+      - name: Verify AWS Identity
         run: aws sts get-caller-identity
 
-      # CHANGE 3: Placeholders kept clean for GOA-070
-      # # Docker Build
-      # - name: Build Docker Image
-      #   run: echo "docker build -t goa-exam-staging ."
+      # TODO (GOA-070): Uncomment once ECS cluster and ECR repos exist
+      # - name: Login to Amazon ECR
+      #   uses: aws-actions/amazon-ecr-login@v2
       #
-      # # Push to ECR
-      # - name: Push to Amazon ECR
-      #   run: echo "Pushing image to ECR..."
-      #
-      # # ECS Deploy
-      # - name: Deploy to Amazon ECS
-      #   run: echo "Updating ECS Service..."
+      # - name: Deploy to ECS
+      #   run: aws ecs update-service --cluster goa-staging --service goa-gateway --force-new-deployment

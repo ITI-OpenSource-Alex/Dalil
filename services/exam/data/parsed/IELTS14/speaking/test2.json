@@ -1,0 +1,106 @@
+{
+  "book_ref": "IELTS-14",
+  "test_number": 2,
+  "exam_type": "general",
+  "skill_area": "speaking",
+  "passage_text": null,
+  "questions": [
+    {
+      "number": 1,
+      "prompt": "» Which social media websites do you use? :",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 2,
+      "prompt": "• How much time do you spend on social media sites? [Why/Why not?}",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 3,
+      "prompt": "« What kind of information about yourself have you put on social media? [Why/\\Why not?]",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 4,
+      "prompt": "• Is there anything you don't iike about social media? [Why?]",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 5,
+      "prompt": "Describe something you liked very much which You will have to talk you bought for your home. about the topic for one to two minutes. You have one minute to think about what you are going to say. You can make some notes",
+      "question_type": "Speaking Part 2",
+      "instructions": "Speak for 1-2 minutes on this topic.",
+      "passage_number": null,
+      "section_number": 2,
+      "bullet_points": [
+        "and explain why you liked it so much. to help you if you wish.",
+        "You should say:",
+        "what you bought",
+        "when and where you bought it",
+        "why you chose this particular thing"
+      ]
+    },
+    {
+      "number": 6,
+      "prompt": "Why do some people buy lots of things for their home?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 7,
+      "prompt": "Do you think it is very expensive to make a home look nice?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 8,
+      "prompt": "Why don't some people care about how their home looks?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 9,
+      "prompt": "In what ways is living in a flat/apartment better than living in a house?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 10,
+      "prompt": "Do you think homes will look different in the future?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 11,
+      "prompt": "Do you agree that the kinds of homes people prefer change as they get older?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    }
+  ],
+  "answer_key": {},
+  "time_limit_seconds": 900
+}

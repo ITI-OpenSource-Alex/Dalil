@@ -63,16 +63,17 @@ module "iam" {
   source = "./modules/iam"
 
   environment                        = var.environment
-  task_execution_secret_arns         = distinct(concat(var.task_execution_secret_arns, values(module.secrets.service_secret_arns)))
+  task_execution_secret_arns         = concat(var.task_execution_secret_arns, values(module.secrets.service_secret_arns))
   task_execution_kms_key_arns        = var.task_execution_kms_key_arns
-  task_secret_arns                   = distinct(concat(var.task_secret_arns, values(module.secrets.service_secret_arns)))
-  task_sqs_queue_arns                = distinct(concat(var.task_sqs_queue_arns, values(module.sqs.queue_arns)))
+  task_secret_arns                   = concat(var.task_secret_arns, values(module.secrets.service_secret_arns))
+  task_sqs_queue_arns                = concat(var.task_sqs_queue_arns, values(module.sqs.queue_arns))
   task_kms_key_arns                  = var.task_kms_key_arns
   ecs_exec_operator_resource_arns    = var.ecs_exec_operator_resource_arns
   session_manager_log_retention_days = var.session_manager_log_retention_days
   session_manager_kms_key_id         = var.session_manager_kms_key_id
-  lambda_secret_arns                 = distinct(concat(var.lambda_secret_arns, values(module.secrets.service_secret_arns)))
-  lambda_sqs_queue_arns              = distinct(concat(var.sqs_notification_queue_arn != null ? [var.sqs_notification_queue_arn] : [], values(module.sqs.queue_arns)))
+  lambda_secret_arns                 = concat(var.lambda_secret_arns, values(module.secrets.service_secret_arns))
+  lambda_sqs_queue_arns              = concat(var.sqs_notification_queue_arn != null ? [var.sqs_notification_queue_arn] : [], values(module.sqs.queue_arns), [aws_sqs_queue.cv_processed.arn, aws_sqs_queue.cv_processor_failures.arn])
+  lambda_s3_bucket_arns              = [module.writing_files_bucket.bucket_arn]
   tags                               = var.tags
 }
 
@@ -85,8 +86,32 @@ locals {
     Ticket = "GOA-071"
   })
 
-  cv_upload_prefix           = "cvs/"
-  lambda_insights_layer_arn  = "arn:${data.aws_partition.current.partition}:lambda:${data.aws_region.current.name}:580247275435:layer:LambdaInsightsExtension:14"
+  cv_upload_prefix          = "cvs/"
+  lambda_insights_layer_arn = "arn:${data.aws_partition.current.partition}:lambda:${data.aws_region.current.name}:580247275435:layer:LambdaInsightsExtension:14"
+}
+
+resource "aws_sqs_queue" "cv_processed_dlq" {
+  name                      = "goa-cv-processed-${var.environment}-dlq"
+  message_retention_seconds = 1209600
+  tags                      = local.goa071_tags
+}
+
+resource "aws_sqs_queue" "cv_processed" {
+  name                       = "goa-cv-processed-${var.environment}"
+  visibility_timeout_seconds = 30
+  redrive_policy = jsonencode({
+    deadLetterTargetArn = aws_sqs_queue.cv_processed_dlq.arn
+    maxReceiveCount     = 3
+  })
+  tags = local.goa071_tags
+}
+
+resource "aws_sqs_queue" "cv_processor_failures" {
+  name                      = "goa-cv-processor-failures-${var.environment}"
+  message_retention_seconds = 1209600
+  tags = merge(local.goa071_tags, {
+    Purpose = "cv-processor-invocation-failures"
+  })
 }
 
 # ---------------------------------------------------------------------------
@@ -122,10 +147,12 @@ module "eval_reports_bucket" {
 # ---------------------------------------------------------------------------
 
 module "cv_processor_lambda" {
-  source        = "./modules/lambda"
-  function_name = "goa-cv-processor-${var.environment}"
-  package_type  = "Image"
-  image_uri     = "${var.ecr_cv_processor_repo_url}:${var.image_tag}"
+  source            = "./modules/lambda"
+  function_name     = "goa-cv-processor-${var.environment}"
+  package_type      = "Image"
+  image_uri         = "${var.ecr_cv_processor_repo_url}:${var.image_tag}"
+  image_entry_point = ["python", "-m", "awslambdaric"]
+  image_command     = ["cv_processor.handler.lambda_handler"]
 
   role_arn                       = module.iam.lambda_execution_role_arn
   vpc_subnet_ids                 = module.vpc.private_app_subnet_ids
@@ -136,11 +163,35 @@ module "cv_processor_lambda" {
   lambda_insights_layer_arn      = local.lambda_insights_layer_arn
 
   environment_variables = {
-    ENVIRONMENT = var.environment
-    WORKER      = "cv-processor"
+    ENVIRONMENT            = var.environment
+    WORKER                 = "cv-processor"
+    S3_BUCKET              = module.writing_files_bucket.bucket_id
+    CV_PROCESSED_QUEUE_URL = aws_sqs_queue.cv_processed.url
+    CV_EXTRACTION_MODEL    = "claude-haiku-4-5-20251001"
+    WRITING_SECRET_ARN     = module.secrets.service_secret_arns["writing"]
   }
 
   tags = local.goa071_tags
+}
+
+resource "aws_cloudwatch_log_group" "cv_processor" {
+  name              = "/aws/lambda/${module.cv_processor_lambda.function_name}"
+  retention_in_days = 30
+  tags = merge(local.goa071_tags, {
+    Purpose = "cv-processor-runtime-logs"
+  })
+}
+
+resource "aws_lambda_function_event_invoke_config" "cv_processor" {
+  function_name                = module.cv_processor_lambda.function_name
+  maximum_event_age_in_seconds = 21600
+  maximum_retry_attempts       = 2
+
+  destination_config {
+    on_failure {
+      destination = aws_sqs_queue.cv_processor_failures.arn
+    }
+  }
 }
 
 module "scholarship_matcher_lambda" {

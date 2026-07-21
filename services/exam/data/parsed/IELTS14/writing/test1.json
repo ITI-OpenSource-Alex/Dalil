@@ -1,0 +1,27 @@
+{
+  "book_ref": "IELTS-14",
+  "test_number": 1,
+  "exam_type": "academic",
+  "skill_area": "writing",
+  "passage_text": null,
+  "questions": [
+    {
+      "number": 1,
+      "prompt": "You should spend about 20 minutes on this task.\nThe charts below show the average percentages in typical meals of three\ntypes of nutrients, all of which may be unhealthy if eaten too much.\nSummarise the information by selecting and reporting the main features, and\nmake comparisons where relevant.\nWrite at least 150 words.\nAverage percentages of sodium, saturated fats and\nadded sugars in typical meals consumed in the USA\nSodium Saturated fat\nB\nB0\nPRORXRRI\nTest 1",
+      "question_type": "Writing Task 1",
+      "instructions": "Summarise the information by selecting and reporting the main features.",
+      "passage_number": null,
+      "section_number": null
+    },
+    {
+      "number": 2,
+      "prompt": "You should spend about 40 minutes on this task.\nWrite about the following topic:\nSome people believe that it is best to accept a bad situation, such as an\nunsatisfactory job or shortage of money. Others argue that it is better to try\nand improve such situations.\nDiscuss both these views and give your own opinion.\nGive reasons for your answer and include any relevant examples from your own\nknowledge or experience.\nWrite at ieast 250 words.\nSpeaking\nSPEAKING\nPART 1\nThe examiner asks the candidate about him/herself, histher home, work or studies and\nother familiar topics.\nEXAMPLE\nFuture\nWhat job would you like to have ten years from now? [Why?]\nHow useful will English be for your future? [Why/Why not?]\nHow much travelling do you hope to do in the future? [Why/Why not?]\nHow do you think your life will change in the future? [Why/Why not?]\nPART 2\nDescribe a book that you enjoyed reading because You will have to talk\nyou had to think a lot. about the topic for one\nto two minutes. You\nhave one minute to\nthink about what you\nare going to say. You\ncan make some notes\nand explain why you enjoyed reading this book. to help you if you wish.\nYou should say:\nwhat this book was\nwhy you decided to read it\nwhat reading this book made you think about\nPART 3\nDiscussion topics:\nChildren and reading\nExample questions:\nWhat are the most popular types of children's books in your country?\nWhat are the benefits of parents reading books to their children?\nShould parents always let children choose the books they read?\nElectronic books\nExample questions:\nHow popular are electronic books are in your country?\nWhat are the advantages of parents reading electronic books (compared to\nprinted books)?\nWill electronic books ever completely replace printed books in the future?",
+      "question_type": "Writing Task 2",
+      "instructions": "Write an essay of at least 250 words.",
+      "passage_number": null,
+      "section_number": null
+    }
+  ],
+  "answer_key": {},
+  "time_limit_seconds": 3600
+}

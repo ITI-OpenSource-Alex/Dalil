@@ -15,6 +15,18 @@ variable "image_uri" {
   default     = null
 }
 
+variable "image_command" {
+  description = "Optional command override for an image-based Lambda."
+  type        = list(string)
+  default     = []
+}
+
+variable "image_entry_point" {
+  description = "Optional entry point override for an image-based Lambda."
+  type        = list(string)
+  default     = []
+}
+
 variable "filename" {
   description = "Zip deployment package filename for the Lambda function"
   type        = string

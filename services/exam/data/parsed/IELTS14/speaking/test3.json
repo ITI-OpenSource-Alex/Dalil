@@ -1,0 +1,107 @@
+{
+  "book_ref": "IELTS-14",
+  "test_number": 3,
+  "exam_type": "academic",
+  "skill_area": "speaking",
+  "passage_text": null,
+  "questions": [
+    {
+      "number": 1,
+      "prompt": "• How often do you see your neighbours? [Why/Why not?]",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 2,
+      "prompt": "• Do you invite your neighbours to your home? [Why/Why not?]",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 3,
+      "prompt": "• Do you think you are a good neighbour? [Why/Why not?}",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 4,
+      "prompt": "• Has a neighbour ever helped you? [Why/Why not?]",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 5,
+      "prompt": "Describe a very difficult task that you succeeded You will have to talk in doing as part of your work or studies. about the topic for one to two minutes. You have one minute to think about what you",
+      "question_type": "Speaking Part 2",
+      "instructions": "Speak for 1-2 minutes on this topic.",
+      "passage_number": null,
+      "section_number": 2,
+      "bullet_points": [
+        "why this task was very difficuit are going to say. You",
+        "how you worked on this task can make some notes",
+        "and explain how you felt when you had to help you if you wish.",
+        "successfully compieted this task.",
+        "You should say:",
+        "what task you did"
+      ]
+    },
+    {
+      "number": 6,
+      "prompt": "What are the most difficult jobs that people do?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 7,
+      "prompt": "Why do you think some people choose to do difficult jobs?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 8,
+      "prompt": "Do you agree or disagree that all jobs are difficult sometimes?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 9,
+      "prompt": "How important is it for everyone to have a goal in their personal life?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 10,
+      "prompt": "Is it always necessary to work hard in order to achieve career success?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 11,
+      "prompt": "Do you think that successful people are always happy people?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    }
+  ],
+  "answer_key": {},
+  "time_limit_seconds": 900
+}

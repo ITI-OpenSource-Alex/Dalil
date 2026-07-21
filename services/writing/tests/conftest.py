@@ -29,7 +29,7 @@ from app.agents import AgentExecution  # noqa: E402
 from app.evaluation import EvaluationCoordinator, get_evaluation_coordinator  # noqa: E402
 from app.metrics import cache_hit_tracker  # noqa: E402
 from app.observability import get_langfuse_client  # noqa: E402
-from app.schemas import CriterionEvaluation, HighlightedIssue  # noqa: E402
+from app.schemas import CriterionEvaluation, InlineIssue  # noqa: E402
 
 
 class FakeS3Client:
@@ -142,6 +142,7 @@ class FakeWritingAgentRunner:
         self.calls.append((criterion, essay_text, exam_type))
         await asyncio.sleep(self.delays.get(criterion, 0))
         issue_text = essay_text[: min(12, len(essay_text))]
+        word_count = len(essay_text.split())
         result = CriterionEvaluation(
             criterion=criterion,
             band_score=self.bands[criterion],
@@ -150,13 +151,15 @@ class FakeWritingAgentRunner:
                 "1. First exact example.\n2. Second exact example.\n"
                 "3. Third exact example."
             ),
-            highlighted_issues=[
-                HighlightedIssue(
+            improvement_tip="Focus on precision and coherence.",
+            word_count=word_count,
+            inline_issues=[
+                InlineIssue(
                     text=issue_text,
-                    issue="Specific test issue",
+                    issue_type="grammar",
                     suggestion="Specific test revision",
-                    start=0,
-                    end=len(issue_text),
+                    start_char=0,
+                    end_char=len(issue_text),
                 )
             ],
         )

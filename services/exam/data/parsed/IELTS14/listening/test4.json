@@ -1,0 +1,332 @@
+{
+  "book_ref": "IELTS-14",
+  "test_number": 4,
+  "exam_type": "general",
+  "skill_area": "listening",
+  "passage_text": null,
+  "questions": [
+    {
+      "number": 1,
+      "prompt": "cangivea$.",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 2,
+      "prompt": "will provide 6",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 3,
+      "prompt": "while people are eating",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 4,
+      "prompt": "f there are any problems",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 5,
+      "prompt": "Accommodation:",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 6,
+      "prompt": "in hotel rooms or 7",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 7,
+      "prompt": "Test 4",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 8,
+      "prompt": "What is said about using each of the following hotel facilities? Choose THREE answers from the box and write the correct letter, A, B or C, next to 8 outdoor swimming pool ...",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 9,
+      "prompt": "What is said about using each of the following hotel facilities? Choose THREE answers from the box and write the correct letter, A, B or C, next to 8 outdoor swimming pool ...",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 10,
+      "prompt": "What is said about using each of the following hotel facilities? Choose THREE answers from the box and write the correct letter, A, B or C, next to 8 outdoor swimming pool ...",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 11,
+      "prompt": "forest walk",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 2
+    },
+    {
+      "number": 12,
+      "prompt": "cycle trip",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 2
+    },
+    {
+      "number": 13,
+      "prompt": "local craft tour",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 2
+    },
+    {
+      "number": 14,
+      "prompt": "observatory trip",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 2
+    },
+    {
+      "number": 15,
+      "prompt": "horse riding",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 2
+    },
+    {
+      "number": 16,
+      "prompt": "Test4",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 2
+    },
+    {
+      "number": 17,
+      "prompt": "Choose TWO letters, A~E. Which TWO things does the speaker say about the attraction called Musical Favourites? You pay extra for drinks. You must book it in advance. You get a reduction if you buy two tickets. You can meet the performers. You c¢an take part in the show.",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 2
+    },
+    {
+      "number": 18,
+      "prompt": "Choose TWO letters, A~E. Which TWO things does the speaker say about the attraction called Musical Favourites? You pay extra for drinks. You must book it in advance. You get a reduction if you buy two tickets. You can meet the performers. You c¢an take part in the show.",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 2
+    },
+    {
+      "number": 19,
+      "prompt": "Choose TWO letters, A-E. Which TWO things does the speaker say about the Castle Feast? Visitors can dance after the meal. There is a choice of food. Visitors wear historical costume. Knives and forks are not used. The entertainment includes horse races.",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 2
+    },
+    {
+      "number": 20,
+      "prompt": "Choose TWO letters, A-E. Which TWO things does the speaker say about the Castle Feast? Visitors can dance after the meal. There is a choice of food. Visitors wear historical costume. Knives and forks are not used. The entertainment includes horse races.",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 2
+    },
+    {
+      "number": 21,
+      "prompt": "With regard to books aimed at only boys or only girls, Trevor was surprised",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 22,
+      "prompt": "A how long the distinction had gone unquestioned.",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 23,
+      "prompt": "B how few books were aimed at both girls and boys.",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 24,
+      "prompt": "C how many children enjoyed books intended for the opposite sex.",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 25,
+      "prompt": "Test 4",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 26,
+      "prompt": "Questions 26-30.",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 27,
+      "prompt": "27 The Swiss Family Robinson",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 28,
+      "prompt": "28 The Nutcracker and The Mouse King",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 29,
+      "prompt": "29 The Lord of the Rings",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 30,
+      "prompt": "Questions 26-30.",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 31,
+      "prompt": "• had a semicircle of large stones round a 31",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 32,
+      "prompt": "» research carried out into structures, 32 and human remains",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 33,
+      "prompt": "• usedin the oil industry, e.g. to make 33",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 34,
+      "prompt": ". problems: they were expensive and 34",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 35,
+      "prompt": "elements made of 35",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 36,
+      "prompt": "• 36 is used for short distance communication, acoustic",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 37,
+      "prompt": "e AUV can send data to another AUV that has better 37",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 38,
+      "prompt": "- onecarrying 38 ... supplies: tablets may have been used",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 39,
+      "prompt": "for cleaning the 39",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 40,
+      "prompt": "-~ others carrying containers of olive oil or 40",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 4
+    }
+  ],
+  "answer_key": {},
+  "audio_s3_key": "exam-audio/IELTS-unknown/4/section1.mp3",
+  "time_limit_seconds": 1800
+}

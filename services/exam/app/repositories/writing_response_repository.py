@@ -21,6 +21,7 @@ class WritingResponseRepository:
         task_number: int,
         response_text: str,
         word_count: int,
+        penalty_flag: bool = False,
     ) -> Record:
         """
         Insert a new writing response, or overwrite it if the student
@@ -28,12 +29,15 @@ class WritingResponseRepository:
         constraint).
         """
         query = """
-        INSERT INTO exam_writing_responses (session_id, task_number, response_text, word_count)
-        VALUES ($1, $2, $3, $4)
+        INSERT INTO exam_writing_responses (
+            session_id, task_number, response_text, word_count, penalty_flag
+        )
+        VALUES ($1, $2, $3, $4, $5)
         ON CONFLICT (session_id, task_number)
         DO UPDATE SET
             response_text = EXCLUDED.response_text,
             word_count = EXCLUDED.word_count,
+            penalty_flag = EXCLUDED.penalty_flag,
             evaluation_result = NULL,
             created_at = NOW()
         RETURNING *
@@ -45,6 +49,7 @@ class WritingResponseRepository:
                 task_number,
                 response_text,
                 word_count,
+                penalty_flag,
             )
 
     async def save_evaluation(
@@ -108,4 +113,8 @@ class WritingResponseRepository:
         """
         async with self.pool.acquire() as conn:
             evaluation_result = await conn.fetchval(query, session_id, task_number)
-            return _decode_json(evaluation_result) if evaluation_result is not None else None
+            return (
+                _decode_json(evaluation_result)
+                if evaluation_result is not None
+                else None
+            )

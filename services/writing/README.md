@@ -1,6 +1,6 @@
 # GOA Writing Service
 
-The Writing service owns essay text and CV file receipt. GOA-089 adds `POST /cv/upload`; CV extraction remains the responsibility of GOA-087.
+The Writing service owns essay text, CV receipt, and asynchronous CV extraction. GOA-089 adds `POST /cv/upload`; GOA-087 processes the resulting S3 object. See [the GOA-087 implementation guide](../../docs/GOA-087-cv-processor.md).
 
 GOA-014 adds four-agent IELTS evaluation for typed essays. See [the GOA-014 implementation and validation matrix](../../docs/GOA-014-writing-evaluation-swarm.md).
 
@@ -15,7 +15,7 @@ curl -X POST http://localhost:8080/cv/upload \
   -F "file=@resume.pdf;type=application/pdf"
 ```
 
-The endpoint accepts PDF, DOC, and DOCX files up to exactly 10 MB. It returns `202` with `{ "cvId": ..., "status": "processing" }`. Files are stored in `goa-writing-files` under `cvs/{userId}/{uuid}.{ext}`.
+The endpoint accepts PDF, DOC, and DOCX files up to exactly 10 MB. It returns `202` with `{ "cvId": ..., "status": "processing" }`. Files are stored in `goa-writing-files` under `cvs/{userId}/{uuid}.{ext}`. The extraction worker supports PDF and DOCX; a legacy DOC upload is recorded as `failed` until it is converted to either supported extraction format.
 
 S3 sends `ObjectCreated` notifications for `cvs/` to `goa-cv-processing`, which GOA-087 consumes. The service separately publishes the GOA-002 `cv.uploaded` domain event to `goa-cv-uploaded`.
 
@@ -30,6 +30,9 @@ Copy `.env.example` and configure:
 - `AWS_ENDPOINT_URL` for LocalStack development
 - `S3_BUCKET`
 - `CV_UPLOADED_QUEUE_URL`
+- `CV_PROCESSOR_QUEUE_URL` (local worker)
+- `CV_PROCESSED_QUEUE_URL`
+- `CV_EXTRACTION_MODEL`
 
 No internal API key is used for this user-facing route. The Gateway verifies the JWT and requires the multipart `userId` to match the authenticated subject.
 
@@ -38,7 +41,7 @@ No internal API key is used for this user-facing route. The Gateway verifies the
 From the repository root:
 
 ```bash
-docker compose up -d postgres localstack writing gateway
+docker compose up -d postgres localstack writing cv-processor gateway
 ```
 
 The Writing container applies the SQL migrations before starting on port `8000`. LocalStack bootstrap creates the bucket, domain queue, processor queue, SQS policy, and filtered S3 notification.

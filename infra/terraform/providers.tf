@@ -15,14 +15,15 @@ terraform {
 }
 
 provider "aws" {
-  # Mock credentials and skip flags keep terraform init/validate usable before
-  # real AWS credentials are available.
-  region                      = var.aws_region
-  access_key                  = "mock_access_key"
-  secret_key                  = "mock_secret_key"
-  skip_credentials_validation = true
-  skip_metadata_api_check     = true
-  skip_requesting_account_id  = true
+  region = var.aws_region
 
-  s3_use_path_style = true
+  # Offline planning is explicit. Normal staging/production runs use the AWS
+  # SDK credential chain (environment, shared config, SSO, or instance role).
+  access_key                  = var.aws_offline_mode ? "mock_access_key" : null
+  secret_key                  = var.aws_offline_mode ? "mock_secret_key" : null
+  skip_credentials_validation = var.aws_offline_mode
+  skip_metadata_api_check     = var.aws_offline_mode
+  skip_requesting_account_id  = var.aws_offline_mode
+  skip_region_validation      = var.aws_offline_mode
+  s3_use_path_style           = var.aws_offline_mode
 }

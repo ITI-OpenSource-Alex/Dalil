@@ -17,9 +17,12 @@ class Settings:
     aws_endpoint_url: str | None
     s3_bucket: str
     cv_uploaded_queue_url: str
+    cv_processed_queue_url: str = ""
+    cv_processor_queue_url: str = ""
     anthropic_api_key: str = ""
     anthropic_base_url: str = ""
     writing_model: str = "claude-opus-4-8"
+    cv_extraction_model: str = "claude-haiku-4-5-20251001"
     anthropic_timeout_seconds: float = 25.0
     openai_api_key: str = ""
     langfuse_public_key: str = ""
@@ -37,9 +40,14 @@ def get_settings() -> Settings:
         aws_endpoint_url=os.getenv("AWS_ENDPOINT_URL") or None,
         s3_bucket=os.getenv("S3_BUCKET", "goa-writing-files"),
         cv_uploaded_queue_url=os.getenv("CV_UPLOADED_QUEUE_URL", ""),
+        cv_processed_queue_url=os.getenv("CV_PROCESSED_QUEUE_URL", ""),
+        cv_processor_queue_url=os.getenv("CV_PROCESSOR_QUEUE_URL", ""),
         anthropic_api_key=os.getenv("ANTHROPIC_AUTH_TOKEN") or os.getenv("ANTHROPIC_API_KEY", ""),
         anthropic_base_url=os.getenv("ANTHROPIC_BASE_URL", ""),
         writing_model=os.getenv("WRITING_MODEL", "claude-opus-4-8"),
+        cv_extraction_model=os.getenv(
+            "CV_EXTRACTION_MODEL", "claude-haiku-4-5-20251001"
+        ),
         anthropic_timeout_seconds=float(
             os.getenv("ANTHROPIC_TIMEOUT_SECONDS", "25")
         ),

@@ -1,3 +1,5 @@
+import asyncio
+import base64
 import json
 import re
 import time
@@ -7,11 +9,13 @@ from typing import Any, Literal
 
 import boto3
 import httpx
+from botocore.exceptions import ClientError
+from fastapi import HTTPException, status
 
 from pydantic import BaseModel, Field
 
 from app.config import get_settings
-from app.schemas import CriterionEvaluation, HighlightedIssue
+from app.schemas import CriterionEvaluation, InlineIssue
 
 
 Criterion = Literal["task_response", "cohesion", "vocabulary", "grammar"]
@@ -87,13 +91,14 @@ Return one JSON object and no markdown with this exact shape:
 {
   "band_score": 0.0,
   "feedback": "criterion-specific summary",
+  "improvement_tip": "one actionable piece of advice to improve this specific criterion",
   "sentence_examples": [
     "specific example and explanation 1",
     "specific example and explanation 2",
     "specific example and explanation 3"
   ],
   "highlighted_issues": [
-    {"text": "exact verbatim substring from the essay", "issue": "what is wrong", "suggestion": "specific replacement or revision"}
+    {"text": "exact verbatim substring from the essay", "issue_type": "grammar/vocabulary/etc", "suggestion": "specific replacement or revision"}
   ]
 }
 
@@ -105,13 +110,14 @@ computed. Do not invent an issue merely to fill the list."""
 
 class RawIssue(BaseModel):
     text: str = Field(min_length=1)
-    issue: str = Field(min_length=1)
+    issue_type: str = Field(min_length=1)# Changed from 'issue' according to GOA-68 requirements    
     suggestion: str = Field(min_length=1)
 
 
 class RawAgentResponse(BaseModel):
     band_score: float
     feedback: str = Field(min_length=1)
+    improvement_tip: str = Field(min_length=1)# Added for GOA-068
     sentence_examples: list[str] = Field(min_length=3, max_length=3)
     highlighted_issues: list[RawIssue] = Field(default_factory=list)
 
@@ -149,19 +155,19 @@ def _response_text(response: Any) -> str:
     return "".join(parts)
 
 
-def _annotate_issues(essay_text: str, issues: list[RawIssue]) -> list[HighlightedIssue]:
-    annotated: list[HighlightedIssue] = []
+def _annotate_issues(essay_text: str, issues: list[RawIssue]) -> list[InlineIssue]:
+    annotated: list[InlineIssue] = []
     for item in issues:
         start = essay_text.find(item.text)
         if start < 0:
             continue
         annotated.append(
-            HighlightedIssue(
+            InlineIssue(
                 text=item.text,
-                issue=item.issue,
+                issue_type=item.issue_type,
                 suggestion=item.suggestion,
-                start=start,
-                end=start + len(item.text),
+                start_char=start,
+                end_char=start + len(item.text),
             )
         )
     return annotated
@@ -177,11 +183,26 @@ def _s3_client():
     )
 
 
+def calculate_word_count(text: str) -> int:
+    """Accurately count words handling multiple spaces and punctuation."""
+    return len(re.findall(r'\b\w+\b', text))
 async def _fetch_chart_bytes(s3_key: str) -> bytes:
     settings = get_settings()
 
     def _get() -> bytes:
-        obj = _s3_client().get_object(Bucket=settings.s3_bucket, Key=s3_key)
+        try:
+            obj = _s3_client().get_object(Bucket=settings.s3_bucket, Key=s3_key)
+        except ClientError as exc:
+            error_code = exc.response.get("Error", {}).get("Code", "")
+            if error_code in {"NoSuchKey", "404"}:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Stimulus image not found for key '{s3_key}'",
+                ) from exc
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Unable to fetch stimulus image: {error_code or 'S3 error'}",
+            ) from exc
         return obj["Body"].read()
 
     # boto3 is sync; keep it off the event loop.
@@ -335,7 +356,9 @@ class WritingAgentRunner:
             criterion=criterion,
             band_score=_round_to_half(raw.band_score),
             feedback=feedback,
-            highlighted_issues=_annotate_issues(essay_text, raw.highlighted_issues),
+            improvement_tip=raw.improvement_tip,
+            word_count=calculate_word_count(essay_text),
+            inline_issues=_annotate_issues(essay_text, raw.highlighted_issues),
         )
         usage = getattr(response, "usage", None)
         prompt_tokens = int(getattr(usage, "input_tokens", 0) or 0)

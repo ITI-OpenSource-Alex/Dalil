@@ -162,7 +162,7 @@ async def submit_transcript(session_id: UUID, payload: TranscriptPayload):
         )
         start_time = time.time()
         result = await speaking_client.evaluate_holistic(
-            session_id, {"concatenated_transcript": text}
+            session_id, {"concatenated_transcript": text, "user_id": str(sessions_res["user_id"])}
         )
         duration_ms = (time.time() - start_time) * 1000
         goa_speaking_exam_evaluation_ms.observe(duration_ms)

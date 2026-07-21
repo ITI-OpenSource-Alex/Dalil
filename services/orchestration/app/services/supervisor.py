@@ -45,7 +45,7 @@ structured_llm = llm.with_structured_output(IntentResult, include_raw=True)
 
 SUPERVISOR_PROMPT = """You are a routing agent. Classify the user message into exactly one of:
                         SPEAKING  - IELTS speaking practice or mock interview
-                        WRITING   - essay submission or writing evaluation
+                        WRITING   - essay submission or writing evaluation (e.g. "Score my essay please" -> WRITING)
                         RAG       - IELTS info, requirements, visa, scholarships
                         OPPORTUNITY_SEARCH - searching for study opportunities, scholarships, admissions
                         CV_REVIEW - CV upload or improvement request"""

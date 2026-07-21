@@ -55,7 +55,8 @@ async def chat_endpoint(request: ChatRequest, req: Request):
             intent_result = await classify_intent(
                 message=request.message,
                 trace_id=trace_id,
-                parent_span_id=parent_span_id
+                parent_span_id=parent_span_id,
+                user_id=request.userId
             )
             intent = intent_result.intent
             downstream_service = intent.lower()
@@ -92,16 +93,15 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                 intent=intent,
                 message=request.message,
                 user_id=request.userId,
-                correlation_id=correlation_id
+                correlation_id=correlation_id,
+                attachments=request.attachments
             )
-            async for chunk in response_stream:
-                full_response += chunk
+            async for event in response_stream:
+                if event.type == "token" and event.content:
+                    full_response += event.content
                 yield ServerSentEvent(
-                    event="token",
-                    data=ChatStreamEvent(
-                        type="token",
-                        content=chunk
-                    ).model_dump_json()
+                    event=event.type,
+                    data=event.model_dump_json()
                 )
             # 7. End downstream trace span
             if downstream_span:

@@ -3,7 +3,15 @@ import {
   ConflictException,
   NotFoundException,
   BadRequestException,
+  UnauthorizedException,
+  ForbiddenException,
+  Logger,
 } from '@nestjs/common';
+import {
+  InternalLoginDto,
+  InternalRefreshDto,
+  InternalRevokeDto,
+} from './dto/refresh-token.dto';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -17,9 +25,13 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import { SqsService } from '@ssut/nestjs-sqs';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     @InjectRepository(User) private readonly userRepository: Repository<User>,
     @InjectRepository(UserProfile)
@@ -30,8 +42,9 @@ export class UsersService {
     private readonly emailVerificationRepository: Repository<EmailVerification>,
     @InjectRepository(RefreshToken)
     private readonly refreshTokenRepository: Repository<RefreshToken>,
-    // private readonly sqsService: SqsService,
-  ) { }
+    private readonly sqsService: SqsService,
+    private readonly configService: ConfigService,
+  ) {}
 
   // FIX 1: Async methods must return a Promise wrapper, and we type it cleanly using structural mapping
   async register(
@@ -139,7 +152,66 @@ export class UsersService {
     }
 
     Object.assign(profile, dto);
-    return this.profileRepository.save(profile);
+    const savedProfile = await this.profileRepository.save(profile);
+
+    // Fire-and-forget: publish UserUpdated event to SQS.
+    // A failure here must never fail the HTTP request — the DB write is the source of truth.
+    void this.publishUserUpdatedEvent(id);
+
+    return savedProfile;
+  }
+
+  private async publishUserUpdatedEvent(userId: string): Promise<void> {
+    try {
+      const user = await this.userRepository.findOne({
+        where: { id: userId },
+        relations: { profile: true },
+      });
+      if (!user) {
+        this.logger.warn(
+          `publishUserUpdatedEvent: user ${userId} not found, skipping SQS publish`,
+        );
+        return;
+      }
+
+      const producerName = this.configService.get<string>(
+        'SQS_PRODUCER_NAME',
+        'user-events',
+      );
+
+      const event = {
+        type: 'user.updated',
+        version: '1.0',
+        timestamp: new Date().toISOString(),
+        correlationId: crypto.randomUUID(),
+        payload: {
+          userId: user.id,
+          email: user.email,
+          subscriptionTier: user.subscriptionTier,
+
+          ects: user.profile?.ects || 0,
+          gpa: user.profile?.gpa || 0,
+          gpaScale: user.profile?.gpaScale || '4.0',
+          ieltsScore: user.profile?.ieltsScore || 0,
+          degreeLevel: user.profile?.degreeLevel || 'Bachelor',
+          workExperienceYears: user.profile?.workExperienceYears || 0,
+          extracurricularsScore: user.profile?.extracurricularsScore || 0,
+          targetCountries: user.profile?.targetCountries || [],
+        },
+      };
+
+      await this.sqsService.send(producerName, {
+        id: event.correlationId,
+        body: event,
+      });
+
+      this.logger.log(`UserUpdated event published for user ${userId}`);
+    } catch (error) {
+      this.logger.error(
+        `Failed to publish UserUpdated event for user ${userId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
   }
 
   private hashToken(token: string): string {
@@ -297,5 +369,125 @@ export class UsersService {
       { userId },
       { revokedAt: new Date() },
     );
+  }
+
+  async internalLogin(dto: InternalLoginDto) {
+    const user = await this.userRepository.findOne({
+      where: { email: dto.email },
+    });
+
+    if (!user || !(await bcrypt.compare(dto.password, user.passwordHash))) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = await bcrypt.hash(rawToken, 10);
+
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30);
+
+    const tokenEntity = this.refreshTokenRepository.create({
+      tokenHash,
+      userId: user.id,
+      expiresAt,
+      deviceHint: dto.deviceHint,
+    });
+
+    const savedToken = await this.refreshTokenRepository.save(tokenEntity);
+
+    return {
+      userId: user.id,
+      email: user.email,
+      tokenId: savedToken.id,
+      rawToken,
+      expiresAt: savedToken.expiresAt.toISOString(),
+    };
+  }
+
+  async internalRefresh(dto: InternalRefreshDto) {
+    const token = await this.refreshTokenRepository.findOne({
+      where: { id: dto.tokenId },
+      relations: { user: true },
+    });
+
+    if (!token || !(await bcrypt.compare(dto.rawToken, token.tokenHash))) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    if (token.revokedAt) {
+      // If token is already revoked, this is a replay attack! Revoke ALL sessions.
+      await this.revokeAllForUser(token.userId);
+      throw new ForbiddenException(
+        'Replay attack detected. All sessions revoked.',
+      );
+    }
+
+    if (new Date() > token.expiresAt) {
+      throw new UnauthorizedException('Refresh token expired');
+    }
+
+    token.revokedAt = new Date();
+    const newRawToken = crypto.randomBytes(32).toString('hex');
+    const newTokenHash = await bcrypt.hash(newRawToken, 10);
+    const newExpiresAt = new Date();
+    newExpiresAt.setDate(newExpiresAt.getDate() + 30);
+
+    const newTokenEntity = this.refreshTokenRepository.create({
+      tokenHash: newTokenHash,
+      userId: token.userId,
+      expiresAt: newExpiresAt,
+      deviceHint: dto.deviceHint || token.deviceHint, // carry over hint if not provided
+    });
+
+    //Atomically save the invalidation and the new token
+    await this.refreshTokenRepository.manager.transaction(async (manager) => {
+      await manager.save(token);
+      await manager.save(newTokenEntity);
+    });
+
+    return {
+      userId: token.userId,
+      email: token.user.email,
+      newTokenId: newTokenEntity.id,
+      newRawToken,
+      expiresAt: newTokenEntity.expiresAt.toISOString(),
+    };
+  }
+
+  async internalRevoke(dto: InternalRevokeDto) {
+    if (dto.revokeAll) {
+      await this.revokeAllForUser(dto.userId);
+    } else if (dto.tokenId) {
+      await this.refreshTokenRepository.update(
+        { id: dto.tokenId, userId: dto.userId },
+        { revokedAt: new Date() },
+      );
+    }
+  }
+
+  async findAllPaginated(page: number, limit: number) {
+    const skip = (page - 1) * limit;
+    const [users, total] = await this.userRepository.findAndCount({
+      relations: { profile: true },
+      skip,
+      take: limit,
+      order: { createdAt: 'ASC' },
+    });
+    const mappedUsers = users.map((u) => ({
+      userId: u.id,
+      email: u.email,
+      ects: u.profile?.ects || 0,
+      gpa: u.profile?.gpa || 0,
+      gpaScale: u.profile?.gpaScale || '4.0',
+      ieltsScore: u.profile?.ieltsScore || 0,
+      degreeLevel: u.profile?.degreeLevel || 'Bachelor',
+      workExperienceYears: u.profile?.workExperienceYears || 0,
+      extracurricularsScore: u.profile?.extracurricularsScore || 0,
+      targetCountries: u.profile?.targetCountries || [],
+    }));
+    return {
+      users: mappedUsers,
+      hasMore: skip + users.length < total,
+    };
   }
 }

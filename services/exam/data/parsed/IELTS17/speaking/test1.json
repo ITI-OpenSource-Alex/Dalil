@@ -1,0 +1,119 @@
+{
+  "book_ref": "IELTS-17",
+  "test_number": 1,
+  "exam_type": "general",
+  "skill_area": "speaking",
+  "passage_text": null,
+  "questions": [
+    {
+      "number": 1,
+      "prompt": "Do you think the advantages of taking risks outweigh the disadvantages?",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 2,
+      "prompt": "• What did you study in history lessons when you were at school?",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 3,
+      "prompt": "• Did you enjoy studying history at school? [Why/Why not?]",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 4,
+      "prompt": "• How often do you watch TV programmes about history now? [Why/Why not?]",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 5,
+      "prompt": "• What period in history would you like to learn more about? [Why?]",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 6,
+      "prompt": "Describe the neighbourhood you lived in when You will have to talk you were a child. about the topic for one to two minutes. You",
+      "question_type": "Speaking Part 2",
+      "instructions": "Speak for 1-2 minutes on this topic.",
+      "passage_number": null,
+      "section_number": 2,
+      "bullet_points": [
+        "You should say:",
+        "have one minute to",
+        "where in your town/city the neighbourhood was",
+        "think about what you",
+        "what kind of people lived there",
+        "are going to say. You",
+        "what it was like to live in this neighbourhood",
+        "can make some notes",
+        "and explain whether you would like to live in this to help you if you wish.",
+        "neighbourhood in the future."
+      ]
+    },
+    {
+      "number": 7,
+      "prompt": "What sort of things can neighbours do to help each other?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 8,
+      "prompt": "How well do people generally know their neighbours in your country?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 9,
+      "prompt": "How important do you think it is to have good neighbours?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 10,
+      "prompt": "Which facilities are most important to people living in cities?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 11,
+      "prompt": "How does shopping in small local shops differ from shopping in large city centre shops?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 12,
+      "prompt": "Do you think that children should always go to the school nearest to where they live?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    }
+  ],
+  "answer_key": {},
+  "time_limit_seconds": 900
+}

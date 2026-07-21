@@ -15,6 +15,13 @@ class Settings(BaseSettings):
     langfuse_secret_key: Optional[str] = ""
     langfuse_host: str = "https://cloud.langfuse.com"
     
+    
+    anthropic_base_url: str = ""
+    anthropic_auth_token: str = ""
+    anthropic_user_agent: str = "Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14"
+    llm_model: str = "claude-opus-4-8"
+
+
     # Downstream Service URLs
     rag_service_url: str = "http://rag:8084"
     speaking_service_url: str = "http://speaking:8082"

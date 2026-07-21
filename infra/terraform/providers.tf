@@ -12,6 +12,7 @@ terraform {
       version = "~> 3.6"
     }
 
+
     # NOTE: GitHub provider requires a paid org plan for branch protection.
     # Uncomment when the org is upgraded.
     # github = {
@@ -22,7 +23,7 @@ terraform {
     tls = {
       source  = "hashicorp/tls"
       version = "~> 4.0"
-    }
+
   }
 }
 

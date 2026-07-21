@@ -11,6 +11,9 @@ from app.repositories.result_repository import ResultRepository
 from app.repositories.session_repository import SessionRepository
 from app.schemas import CreateSessionRequest, SubmitAnswersRequest
 from app.services.session_service import SessionService
+from app.repositories.writing_response_repository import WritingResponseRepository
+from app.services.writing_client import WritingClient
+from app.core.config import settings
 
 router = APIRouter(
     prefix="/sessions",
@@ -24,6 +27,8 @@ def get_session_service() -> SessionService:
         session_repository=SessionRepository(db.pool),
         question_repository=QuestionRepository(db.pool),
         result_repository=ResultRepository(db.pool),
+        writing_response_repository=WritingResponseRepository(db.pool),
+        writing_client=WritingClient(base_url=settings.writing_service_url),
     )
 
 

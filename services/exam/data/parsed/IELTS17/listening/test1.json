@@ -1,0 +1,347 @@
+{
+  "book_ref": "IELTS-17",
+  "test_number": 1,
+  "exam_type": "academic",
+  "skill_area": "listening",
+  "passage_text": null,
+  "questions": [
+    {
+      "number": 1,
+      "prompt": "• making sure the beach does not have 1 on it",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 2,
+      "prompt": "• no 2",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 3,
+      "prompt": "• next task is taking action to attract 3 to the place",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 4,
+      "prompt": "• identifying types of 4",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 5,
+      "prompt": "• building a new 5",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 6,
+      "prompt": "• walk across the sands and reach the 6",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 7,
+      "prompt": "• wear appropriate 7",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 8,
+      "prompt": "• suitable for 8 to participate in",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 9,
+      "prompt": "• making 9 out of wood",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 10,
+      "prompt": "• 17th, from 10 a.m. to 3 p.m.",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 11,
+      "prompt": "11 What is the maximum number of people who can stand on each side of the boat?",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 2
+    },
+    {
+      "number": 12,
+      "prompt": "12 What colour are the tour boats?",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 2
+    },
+    {
+      "number": 13,
+      "prompt": "13 Which lunchbox is suitable for someone who doesn't eat meat or fish?",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 2
+    },
+    {
+      "number": 14,
+      "prompt": "14 What should people do with their litter?",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 2
+    },
+    {
+      "number": 15,
+      "prompt": "Choose TWO letters, A-E. Which TWO features of the lighthouse does Lou mention? D who staffed it E what it was built with",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 2
+    },
+    {
+      "number": 16,
+      "prompt": "Choose TWO letters, A-E. Which TWO features of the lighthouse does Lou mention? D who staffed it E what it was built with",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 2
+    },
+    {
+      "number": 17,
+      "prompt": "Which TWO types of creature might come close to the boat?",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 2
+    },
+    {
+      "number": 18,
+      "prompt": "Which TWO types of creature might come close to the boat?",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 2
+    },
+    {
+      "number": 19,
+      "prompt": "Which TWO points does Lou make about the caves? D Someone will explain what is inside them. E They cannot be reached on foot.",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 2
+    },
+    {
+      "number": 20,
+      "prompt": "Which TWO points does Lou make about the caves? D Someone will explain what is inside them. E They cannot be reached on foot.",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 2
+    },
+    {
+      "number": 21,
+      "prompt": "21 What problem did both Diana and Tim have when arranging their work experience?",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 22,
+      "prompt": "22 Tim was pleased to be able to help",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 23,
+      "prompt": "23 Diana says the sheep on her farm",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 24,
+      "prompt": "24 What did the students learn about adding supplements to chicken feed?",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 25,
+      "prompt": "25 What happened when Diana was working with dairy cows?",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 26,
+      "prompt": "26 What did both farmers mention about vets and farming?",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 27,
+      "prompt": "questions 27-30.",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 28,
+      "prompt": "28 Diet and nutrition",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 29,
+      "prompt": "29 Animal disease",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 30,
+      "prompt": "questions 27-30.",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 31,
+      "prompt": "• Mazes are a type of 31",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 32,
+      "prompt": "- 32 is needed to navigate through a maze",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 33,
+      "prompt": ", which are based on Reading To catch a king Anna Keay reviews Charles Spencer's book about the hunt for King Charles II during the English Civil War of the seventeenth century Charles Spencer's latest book, To Catch a with the writer and diarist Samuel Pepys. His King, tells us the story of the hunt for King intention when asking Pepys to commit his Charles II in the six weeks after his resounding story to paper was to ensure that this most defeat at the Battle of Worcester in September extraordinary episode was never forgotten. 1651. And what a story it is. After his father Over two three-hour sittings, the king related was executed by the Parliamentarians in 1649, to him in great detail his personal recollections the young Charles II sacrificed one of the of the six weeks he had spent as a fugitive. As very principles his father had died for and the king and secretary settled down (a scene did a deal with the Scots, thereby accepting that is surely a gift for a future scriptwriter), Presbyterianism* as the national religion in Charles commenced his story: 'After the battle return for being crowned King of Scots. His was so absolutely lost as to be beyond hope of arrival in Edinburgh prompted the English recovery, I began to think of the best way of Parliamentary army to invade Scotland in a saving myself.' pre-emptive strike. This was followed by a Scottish invasion of England. The two sides One of the joys of Spencer's book, a result not finally faced one another at Worcester in least of its use of Charles II's own narrative the west of England in 1651. After being as well as those of his supporters, is just how comprehensively defeated on the meadows close the reader gets to the action. The day-by- outside the city by the Parliamentarian army, day retelling of the fugitives' doings provides the 21-year-old king found himself the subject delicious details: the cutting of the king's long of a national manhunt, with a huge sum hair with agricultural shears, the use of walnut offered for his capture. Over the following leaves to dye his pale skin, and the day Charles six weeks he managed, through a series of spent lying on a branch of the great oak tree in heart-poundingly close escapes, to evade the Boscobel Wood as the Parliamentary soldiers Parliamentarians before seeking refuge in scoured the forest floor below. Spencer draws France. For the next nine years, the penniless out both the humour - such as the preposterous and defeated Charles wandered around Europe refusal of Charles's friend Henry Wilmot with only a small group of loyal supporters. to adopt disguise on the grounds that it was beneath his dignity - and the emotional tension Years later, after his restoration as king, the when the secret of the king's presence was 50-year-old Charles II requested a meeting cautiously revealed to his supporters. • Presbyterianism: part of the reformed Protestant religion Charles's adventures after losing the Battle of pacey, readable prose steers deftly clear of Worcester hide the uncomfortable truth that modern idioms and elegantly brings to life the whilst almost everyone in England had been details of the great tale. He has even-handed appalled by the execution of his father, they sympathy for both the fugitive king and the had not welcomed the arrival of his son with fierce republican regime that hunted him, the Scots army, but had instead firmly bolted and he succeeds in his desire to explore far their doors. This was partly because he rode at more of the background of the story than the head of what looked like a foreign invasion previous books on the subject have done. Indeed, force and partly because, after almost a decade the opening third of the book is about how of civil war, people were desperate to avoid Charles II found himself at Worcester in the first it beginning again. This makes it all the more place, which for some will be reason alone to interesting that Charles II himself loved the read To Catch a King. story so much ever after. As well as retelling it to anyone who would listen, causing eye- The tantalising question left, in the end, is that rolling among courtiers, he set in train a series of what it all meant. Would Charles II have of initiatives to memorialise it. There was to been a different king had these six weeks never be a new order of chivalry, the Knights of the happened? The days and nights spent in hiding Royal Oak. A series of enormous oil paintings must have affected him in some way. Did the depicting the episode were produced, including need to assume disguises, to survive on wit and a two-metre-wide canvas of Boscobel Wood charm alone, to use trickery and subterfuge to and a set of six similarly enormous paintings escape from tight corners help form him? This of the king on the run. In 1660, Charles II is the one area where the book doesn't quite hit commissioned the artist John Michael Wright the mark. Instead its depiction of Charles II in to paint a flying squadron of cherubs* carrying his final years as an ineffective, pleasure-loving an oak tree to the heavens on the ceiling of his monarch doesn't do justice to the man (neither bedchamber. It is hard to imagine many other is it accurate), or to the complexity of his kings marking the lowest point in their life so character. But this one niggle aside, To Catch a enthusiastically, or indeed pulling off such an King is an excellent read, and those who come escape in the first place. to it knowing little of the famous tale will find they have a treat in store. Charles Spencer is the perfect person to pass the story on to a new generation. His • cherub: an image of angelic children used in paintings",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 34,
+      "prompt": "- they have frequently been used in 34 and prayer",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 35,
+      "prompt": "• Ancient carvings on 35 have been found across",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 36,
+      "prompt": "• Ancient Greeks used the symbol on 36",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 37,
+      "prompt": "37 at its centre",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 38,
+      "prompt": "e.g., walking a maze can reduce a person's 38 rate",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 39,
+      "prompt": ", which are based on Reading To catch a king Anna Keay reviews Charles Spencer's book about the hunt for King Charles II during the English Civil War of the seventeenth century Charles Spencer's latest book, To Catch a with the writer and diarist Samuel Pepys. His King, tells us the story of the hunt for King intention when asking Pepys to commit his Charles II in the six weeks after his resounding story to paper was to ensure that this most defeat at the Battle of Worcester in September extraordinary episode was never forgotten. 1651. And what a story it is. After his father Over two three-hour sittings, the king related was executed by the Parliamentarians in 1649, to him in great detail his personal recollections the young Charles II sacrificed one of the of the six weeks he had spent as a fugitive. As very principles his father had died for and the king and secretary settled down (a scene did a deal with the Scots, thereby accepting that is surely a gift for a future scriptwriter), Presbyterianism* as the national religion in Charles commenced his story: 'After the battle return for being crowned King of Scots. His was so absolutely lost as to be beyond hope of arrival in Edinburgh prompted the English recovery, I began to think of the best way of Parliamentary army to invade Scotland in a saving myself.' pre-emptive strike. This was followed by a Scottish invasion of England. The two sides One of the joys of Spencer's book, a result not finally faced one another at Worcester in least of its use of Charles II's own narrative the west of England in 1651. After being as well as those of his supporters, is just how comprehensively defeated on the meadows close the reader gets to the action. The day-by- outside the city by the Parliamentarian army, day retelling of the fugitives' doings provides the 21-year-old king found himself the subject delicious details: the cutting of the king's long of a national manhunt, with a huge sum hair with agricultural shears, the use of walnut offered for his capture. Over the following leaves to dye his pale skin, and the day Charles six weeks he managed, through a series of spent lying on a branch of the great oak tree in heart-poundingly close escapes, to evade the Boscobel Wood as the Parliamentary soldiers Parliamentarians before seeking refuge in scoured the forest floor below. Spencer draws France. For the next nine years, the penniless out both the humour - such as the preposterous and defeated Charles wandered around Europe refusal of Charles's friend Henry Wilmot with only a small group of loyal supporters. to adopt disguise on the grounds that it was beneath his dignity - and the emotional tension Years later, after his restoration as king, the when the secret of the king's presence was 50-year-old Charles II requested a meeting cautiously revealed to his supporters. • Presbyterianism: part of the reformed Protestant religion Charles's adventures after losing the Battle of pacey, readable prose steers deftly clear of Worcester hide the uncomfortable truth that modern idioms and elegantly brings to life the whilst almost everyone in England had been details of the great tale. He has even-handed appalled by the execution of his father, they sympathy for both the fugitive king and the had not welcomed the arrival of his son with fierce republican regime that hunted him, the Scots army, but had instead firmly bolted and he succeeds in his desire to explore far their doors. This was partly because he rode at more of the background of the story than the head of what looked like a foreign invasion previous books on the subject have done. Indeed, force and partly because, after almost a decade the opening third of the book is about how of civil war, people were desperate to avoid Charles II found himself at Worcester in the first it beginning again. This makes it all the more place, which for some will be reason alone to interesting that Charles II himself loved the read To Catch a King. story so much ever after. As well as retelling it to anyone who would listen, causing eye- The tantalising question left, in the end, is that rolling among courtiers, he set in train a series of what it all meant. Would Charles II have of initiatives to memorialise it. There was to been a different king had these six weeks never be a new order of chivalry, the Knights of the happened? The days and nights spent in hiding Royal Oak. A series of enormous oil paintings must have affected him in some way. Did the depicting the episode were produced, including need to assume disguises, to survive on wit and a two-metre-wide canvas of Boscobel Wood charm alone, to use trickery and subterfuge to and a set of six similarly enormous paintings escape from tight corners help form him? This of the king on the run. In 1660, Charles II is the one area where the book doesn't quite hit commissioned the artist John Michael Wright the mark. Instead its depiction of Charles II in to paint a flying squadron of cherubs* carrying his final years as an ineffective, pleasure-loving an oak tree to the heavens on the ceiling of his monarch doesn't do justice to the man (neither bedchamber. It is hard to imagine many other is it accurate), or to the complexity of his kings marking the lowest point in their life so character. But this one niggle aside, To Catch a enthusiastically, or indeed pulling off such an King is an excellent read, and those who come escape in the first place. to it knowing little of the famous tale will find they have a treat in store. Charles Spencer is the perfect person to pass the story on to a new generation. His • cherub: an image of angelic children used in paintings",
+      "question_type": "Multiple Choice",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 40,
+      "prompt": "less 40",
+      "question_type": "Completion",
+      "instructions": null,
+      "passage_number": null,
+      "section_number": 4
+    }
+  ],
+  "answer_key": {
+    "1": "litter 21 A",
+    "2": "dogs 22 B",
+    "3": "insects 23 B",
+    "4": "butterflies 24 A",
+    "5": "wall 25 C",
+    "6": "island 26 C",
+    "7": "boots 27 A",
+    "8": "beginners 28 E",
+    "9": "spoons 29 F",
+    "10": "35 / thirty five 30 C",
+    "11": "A 31 puzzle",
+    "12": "C 32 logic",
+    "13": "B 33 confusion",
+    "14": "B 34 meditation"
+  },
+  "audio_s3_key": "exam-audio/IELTS-unknown/1/section1.mp3",
+  "time_limit_seconds": 1800
+}

@@ -3,13 +3,14 @@ services:
     build:
       context: ./services/gateway
       target: dev
-
     ports:
       - "8080:8080"
     environment:
-      - DATABASE_URL=postgres://goa:goa_pass@postgres:5432/user_db?sslmode=disable
+      - USER_SERVICE_URL=http://user-service:8081
+      - INTERNAL_API_KEY=supersecret_internal_key_123
       - REDIS_URL=redis://redis-gateway:6379/0
       - JWT_SECRET=supersecret_dev_key
+      - WRITING_SERVICE_URL=http://writing:8000
     volumes:
       - ./services/gateway:/app
     depends_on:
@@ -17,12 +18,14 @@ services:
         condition: service_healthy
       redis-gateway:
         condition: service_healthy
+      writing:
+        condition: service_healthy
 
   user-service:
     build:
       context: ./services/user
       dockerfile: Dockerfile
-      target: development # Targets our development stage from the Dockerfile
+      target: development
     ports:
       - "8081:8081"
     environment:
@@ -33,11 +36,103 @@ services:
       - DB_PASSWORD=goa_pass
       - DB_NAME=user_db
       - INTERNAL_API_KEY=supersecret_internal_key_123
+
+      # AWS / LocalStack
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT=http://localstack:4566
+      - SQS_QUEUE_URL=http://localstack:4566/000000000000/user-events
+
+      - REDIS_HOST=redis-gateway
+      - REDIS_PORT=6379
+
     volumes:
       - ./services/user:/usr/src/app
-      - /usr/src/app/node_modules # Prevents local node_modules from conflicting with container
+      - /usr/src/app/node_modules
+
     depends_on:
       postgres:
+        condition: service_healthy
+      localstack:
+        condition: service_started
+
+  writing:
+    build:
+      context: .
+      dockerfile: services/writing/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://goa:goa_pass@postgres:5432/writing_db
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - S3_BUCKET=goa-writing-files
+      - CV_UPLOADED_QUEUE_URL=http://localstack:4566/000000000000/goa-cv-uploaded
+      - CV_PROCESSED_QUEUE_URL=http://localstack:4566/000000000000/goa-cv-processed
+      - PYTHONPATH=/app:/packages/contracts/py
+      - OTEL_SERVICE_NAME=writing-service
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-}
+      - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
+      - LLM_MODEL=${LLM_MODEL:-claude-opus-4-8}
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
+      - LANGFUSE_HOST=${LANGFUSE_HOST}
+      - WRITING_MODEL=${WRITING_MODEL:-claude-sonnet-4-6}
+      - CV_EXTRACTION_MODEL=${CV_EXTRACTION_MODEL:-claude-haiku-4-5-20251001}
+      - ANTHROPIC_TIMEOUT_SECONDS=${ANTHROPIC_TIMEOUT_SECONDS:-25}
+      - WRITING_CACHE_VERSION=${WRITING_CACHE_VERSION:-v1}
+    volumes:
+      - ./services/writing/app:/app/app
+      - ./services/writing/cv_processor:/app/cv_processor
+      - ./services/writing/migrations:/app/migrations
+      - ./services/writing/tests:/app/tests
+      - ./packages/contracts/py:/packages/contracts/py
+    depends_on:
+      postgres:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  cv-processor:
+    build:
+      context: .
+      dockerfile: services/writing/Dockerfile
+    command: [ "sh", "-c", "python -m app.init_db && python -m cv_processor.local_worker" ]
+    environment:
+      - DATABASE_URL=postgresql://goa:goa_pass@postgres:5432/writing_db
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - S3_BUCKET=goa-writing-files
+      - CV_PROCESSOR_QUEUE_URL=http://localstack:4566/000000000000/goa-cv-processing
+      - CV_PROCESSED_QUEUE_URL=http://localstack:4566/000000000000/goa-cv-processed
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - CV_EXTRACTION_MODEL=${CV_EXTRACTION_MODEL:-claude-haiku-4-5-20251001}
+      - ANTHROPIC_TIMEOUT_SECONDS=${ANTHROPIC_TIMEOUT_SECONDS:-25}
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
+      - LANGFUSE_HOST=${LANGFUSE_HOST}
+      - PYTHONPATH=/app:/packages/contracts/py
+      - OTEL_SERVICE_NAME=cv-processor
+    volumes:
+      - ./services/writing/app:/app/app
+      - ./services/writing/cv_processor:/app/cv_processor
+      - ./services/writing/migrations:/app/migrations
+      - ./packages/contracts/py:/packages/contracts/py
+    depends_on:
+      postgres:
+        condition: service_healthy
+      localstack:
         condition: service_healthy
 
   postgres:
@@ -45,7 +140,6 @@ services:
     environment:
       POSTGRES_USER: goa
       POSTGRES_PASSWORD: goa_pass
-      # We will mount an init script later to create the 5 separate databases
       POSTGRES_DB: postgres
     ports:
       - "5432:5432"
@@ -53,7 +147,7 @@ services:
       - ./infra/docker/postgres/init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U goa" ]
+      test: [ "CMD-SHELL", "pg_isready -U goa -d postgres" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -69,11 +163,19 @@ services:
       retries: 5
 
   localstack:
-    image: localstack/localstack:3.4.0
+    build:
+      context: ./infra/localstack
+    image: goa-localstack:3.4.0
     environment:
       - SERVICES=sqs,s3
+      - AWS_DEFAULT_REGION=us-east-1
     ports:
       - "4566:4566"
+    healthcheck:
+      test: [ "CMD-SHELL", "awslocal s3api head-bucket --bucket goa-writing-files" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   prometheus:
     image: prom/prometheus:v2.50.1
@@ -82,6 +184,7 @@ services:
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
       - ./monitoring/prometheus/gateway-alerts.yml:/etc/prometheus/gateway-alerts.yml
+      - ./monitoring/prometheus/writing-alerts.yml:/etc/prometheus/writing-alerts.yml
 
   grafana:
     image: grafana/grafana:10.4.0
@@ -110,10 +213,16 @@ services:
       - PORT=8082
       - MAX_CONNECTIONS=100
       - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
+      - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-}
+      - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
+      - LLM_MODEL=${LLM_MODEL:-claude-opus-4-8}
+      - SPEAKING_PRACTICE_MODEL=${SPEAKING_PRACTICE_MODEL:-claude-opus-4-8}
+      - SPEAKING_EXAM_MODEL=${SPEAKING_EXAM_MODEL:-claude-opus-4-8}
       - OTEL_SERVICE_NAME=speaking
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
       - LANGFUSE_HOST=${LANGFUSE_HOST}
+      - SPEECH_SERVICE_URL=http://speech:8086
     volumes:
       - ./services/speaking:/app
     depends_on:
@@ -131,14 +240,31 @@ services:
       - DATABASE_URL=postgresql://goa:goa_pass@postgres:5432/rag_db
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-}
+      - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
+      - LLM_MODEL=${LLM_MODEL:-claude-opus-4-8}
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
       - LANGFUSE_HOST=${LANGFUSE_HOST}
+      - REDIS_URL=redis://redis-cache:6379/2
+      - USER_SERVICE_URL=http://user-service:8081
+      - WRITING_SERVICE_URL=http://writing:8000
+      - INTERNAL_API_KEY=supersecret_internal_key_123
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - SQS_QUEUE_NAME=user-events
+      - EMBEDDING_BASE_URL=${EMBEDDING_BASE_URL:-http://host.docker.internal:11434/v1}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-nomic-embed-text}
+      - EMBEDDING_API_KEY=${EMBEDDING_API_KEY:-ollama}
     volumes:
       - ./services/rag:/app
     depends_on:
       postgres:
         condition: service_healthy
+      redis-cache:
+        condition: service_started
 
   exam:
     build:
@@ -153,6 +279,13 @@ services:
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
       - LANGFUSE_HOST=${LANGFUSE_HOST}
+      - WRITING_SERVICE_URL=http://writing:8000
+      - SPEAKING_SERVICE_URL=http://speaking:8082
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - S3_BUCKET=goa-writing-files
     volumes:
       - ./services/exam:/app
     depends_on:
@@ -163,15 +296,16 @@ services:
     build:
       context: ./services/orchestration
       target: dev
-
     ports:
       - "8083:8083"
-
     environment:
       - PORT=8083
       - DATABASE_URL=postgresql://goa:goa_pass@postgres:5432/orchestration_db
       - REDIS_URL=redis://redis-cache:6379/1
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-}
+      - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
+      - LLM_MODEL=${LLM_MODEL:-claude-opus-4-8}
       - INTERNAL_API_KEY=supersecret_internal_key_123
       - OTEL_SERVICE_NAME=orchestration
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
@@ -182,12 +316,19 @@ services:
       - WRITING_SERVICE_URL=http://writing:8000
     volumes:
       - ./services/orchestration:/app
-
     depends_on:
       postgres:
         condition: service_healthy
       redis-cache:
         condition: service_started
+
+  speech:
+    build:
+      context: ./services/speech
+    ports:
+      - "8086:8086"
+    environment:
+      - PORT=8086
 
 volumes:
   pgdata:

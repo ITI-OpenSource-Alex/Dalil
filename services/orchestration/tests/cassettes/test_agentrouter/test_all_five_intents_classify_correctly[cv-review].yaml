@@ -1,0 +1,111 @@
+interactions:
+- request:
+    body: '{"max_tokens":1024,"messages":[{"role":"user","content":"Can you review
+      my CV?"}],"model":"claude-opus-4-8","system":"You are a routing agent. Classify
+      the user message into exactly one of:\n                        SPEAKING  - IELTS
+      speaking practice or mock interview (e.g. \"I want to practice speaking\")\n                        WRITING   -
+      essay submission or writing evaluation (e.g. \"Score my essay please\")\n                        RAG       -
+      IELTS info, requirements, visa, scholarships (e.g. \"What are the visa requirements?\")\n                        OPPORTUNITY_SEARCH
+      - searching for study opportunities, scholarships, admissions (e.g. \"Find me
+      a scholarship in Germany\")\n                        CV_REVIEW - CV upload or
+      improvement request (e.g. \"Can you review my CV?\")","tool_choice":{"type":"any"},"tools":[{"name":"IntentResult","description":"!!!
+      abstract \"Usage Documentation\"\n    [Models](../concepts/models.md) A base
+      class for creating Pydantic models. Attributes:\n    __class_vars__: The names
+      of the class variables defined on the model.\n    __private_attributes__: Metadata
+      about the private attributes of the model.\n    __signature__: The synthesized
+      `__init__` [`Signature`][inspect.Signature] of the model.     __pydantic_complete__:
+      Whether model building is completed, or if there are still undefined fields.\n    __pydantic_core_schema__:
+      The core schema of the model.\n    __pydantic_custom_init__: Whether the model
+      has a custom `__init__` function.\n    __pydantic_decorators__: Metadata containing
+      the decorators defined on the model.\n        This replaces `Model.__validators__`
+      and `Model.__root_validators__` from Pydantic V1.\n    __pydantic_generic_metadata__:
+      A dictionary containing metadata about generic Pydantic models.\n        The
+      `origin` and `args` items map to the [`__origin__`][genericalias.__origin__]\n        and
+      [`__args__`][genericalias.__args__] attributes of [generic aliases][types-genericalias],\n        and
+      the `parameter` item maps to the `__parameter__` attribute of generic classes.\n    __pydantic_parent_namespace__:
+      Parent namespace of the model, used for automatic rebuilding of models.\n    __pydantic_post_init__:
+      The name of the post-init method for the model, if defined.\n    __pydantic_root_model__:
+      Whether the model is a [`RootModel`][pydantic.root_model.RootModel].\n    __pydantic_serializer__:
+      The `pydantic-core` `SchemaSerializer` used to dump instances of the model.\n    __pydantic_validator__:
+      The `pydantic-core` `SchemaValidator` used to validate instances of the model.     __pydantic_fields__:
+      A dictionary of field names and their corresponding [`FieldInfo`][pydantic.fields.FieldInfo]
+      objects.\n    __pydantic_computed_fields__: A dictionary of computed field names
+      and their corresponding [`ComputedFieldInfo`][pydantic.fields.ComputedFieldInfo]
+      objects.     __pydantic_extra__: A dictionary containing extra values, if [`extra`][pydantic.config.ConfigDict.extra]\n        is
+      set to `''allow''`.\n    __pydantic_fields_set__: The names of fields explicitly
+      set during instantiation.\n    __pydantic_private__: Values of private attributes
+      set on the model instance.","input_schema":{"type":"object","properties":{"intent":{"enum":["SPEAKING","WRITING","RAG","OPPORTUNITY_SEARCH","CV_REVIEW"],"type":"string"},"confidence":{"type":"number"},"is_fallback":{"type":"boolean"}},"required":["intent","confidence"]}}]}'
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate
+      anthropic-version:
+      - '2023-06-01'
+      connection:
+      - keep-alive
+      content-length:
+      - '3421'
+      content-type:
+      - application/json
+      cookie:
+      - acw_tc=0a0f6be917846526341513757e0a1eca46bdee094323ae51cb6530345726d2
+      host:
+      - agentrouter.org
+      user-agent:
+      - Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14
+      x-stainless-arch:
+      - x64
+      x-stainless-async:
+      - async:asyncio
+      x-stainless-lang:
+      - python
+      x-stainless-os:
+      - Linux
+      x-stainless-package-version:
+      - 0.117.0
+      x-stainless-read-timeout:
+      - '25.0'
+      x-stainless-retry-count:
+      - '1'
+      x-stainless-runtime:
+      - CPython
+      x-stainless-runtime-version:
+      - 3.11.15
+      x-stainless-timeout:
+      - NOT_GIVEN
+    method: POST
+    uri: https://agentrouter.org/v1/messages
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAAA4yUbW/aMBDHv0rk14AcQqDlXdVVWrXtTbu1qqbJMskVPBI79cM2ivjuu3MCZHSt
+        +i6+B/t/d7/Lli1UVSm9ZPMtcybYAticWXgK4DwbMFMUwVooRW20X6FrzMfTIZ+hax9EiaEowDk2
+        9zbAgDlvQdZs/igrh0dv1qAdxSndBC/25ynP8gErZLECUWCGV0aLf0PSGd9HYEB56k15lqHG4PvW
+        8Yy0SWc0lnWwctLhZdW7ejzNd3i7cV4UenPQh0XyUcrzKTsVFz2cZ1T9UVRrTc8zaleU0sWNJ7FL
+        nZLOyHm/dUdTGWz/jWh7ClJ75Td9WyOtrMGD7RtjZa3uLOVsh2XJRok1bEQDVpmSijt+BSeXIPym
+        oVlHOQ6wB5ui6gxtKOXTeUcTlT5OsFMuChO0j13tZt+zgLXG9iMiDuI0dfc6GYehv4LFW1DwF0Dw
+        d/FAevos7HuK3Ywe7YFkf0cP/KHRfV1BEhzYRLlEujVentSQeJNY+KXgd+JXoGxyeTeiAbW9jpm7
+        AZZL1HhjqiAWpV0LnqYfMjf5Uo+fz2B2v8l/fra35+oJUzsmtyThUZWgaUP56PyMXK0mdnknbq7u
+        rq/uKd4J3LtqIYt1t4EoXyMzGHcdE27AhYqWe68KdQishO1+DFpltVuipG/3sPyY31zmzzN9qx4+
+        NfLi9uIB82pTArWmqGQoYWia4IaT4RmRZCJC0jmFyGh6xHnT0JxcZPvwVudwBEUsibjrBNXIExKK
+        hkjqSz7aP8d/9v5Nat71Mznd+C2DZgU1WEQlXb1k7ejN69MbZxzZ+QsAAP//AwBtJRhjYgUAAA==
+    headers:
+      connection:
+      - keep-alive
+      content-encoding:
+      - gzip
+      content-type:
+      - text/plain; charset=utf-8
+      date:
+      - Tue, 21 Jul 2026 16:51:41 GMT
+      transfer-encoding:
+      - chunked
+      vary:
+      - Accept-Encoding
+      x-oneapi-request-id:
+      - 20260722005137405618391ksg9sREn0vLVS
+    status:
+      code: 200
+      message: OK
+version: 1

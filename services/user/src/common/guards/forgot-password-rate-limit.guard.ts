@@ -6,7 +6,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import Redis from 'ioredis';
-
+import { Request } from 'express';
 @Injectable()
 export class ForgotPasswordRateLimitGuard implements CanActivate {
   private redis: Redis;
@@ -20,8 +20,8 @@ export class ForgotPasswordRateLimitGuard implements CanActivate {
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest();
-    const { email } = request.body;
+    const request = context.switchToHttp().getRequest<Request>();
+    const email = (request.body as { email?: string })?.email;
 
     if (!email) {
       return true; // Let validation pipeline catch the missing email field

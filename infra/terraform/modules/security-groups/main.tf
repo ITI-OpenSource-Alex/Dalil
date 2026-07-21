@@ -209,3 +209,63 @@ resource "aws_vpc_security_group_egress_rule" "ecs_services_https" {
   ip_protocol       = "tcp"
   to_port           = 443
 }
+
+resource "aws_security_group" "lambda" {
+  name        = "${local.name_prefix}-lambda-sg"
+  description = "Outbound-only SG for GOA async worker Lambdas: RDS, ElastiCache, and internet via NAT."
+  vpc_id      = var.vpc_id
+  tags = merge(
+    local.common_tags,
+    {
+      Name = "${local.name_prefix}-lambda-sg"
+      Tier = "private"
+      Role = "lambda"
+    }
+  )
+}
+
+resource "aws_vpc_security_group_egress_rule" "lambda_to_rds" {
+  security_group_id            = aws_security_group.lambda.id
+  description                  = "Allow Lambda workers to reach RDS."
+  referenced_security_group_id = aws_security_group.rds.id
+  from_port                    = var.rds_port
+  ip_protocol                  = "tcp"
+  to_port                      = var.rds_port
+}
+
+resource "aws_vpc_security_group_ingress_rule" "rds_from_lambda" {
+  security_group_id            = aws_security_group.rds.id
+  description                  = "Allow database traffic from Lambda workers."
+  referenced_security_group_id = aws_security_group.lambda.id
+  from_port                    = var.rds_port
+  ip_protocol                  = "tcp"
+  to_port                      = var.rds_port
+}
+
+resource "aws_vpc_security_group_egress_rule" "lambda_to_elasticache" {
+  security_group_id            = aws_security_group.lambda.id
+  description                  = "Allow Lambda workers to reach ElastiCache."
+  referenced_security_group_id = aws_security_group.elasticache.id
+  from_port                    = var.elasticache_port
+  ip_protocol                  = "tcp"
+  to_port                      = var.elasticache_port
+}
+
+resource "aws_vpc_security_group_ingress_rule" "elasticache_from_lambda" {
+  security_group_id            = aws_security_group.elasticache.id
+  description                  = "Allow cache traffic from Lambda workers."
+  referenced_security_group_id = aws_security_group.lambda.id
+  from_port                    = var.elasticache_port
+  ip_protocol                  = "tcp"
+  to_port                      = var.elasticache_port
+}
+
+resource "aws_vpc_security_group_egress_rule" "lambda_https" {
+  for_each          = toset(var.private_egress_cidr_blocks)
+  security_group_id = aws_security_group.lambda.id
+  description       = "Allow Lambda worker HTTPS egress through NAT (Secrets Manager, S3, third-party APIs)."
+  cidr_ipv4         = each.value
+  from_port         = 443
+  ip_protocol       = "tcp"
+  to_port           = 443
+}

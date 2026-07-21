@@ -9,6 +9,12 @@ variable "aws_region" {
   default     = "eu-west-1"
 }
 
+variable "aws_offline_mode" {
+  description = "Use mock AWS credentials only for local terraform plan validation. Never enable for apply."
+  type        = bool
+  default     = false
+}
+
 variable "vpc_cidr" {
   description = "Primary CIDR block for the VPC."
   type        = string
@@ -173,14 +179,8 @@ variable "tags" {
   default     = {}
 }
 
-variable "aws_offline_mode" {
-  description = "Use mock AWS credentials only for local terraform plan validation. Never enable for apply."
-  type        = bool
-  default     = false
-}
-
 variable "aws_account_id" {
-  description = "AWS account ID, used for S3 bucket notification source_account and ECR ARNs."
+  description = "AWS account ID, used for S3 bucket notification source_account."
   type        = string
 
   validation {
@@ -215,6 +215,7 @@ variable "ecr_notification_sender_repo_url" {
   type        = string
 }
 
+
 variable "lambda_secret_arns" {
   description = "Secret ARNs Lambda workers may read. Empty until modules/secrets exists."
   type        = list(string)
@@ -222,7 +223,7 @@ variable "lambda_secret_arns" {
 }
 
 variable "sqs_notification_queue_arn" {
-  description = "ARN of the SQS queue notification-sender consumes. Null until modules/sqs exists."
+
   type        = string
   default     = null
 }
@@ -257,3 +258,4 @@ variable "github_repo" {
 #   sensitive   = true
 #   default     = ""
 # }
+

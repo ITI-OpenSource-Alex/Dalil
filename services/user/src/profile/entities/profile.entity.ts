@@ -26,6 +26,15 @@ export class UserProfile {
   @Column({ type: 'int', nullable: true })
   ects: number;
 
+  @Column({ name: 'work_experience_years', type: 'int', default: 0 })
+  workExperienceYears: number;
+
+  @Column({ name: 'extracurriculars_score', type: 'int', default: 0 })
+  extracurricularsScore: number;
+
+  @Column({ name: 'gpa_scale', type: 'varchar', length: 4, default: '100' })
+  gpaScale: '4.0' | '100';
+
   @OneToOne(() => User, (user) => user.profile, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'userId' })
   user: User;

@@ -1,0 +1,8 @@
+# Used after infra/terraform/bootstrap.sh creates the remote-state resources.
+# Change backend.tf from backend "local" to an empty backend "s3" block first.
+
+bucket         = "replace-with-production-terraform-state-bucket"
+key            = "foundation/terraform.tfstate"
+region         = "eu-west-1"
+dynamodb_table = "replace-with-production-terraform-lock-table"
+encrypt        = true

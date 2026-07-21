@@ -51,16 +51,17 @@ class BaseEvent(BaseModel):
 }
 ```
 
-### 3. `cv.processed`
-* **Publisher**: `Ingestion Worker`
-* **Subscribers / Consumers**: `User Service`
-* **Description**: Fired when the Ingestion Worker finishes parsing and extracting text from an uploaded CV.
-* **Payload Structure**:
+### 3. `CVProcessed`
+* **Publisher**: `CV Processor`
+* **Subscribers / Consumers**: onboarding, orchestration, and interested domain consumers
+* **Description**: Fired when CV text and structured-field extraction finishes. Extracted content remains in `writing_db`; the event identifies the durable record.
+* **Event fields in addition to the base envelope**:
 ```json
 {
   "userId": "usr_abc123",
-  "extractedText": "...",
-  "status": "success" // "success" or "failed"
+  "cvId": 42,
+  "s3Key": "cvs/usr_abc123/resume.pdf",
+  "status": "ready"
 }
 ```
 

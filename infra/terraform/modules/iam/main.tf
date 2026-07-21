@@ -11,11 +11,11 @@ locals {
     }
   )
 
-  task_execution_secret_arns  = distinct(var.task_execution_secret_arns)
-  task_execution_kms_key_arns = distinct(var.task_execution_kms_key_arns)
-  task_secret_arns            = distinct(var.task_secret_arns)
-  task_sqs_queue_arns         = distinct(var.task_sqs_queue_arns)
-  task_kms_key_arns           = distinct(var.task_kms_key_arns)
+  task_execution_secret_arns  = var.task_execution_secret_arns
+  task_execution_kms_key_arns = var.task_execution_kms_key_arns
+  task_secret_arns            = var.task_secret_arns
+  task_sqs_queue_arns         = var.task_sqs_queue_arns
+  task_kms_key_arns           = var.task_kms_key_arns
 
   create_task_execution_secrets_policy = length(local.task_execution_secret_arns) > 0 || length(local.task_execution_kms_key_arns) > 0
   create_task_app_policy               = length(local.task_secret_arns) > 0 || length(local.task_sqs_queue_arns) > 0 || length(local.task_kms_key_arns) > 0
@@ -23,6 +23,12 @@ locals {
   session_manager_log_group_name = coalesce(var.session_manager_log_group_name, "/aws/ssm/${local.name_prefix}/session-manager")
   session_manager_kms_key_id     = trimspace(var.session_manager_kms_key_id)
   session_manager_s3_bucket_name = trimspace(var.session_manager_s3_bucket_name)
+
+  lambda_secret_arns       = var.lambda_secret_arns
+  lambda_kms_key_arns      = var.lambda_kms_key_arns
+  lambda_sqs_queue_arns    = var.lambda_sqs_queue_arns
+  lambda_s3_bucket_arns    = var.lambda_s3_bucket_arns
+  create_lambda_app_policy = length(local.lambda_secret_arns) > 0 || length(local.lambda_sqs_queue_arns) > 0 || length(local.lambda_s3_bucket_arns) > 0 || length(local.lambda_kms_key_arns) > 0
 }
 
 data "aws_iam_policy_document" "ecs_tasks_assume_role" {
@@ -295,4 +301,103 @@ resource "aws_ssm_document" "session_manager_preferences" {
       Role = "session-manager-preferences"
     }
   )
+}
+
+data "aws_iam_policy_document" "lambda_assume_role" {
+  statement {
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["lambda.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "lambda_execution" {
+  name               = "${local.name_prefix}-lambda-execution-role"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
+  description        = "Execution role assumed by GOA async worker Lambda functions."
+  tags = merge(
+    local.common_tags,
+    {
+      Name = "${local.name_prefix}-lambda-execution-role"
+      Role = "lambda-execution"
+    }
+  )
+}
+
+# Covers CloudWatch Logs (create group/stream, put events) plus the EC2
+# network-interface actions Lambda needs to run inside the VPC.
+resource "aws_iam_role_policy_attachment" "lambda_vpc_access" {
+  role       = aws_iam_role.lambda_execution.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
+data "aws_iam_policy_document" "lambda_app" {
+  count = local.create_lambda_app_policy ? 1 : 0
+
+  dynamic "statement" {
+    for_each = length(local.lambda_secret_arns) > 0 ? [1] : []
+    content {
+      sid = "ReadLambdaSecrets"
+      actions = [
+        "secretsmanager:DescribeSecret",
+        "secretsmanager:GetSecretValue",
+      ]
+      resources = local.lambda_secret_arns
+    }
+  }
+
+  dynamic "statement" {
+    for_each = length(local.lambda_sqs_queue_arns) > 0 ? [1] : []
+    content {
+      sid = "UseLambdaQueues"
+      actions = [
+        "sqs:ChangeMessageVisibility",
+        "sqs:DeleteMessage",
+        "sqs:GetQueueAttributes",
+        "sqs:GetQueueUrl",
+        "sqs:ReceiveMessage",
+        "sqs:SendMessage",
+      ]
+      resources = local.lambda_sqs_queue_arns
+    }
+  }
+
+  dynamic "statement" {
+    for_each = length(local.lambda_s3_bucket_arns) > 0 ? [1] : []
+    content {
+      sid       = "ReadLambdaS3Objects"
+      actions   = ["s3:GetObject"]
+      resources = [for arn in local.lambda_s3_bucket_arns : "${arn}/*"]
+    }
+  }
+
+  dynamic "statement" {
+    for_each = length(local.lambda_kms_key_arns) > 0 ? [1] : []
+    content {
+      sid = "UseLambdaKeys"
+      actions = [
+        "kms:Decrypt",
+        "kms:DescribeKey",
+        "kms:Encrypt",
+        "kms:GenerateDataKey",
+      ]
+      resources = local.lambda_kms_key_arns
+    }
+  }
+}
+
+resource "aws_iam_policy" "lambda_app" {
+  count       = local.create_lambda_app_policy ? 1 : 0
+  name        = "${local.name_prefix}-lambda-app-policy"
+  description = "Allows GOA Lambda workers to access explicitly listed runtime dependencies."
+  policy      = data.aws_iam_policy_document.lambda_app[0].json
+  tags        = local.common_tags
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_app" {
+  count      = local.create_lambda_app_policy ? 1 : 0
+  role       = aws_iam_role.lambda_execution.name
+  policy_arn = aws_iam_policy.lambda_app[0].arn
 }

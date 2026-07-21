@@ -10,41 +10,37 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/rs/zerolog/log"
 )
 
 func (c *Client) transcribeAudio(audio []byte) {
-	if c.apiKey == "" {
-		log.Warn().Str("session_id", c.id).Msg("ElevenLabs API Key is not configured, returning mock transcript")
+	if c.speechURL == "" {
+		log.Warn().Str("session_id", c.id).Msg("Speech Service URL is not configured, returning mock transcript")
 
 		apiStart := time.Now()
-		c.sendTranscript("Mock transcript (ElevenLabs API Key missing)")
+		c.sendTranscript("Mock transcript (Speech URL missing)")
 		apiDuration := time.Since(apiStart)
 
 		transcriptionLatencyMetric.Observe(float64(apiDuration.Milliseconds()))
-		e2eDuration := time.Since(c.e2eStart)
-		e2eLatencyMetric.Observe(float64(e2eDuration.Milliseconds()))
-
 		atomic.StoreInt64(&c.lastTransMs, apiDuration.Milliseconds())
-		c.outcome = "completed"
+
+		// Trigger evaluation swarm directly using the mock transcript
+		c.runEvaluationAndTTS("Mock transcript (Speech URL missing)", apiDuration.Milliseconds())
 		return
 	}
 	log.Info().
 		Str("session_id", c.id).
 		Int("audio_size_bytes", len(audio)).
-		Msg("Calling ElevenLabs Speech-to-Text API...")
+		Msg("Calling local Speech-to-Text sidecar...")
 	var resp *http.Response
 	var err error
 	for attempt := 0; attempt < 2; attempt++ {
 		body := &bytes.Buffer{}
 		writer := multipart.NewWriter(body)
-		err = writer.WriteField("model_id", "scribe_v2")
-		if err != nil {
-			log.Error().Err(err).Str("session_id", c.id).Msg("Failed to write model_id form field")
-			return
-		}
+		
 		h := make(textproto.MIMEHeader)
-		h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, "file", "audio.pcm"))
+		h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, "audio", "audio.pcm"))
 		h.Set("Content-Type", "audio/pcm;rate=16000")
 		part, errPart := writer.CreatePart(h)
 		if errPart != nil {
@@ -61,26 +57,42 @@ func (c *Client) transcribeAudio(audio []byte) {
 			log.Error().Err(err).Str("session_id", c.id).Msg("Failed to close multipart writer")
 			return
 		}
-		req, errReq := http.NewRequestWithContext(c.ctx, "POST", "https://api.elevenlabs.io/v1/speech-to-text", body)
+		
+		url := fmt.Sprintf("%s/stt", c.speechURL)
+		req, errReq := http.NewRequestWithContext(c.ctx, "POST", url, body)
 		if errReq != nil {
 			log.Error().Err(errReq).Str("session_id", c.id).Msg("Failed to create STT HTTP request")
 			return
 		}
 		req.Header.Set("Content-Type", writer.FormDataContentType())
-		req.Header.Set("xi-api-key", c.apiKey)
-		// Time the ElevenLabs API latency specifically
+		
+		// Time the local STT sidecar latency
 		apiStart := time.Now()
 		resp, err = httpClient.Do(req)
 		apiDuration := time.Since(apiStart)
 		if err == nil && resp.StatusCode == http.StatusOK {
 			// Record metrics on success
 			transcriptionLatencyMetric.Observe(float64(apiDuration.Milliseconds()))
-			e2eDuration := time.Since(c.e2eStart)
-			e2eLatencyMetric.Observe(float64(e2eDuration.Milliseconds()))
-
 			atomic.StoreInt64(&c.lastTransMs, apiDuration.Milliseconds())
-			c.outcome = "completed"
-			break
+
+			// Decode response
+			defer resp.Body.Close()
+			var sttResp struct {
+				Text string `json:"text"`
+			}
+			err = json.NewDecoder(resp.Body).Decode(&sttResp)
+			if err != nil {
+				log.Error().Err(err).Str("session_id", c.id).Msg("Failed to decode STT response JSON")
+				c.outcome = "error"
+				return
+			}
+
+			// 1. Send text transcript to client
+			c.sendTranscript(sttResp.Text)
+
+			// 2. Trigger evaluation swarm and TTS voice streaming pipeline
+			c.runEvaluationAndTTS(sttResp.Text, apiDuration.Milliseconds())
+			return
 		}
 		if resp != nil {
 			resp.Body.Close()
@@ -102,28 +114,8 @@ func (c *Client) transcribeAudio(audio []byte) {
 		c.outcome = "error"
 		return
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		var errorDetails bytes.Buffer
-		errorDetails.ReadFrom(resp.Body)
-		log.Error().
-			Int("status_code", resp.StatusCode).
-			Str("response", errorDetails.String()).
-			Str("session_id", c.id).
-			Msg("ElevenLabs STT API returned non-OK status after retries")
-		c.outcome = "error"
-		return
-	}
-	var sttResp struct {
-		Text string `json:"text"`
-	}
-	err = json.NewDecoder(resp.Body).Decode(&sttResp)
-	if err != nil {
-		log.Error().Err(err).Str("session_id", c.id).Msg("Failed to decode STT response JSON")
-		return
-	}
-	c.sendTranscript(sttResp.Text)
 }
+
 func (c *Client) sendTranscript(text string) {
 	response := map[string]interface{}{
 		"type":    "transcript",
@@ -140,7 +132,7 @@ func (c *Client) sendTranscript(text string) {
 	select {
 	case <-c.ctx.Done():
 		return
-	case c.send <- resBytes:
+	case c.send <- WSMessage{Type: websocket.TextMessage, Payload: resBytes}: // Wrapped in WSMessage
 	case <-sendTimer.C:
 		log.Error().Str("session_id", c.id).Msg("Timed out trying to send transcript back to client")
 	}

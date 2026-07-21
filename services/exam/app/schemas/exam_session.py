@@ -48,3 +48,5 @@ class SubmitAnswersRequest(BaseModel):
     """Request payload for submitting answers for an IELTS exam session."""
 
     answers: dict[str, Any]
+    essay_text: str | None = None
+    task_number: int | None = None

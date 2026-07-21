@@ -1,10 +1,10 @@
 package main
 
 import (
-	"context"
-	"database/sql"
+	"bytes"
 	"encoding/json"
 	"io"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
@@ -16,7 +16,6 @@ import (
 	"github.com/ITI-OpenSource-Alex/GOA/services/gateway/middleware"
 	"github.com/ITI-OpenSource-Alex/GOA/services/gateway/observability"
 	"github.com/gofiber/fiber/v2"
-	_ "github.com/lib/pq"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
@@ -119,39 +118,32 @@ func newIntegrationTestApp(t *testing.T) *fiber.App {
 
 	logger := zerolog.Nop()
 
-	dbURL := os.Getenv("DATABASE_URL")
-	if dbURL == "" {
-		dbURL = "postgres://goa:goa_pass@localhost:5432/user_db?sslmode=disable"
-	}
-	db, err := sql.Open("postgres", dbURL)
-	if err != nil {
-		t.Fatalf("failed to open database: %v", err)
-	}
-	t.Cleanup(func() { db.Close() })
-
 	redisURL := os.Getenv("REDIS_URL")
 	if redisURL == "" {
-		redisURL = "redis://localhost:6379/0"
+		redisURL = "redis://127.0.0.1:6379/0"
 	}
 	redisOpts, err := redis.ParseURL(redisURL)
 	if err != nil {
 		t.Fatalf("failed to parse redis url: %v", err)
 	}
 	redisClient := redis.NewClient(redisOpts)
-	t.Cleanup(func() { redisClient.Close() })
 
-	// Seed test user so foreign keys don't fail
-	_, _ = db.Exec("DELETE FROM refresh_tokens WHERE user_id = $1", "00000000-0000-0000-0000-000000000001")
-	_, _ = db.Exec("DELETE FROM users WHERE id = $1", "00000000-0000-0000-0000-000000000001")
-	_, err = db.Exec("INSERT INTO users (id, email, \"passwordHash\", is_verified) VALUES ($1, $2, $3, $4)",
-		"00000000-0000-0000-0000-000000000001", "user@example.com", "dummy_hash", true)
-	if err != nil {
-		t.Fatalf("failed to seed test user: %v", err)
-	}
+	// Mock User Service!
+	mockUserService := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/internal/auth/login" || r.URL.Path == "/internal/auth/refresh-tokens" {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"userId":"00000000-0000-0000-0000-000000000001", "email":"user@example.com", "newTokenId":"mockNewTokenId", "newRawToken":"mockNewRawToken", "expiresAt":"2030-01-01T00:00:00Z"}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	t.Cleanup(mockUserService.Close)
 
 	tokenService := gatewayauth.NewTokenService(testIntegrationJWTSecret, time.Hour, 24*time.Hour)
-	repo := gatewayauth.NewRefreshTokenRepository(db)
-	authHandler := handlers.NewAuthHandler(db, redisClient, repo, tokenService, gatewayauth.StaticCredentialValidator{}, metrics)
+	httpClient := &http.Client{Timeout: 10 * time.Second}
+
+	authHandler := handlers.NewAuthHandler(redisClient, tokenService, metrics, httpClient, mockUserService.URL, "test-key")
 
 	app := fiber.New(fiber.Config{
 		ErrorHandler: middleware.ErrorHandler(logger),
@@ -164,38 +156,18 @@ func newIntegrationTestApp(t *testing.T) *fiber.App {
 	app.Post("/auth/refresh", authHandler.Refresh)
 
 	api := app.Group("/api", middleware.JWT(testIntegrationJWTSecret, redisClient, metrics))
-	api.Use(middleware.RateLimiter(newIntegrationRateLimitStore(), 60, metrics))
 	api.Get("/ping", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{"status": "ok"})
+		return c.SendStatus(fiber.StatusOK)
 	})
 
 	return app
 }
 
-func useIsolatedPrometheusRegistry(t *testing.T) {
-	t.Helper()
-
-	oldRegisterer := prometheus.DefaultRegisterer
-	oldGatherer := prometheus.DefaultGatherer
-	registry := prometheus.NewRegistry()
-	prometheus.DefaultRegisterer = registry
-	prometheus.DefaultGatherer = registry
-	t.Cleanup(func() {
-		prometheus.DefaultRegisterer = oldRegisterer
-		prometheus.DefaultGatherer = oldGatherer
-	})
-}
-
 func login(t *testing.T, app *fiber.App) integrationTokenResponse {
 	t.Helper()
-
-	req := httptest.NewRequest(
-		fiber.MethodPost,
-		"/auth/login",
-		strings.NewReader(`{"email":"user@example.com","password":"password"}`),
-	)
+	payload := `{"email": "user@example.com", "password": "password"}`
+	req := httptest.NewRequest(fiber.MethodPost, "/auth/login", bytes.NewBufferString(payload))
 	req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
-
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("login request returned error: %v", err)
@@ -204,19 +176,17 @@ func login(t *testing.T, app *fiber.App) integrationTokenResponse {
 		t.Fatalf("expected login status 200, got %d", resp.StatusCode)
 	}
 
-	return decodeTokenResponse(t, resp.Body)
+	var data integrationTokenResponse
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		t.Fatalf("failed to decode login response: %v", err)
+	}
+	return data
 }
 
 func refresh(t *testing.T, app *fiber.App, refreshToken string) integrationTokenResponse {
 	t.Helper()
-
-	req := httptest.NewRequest(
-		fiber.MethodPost,
-		"/auth/refresh",
-		strings.NewReader(`{"refresh_token":"`+refreshToken+`"}`),
-	)
-	req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
-
+	req := httptest.NewRequest(fiber.MethodPost, "/auth/refresh", nil)
+	req.AddCookie(&http.Cookie{Name: "refresh_token", Value: refreshToken})
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("refresh request returned error: %v", err)
@@ -225,71 +195,42 @@ func refresh(t *testing.T, app *fiber.App, refreshToken string) integrationToken
 		t.Fatalf("expected refresh status 200, got %d", resp.StatusCode)
 	}
 
-	return decodeTokenResponse(t, resp.Body)
-}
-
-func decodeTokenResponse(t *testing.T, body io.Reader) integrationTokenResponse {
-	t.Helper()
-
-	var tokens integrationTokenResponse
-	if err := json.NewDecoder(body).Decode(&tokens); err != nil {
-		t.Fatalf("failed to decode token response: %v", err)
+	var data integrationTokenResponse
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		t.Fatalf("failed to decode refresh response: %v", err)
 	}
-
-	return tokens
+	return data
 }
 
-func hasMetricLine(metricsText string, metricName string, labels []string, value string) bool {
-	for _, line := range strings.Split(metricsText, "\n") {
-		if !strings.HasPrefix(line, metricName+"{") {
-			continue
-		}
-		if !strings.HasSuffix(line, " "+value) {
-			continue
-		}
+func useIsolatedPrometheusRegistry(t *testing.T) {
+	t.Helper()
+	originalRegisterer := prometheus.DefaultRegisterer
+	originalGatherer := prometheus.DefaultGatherer
+	registry := prometheus.NewRegistry()
+	prometheus.DefaultRegisterer = registry
+	prometheus.DefaultGatherer = registry
+	t.Cleanup(func() {
+		prometheus.DefaultRegisterer = originalRegisterer
+		prometheus.DefaultGatherer = originalGatherer
+	})
+}
 
-		matchesLabels := true
-		for _, label := range labels {
+func hasMetricLine(metricsText, metricName string, expectedLabels []string, expectedValue string) bool {
+	lines := strings.Split(metricsText, "\n")
+	for _, line := range lines {
+		if !strings.HasPrefix(line, metricName) {
+			continue
+		}
+		allLabelsPresent := true
+		for _, label := range expectedLabels {
 			if !strings.Contains(line, label) {
-				matchesLabels = false
+				allLabelsPresent = false
 				break
 			}
 		}
-		if matchesLabels {
+		if allLabelsPresent && strings.HasSuffix(strings.TrimSpace(line), expectedValue) {
 			return true
 		}
 	}
-
 	return false
-}
-
-type integrationRateLimitStore struct {
-	counts map[string]int64
-	ttls   map[string]time.Duration
-}
-
-func newIntegrationRateLimitStore() *integrationRateLimitStore {
-	return &integrationRateLimitStore{
-		counts: make(map[string]int64),
-		ttls:   make(map[string]time.Duration),
-	}
-}
-
-func (s *integrationRateLimitStore) Incr(_ context.Context, key string) *redis.IntCmd {
-	s.counts[key]++
-	return redis.NewIntResult(s.counts[key], nil)
-}
-
-func (s *integrationRateLimitStore) Expire(_ context.Context, key string, expiration time.Duration) *redis.BoolCmd {
-	s.ttls[key] = expiration
-	return redis.NewBoolResult(true, nil)
-}
-
-func (s *integrationRateLimitStore) TTL(_ context.Context, key string) *redis.DurationCmd {
-	ttl := s.ttls[key]
-	if ttl == 0 {
-		ttl = time.Minute
-	}
-
-	return redis.NewDurationResult(ttl, nil)
 }

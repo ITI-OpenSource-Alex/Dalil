@@ -47,3 +47,16 @@ output "session_manager_preferences_document_name" {
   description = "Name of the Session Manager preferences SSM document."
   value       = aws_ssm_document.session_manager_preferences.name
 }
+
+output "lambda_execution_role_name" {
+  description = "Name of the Lambda execution role."
+  value       = aws_iam_role.lambda_execution.name
+}
+output "lambda_execution_role_arn" {
+  description = "ARN of the Lambda execution role."
+  value       = aws_iam_role.lambda_execution.arn
+}
+output "lambda_app_policy_arn" {
+  description = "ARN of the optional Lambda runtime application policy, if created."
+  value       = try(aws_iam_policy.lambda_app[0].arn, null)
+}

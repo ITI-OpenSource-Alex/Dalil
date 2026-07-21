@@ -98,3 +98,25 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "lambda_secret_arns" {
+  description = "Secret ARNs Lambda workers may read at runtime."
+  type        = list(string)
+  default     = []
+}
+variable "lambda_kms_key_arns" {
+  description = "KMS key ARNs Lambda workers may use at runtime."
+  type        = list(string)
+  default     = []
+}
+variable "lambda_sqs_queue_arns" {
+  description = "SQS queue ARNs Lambda workers may use at runtime."
+  type        = list(string)
+  default     = []
+}
+
+variable "lambda_s3_bucket_arns" {
+  description = "S3 bucket ARNs Lambda workers may read objects from."
+  type        = list(string)
+  default     = []
+}

@@ -43,6 +43,16 @@ task_secret_arns            = []
 task_sqs_queue_arns         = []
 task_kms_key_arns           = []
 
+# Supply these through a secure, uncommitted staging.tfvars file or CI TF_VAR.
+service_secret_values = {
+  writing = {
+    ANTHROPIC_API_KEY   = ""
+    LANGFUSE_PUBLIC_KEY = ""
+    LANGFUSE_SECRET_KEY = ""
+    LANGFUSE_HOST       = "https://cloud.langfuse.com"
+  }
+}
+
 ecs_exec_operator_resource_arns    = ["*"]
 session_manager_log_retention_days = 30
 session_manager_kms_key_id         = ""

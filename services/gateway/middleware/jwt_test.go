@@ -89,7 +89,7 @@ func newJWTTestApp() *fiber.App {
 
 	redisURL := os.Getenv("REDIS_URL")
 	if redisURL == "" {
-		redisURL = "redis://redis-gateway:6379/0"
+		redisURL = "redis://localhost:6379/0"
 	}
 	redisOpts, _ := redis.ParseURL(redisURL)
 	rdb := redis.NewClient(redisOpts)

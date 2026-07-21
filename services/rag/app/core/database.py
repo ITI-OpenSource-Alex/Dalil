@@ -2,9 +2,11 @@ import os
 import glob
 import logging
 import asyncpg
+from pgvector.asyncpg import register_vector
 from app.core.config import settings
 
 logger = logging.getLogger("rag_service.database")
+
 
 class Database:
     def __init__(self):
@@ -13,13 +15,15 @@ class Database:
     async def connect(self):
         if not self.pool:
             logger.info("Initializing asyncpg connection pool...")
+            # Run migrations first using a direct connection (no vector init)
+            await self.run_migrations()
+
             self.pool = await asyncpg.create_pool(
                 dsn=settings.database_url,
                 min_size=2,
-                max_size=10
+                max_size=10,
+                init=register_vector
             )
-            # Run migrations on connection startup
-            await self.run_migrations()
 
     async def disconnect(self):
         if self.pool:
@@ -29,7 +33,8 @@ class Database:
 
     async def run_migrations(self):
         logger.info("Starting database migrations...")
-        async with self.pool.acquire() as conn:
+        conn = await asyncpg.connect(settings.database_url)
+        try:
             # Create migrations_log table if it doesn't exist
             await conn.execute("""
                 CREATE TABLE IF NOT EXISTS migrations_log (
@@ -50,25 +55,42 @@ class Database:
 
             for file_path in migration_files:
                 filename = os.path.basename(file_path)
-                
+
                 # Check if migration was already executed
                 already_executed = await conn.fetchval(
                     "SELECT 1 FROM migrations_log WHERE migration_file = $1", filename
                 )
-                
+
                 if not already_executed:
                     logger.info("Executing migration: %s", filename)
                     with open(file_path, "r", encoding="utf-8") as f:
                         sql = f.read()
 
+                    # An empty (or comment-only) migration file makes asyncpg return None
+                    # for the statement, and the driver then raises
+                    # "AttributeError: 'NoneType' object has no attribute 'decode'",
+                    # aborting startup entirely. (This exact bug crash-looped the Exam
+                    # service via its empty 005_seed_writing_questions.sql.) Skip it
+                    # WITHOUT recording it as applied, so it still runs once real SQL
+                    # is added — placeholder migration files are normal in this project.
+                    if not sql.strip():
+                        logger.warning(
+                            "Migration %s is empty — skipping (not marked as applied)",
+                            filename,
+                        )
+                        continue
+
                     # Run migration in a transaction block
                     async with conn.transaction():
                         await conn.execute(sql)
                         await conn.execute(
-                            "INSERT INTO migrations_log (migration_file) VALUES ($1)", filename
+                            "INSERT INTO migrations_log (migration_file) VALUES ($1)",
+                            filename,
                         )
                     logger.info("Migration %s executed successfully", filename)
                 else:
                     logger.debug("Migration %s already executed, skipping", filename)
+        finally:
+            await conn.close()
 
 db = Database()

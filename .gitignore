@@ -10,6 +10,10 @@ dist/
 build/
 bin/
 
+# Test coverage artifacts
+.coverage
+coverage.xml
+
 # Env files (never commit secrets)
 .env
 .env.local
@@ -31,8 +35,31 @@ Thumbs.db
 .vscode/
 .idea/
 
+# AI assistant local configuration
+.claude/
+.codex/
+.cursor/
+.agents/
+
 *.exe
 tmp/
 Sprint_1_Detailed_Plan.md
 sprint_1_review.md
 GOA_Sprint_1_Tickets.md
+GOA_Sprint_2_Tickets.md
+.agents/
+scratch_generator.py
+evals/reports/
+d:\ITI\Graduation Project\Docs\GOA-112-116-implementation-plan.md
+# Local Python virtual environments
+.venv_check/
+services/rag/.venv_check/
+
+# Local scratch/live-test scripts (not part of the build)
+services/ingestion/scratch/
+.gemini/
+*.wav
+*.png
+.gemini/
+*.wav
+*.png

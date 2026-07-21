@@ -7,7 +7,7 @@ import { UserProfile } from '../profile/entities/profile.entity';
 import { ResetToken } from './entities/reset-tokens.entity';
 import { EmailVerification } from './entities/email-verification.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
-
+import { InternalAuthController } from './internal-auth.controller';
 @Module({
   imports: [
     // Register both repositories so they can be injected into the service
@@ -19,7 +19,7 @@ import { RefreshToken } from './entities/refresh-token.entity';
       RefreshToken,
     ]),
   ],
-  controllers: [UsersController],
+  controllers: [UsersController, InternalAuthController],
   providers: [UsersService],
   exports: [UsersService], // Export if other modules need to find users
 })

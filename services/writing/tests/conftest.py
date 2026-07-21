@@ -136,7 +136,7 @@ class FakeWritingAgentRunner:
         }
         self.calls = []
 
-    async def evaluate(self, criterion, essay_text, exam_type):
+    async def evaluate(self, criterion, essay_text, exam_type, user_id="anonymous", **kwargs):
         import asyncio
 
         self.calls.append((criterion, essay_text, exam_type))
@@ -170,6 +170,17 @@ class FakeWritingAgentRunner:
             latency_ms=self.delays.get(criterion, 0) * 1000,
             cost_usd=0.001,
         )
+
+    async def evaluate_exam_task(
+        self,
+        criterion,
+        essay_text,
+        exam_type,
+        task_number,
+        user_id="anonymous",
+        **kwargs
+    ):
+        return await self.evaluate(criterion, essay_text, exam_type, user_id=user_id)
 
 
 @pytest.fixture

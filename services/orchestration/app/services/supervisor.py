@@ -79,9 +79,19 @@ async def classify_intent(message: str, trace_id: str = None, parent_span_id: st
     start_time = time.perf_counter()
     try:
         logger.info("Classifying intent using structured LLM...", message=message[:60])
-        result_dict = await structured_llm.ainvoke(messages, config={"callbacks": callbacks})
-        result = result_dict["parsed"]
-        raw = result_dict["raw"]
+        for attempt in range(2):
+            result_dict = await structured_llm.ainvoke(messages, config={"callbacks": callbacks})
+            result = result_dict["parsed"]
+            raw = result_dict["raw"]
+            
+            if result is not None:
+                break
+            
+            if attempt == 0:
+                logger.warning("Structured output returned None, retrying once", message=message[:60])
+
+        if result is None:
+            raise ValueError("Structured output returned None after retry")
         
         token_usage = raw.response_metadata.get("usage", {})
         input_tokens = getattr(token_usage, "input_tokens", 0)

@@ -122,7 +122,7 @@ class VisaSourceAdapter:
         # run loop degrades to extraction_valid=False rather than crashing the orchestrator.
         client_kwargs = {
             "api_key": os.environ.get("ANTHROPIC_AUTH_TOKEN") or os.environ.get("ANTHROPIC_API_KEY", ""),
-            "default_headers": {"User-Agent": "Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14"},
+            "default_headers": {"User-Agent": os.environ.get("ANTHROPIC_USER_AGENT", "Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14")},
         }
         if os.environ.get("ANTHROPIC_BASE_URL"):
             client_kwargs["base_url"] = os.environ.get("ANTHROPIC_BASE_URL")

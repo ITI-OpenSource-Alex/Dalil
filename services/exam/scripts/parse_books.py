@@ -69,6 +69,13 @@ PARSERS = {
     "speaking": SpeakingParser(),
 }
 
+CURATED_LISTENING_KEYS = (
+    Path(__file__).resolve().parent.parent
+    / "data"
+    / "curated"
+    / "listening_answer_keys.json"
+)
+
 
 def _compute_text_hash(text: str) -> str:
     """SHA-256 of text content (first 16 hex chars)."""
@@ -81,7 +88,7 @@ def _split_into_tests(text: str) -> dict[int, str]:
     Uses the same boundary regex as ReadingParser._split_into_tests().
     Returns the full text as test 1 if no test boundaries are found.
     """
-    matches = list(re.finditer(r"(?i)^Test\s+(\d+)\b", text, re.MULTILINE))
+    matches = list(re.finditer(r"(?im)^\s*Test\s+(\d+)\s*$", text))
     if not matches:
         return {1: text}
 
@@ -94,16 +101,25 @@ def _split_into_tests(text: str) -> dict[int, str]:
     return tests
 
 
+def _find_answer_key_start(text: str) -> int | None:
+    """Locate the real answer-key chapter, not an introductory reference to it."""
+    matches = list(
+        re.finditer(
+            r"(?im)^\s*(?:Listening\s+and\s+Reading\s+)?Answer\s*keys?\s*$",
+            text,
+        )
+    )
+    return matches[-1].start() if matches else None
+
+
 def _find_answer_key_section(text: str) -> str:
     """Extract the answer key section from the full book text.
 
     Parsers need the answer key appended to test blocks so they can
     extract correct answers.
     """
-    m = re.search(r"(?i)\bAnswer\s*keys?\b", text)
-    if m:
-        return text[m.start():]
-    return ""
+    start = _find_answer_key_start(text)
+    return text[start:] if start is not None else ""
 
 
 def _write_json(path: Path, data: dict[str, Any]) -> None:
@@ -115,7 +131,25 @@ def _write_json(path: Path, data: dict[str, Any]) -> None:
     )
 
 
-def _write_metadata(book_dir: Path, slug: str, test_numbers: list[int], source_hash: str) -> None:
+def _load_curated_listening_key(slug: str, test_number: int) -> dict[str, Any] | None:
+    """Return a visually verified official key when one is curated locally."""
+    if not CURATED_LISTENING_KEYS.exists():
+        return None
+    payload = json.loads(CURATED_LISTENING_KEYS.read_text(encoding="utf-8"))
+    key = payload.get(slug, {}).get(str(test_number))
+    if key is None:
+        return None
+    answers = key.get("answers", {})
+    if set(answers) != {str(number) for number in range(1, 41)}:
+        raise ValueError(
+            f"Curated Listening key for {slug}/test{test_number} must contain answers 1-40"
+        )
+    return key
+
+
+def _write_metadata(
+    book_dir: Path, slug: str, test_numbers: list[int], source_hash: str
+) -> None:
     """Write a metadata.json summarizing what was parsed for this book."""
     meta = {
         "book_slug": slug,
@@ -204,7 +238,11 @@ def main() -> int:
                 results.append({"slug": slug, "status": "skipped"})
                 continue
 
-        tests = _split_into_tests(full_text)
+        answer_key_start = _find_answer_key_start(full_text)
+        question_text = (
+            full_text[:answer_key_start] if answer_key_start is not None else full_text
+        )
+        tests = _split_into_tests(question_text)
         answer_key_section = _find_answer_key_section(full_text)
 
         if not tests:
@@ -234,27 +272,43 @@ def main() -> int:
                 t0 = time.time()
 
                 try:
-                    parsed = skill_parser.parse_text(parser_input)
+                    skill_input = test_block if skill == "listening" else parser_input
+                    parsed = skill_parser.parse_text(skill_input)
                     elapsed = time.time() - t0
 
                     # Ensure correct metadata
-                    parsed["book_ref"] = parsed.get("book_ref", f"IELTS-{slug.replace('IELTS', '')}")
+                    parsed["book_ref"] = f"IELTS-{slug.replace('IELTS', '')}"
                     parsed["test_number"] = test_num
+                    if skill == "listening":
+                        parsed["audio_s3_key"] = (
+                            f"exam-audio/{parsed['book_ref']}/{test_num}/section1.mp3"
+                        )
+                        parsed["time_limit_seconds"] = 40 * 60
+                        curated_key = _load_curated_listening_key(slug, test_num)
+                        if curated_key is not None:
+                            parsed["answer_key"] = curated_key
 
                     q_count = len(parsed.get("questions", []))
-                    ak_count = len(parsed.get("answer_key", {}))
+                    answer_key = parsed.get("answer_key", {})
+                    ak_count = len(answer_key.get("answers", answer_key))
 
                     out_path = args.parsed_dir / slug / skill / f"test{test_num}.json"
                     _write_json(out_path, parsed)
 
-                    print(f"  [{skill:<10}] Test {test_num}: {q_count} questions, "
-                          f"{ak_count} answers [{elapsed:.1f}s] → {out_path.name}")
-                    results.append({"label": label, "status": "parsed", "questions": q_count})
+                    print(
+                        f"  [{skill:<10}] Test {test_num}: {q_count} questions, "
+                        f"{ak_count} answers [{elapsed:.1f}s] → {out_path.name}"
+                    )
+                    results.append(
+                        {"label": label, "status": "parsed", "questions": q_count}
+                    )
                     all_test_numbers.append(test_num)
 
                 except Exception as e:
                     elapsed = time.time() - t0
-                    print(f"  [{skill:<10}] Test {test_num}: [ERROR] {e} [{elapsed:.1f}s]")
+                    print(
+                        f"  [{skill:<10}] Test {test_num}: [ERROR] {e} [{elapsed:.1f}s]"
+                    )
                     errors.append(f"{label}: {e}")
 
         # Write metadata and source hash
@@ -271,7 +325,9 @@ def main() -> int:
     print("=" * 70)
     parsed_count = sum(1 for r in results if r.get("status") == "parsed")
     skipped_count = sum(1 for r in results if r.get("status") == "skipped")
-    total_questions = sum(r.get("questions", 0) for r in results if r.get("status") == "parsed")
+    total_questions = sum(
+        r.get("questions", 0) for r in results if r.get("status") == "parsed"
+    )
     print(f"  Parsed:    {parsed_count} file(s)")
     print(f"  Skipped:   {skipped_count} book(s)")
     print(f"  Questions: {total_questions} total")

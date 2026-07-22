@@ -15,10 +15,11 @@ locals {
   task_execution_kms_key_arns = var.task_execution_kms_key_arns
   task_secret_arns            = var.task_secret_arns
   task_sqs_queue_arns         = var.task_sqs_queue_arns
+  task_s3_read_object_arns    = var.task_s3_read_object_arns
   task_kms_key_arns           = var.task_kms_key_arns
 
   create_task_execution_secrets_policy = length(local.task_execution_secret_arns) > 0 || length(local.task_execution_kms_key_arns) > 0
-  create_task_app_policy               = length(local.task_secret_arns) > 0 || length(local.task_sqs_queue_arns) > 0 || length(local.task_kms_key_arns) > 0
+  create_task_app_policy               = length(local.task_secret_arns) > 0 || length(local.task_sqs_queue_arns) > 0 || length(local.task_s3_read_object_arns) > 0 || length(local.task_kms_key_arns) > 0
 
   session_manager_log_group_name = coalesce(var.session_manager_log_group_name, "/aws/ssm/${local.name_prefix}/session-manager")
   session_manager_kms_key_id     = trimspace(var.session_manager_kms_key_id)
@@ -185,6 +186,16 @@ data "aws_iam_policy_document" "ecs_task_app" {
         "sqs:SendMessage",
       ]
       resources = local.task_sqs_queue_arns
+    }
+  }
+
+  dynamic "statement" {
+    for_each = length(local.task_s3_read_object_arns) > 0 ? [1] : []
+
+    content {
+      sid       = "ReadRuntimeObjects"
+      actions   = ["s3:GetObject"]
+      resources = local.task_s3_read_object_arns
     }
   }
 

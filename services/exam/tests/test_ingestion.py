@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -21,9 +23,7 @@ class FakeQuestionRepository:
             (
                 record
                 for record in self.records
-                if (
-                    record["book_ref"], record["test_number"], record["skill_area"]
-                )
+                if (record["book_ref"], record["test_number"], record["skill_area"])
                 == (
                     payload["book_ref"],
                     payload["test_number"],
@@ -105,6 +105,127 @@ def test_listening_parser_detects_four_sections_and_generates_s3_keys() -> None:
     assert parsed["skill_area"] == "listening"
     assert len(parsed["questions"]) == 40
     assert parsed["audio_s3_key"] == "exam-audio/IELTS-18/1/section1.mp3"
+    assert parsed["time_limit_seconds"] == 2400
+    assert [question["number"] for question in parsed["questions"]] == list(
+        range(1, 41)
+    )
+    assert {question["section_number"] for question in parsed["questions"]} == {
+        1,
+        2,
+        3,
+        4,
+    }
+
+
+def test_listening_parser_handles_cambridge_ranges_and_completion_gaps() -> None:
+    parser = ListeningParser()
+    source = """
+CAMBRIDGE IELTS 19 ACADEMIC TEST 1
+LISTENING
+PART 1 Questions 1310
+Complete the notes below.
+Area: 1 ........ hectares
+Habitats include a 2 ........
+Children collect 3 ........ about plants.
+Use a 4 ........ and compass.
+The park's 5 ........
+Children make 6 ........
+They gain 7 ........
+Children learn new 8 ........
+Cost: 9 ........
+Adults, such as 10 ........, free
+PART 2 Questions 11320
+Questions 11-15
+Choose the correct letter, A, B or C.
+11 What did members enjoy?
+A option one
+B option two
+C option three
+12 Question twelve?
+13 Question thirteen?
+14 Question fourteen?
+15 Question fifteen?
+Questions 16-20
+Label the map below.
+16 Farm shop
+17 Disabled entry
+18 Adventure playground
+19 Kitchen gardens
+20 Temple
+PART 3 Questions 21330
+Questions 21 and 22
+Choose TWO answers from the box.
+Options A-H
+Questions 23 and 24
+Choose TWO answers from the box.
+Questions 25-30
+Which comment applies to each item?
+25 Item one
+26 Item two
+27 Item three
+28 Item four
+29 Item five
+30 Item six
+PART 4 Questions 31340
+Complete the notes below.
+31 first gap
+32 second gap
+33 third gap
+34 fourth gap
+35 fifth gap
+36 sixth gap
+37 seventh gap
+38 eighth gap
+39 ninth gap
+40 tenth gap
+READING
+"""
+
+    parsed = parser.parse_text(source)
+
+    assert len(parsed["questions"]) == 40
+    assert "Area:" in parsed["questions"][0]["prompt"]
+    assert parsed["questions"][10]["prompt"].startswith("What did members enjoy?")
+    assert parsed["questions"][15]["question_type"] == "Diagram Labelling"
+
+
+@pytest.mark.parametrize(
+    ("book", "test_number"),
+    [
+        ("IELTS15", 1),
+        ("IELTS15", 2),
+        ("IELTS15", 3),
+        ("IELTS15", 4),
+        ("IELTS19", 1),
+    ],
+)
+def test_curated_listening_banks_are_complete_and_listening_only(
+    book: str,
+    test_number: int,
+) -> None:
+    data_path = (
+        Path(__file__).resolve().parent.parent
+        / "data"
+        / "parsed"
+        / book
+        / "listening"
+        / f"test{test_number}.json"
+    )
+    payload = json.loads(data_path.read_text(encoding="utf-8"))
+    questions = payload["questions"]
+    answers = payload["answer_key"]["answers"]
+    prompt_text = " ".join(question["prompt"] for question in questions).lower()
+
+    assert [question["number"] for question in questions] == list(range(1, 41))
+    assert {question["section_number"] for question in questions} == {1, 2, 3, 4}
+    assert all(question["prompt"].strip() for question in questions)
+    assert set(answers) == {str(number) for number in range(1, 41)}
+    assert payload["audio_s3_key"] == (
+        f"exam-audio/IELTS-{book.removeprefix('IELTS')}/{test_number}/section1.mp3"
+    )
+    assert payload["time_limit_seconds"] == 2400
+    assert "reading passage" not in prompt_text
+    assert "listening and reading answer keys" not in prompt_text
 
 
 def test_answer_keys_are_parsed_from_cambridge_style_pages() -> None:
@@ -193,35 +314,43 @@ def test_gt_reading_parser_tags_passage_section_types() -> None:
     for q in passage2_qs:
         assert q.get("section_type") == "work", f"Q{q['number']} should be 'work'"
     for q in passage3_qs:
-        assert q.get("section_type") == "general_interest", f"Q{q['number']} should be 'general_interest'"
+        assert q.get("section_type") == "general_interest", (
+            f"Q{q['number']} should be 'general_interest'"
+        )
 
 
 def test_stats_endpoint_includes_by_book_breakdown() -> None:
     repo = FakeQuestionRepository()
-    repo.records.append({
-        "book_ref": "IELTS-14",
-        "test_number": 1,
-        "exam_type": "academic",
-        "skill_area": "reading",
-        "questions": [],
-        "answer_key": {},
-    })
-    repo.records.append({
-        "book_ref": "IELTS-14",
-        "test_number": 1,
-        "exam_type": "academic",
-        "skill_area": "listening",
-        "questions": [],
-        "answer_key": {},
-    })
-    repo.records.append({
-        "book_ref": "IELTS-15",
-        "test_number": 1,
-        "exam_type": "academic",
-        "skill_area": "reading",
-        "questions": [],
-        "answer_key": {},
-    })
+    repo.records.append(
+        {
+            "book_ref": "IELTS-14",
+            "test_number": 1,
+            "exam_type": "academic",
+            "skill_area": "reading",
+            "questions": [],
+            "answer_key": {},
+        }
+    )
+    repo.records.append(
+        {
+            "book_ref": "IELTS-14",
+            "test_number": 1,
+            "exam_type": "academic",
+            "skill_area": "listening",
+            "questions": [],
+            "answer_key": {},
+        }
+    )
+    repo.records.append(
+        {
+            "book_ref": "IELTS-15",
+            "test_number": 1,
+            "exam_type": "academic",
+            "skill_area": "reading",
+            "questions": [],
+            "answer_key": {},
+        }
+    )
 
     app = FastAPI()
     app.include_router(internal_router)

@@ -23,6 +23,7 @@ type Config struct {
 	ShutdownTimeout   time.Duration `envconfig:"SHUTDOWN_TIMEOUT" default:"10s"`
 	SecureCookies     bool          `envconfig:"SECURE_COOKIES" default:"false"`
 	WritingServiceURL string        `envconfig:"WRITING_SERVICE_URL" required:"true"`
+	ExamServiceURL    string        `envconfig:"EXAM_SERVICE_URL" required:"true"`
 	UserServiceURL    string        `envconfig:"USER_SERVICE_URL" required:"true"`
 	InternalApiKey    string        `envconfig:"INTERNAL_API_KEY" required:"true"`
 }

@@ -64,6 +64,13 @@ class GradingService:
         "section_3": (27, 40),
     }
 
+    LISTENING_SECTION_RANGES = {
+        "section_1": (1, 10),
+        "section_2": (11, 20),
+        "section_3": (21, 30),
+        "section_4": (31, 40),
+    }
+
     def grade(
         self,
         submitted_answers: dict[str, Any],
@@ -107,41 +114,126 @@ class GradingService:
         answer_key: dict[str, Any],
         exam_type: str = "academic",
     ) -> dict[str, Any]:
-        expected = self._extract_answers(answer_key)
+        band_table = self._reading_band_table(exam_type)
+        return self._grade_objective_exam(
+            submitted_answers=submitted_answers,
+            answer_key=answer_key,
+            section_ranges=self.READING_SECTION_RANGES,
+            band_table=band_table,
+        )
 
+    def grade_listening(
+        self,
+        submitted_answers: dict[str, str],
+        answer_key: dict[str, Any],
+    ) -> dict[str, Any]:
+        return self._grade_objective_exam(
+            submitted_answers=submitted_answers,
+            answer_key=answer_key,
+            section_ranges=self.LISTENING_SECTION_RANGES,
+            band_table=self.LISTENING_BAND_BY_RAW_SCORE,
+        )
+
+    def _grade_objective_exam(
+        self,
+        submitted_answers: dict[str, str],
+        answer_key: dict[str, Any],
+        section_ranges: dict[str, tuple[int, int]],
+        band_table: tuple[tuple[int, float], ...],
+    ) -> dict[str, Any]:
+        expected = self._extract_answers(answer_key)
+        submitted = self._extract_answers(submitted_answers)
+        unordered_groups = self._extract_unordered_groups(answer_key, expected)
+        unordered_results = self._grade_unordered_groups(
+            submitted=submitted,
+            expected=expected,
+            groups=unordered_groups,
+        )
+        unordered_by_question = {
+            question: group for group in unordered_groups for question in group
+        }
         per_question_result: dict[str, dict[str, Any]] = {}
         section_breakdown: dict[str, dict[str, int]] = {
-            name: {"correct": 0, "total": 0} for name in self.READING_SECTION_RANGES
+            name: {"correct": 0, "total": 0} for name in section_ranges
         }
         raw_score = 0
 
         for q_key, correct_value in expected.items():
-            submitted_value = submitted_answers.get(q_key, "")
-            is_correct = self._matches_strict(submitted_value, correct_value)
-            raw_score += int(is_correct)
-
-            correct_display = (
-                correct_value if isinstance(correct_value, str) else str(correct_value)
+            submitted_value = submitted.get(q_key, "")
+            is_correct = unordered_results.get(
+                q_key,
+                self._matches_strict(submitted_value, correct_value),
             )
+            raw_score += int(is_correct)
+            unordered_group = unordered_by_question.get(q_key)
+            displayed_answer: Any = correct_value
+            if unordered_group is not None:
+                displayed_answer = [expected[question] for question in unordered_group]
             per_question_result[q_key] = {
                 "submitted_answer": submitted_value,
-                "correct_answer": correct_display,
+                "correct_answer": self._answer_display(displayed_answer),
                 "is_correct": is_correct,
             }
 
-            section = self._reading_section_for(q_key)
+            section = self._section_for_question(q_key, section_ranges)
             section_breakdown[section]["total"] += 1
             section_breakdown[section]["correct"] += int(is_correct)
 
-        band_table = self._reading_band_table(exam_type)
-        band_score = self._lookup_band(raw_score, band_table)
-
         return {
             "raw_score": raw_score,
-            "band_score": band_score,
+            "band_score": self._lookup_band(raw_score, band_table),
             "per_question_result": per_question_result,
             "section_breakdown": section_breakdown,
         }
+
+    def _extract_unordered_groups(
+        self,
+        answer_key: dict[str, Any],
+        expected: dict[str, Any],
+    ) -> list[list[str]]:
+        if not isinstance(answer_key, dict):
+            return []
+        raw_groups = answer_key.get("unordered_groups", [])
+        if not isinstance(raw_groups, list):
+            return []
+
+        groups: list[list[str]] = []
+        seen: set[str] = set()
+        for raw_group in raw_groups:
+            if not isinstance(raw_group, list):
+                continue
+            group = [str(question) for question in raw_group]
+            if len(group) < 2 or any(question not in expected for question in group):
+                continue
+            if any(question in seen for question in group):
+                continue
+            groups.append(group)
+            seen.update(group)
+        return groups
+
+    def _grade_unordered_groups(
+        self,
+        submitted: dict[str, Any],
+        expected: dict[str, Any],
+        groups: list[list[str]],
+    ) -> dict[str, bool]:
+        results: dict[str, bool] = {}
+        for group in groups:
+            remaining = [expected[question] for question in group]
+            for question in group:
+                submitted_value = submitted.get(question, "")
+                match_index = next(
+                    (
+                        index
+                        for index, expected_value in enumerate(remaining)
+                        if self._matches_strict(submitted_value, expected_value)
+                    ),
+                    None,
+                )
+                results[question] = match_index is not None
+                if match_index is not None:
+                    remaining.pop(match_index)
+        return results
 
     def calculate_band_score(
         self,
@@ -247,12 +339,26 @@ class GradingService:
         return "overall"
 
     def _reading_section_for(self, q_key: str) -> str:
+        return self._section_for_question(q_key, self.READING_SECTION_RANGES)
+
+    def _section_for_question(
+        self,
+        q_key: str,
+        section_ranges: dict[str, tuple[int, int]],
+    ) -> str:
         try:
             q_num = int(re.sub(r"\D", "", q_key))
         except (ValueError, TypeError):
-            return "section_1"
+            return next(iter(section_ranges))
 
-        for section_name, (low, high) in self.READING_SECTION_RANGES.items():
+        for section_name, (low, high) in section_ranges.items():
             if low <= q_num <= high:
                 return section_name
-        return "section_3"
+        return next(reversed(section_ranges))
+
+    def _answer_display(self, value: Any) -> str:
+        if isinstance(value, str):
+            return value
+        if isinstance(value, list):
+            return " / ".join(str(option) for option in value)
+        return str(value)

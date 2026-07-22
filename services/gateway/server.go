@@ -45,6 +45,7 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	httpClient := &http.Client{Timeout: 10 * time.Second}
 	authHandler := handlers.NewAuthHandler(redisClient, tokenService, metrics, httpClient, cfg.UserServiceURL, cfg.InternalApiKey)
 	writingHandler := handlers.NewWritingHandler(httpClient, cfg.WritingServiceURL)
+	examHandler := handlers.NewExamHandler(httpClient, cfg.ExamServiceURL, cfg.InternalApiKey)
 
 	app.Use(middleware.RequestID())
 	app.Use(middleware.RequestLogger(logger, metrics))
@@ -63,10 +64,12 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	api.Get("/ping", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"status": "ok"})
 	})
-	
+
 	app.Get("/admin/costs", handlers.AdminCosts(redisClient, cfg.BudgetUSD, cfg.CostPromptPer1M, cfg.CostCompletionPer1M))
 	api.Post("/writing/essays/upload", middleware.ValidateEssayTextLength(5000), writingHandler.UploadEssay)
 	api.Post("/writing/cv/upload", writingHandler.UploadCV)
+	api.Get("/exam/listening/start", examHandler.StartListening)
+	api.Put("/exam/listening/:sessionId/submit", examHandler.SubmitListening)
 	app.Post(
 		"/cv/upload",
 		middleware.JWT(cfg.JWTSecret, redisClient, metrics),

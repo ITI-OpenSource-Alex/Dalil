@@ -67,6 +67,7 @@ module "iam" {
   task_execution_kms_key_arns        = var.task_execution_kms_key_arns
   task_secret_arns                   = concat(var.task_secret_arns, values(module.secrets.service_secret_arns))
   task_sqs_queue_arns                = concat(var.task_sqs_queue_arns, values(module.sqs.queue_arns))
+  task_s3_read_object_arns           = concat(var.task_s3_read_object_arns, ["${module.exam_audio_bucket.bucket_arn}/exam-audio/*"])
   task_kms_key_arns                  = var.task_kms_key_arns
   ecs_exec_operator_resource_arns    = var.ecs_exec_operator_resource_arns
   session_manager_log_retention_days = var.session_manager_log_retention_days

@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     langfuse_host: str = "https://cloud.langfuse.com"
     speaking_service_url: str
     writing_service_url: str
+    aws_region: str = "us-east-1"
+    s3_region: Optional[str] = None
+    aws_endpoint_url: Optional[str] = None
+    s3_bucket: str = "goa-exam-audio"
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )

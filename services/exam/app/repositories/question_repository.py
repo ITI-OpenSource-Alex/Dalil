@@ -59,9 +59,7 @@ class QuestionRepository:
         """
         async with self.pool.acquire() as conn:
             row = await conn.fetchrow(query, exam_type, skill_area, user_id)
-        if row is not None:
-            return row
-        return await self.get_random_question(exam_type, skill_area)
+        return row
 
     async def get_answer_key(
         self,

@@ -99,6 +99,10 @@ def _validate_listening(
 ) -> list[str]:
     issues: list[str] = []
     questions = payload.get("questions", [])
+    answer_key = payload.get("answer_key", {})
+    answers = (
+        answer_key.get("answers", answer_key) if isinstance(answer_key, dict) else {}
+    )
     audio_key = payload.get("audio_s3_key")
 
     if len(questions) < 30:
@@ -106,6 +110,12 @@ def _validate_listening(
     if strict and len(questions) != 40:
         issues.append(
             f"{label}: strict: expected exactly 40 questions, got {len(questions)}"
+        )
+    if len(answers) < 30:
+        issues.append(f"{label}: expected ~40 answer keys, got {len(answers)}")
+    if strict and len(answers) != 40:
+        issues.append(
+            f"{label}: strict: expected exactly 40 answer keys, got {len(answers)}"
         )
 
     if not audio_key:
@@ -121,6 +131,13 @@ def _validate_listening(
         issues.append(
             f"{label}: expected 4 sections, got {len(sections)} ({sorted(sections)})"
         )
+    if strict:
+        numbers = [q.get("number") for q in questions]
+        expected_numbers = set(range(1, 41))
+        if set(numbers) != expected_numbers:
+            issues.append(
+                f"{label}: missing question numbers: {sorted(expected_numbers - set(numbers))}"
+            )
 
     return issues
 

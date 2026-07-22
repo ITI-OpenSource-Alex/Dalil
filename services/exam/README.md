@@ -33,7 +33,17 @@ The implementation intentionally avoids schema redesign and keeps all database l
 TODOs that remain for future tickets:
 
 - Writing and Speaking ingestion are not fully implemented yet because the current schema and downstream content format are not sufficient for full coverage.
-- Actual S3 audio upload is still deferred; the listening flow stores the expected S3 key pattern only.
+
+### Listening exam flow
+
+The Listening engine exposes:
+
+- `GET /exam/listening/start`
+- `PUT /exam/listening/{session_id}/submit`
+
+Session start returns four fresh S3 pre-signed section URLs with a two-hour
+expiry. Listening submissions use the shared objective grader and the official
+Listening band conversion table.
 
 ---
 
@@ -79,6 +89,17 @@ The service expects environment variables such as:
 $env:DATABASE_URL = "postgresql://goa:goa@localhost:5432/exam_test"
 $env:INTERNAL_API_KEY = "test-internal-key"
 ```
+
+For the uploaded production Listening audio, configure the Exam task with:
+
+```powershell
+$env:S3_BUCKET = "goa-exam-audio"
+$env:S3_REGION = "eu-north-1"
+```
+
+Do not set `AWS_ENDPOINT_URL` in production; it is only used for LocalStack.
+The task role needs `s3:GetObject` on
+`arn:aws:s3:::goa-exam-audio/exam-audio/*`.
 
 Make sure PostgreSQL is running and the database exists.
 

@@ -11,6 +11,7 @@ services:
       - REDIS_URL=redis://redis-gateway:6379/0
       - JWT_SECRET=supersecret_dev_key
       - WRITING_SERVICE_URL=http://writing:8000
+      - EXAM_SERVICE_URL=http://exam:8085
     volumes:
       - ./services/gateway:/app
     depends_on:
@@ -20,6 +21,8 @@ services:
         condition: service_healthy
       writing:
         condition: service_healthy
+      exam:
+        condition: service_started
 
   user-service:
     build:
@@ -282,14 +285,17 @@ services:
       - WRITING_SERVICE_URL=http://writing:8000
       - SPEAKING_SERVICE_URL=http://speaking:8082
       - AWS_REGION=us-east-1
+      - S3_REGION=us-east-1
       - AWS_ACCESS_KEY_ID=test
       - AWS_SECRET_ACCESS_KEY=test
       - AWS_ENDPOINT_URL=http://localstack:4566
-      - S3_BUCKET=goa-writing-files
+      - S3_BUCKET=goa-exam-audio
     volumes:
       - ./services/exam:/app
     depends_on:
       postgres:
+        condition: service_healthy
+      localstack:
         condition: service_healthy
 
   orchestration:

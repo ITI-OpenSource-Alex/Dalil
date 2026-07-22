@@ -15,6 +15,7 @@ from app.repositories.session_repository import SessionRepository
 from app.schemas import CreateSessionRequest, SubmitAnswersRequest
 from app.schemas.question import QuestionResponse
 from app.services.grading_service import GradingService
+from app.services.audio_delivery_service import S3AudioDeliveryService
 from app.services.timer_service import TimerService
 from app.repositories.writing_response_repository import WritingResponseRepository
 from app.services.writing_client import WritingClient, WritingServiceError
@@ -22,7 +23,7 @@ from app.services.writing_client import WritingClient, WritingServiceError
 
 class SessionService:
     DEFAULT_TIME_LIMITS_SECONDS = {
-        "listening": 30 * 60,
+        "listening": 40 * 60,
         "reading": 60 * 60,
         "writing": 60 * 60,
         "speaking": 15 * 60,
@@ -37,6 +38,7 @@ class SessionService:
         grading_service: GradingService | None = None,
         writing_response_repository: WritingResponseRepository | None = None,
         writing_client: WritingClient | None = None,
+        audio_delivery_service: S3AudioDeliveryService | None = None,
     ):
         self.session_repository = session_repository
         self.question_repository = question_repository
@@ -45,6 +47,7 @@ class SessionService:
         self.grading_service = grading_service or GradingService()
         self.writing_response_repository = writing_response_repository
         self.writing_client = writing_client
+        self.audio_delivery_service = audio_delivery_service
 
     async def create_session(
         self,
@@ -317,6 +320,125 @@ class SessionService:
         await self.session_repository.submit(session_id)
         await self.session_repository.mark_scored(session_id)
 
+        return grading
+
+    async def create_listening_session(
+        self,
+        user_id: UUID,
+        exam_type: str,
+    ) -> dict[str, Any]:
+        question = await self.question_repository.get_random_unseen_question(
+            exam_type=exam_type,
+            skill_area="listening",
+            user_id=user_id,
+        )
+        if question is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No unseen listening tests available",
+            )
+        if self.audio_delivery_service is None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Listening audio delivery is not configured",
+            )
+
+        session_id = uuid4()
+        time_limit_seconds = self._time_limit_for("listening")
+        try:
+            audio_urls = self.audio_delivery_service.generate_section_urls(
+                audio_s3_key=question["audio_s3_key"],
+                session_id=session_id,
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=str(exc),
+            ) from exc
+
+        await self.session_repository.create(
+            session_id=session_id,
+            user_id=user_id,
+            question_id=question["id"],
+            exam_type=exam_type,
+            skill_area="listening",
+            status="in_progress",
+            time_limit_seconds=time_limit_seconds,
+        )
+
+        return {
+            "session_id": session_id,
+            "audio_urls": audio_urls,
+            "questions": self._question_list(question["questions"]),
+            "time_limit_seconds": time_limit_seconds,
+            "audio_url_expiry_seconds": (
+                self.audio_delivery_service.PRESIGNED_URL_EXPIRY_SECONDS
+            ),
+        }
+
+    async def submit_listening_session(
+        self,
+        session_id: UUID,
+        user_id: UUID,
+        answers: dict[str, str],
+    ) -> dict[str, Any]:
+        session = await self.session_repository.get_by_id(session_id)
+        if session is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Session not found",
+            )
+        if str(session["user_id"]) != str(user_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Session belongs to another user",
+            )
+        if session["skill_area"] != "listening":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Session is not a listening exam",
+            )
+        if session["status"] in {"submitted", "scored"}:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Session already submitted",
+            )
+        if session["status"] != "in_progress":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid session state",
+            )
+        if self.timer_service.is_expired(
+            session["started_at"],
+            session["time_limit_seconds"],
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Session expired",
+            )
+
+        question = await self.question_repository.get_by_id(session["question_id"])
+        if question is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Question not found",
+            )
+        grading = self.grading_service.grade_listening(
+            submitted_answers=answers,
+            answer_key=self._decode_json(question["answer_key"]),
+        )
+
+        await self.result_repository.create(
+            result_id=uuid4(),
+            session_id=session_id,
+            user_id=session["user_id"],
+            skill_area="listening",
+            raw_score=grading["raw_score"],
+            band_score=grading["band_score"],
+            section_scores=grading["section_breakdown"],
+        )
+        await self.session_repository.submit(session_id)
+        await self.session_repository.mark_scored(session_id)
         return grading
 
     def _time_limit_for(self, skill_area: str) -> int:

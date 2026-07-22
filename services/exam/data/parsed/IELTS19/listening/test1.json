@@ -7,310 +7,383 @@
   "questions": [
     {
       "number": 1,
-      "prompt": "Area: 1 hectares",
-      "question_type": "Completion",
-      "instructions": null,
+      "prompt": "The park Area: 1 hectares Habitats: wetland, grassland and woodland",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.",
       "passage_number": null,
       "section_number": 1
     },
     {
       "number": 2,
-      "prompt": "Wetland: lakes, ponds and a 2",
-      "question_type": "Completion",
-      "instructions": null,
+      "prompt": "Habitats: wetland, grassland and woodland Wetland: lakes, ponds and a 2 Wildlife includes birds, insects and animals",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.",
       "passage_number": null,
       "section_number": 1
     },
     {
       "number": 3,
-      "prompt": "Science: Children look at 3 about plants, etc.",
-      "question_type": "Completion",
-      "instructions": null,
+      "prompt": "Subjects studied in educational visits include Science: Children look at 3 about plants, etc. Geography: includes learning to use a 4 and compass",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.",
       "passage_number": null,
       "section_number": 1
     },
     {
       "number": 4,
-      "prompt": "Geography: includes learning to use a 4 and compass",
-      "question_type": "Completion",
-      "instructions": null,
+      "prompt": "Science: Children look at 3 about plants, etc. Geography: includes learning to use a 4 and compass History: changes in land use",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.",
       "passage_number": null,
       "section_number": 1
     },
     {
       "number": 5,
-      "prompt": "Leisure and tourism: mostly concentrates on the park's 5",
-      "question_type": "Completion",
-      "instructions": null,
+      "prompt": "History: changes in land use Leisure and tourism: mostly concentrates on the park’s 5 Music: Children make 6 with natural materials, and experiment",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.",
       "passage_number": null,
       "section_number": 1
     },
     {
       "number": 6,
-      "prompt": "Music: Children make 6 with natural materials, and experiment",
-      "question_type": "Completion",
-      "instructions": null,
+      "prompt": "Leisure and tourism: mostly concentrates on the park’s 5 Music: Children make 6 with natural materials, and experiment with rhythm and speed.",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.",
       "passage_number": null,
       "section_number": 1
     },
     {
       "number": 7,
-      "prompt": "They give children a feeling of 7 that they may not have elsewhere.",
-      "question_type": "Completion",
-      "instructions": null,
+      "prompt": "Beneo ts of outdoor educational visits They give children a feeling of 7 that they may not have elsewhere. Children learn new 8 and gain self-confi dence.",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.",
       "passage_number": null,
       "section_number": 1
     },
     {
       "number": 8,
-      "prompt": "Children learn new 8 and gain self-confi dence.",
-      "question_type": "Completion",
-      "instructions": null,
+      "prompt": "They give children a feeling of 7 that they may not have elsewhere. Children learn new 8 and gain self-confi dence. Practical issues",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.",
       "passage_number": null,
       "section_number": 1
     },
     {
       "number": 9,
-      "prompt": "Cost per child: 9 £",
-      "question_type": "Completion",
-      "instructions": null,
+      "prompt": "Practical issues Cost per child: 9 £ Adults, such as 10 , free",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.",
       "passage_number": null,
       "section_number": 1
     },
     {
       "number": 10,
-      "prompt": "Adults, such as 10 , free",
-      "question_type": "Completion",
-      "instructions": null,
+      "prompt": "Cost per child: 9 £ Adults, such as 10 , free PART 2",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.",
       "passage_number": null,
       "section_number": 1
     },
     {
       "number": 11,
-      "prompt": ", which are based on Reading How tennis rackets have changed In 2016, the British professional tennis player Andy Murray was ranked as the world9s number one. It was an incredible achievement by any standard 3 made even more remarkable by the fact that he did this during a period considered to be one of the strongest in the sport9s history, competing against the likes of Rafael Nadal, Roger Federer and Novak Djokovic, to name just a few. Yet ove years previously, he had been regarded as a talented outsider who entered but never won the major tournaments. Of the changes that account for this transformation, one was visible and widely publicised: in 2011, Murray invited former number one player Ivan Lendl onto his coaching team 3 a valuable addition that had a visible impact on the player9s playing style. Another change was so subtle as to pass more or less unnoticed. Like many players, Murray has long preferred a racket that consists of two types of string: one for the mains (verticals) and another for the crosses (horizontals). While he continued to use natural string in the crosses, in 2012 he switched to a synthetic string for the mains. A small change, perhaps, but its importance should not The modiocation that Murray made is just one of a number of options available to players looking to tweak their rackets in order to improve their games. 8Touring professionals have their rackets customised to their specioc needs,9 says Colin Triplow, a UK-based professional racket stringer. 8It9s a highly important part of performance maximisation.9 Consequently, the specioc rackets used by the world9s elite are not actually readily available to the public; rather, each racket is individually made to suit the player who uses it. Take the US professional tennis players Mike and Bob Bryan, for example: 8We9re very particular with our racket speciocations,9 they say. 8All our rackets are sent from our manufacturer to Tampa, Florida, where our frames go through a . . . thorough customisation process.9 They explain how they have adjusted not only racket length, but even experimented with different kinds of paint. The rackets they use now weigh more than the average model and also have a denser string pattern (i.e. more crosses The primary reason for these modiocations is simple: as the line between winning and losing becomes thinner and thinner, even these slight changes become more and more important. As a result, players and their teams are becoming increasingly creative with the modiocations to their rackets as they look to maximise their competitive advantage. Racket modiocations mainly date back to the 1970s, when the amateur German tennis player Werner Fischer started playing with the so-called spaghetti-strung racket. It created a string bed that generated so much topspin that it was quickly banned by the International Tennis Federation. However, within a decade or two, racket modiocation became a regularity. Today it is, in many ways, an aspect of the game that is equal in signiocance to nutrition or training. Modiocations can be divided into two categories: those to the string bed and those to the racket frame. The former is far more common than the latter: the choice of the strings and the tension with which they are installed is something that nearly all professional players experiment with. They will continually change it depending on various factors including the court surface, climatic conditions, and game styles. Some will even change it depending on how they feel at the time. At one time, all tennis rackets were strung with natural gut made from the outer layer of sheep or cow intestines. This all changed in the early 1990s with the development of synthetic strings that were cheaper and more durable. They are made from three materials: nylon (relatively durable and affordable), Kevlar (too stiff to be used alone) or co-polyester (polyester combined with additives that enhance its performance). Even so, many professional players continue to use a 8hybrid set-up9, where a combination of both synthetic and natural strings are used. Of the synthetics, co-polyester is by far the most widely used. It9s a perfect ot for the style of tennis now played, where players tend to battle it out from the back of the court rather than coming to the net. Studies indicate that the average spin from a co-polyester string is 25% greater than that from natural string or other synthetics. In a sense, the development of co-polyester strings has revolutionised the game. However, many players go beyond these basic adjustments to the strings and make changes to the racket frame itself. For example, much of the serving power of US professional player Pete Sampras was attributed to the addition of four to ove lead weights onto his rackets, and today many professionals have the weight adjusted during the manufacturing process. Other changes to the frame involve the handle. Players have individual preferences for the shape of the handle and some will have the handle of one racket moulded onto the frame of a different racket. Other players make different changes. The professional Portuguese player Gonçalo Oliveira replaced the original grips of his rackets with something thinner because they had previously felt uncomfortable to hold. Racket customisation and modiocation have pushed the standards of the game to greater levels that few could have anticipated in the days of natural strings and heavy, wooden frames, and it9s exciting to see what further developments there will be in the future.",
+      "prompt": "During the visit to Malatte, in France, members especially enjoyed A going to a theme park. B experiencing a river trip. C visiting a cheese factory.",
       "question_type": "Multiple Choice",
-      "instructions": null,
+      "instructions": "Choose the correct letter, A, B or C.",
       "passage_number": null,
-      "section_number": 1
+      "section_number": 2
     },
     {
       "number": 12,
-      "prompt": ", which are based on Reading How tennis rackets have changed In 2016, the British professional tennis player Andy Murray was ranked as the world9s number one. It was an incredible achievement by any standard 3 made even more remarkable by the fact that he did this during a period considered to be one of the strongest in the sport9s history, competing against the likes of Rafael Nadal, Roger Federer and Novak Djokovic, to name just a few. Yet ove years previously, he had been regarded as a talented outsider who entered but never won the major tournaments. Of the changes that account for this transformation, one was visible and widely publicised: in 2011, Murray invited former number one player Ivan Lendl onto his coaching team 3 a valuable addition that had a visible impact on the player9s playing style. Another change was so subtle as to pass more or less unnoticed. Like many players, Murray has long preferred a racket that consists of two types of string: one for the mains (verticals) and another for the crosses (horizontals). While he continued to use natural string in the crosses, in 2012 he switched to a synthetic string for the mains. A small change, perhaps, but its importance should not The modiocation that Murray made is just one of a number of options available to players looking to tweak their rackets in order to improve their games. 8Touring professionals have their rackets customised to their specioc needs,9 says Colin Triplow, a UK-based professional racket stringer. 8It9s a highly important part of performance maximisation.9 Consequently, the specioc rackets used by the world9s elite are not actually readily available to the public; rather, each racket is individually made to suit the player who uses it. Take the US professional tennis players Mike and Bob Bryan, for example: 8We9re very particular with our racket speciocations,9 they say. 8All our rackets are sent from our manufacturer to Tampa, Florida, where our frames go through a . . . thorough customisation process.9 They explain how they have adjusted not only racket length, but even experimented with different kinds of paint. The rackets they use now weigh more than the average model and also have a denser string pattern (i.e. more crosses The primary reason for these modiocations is simple: as the line between winning and losing becomes thinner and thinner, even these slight changes become more and more important. As a result, players and their teams are becoming increasingly creative with the modiocations to their rackets as they look to maximise their competitive advantage. Racket modiocations mainly date back to the 1970s, when the amateur German tennis player Werner Fischer started playing with the so-called spaghetti-strung racket. It created a string bed that generated so much topspin that it was quickly banned by the International Tennis Federation. However, within a decade or two, racket modiocation became a regularity. Today it is, in many ways, an aspect of the game that is equal in signiocance to nutrition or training. Modiocations can be divided into two categories: those to the string bed and those to the racket frame. The former is far more common than the latter: the choice of the strings and the tension with which they are installed is something that nearly all professional players experiment with. They will continually change it depending on various factors including the court surface, climatic conditions, and game styles. Some will even change it depending on how they feel at the time. At one time, all tennis rackets were strung with natural gut made from the outer layer of sheep or cow intestines. This all changed in the early 1990s with the development of synthetic strings that were cheaper and more durable. They are made from three materials: nylon (relatively durable and affordable), Kevlar (too stiff to be used alone) or co-polyester (polyester combined with additives that enhance its performance). Even so, many professional players continue to use a 8hybrid set-up9, where a combination of both synthetic and natural strings are used. Of the synthetics, co-polyester is by far the most widely used. It9s a perfect ot for the style of tennis now played, where players tend to battle it out from the back of the court rather than coming to the net. Studies indicate that the average spin from a co-polyester string is 25% greater than that from natural string or other synthetics. In a sense, the development of co-polyester strings has revolutionised the game. However, many players go beyond these basic adjustments to the strings and make changes to the racket frame itself. For example, much of the serving power of US professional player Pete Sampras was attributed to the addition of four to ove lead weights onto his rackets, and today many professionals have the weight adjusted during the manufacturing process. Other changes to the frame involve the handle. Players have individual preferences for the shape of the handle and some will have the handle of one racket moulded onto the frame of a different racket. Other players make different changes. The professional Portuguese player Gonçalo Oliveira replaced the original grips of his rackets with something thinner because they had previously felt uncomfortable to hold. Racket customisation and modiocation have pushed the standards of the game to greater levels that few could have anticipated in the days of natural strings and heavy, wooden frames, and it9s exciting to see what further developments there will be in the future.",
+      "prompt": "What will happen in Stanthorpe to mark the 25th anniversary of the Twinning Association? A A tree will be planted. B A garden seat will be bought. C A footbridge will be built.",
       "question_type": "Multiple Choice",
-      "instructions": null,
+      "instructions": "Choose the correct letter, A, B or C.",
       "passage_number": null,
-      "section_number": 1
+      "section_number": 2
     },
     {
       "number": 13,
-      "prompt": "13 Which event raised most funds this year?",
+      "prompt": "Which event raised most funds this year? A the film show B the pancake evening C the cookery demonstration",
       "question_type": "Multiple Choice",
-      "instructions": null,
+      "instructions": "Choose the correct letter, A, B or C.",
       "passage_number": null,
       "section_number": 2
     },
     {
       "number": 14,
-      "prompt": "14 For the first evening with the French visitors host families are advised to",
+      "prompt": "For the first evening with the French visitors host families are advised to A take them for a walk round the town. B go to a local restaurant. C have a meal at home.",
       "question_type": "Multiple Choice",
-      "instructions": null,
+      "instructions": "Choose the correct letter, A, B or C.",
       "passage_number": null,
       "section_number": 2
     },
     {
       "number": 15,
-      "prompt": "15 On Saturday evening there will be the chance to",
+      "prompt": "On Saturday evening there will be the chance to A listen to a concert. B watch a match. C take part in a competition.",
       "question_type": "Multiple Choice",
-      "instructions": null,
+      "instructions": "Choose the correct letter, A, B or C.",
       "passage_number": null,
       "section_number": 2
     },
     {
       "number": 16,
-      "prompt": "Write the correct letter, A-H, next to Questions 16-20.",
-      "question_type": "Completion",
-      "instructions": null,
+      "prompt": "Farm shop",
+      "question_type": "Diagram Labelling",
+      "instructions": "Label the map below. Write the correct letter, A–H, next to",
       "passage_number": null,
       "section_number": 2
     },
     {
       "number": 17,
-      "prompt": "17 Disabled entry",
-      "question_type": "Completion",
-      "instructions": null,
+      "prompt": "Disabled entry",
+      "question_type": "Diagram Labelling",
+      "instructions": "Label the map below. Write the correct letter, A–H, next to",
       "passage_number": null,
       "section_number": 2
     },
     {
       "number": 18,
-      "prompt": "18 Adventure playground",
-      "question_type": "Completion",
-      "instructions": null,
+      "prompt": "Adventure playground",
+      "question_type": "Diagram Labelling",
+      "instructions": "Label the map below. Write the correct letter, A–H, next to",
       "passage_number": null,
       "section_number": 2
     },
     {
       "number": 19,
-      "prompt": "19 Kitchen gardens",
-      "question_type": "Completion",
-      "instructions": null,
+      "prompt": "Kitchen gardens",
+      "question_type": "Diagram Labelling",
+      "instructions": "Label the map below. Write the correct letter, A–H, next to",
       "passage_number": null,
       "section_number": 2
     },
     {
       "number": 20,
-      "prompt": "Write the correct letter, A-H, next to Questions 16-20.",
-      "question_type": "Completion",
-      "instructions": null,
+      "prompt": "The Temple of the Four Winds PART 3",
+      "question_type": "Diagram Labelling",
+      "instructions": "Label the map below. Write the correct letter, A–H, next to",
       "passage_number": null,
       "section_number": 2
     },
     {
       "number": 21,
-      "prompt": "Choose TWO letters, A-E. Which TWO things did Colin find most satisfying about his bread reuse project? D experimenting with designs and colours E learning how to apply 3-D printing",
+      "prompt": "Choose TWO letters, A–E. Which TWO things did Colin find most satisfying about his bread reuse project? A receiving support from local restaurants B finding a good way to prevent waste C overcoming problems in a basic process D experimenting with designs and colours E learning how to apply 3-D printing",
       "question_type": "Multiple Choice",
-      "instructions": null,
+      "instructions": "Choose TWO letters, A–E. Which TWO things did Colin find most satisfying about his bread reuse project?",
       "passage_number": null,
       "section_number": 3
     },
     {
       "number": 22,
-      "prompt": "Choose TWO letters, A-E. Which TWO things did Colin find most satisfying about his bread reuse project? D experimenting with designs and colours E learning how to apply 3-D printing",
+      "prompt": "Choose TWO letters, A–E. Which TWO things did Colin find most satisfying about his bread reuse project? A receiving support from local restaurants B finding a good way to prevent waste C overcoming problems in a basic process D experimenting with designs and colours E learning how to apply 3-D printing",
       "question_type": "Multiple Choice",
-      "instructions": null,
+      "instructions": "Choose TWO letters, A–E. Which TWO things did Colin find most satisfying about his bread reuse project?",
       "passage_number": null,
       "section_number": 3
     },
     {
       "number": 23,
-      "prompt": "Which TWO ways do the students agree that touch-sensitive sensors for food labels could be developed in future? D to provide applications for blind people E to indicate the weight of certain foods",
+      "prompt": "Which TWO ways do the students agree that touch-sensitive sensors for food labels could be developed in future? A for use on medical products B to show that food is no longer fit to eat C for use with drinks as well as foods D to provide applications for blind people E to indicate the weight of certain foods",
       "question_type": "Multiple Choice",
-      "instructions": null,
+      "instructions": "Which TWO ways do the students agree that touch-sensitive sensors for food labels",
       "passage_number": null,
       "section_number": 3
     },
     {
       "number": 24,
-      "prompt": "Which TWO ways do the students agree that touch-sensitive sensors for food labels could be developed in future? D to provide applications for blind people E to indicate the weight of certain foods",
+      "prompt": "Which TWO ways do the students agree that touch-sensitive sensors for food labels could be developed in future? A for use on medical products B to show that food is no longer fit to eat C for use with drinks as well as foods D to provide applications for blind people E to indicate the weight of certain foods",
       "question_type": "Multiple Choice",
-      "instructions": null,
+      "instructions": "Which TWO ways do the students agree that touch-sensitive sensors for food labels",
       "passage_number": null,
       "section_number": 3
     },
     {
       "number": 25,
-      "prompt": "Questions 25-30.",
+      "prompt": "Use of local products",
       "question_type": "Multiple Choice",
-      "instructions": null,
+      "instructions": "What is the students’ opinion about each of the following food trends? Choose SIX answers from the box and write the correct letter, A–H, next to",
       "passage_number": null,
       "section_number": 3
     },
     {
       "number": 26,
-      "prompt": "26 Reduction in unnecessary packaging",
+      "prompt": "Reduction in unnecessary packaging",
       "question_type": "Multiple Choice",
-      "instructions": null,
+      "instructions": "What is the students’ opinion about each of the following food trends? Choose SIX answers from the box and write the correct letter, A–H, next to",
       "passage_number": null,
       "section_number": 3
     },
     {
       "number": 27,
-      "prompt": "27 Gluten-free and lactose-free food",
+      "prompt": "Gluten-free and lactose-free food",
       "question_type": "Multiple Choice",
-      "instructions": null,
+      "instructions": "What is the students’ opinion about each of the following food trends? Choose SIX answers from the box and write the correct letter, A–H, next to",
       "passage_number": null,
       "section_number": 3
     },
     {
       "number": 28,
-      "prompt": "28 Use of branded products related to celebrity chefs",
+      "prompt": "Use of branded products related to celebrity chefs",
       "question_type": "Multiple Choice",
-      "instructions": null,
+      "instructions": "What is the students’ opinion about each of the following food trends? Choose SIX answers from the box and write the correct letter, A–H, next to",
       "passage_number": null,
       "section_number": 3
     },
     {
       "number": 29,
-      "prompt": "29 Development of 'ghost kitchens' for takeaway food",
+      "prompt": "Development of ‘ghost kitchens’ for takeaway food",
       "question_type": "Multiple Choice",
-      "instructions": null,
+      "instructions": "What is the students’ opinion about each of the following food trends? Choose SIX answers from the box and write the correct letter, A–H, next to",
       "passage_number": null,
       "section_number": 3
     },
     {
       "number": 30,
-      "prompt": "Questions 25-30.",
+      "prompt": "Use of mushrooms for common health concerns PART 4",
       "question_type": "Multiple Choice",
-      "instructions": null,
+      "instructions": "What is the students’ opinion about each of the following food trends? Choose SIX answers from the box and write the correct letter, A–H, next to",
       "passage_number": null,
       "section_number": 3
     },
     {
+      "number": 31,
+      "prompt": "• In the 1930s, a local teacher realised that stones beneath the bog surface were once 31 . • His 32 became an archaeologist and undertook an",
+      "question_type": "Sentence Completion",
+      "instructions": "Write ONE WORD ONLY for each answer.",
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 32,
+      "prompt": "were once 31 . • His 32 became an archaeologist and undertook an investigation of the site:",
+      "question_type": "Sentence Completion",
+      "instructions": "Write ONE WORD ONLY for each answer.",
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
       "number": 33,
-      "prompt": "- a traditional method used by local people to dig for 33",
-      "question_type": "Completion",
-      "instructions": null,
+      "prompt": "investigation of the site: - a traditional method used by local people to dig for 33 was used to identify where stones were located",
+      "question_type": "Sentence Completion",
+      "instructions": "Write ONE WORD ONLY for each answer.",
       "passage_number": null,
       "section_number": 4
     },
     {
       "number": 34,
-      "prompt": "• Items are well preserved in the bog because of a lack of 34 .",
-      "question_type": "Completion",
-      "instructions": null,
+      "prompt": "- carbon dating later proved the site was Neolithic. • Items are well preserved in the bog because of a lack of 34 . Neolithic farmers",
+      "question_type": "Sentence Completion",
+      "instructions": "Write ONE WORD ONLY for each answer.",
       "passage_number": null,
       "section_number": 4
     },
     {
       "number": 35,
-      "prompt": "• Houses were 35 in shape and had a hole in the roof.",
-      "question_type": "Completion",
-      "instructions": null,
+      "prompt": "Neolithic farmers • Houses were 35 in shape and had a hole in the roof. • Neolithic innovations include:",
+      "question_type": "Sentence Completion",
+      "instructions": "Write ONE WORD ONLY for each answer.",
       "passage_number": null,
       "section_number": 4
     },
     {
       "number": 36,
-      "prompt": "- pots used for storage and to make 36 .",
-      "question_type": "Completion",
-      "instructions": null,
+      "prompt": "- cooking indoors - pots used for storage and to make 36 . • Each fi eld at Céide was large enough to support a big 37 .",
+      "question_type": "Sentence Completion",
+      "instructions": "Write ONE WORD ONLY for each answer.",
       "passage_number": null,
       "section_number": 4
     },
     {
       "number": 37,
-      "prompt": "• Each fi eld at Céide was large enough to support a big 37 .",
-      "question_type": "Completion",
-      "instructions": null,
+      "prompt": "- pots used for storage and to make 36 . • Each fi eld at Céide was large enough to support a big 37 . • The fi elds were probably used to restrict the grazing of animals – no",
+      "question_type": "Sentence Completion",
+      "instructions": "Write ONE WORD ONLY for each answer.",
       "passage_number": null,
       "section_number": 4
     },
     {
       "number": 38,
-      "prompt": "evidence of structures to house them during 38 .",
-      "question_type": "Completion",
-      "instructions": null,
+      "prompt": "• The fi elds were probably used to restrict the grazing of animals – no evidence of structures to house them during 38 . Reasons for the decline in farming",
+      "question_type": "Sentence Completion",
+      "instructions": "Write ONE WORD ONLY for each answer.",
       "passage_number": null,
       "section_number": 4
     },
     {
       "number": 39,
-      "prompt": "• a decline in 39 quality",
-      "question_type": "Completion",
-      "instructions": null,
+      "prompt": "Reasons for the decline in farming • a decline in 39 quality • an increase in 40",
+      "question_type": "Sentence Completion",
+      "instructions": "Write ONE WORD ONLY for each answer.",
       "passage_number": null,
       "section_number": 4
     },
     {
       "number": 40,
-      "prompt": "• an increase in 40",
-      "question_type": "Completion",
-      "instructions": null,
+      "prompt": "• a decline in 39 quality • an increase in 40",
+      "question_type": "Sentence Completion",
+      "instructions": "Write ONE WORD ONLY for each answer.",
       "passage_number": null,
       "section_number": 4
     }
   ],
-  "answer_key": {},
-  "audio_s3_key": "exam-audio/IELTS-unknown/1/section1.mp3",
-  "time_limit_seconds": 1800
+  "answer_key": {
+    "answers": {
+      "1": [
+        "69",
+        "sixty-nine",
+        "sixty nine"
+      ],
+      "2": "stream",
+      "3": "data",
+      "4": "map",
+      "5": "visitors",
+      "6": "sounds",
+      "7": "freedom",
+      "8": "skills",
+      "9": "4.95",
+      "10": "leaders",
+      "11": "B",
+      "12": "A",
+      "13": "B",
+      "14": "C",
+      "15": "A",
+      "16": "G",
+      "17": "C",
+      "18": "B",
+      "19": "D",
+      "20": "A",
+      "21": "B",
+      "22": "D",
+      "23": "A",
+      "24": "E",
+      "25": "D",
+      "26": "G",
+      "27": "C",
+      "28": "B",
+      "29": "F",
+      "30": "H",
+      "31": "walls",
+      "32": "son",
+      "33": "fuel",
+      "34": "oxygen",
+      "35": "rectangular",
+      "36": "lamps",
+      "37": "family",
+      "38": "winter",
+      "39": "soil",
+      "40": "rain"
+    },
+    "unordered_groups": [
+      [
+        "21",
+        "22"
+      ],
+      [
+        "23",
+        "24"
+      ]
+    ]
+  },
+  "audio_s3_key": "exam-audio/IELTS-19/1/section1.mp3",
+  "time_limit_seconds": 2400
 }

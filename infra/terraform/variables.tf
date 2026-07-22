@@ -149,6 +149,12 @@ variable "task_sqs_queue_arns" {
   default     = []
 }
 
+variable "task_s3_read_object_arns" {
+  description = "S3 object ARN patterns ECS application tasks may read, including any externally managed buckets."
+  type        = list(string)
+  default     = []
+}
+
 variable "task_kms_key_arns" {
   description = "KMS key ARNs the ECS task role may use at runtime."
   type        = list(string)
@@ -224,8 +230,8 @@ variable "lambda_secret_arns" {
 
 variable "sqs_notification_queue_arn" {
 
-  type        = string
-  default     = null
+  type    = string
+  default = null
 }
 
 variable "sqs_notification_queue_url" {

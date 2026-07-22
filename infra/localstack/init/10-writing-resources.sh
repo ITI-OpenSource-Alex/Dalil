@@ -4,11 +4,13 @@ set -eu
 REGION="${AWS_DEFAULT_REGION:-us-east-1}"
 ACCOUNT_ID="000000000000"
 BUCKET="goa-writing-files"
+EXAM_AUDIO_BUCKET="goa-exam-audio"
 DOMAIN_QUEUE="goa-cv-uploaded"
 PROCESSOR_QUEUE="goa-cv-processing"
 PROCESSED_QUEUE="goa-cv-processed"
 
 awslocal s3api create-bucket --bucket "$BUCKET" >/dev/null 2>&1 || true
+awslocal s3api create-bucket --bucket "$EXAM_AUDIO_BUCKET" >/dev/null 2>&1 || true
 awslocal sqs create-queue --queue-name "$DOMAIN_QUEUE" >/dev/null
 PROCESSOR_QUEUE_URL="$(awslocal sqs create-queue --queue-name "$PROCESSOR_QUEUE" --query QueueUrl --output text)"
 awslocal sqs create-queue --queue-name "$PROCESSED_QUEUE" >/dev/null

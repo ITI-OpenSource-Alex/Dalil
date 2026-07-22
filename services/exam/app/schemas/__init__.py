@@ -16,12 +16,20 @@ from app.schemas.reading import (
     ReadingSubmitResponse,
     SectionBreakdown,
 )
+from app.schemas.listening import (
+    ListeningStartResponse,
+    ListeningSubmitRequest,
+    ListeningSubmitResponse,
+)
 
 __all__ = [
     "CreateSessionRequest",
     "CreateSessionResponse",
     "ExamResultResponse",
     "ExamType",
+    "ListeningStartResponse",
+    "ListeningSubmitRequest",
+    "ListeningSubmitResponse",
     "QuestionResponse",
     "QuestionResult",
     "QuestionWithAnswerKey",

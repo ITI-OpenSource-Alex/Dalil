@@ -48,6 +48,7 @@ task_execution_secret_arns  = []
 task_execution_kms_key_arns = []
 task_secret_arns            = []
 task_sqs_queue_arns         = []
+task_s3_read_object_arns    = ["arn:aws:s3:::goa-exam-audio/exam-audio/*"]
 task_kms_key_arns           = []
 
 # Supply these through a secure, uncommitted production.tfvars file or CI TF_VAR.

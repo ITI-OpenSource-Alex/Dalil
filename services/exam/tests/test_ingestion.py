@@ -948,3 +948,22 @@ Do you think people read less nowadays than in the past?
 Why do some people prefer reading e-books to printed books?
 How important is it for children to develop a reading habit?
 """
+
+
+def test_reading_parser_stops_at_answer_key_when_writing_marker_missing() -> None:
+    parser = ReadingParser()
+    test_block = """Test 3
+READING
+READING PASSAGE 1
+This is passage 1.
+Questions 1-3
+1 A
+2 B
+3 C
+Answer key
+Reading Passage 1, Questions 1-3
+1 A
+"""
+    reading_section = parser._isolate_reading_section(test_block)
+    assert "Answer key" not in reading_section
+    assert "This is passage 1." in reading_section

@@ -1,5 +1,5 @@
 {
-  "book_ref": "IELTS-unknown",
+  "book_ref": "IELTS-19",
   "test_number": 1,
   "exam_type": "academic",
   "skill_area": "speaking",
@@ -7,36 +7,11 @@
   "questions": [
     {
       "number": 1,
-      "prompt": "Questions 11320",
-      "question_type": "Speaking Part 2",
-      "instructions": "Speak for 1-2 minutes on this topic.",
+      "prompt": "HOW SHOULD YOU INTERPRET YOUR SCORES?",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
       "passage_number": null,
-      "section_number": 2,
-      "bullet_points": []
-    },
-    {
-      "number": 2,
-      "prompt": "Which TWO things did Colin find most satisfying about his bread reuse project?",
-      "question_type": "Speaking Part 3",
-      "instructions": "Discuss this question in detail.",
-      "passage_number": null,
-      "section_number": 3
-    },
-    {
-      "number": 3,
-      "prompt": "could be developed in future?",
-      "question_type": "Speaking Part 3",
-      "instructions": "Discuss this question in detail.",
-      "passage_number": null,
-      "section_number": 3
-    },
-    {
-      "number": 4,
-      "prompt": "What is the students’ opinion about each of the following food trends?",
-      "question_type": "Speaking Part 3",
-      "instructions": "Discuss this question in detail.",
-      "passage_number": null,
-      "section_number": 3
+      "section_number": 1
     }
   ],
   "answer_key": {},

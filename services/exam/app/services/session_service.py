@@ -1,9 +1,14 @@
 import json
+import time
 from typing import Any
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException, status
 
+from app.core.metrics import (
+    goa_writing_exam_task1_evaluation_ms,
+    goa_writing_exam_task2_evaluation_ms,
+)
 from app.repositories.question_repository import QuestionRepository
 from app.repositories.result_repository import ResultRepository
 from app.repositories.session_repository import SessionRepository
@@ -531,17 +536,27 @@ class SessionService:
             )
 
         word_count = len(request.essay_text.split())
+        penalty_flag = (request.task_number == 1 and word_count < 150) or (
+            request.task_number == 2 and word_count < 250
+        )
         await self.writing_response_repository.save_response(
             session_id=session_id,
             task_number=request.task_number,
             response_text=request.essay_text,
             word_count=word_count,
+            penalty_flag=penalty_flag,
         )
 
         task_prompt, stimulus_s3_key = await self._resolve_task_context(
             session, request.task_number
         )
 
+        task_histogram = (
+            goa_writing_exam_task1_evaluation_ms
+            if request.task_number == 1
+            else goa_writing_exam_task2_evaluation_ms
+        )
+        started = time.perf_counter()
         try:
             evaluation = await self.writing_client.evaluate_exam_essay(
                 user_id=str(session["user_id"]),
@@ -553,10 +568,12 @@ class SessionService:
                 task_prompt=task_prompt,
             )
         except WritingServiceError as exc:
+            task_histogram.observe((time.perf_counter() - started) * 1000)
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail=str(exc),
             ) from exc
+        task_histogram.observe((time.perf_counter() - started) * 1000)
 
         await self.writing_response_repository.save_evaluation(
             session_id=session_id,
@@ -578,6 +595,8 @@ class SessionService:
             "task_number": request.task_number,
             "status": "submitted" if all_tasks_submitted else "task_submitted",
             "overall_band": evaluation.overall_band,
+            "word_count": word_count,
+            "penalty_flag": penalty_flag,
         }
 
     async def _resolve_task_context(
@@ -615,6 +634,9 @@ class SessionService:
             tasks[r["task_number"]] = {
                 "response_text": r["response_text"],
                 "word_count": r["word_count"],
+                "penalty_flag": bool(r["penalty_flag"])
+                if "penalty_flag" in r.keys()
+                else False,
                 "evaluation": self._decode_json(r["evaluation_result"]) or {},
             }
 

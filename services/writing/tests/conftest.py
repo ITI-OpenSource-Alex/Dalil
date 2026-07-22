@@ -12,7 +12,10 @@ from sqlalchemy.pool import StaticPool
 
 
 SERVICE_ROOT = Path(__file__).resolve().parents[1]
-REPOSITORY_ROOT = SERVICE_ROOT.parents[1]
+try:
+    REPOSITORY_ROOT = SERVICE_ROOT.parents[1]
+except IndexError:
+    REPOSITORY_ROOT = Path("/")
 CONTRACTS_ROOT = REPOSITORY_ROOT / "packages" / "contracts" / "py"
 sys.path.insert(0, str(SERVICE_ROOT))
 sys.path.insert(0, str(CONTRACTS_ROOT))
@@ -26,7 +29,7 @@ from app.agents import AgentExecution  # noqa: E402
 from app.evaluation import EvaluationCoordinator, get_evaluation_coordinator  # noqa: E402
 from app.metrics import cache_hit_tracker  # noqa: E402
 from app.observability import get_langfuse_client  # noqa: E402
-from app.schemas import CriterionEvaluation, HighlightedIssue  # noqa: E402
+from app.schemas import CriterionEvaluation, InlineIssue  # noqa: E402
 
 
 class FakeS3Client:
@@ -133,12 +136,13 @@ class FakeWritingAgentRunner:
         }
         self.calls = []
 
-    async def evaluate(self, criterion, essay_text, exam_type):
+    async def evaluate(self, criterion, essay_text, exam_type, user_id="anonymous", **kwargs):
         import asyncio
 
         self.calls.append((criterion, essay_text, exam_type))
         await asyncio.sleep(self.delays.get(criterion, 0))
         issue_text = essay_text[: min(12, len(essay_text))]
+        word_count = len(essay_text.split())
         result = CriterionEvaluation(
             criterion=criterion,
             band_score=self.bands[criterion],
@@ -147,13 +151,15 @@ class FakeWritingAgentRunner:
                 "1. First exact example.\n2. Second exact example.\n"
                 "3. Third exact example."
             ),
-            highlighted_issues=[
-                HighlightedIssue(
+            improvement_tip="Focus on precision and coherence.",
+            word_count=word_count,
+            inline_issues=[
+                InlineIssue(
                     text=issue_text,
-                    issue="Specific test issue",
+                    issue_type="grammar",
                     suggestion="Specific test revision",
-                    start=0,
-                    end=len(issue_text),
+                    start_char=0,
+                    end_char=len(issue_text),
                 )
             ],
         )
@@ -164,6 +170,17 @@ class FakeWritingAgentRunner:
             latency_ms=self.delays.get(criterion, 0) * 1000,
             cost_usd=0.001,
         )
+
+    async def evaluate_exam_task(
+        self,
+        criterion,
+        essay_text,
+        exam_type,
+        task_number,
+        user_id="anonymous",
+        **kwargs
+    ):
+        return await self.evaluate(criterion, essay_text, exam_type, user_id=user_id)
 
 
 @pytest.fixture

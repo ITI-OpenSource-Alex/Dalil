@@ -1,0 +1,27 @@
+DELETE FROM faq_entries
+WHERE question_pattern IN (
+    'Can I apply for a German student visa if my IELTS is 5.5?',
+    'Do I need to speak German to study in Germany?',
+    'How long does the APS certificate processing take in Egypt?',
+    'Is the APS certificate required for a Master’s degree if I have an Egyptian Bachelor’s?',
+    'Can I work in Germany while on a student visa?',
+    'What is a Studienkolleg?',
+    'Can I open a blocked account with Coracle instead of Fintiba?',
+    'How do I legalize my Egyptian birth certificate for Germany?',
+    'Is health insurance required for the student visa application?',
+    'What happens if my visa gets rejected?',
+    'How early can I apply for a German student visa before my studies begin?',
+    'Do I need to submit my original passport to VFS or the Embassy?',
+    'Can I switch from a language course visa to a student visa in Germany?',
+    'What is the Feststellungsprüfung (FSP)?',
+    'Is a motivation letter required for the visa application?',
+    'Can my parents sponsor my studies instead of a blocked account?',
+    'How do I authenticate my documents at the German embassy in Cairo?',
+    'Does the APS certificate expire?',
+    'Can I apply for the student visa if I only have conditional admission?',
+    'Do I need to translate my documents into German or is English okay?',
+    'What is the maximum age limit for a German student visa?',
+    'Does VFS Egypt conduct the visa interview?',
+    'How much is the student visa fee in Egypt?',
+    'Can my spouse accompany me on a student visa?'
+);

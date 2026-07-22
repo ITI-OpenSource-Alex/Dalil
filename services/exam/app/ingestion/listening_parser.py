@@ -30,8 +30,8 @@ class ListeningParser(BaseParser):
     """
 
     def parse_text(self, content: str | Any) -> dict[str, Any]:
-        text = self._normalize_listening_text(str(content))
-        metadata = self._infer_metadata(text)
+        text = self._normalize_listening_text(self._normalize_text(str(content)))
+        metadata = self._infer_metadata(text, source=None)
         listening_section = self._isolate_listening_section(text)
         questions = self._extract_questions(listening_section)
         answer_key = self._extract_answer_key(text)

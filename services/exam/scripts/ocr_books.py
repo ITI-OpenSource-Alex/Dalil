@@ -89,7 +89,7 @@ def main() -> int:
     args = parser.parse_args()
 
     print("=" * 70)
-    print("STAGE 1: OCR — PDF → TXT")
+    print("STAGE 1: OCR -> PDF -> TXT")
     print("=" * 70)
     print(f"  Source:  {args.data_dir}")
     print(f"  Output:  {args.ocr_dir}")
@@ -119,6 +119,7 @@ def main() -> int:
 
     try:
         from tqdm import tqdm
+
         pdf_iter = tqdm(pdfs, desc="OCR", unit="book")
     except ImportError:
         pdf_iter = pdfs
@@ -151,7 +152,9 @@ def main() -> int:
 
             line_count = len(text.splitlines())
             char_count = len(text)
-            print(f"         Done: {line_count} lines, {char_count} chars [{elapsed:.1f}s]")
+            print(
+                f"         Done: {line_count} lines, {char_count} chars [{elapsed:.1f}s]"
+            )
             results.append({"slug": slug, "status": "processed", "time": elapsed})
 
         except Exception as e:

@@ -1,3 +1,5 @@
+import asyncio
+import base64
 import json
 import re
 import time
@@ -7,11 +9,13 @@ from typing import Any, Literal
 
 import boto3
 import httpx
+from botocore.exceptions import ClientError
+from fastapi import HTTPException, status
 
 from pydantic import BaseModel, Field
 
 from app.config import get_settings
-from app.schemas import CriterionEvaluation, HighlightedIssue
+from app.schemas import CriterionEvaluation, InlineIssue
 
 
 Criterion = Literal["task_response", "cohesion", "vocabulary", "grammar"]
@@ -87,13 +91,14 @@ Return one JSON object and no markdown with this exact shape:
 {
   "band_score": 0.0,
   "feedback": "criterion-specific summary",
+  "improvement_tip": "one actionable piece of advice to improve this specific criterion",
   "sentence_examples": [
     "specific example and explanation 1",
     "specific example and explanation 2",
     "specific example and explanation 3"
   ],
   "highlighted_issues": [
-    {"text": "exact verbatim substring from the essay", "issue": "what is wrong", "suggestion": "specific replacement or revision"}
+    {"text": "exact verbatim substring from the essay", "issue_type": "grammar/vocabulary/etc", "suggestion": "specific replacement or revision"}
   ]
 }
 
@@ -105,13 +110,14 @@ computed. Do not invent an issue merely to fill the list."""
 
 class RawIssue(BaseModel):
     text: str = Field(min_length=1)
-    issue: str = Field(min_length=1)
+    issue_type: str = Field(min_length=1)# Changed from 'issue' according to GOA-68 requirements    
     suggestion: str = Field(min_length=1)
 
 
 class RawAgentResponse(BaseModel):
     band_score: float
     feedback: str = Field(min_length=1)
+    improvement_tip: str = Field(min_length=1)# Added for GOA-068
     sentence_examples: list[str] = Field(min_length=3, max_length=3)
     highlighted_issues: list[RawIssue] = Field(default_factory=list)
 
@@ -149,19 +155,19 @@ def _response_text(response: Any) -> str:
     return "".join(parts)
 
 
-def _annotate_issues(essay_text: str, issues: list[RawIssue]) -> list[HighlightedIssue]:
-    annotated: list[HighlightedIssue] = []
+def _annotate_issues(essay_text: str, issues: list[RawIssue]) -> list[InlineIssue]:
+    annotated: list[InlineIssue] = []
     for item in issues:
         start = essay_text.find(item.text)
         if start < 0:
             continue
         annotated.append(
-            HighlightedIssue(
+            InlineIssue(
                 text=item.text,
-                issue=item.issue,
+                issue_type=item.issue_type,
                 suggestion=item.suggestion,
-                start=start,
-                end=start + len(item.text),
+                start_char=start,
+                end_char=start + len(item.text),
             )
         )
     return annotated
@@ -177,11 +183,26 @@ def _s3_client():
     )
 
 
+def calculate_word_count(text: str) -> int:
+    """Accurately count words handling multiple spaces and punctuation."""
+    return len(re.findall(r'\b\w+\b', text))
 async def _fetch_chart_bytes(s3_key: str) -> bytes:
     settings = get_settings()
 
     def _get() -> bytes:
-        obj = _s3_client().get_object(Bucket=settings.s3_bucket, Key=s3_key)
+        try:
+            obj = _s3_client().get_object(Bucket=settings.s3_bucket, Key=s3_key)
+        except ClientError as exc:
+            error_code = exc.response.get("Error", {}).get("Code", "")
+            if error_code in {"NoSuchKey", "404"}:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Stimulus image not found for key '{s3_key}'",
+                ) from exc
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Unable to fetch stimulus image: {error_code or 'S3 error'}",
+            ) from exc
         return obj["Body"].read()
 
     # boto3 is sync; keep it off the event loop.
@@ -190,63 +211,63 @@ async def _fetch_chart_bytes(s3_key: str) -> bytes:
 
 async def extract_chart_context(s3_key: str) -> str:
     """
-    Fetches an IELTS Task 1 (Academic) stimulus image from S3 and asks gpt-4o
+    Fetches an IELTS Task 1 (Academic) stimulus image from S3 and asks claude-opus-4-8
     for a neutral, factual description, so the Claude-based examiner can verify
     the candidate's data accuracy without needing vision input itself.
     """
+    import logging
+    import base64
+    from anthropic import AsyncAnthropic
+
     settings = get_settings()
-    if not settings.openai_api_key:
-        raise ValueError("OPENAI_API_KEY is not configured")
+    key = settings.anthropic_api_key
+    if not key or key == "not-configured":
+        logging.getLogger(__name__).warning("ANTHROPIC_API_KEY is not configured or missing, using placeholder.")
+        key = "not-configured"
 
     image_bytes = await _fetch_chart_bytes(s3_key)
     encoded_image = base64.b64encode(image_bytes).decode("ascii")
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {settings.openai_api_key}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": "gpt-4o",
-                "temperature": 0,
-                "max_tokens": 500,
-                "messages": [
+    media_type = "image/png"
+    if image_bytes.startswith(b"\xff\xd8"):
+        media_type = "image/jpeg"
+    elif image_bytes.startswith(b"GIF87a") or image_bytes.startswith(b"GIF89a"):
+        media_type = "image/gif"
+    elif image_bytes.startswith(b"RIFF") and image_bytes[8:12] == b"WEBP":
+        media_type = "image/webp"
+
+    client = AsyncAnthropic(
+        api_key=key,
+        timeout=settings.anthropic_timeout_seconds,
+        default_headers={"User-Agent": settings.anthropic_user_agent},
+        **({"base_url": settings.anthropic_base_url} if settings.anthropic_base_url else {}),
+    )
+
+    response = await client.messages.create(
+        model="claude-opus-4-8",
+        temperature=0,
+        max_tokens=500,
+        messages=[
+            {
+                "role": "user",
+                "content": [
                     {
-                        "role": "system",
-                        "content": (
-                            "You objectively describe IELTS Writing Task 1 (Academic) "
-                            "stimulus images (line/bar charts, pie charts, tables, or "
-                            "process diagrams) so an examiner who cannot see the image "
-                            "can verify the candidate's data accuracy. List the exact "
-                            "axis labels, units, categories, and key data points/trends "
-                            "visible in the image. Do not evaluate or judge; describe "
-                            "only, factually and neutrally."
-                        ),
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": media_type,
+                            "data": encoded_image,
+                        },
                     },
                     {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": "Describe this IELTS Task 1 chart/graph/table/diagram.",
-                            },
-                            {
-                                "type": "image_url",
-                                "image_url": {"url": f"data:image/png;base64,{encoded_image}"},
-                            },
-                        ],
+                        "type": "text",
+                        "text": "You objectively describe IELTS Writing Task 1 (Academic) stimulus images (line/bar charts, pie charts, tables, or process diagrams) so an examiner who cannot see the image can verify the candidate's data accuracy. List the exact axis labels, units, categories, and key data points/trends visible in the image. Do not evaluate or judge; describe only, factually and neutrally.\n\nDescribe this IELTS Task 1 chart/graph/table/diagram.",
                     },
                 ],
-            },
-        )
-    response.raise_for_status()
-    payload = response.json()
-    try:
-        return payload["choices"][0]["message"]["content"].strip()
-    except (KeyError, IndexError) as exc:
-        raise ValueError("Unexpected response shape from gpt-4o") from exc
+            }
+        ],
+    )
+    return response.content[0].text.strip()
 
 class WritingAgentRunner:
     def __init__(self, client: Any, *, model: str) -> None:
@@ -258,6 +279,7 @@ class WritingAgentRunner:
         criterion: Criterion,
         essay_text: str,
         exam_type: str,
+        user_id: str = "anonymous",
     ) -> AgentExecution:
         prompt = (
             f"IELTS exam/task type: {exam_type}\n"
@@ -270,7 +292,7 @@ class WritingAgentRunner:
             + "\n\nCriterion-specific examiner instruction: "
             + CRITERION_PROMPTS[criterion]
         )
-        return await self._execute(criterion, essay_text, prompt, system)
+        return await self._execute(criterion, essay_text, prompt, system, user_id=user_id)
 
     async def evaluate_exam_task(
         self,
@@ -278,6 +300,7 @@ class WritingAgentRunner:
         essay_text: str,
         exam_type: str,
         task_number: TaskNumber,
+        user_id: str = "anonymous",
         chart_context: str | None = None,
         task_prompt: str | None = None,
     ) -> AgentExecution:
@@ -308,7 +331,7 @@ class WritingAgentRunner:
             + "\n\nTask-specific examiner instruction: "
             + task_instructions
         )
-        return await self._execute(criterion, essay_text, prompt, system)
+        return await self._execute(criterion, essay_text, prompt, system, user_id=user_id)
 
     async def _execute(
         self,
@@ -316,6 +339,7 @@ class WritingAgentRunner:
         essay_text: str,
         prompt: str,
         system: str,
+        user_id: str = "anonymous",
     ) -> AgentExecution:
         started = time.perf_counter()
         response = await self.client.messages.create(
@@ -335,12 +359,21 @@ class WritingAgentRunner:
             criterion=criterion,
             band_score=_round_to_half(raw.band_score),
             feedback=feedback,
-            highlighted_issues=_annotate_issues(essay_text, raw.highlighted_issues),
+            improvement_tip=raw.improvement_tip,
+            word_count=calculate_word_count(essay_text),
+            inline_issues=_annotate_issues(essay_text, raw.highlighted_issues),
         )
         usage = getattr(response, "usage", None)
         prompt_tokens = int(getattr(usage, "input_tokens", 0) or 0)
         completion_tokens = int(getattr(usage, "output_tokens", 0) or 0)
         cost_usd = (prompt_tokens * 3 + completion_tokens * 15) / 1_000_000
+        
+        try:
+            from app.telemetry import record_llm_cost
+            record_llm_cost(user_id, self.model, prompt_tokens, completion_tokens)
+        except ImportError:
+            pass
+            
         return AgentExecution(
             result=result,
             prompt_tokens=prompt_tokens,
@@ -353,11 +386,20 @@ class WritingAgentRunner:
 @lru_cache
 def get_agent_runner() -> WritingAgentRunner:
     from anthropic import AsyncAnthropic
+    import logging
 
     settings = get_settings()
+    
+    key = settings.anthropic_api_key
+    if not key or key == "not-configured":
+        logging.getLogger(__name__).warning("ANTHROPIC_API_KEY is not configured or missing, using placeholder.")
+        key = "not-configured"
+
     client = AsyncAnthropic(
-        api_key=settings.anthropic_api_key or "not-configured",
+        api_key=key,
         timeout=settings.anthropic_timeout_seconds,
+        default_headers={"User-Agent": settings.anthropic_user_agent},
+        **({"base_url": settings.anthropic_base_url} if settings.anthropic_base_url else {}),
     )
     return WritingAgentRunner(client, model=settings.writing_model)
 
@@ -367,32 +409,33 @@ async def _public_evaluation(
     essay_text: str,
     exam_type: str,
     runner: WritingAgentRunner | None,
+    user_id: str = "anonymous",
 ) -> dict[str, Any]:
     execution = await (runner or get_agent_runner()).evaluate(
-        criterion, essay_text, exam_type
+        criterion, essay_text, exam_type, user_id=user_id
     )
     return execution.result.model_dump()
 
 
 async def evaluate_task_response(
-    essay_text: str, exam_type: str, runner: WritingAgentRunner | None = None
+    essay_text: str, exam_type: str, runner: WritingAgentRunner | None = None, user_id: str = "anonymous"
 ) -> dict[str, Any]:
-    return await _public_evaluation("task_response", essay_text, exam_type, runner)
+    return await _public_evaluation("task_response", essay_text, exam_type, runner, user_id)
 
 
 async def evaluate_cohesion(
-    essay_text: str, exam_type: str, runner: WritingAgentRunner | None = None
+    essay_text: str, exam_type: str, runner: WritingAgentRunner | None = None, user_id: str = "anonymous"
 ) -> dict[str, Any]:
-    return await _public_evaluation("cohesion", essay_text, exam_type, runner)
+    return await _public_evaluation("cohesion", essay_text, exam_type, runner, user_id)
 
 
 async def evaluate_vocabulary(
-    essay_text: str, exam_type: str, runner: WritingAgentRunner | None = None
+    essay_text: str, exam_type: str, runner: WritingAgentRunner | None = None, user_id: str = "anonymous"
 ) -> dict[str, Any]:
-    return await _public_evaluation("vocabulary", essay_text, exam_type, runner)
+    return await _public_evaluation("vocabulary", essay_text, exam_type, runner, user_id)
 
 
 async def evaluate_grammar(
-    essay_text: str, exam_type: str, runner: WritingAgentRunner | None = None
+    essay_text: str, exam_type: str, runner: WritingAgentRunner | None = None, user_id: str = "anonymous"
 ) -> dict[str, Any]:
-    return await _public_evaluation("grammar", essay_text, exam_type, runner)
+    return await _public_evaluation("grammar", essay_text, exam_type, runner, user_id)

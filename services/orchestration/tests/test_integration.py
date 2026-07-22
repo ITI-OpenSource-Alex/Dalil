@@ -30,8 +30,10 @@ def mock_redis_history(mocker):
 async def test_chat_roundtrip_and_sse_intent(mocker):
     """DoD 3 & 5: evaluate my essay -> Writing service, latency metric recorded"""
     mock_sequence = mocker.MagicMock()
+    raw_mock = mocker.MagicMock()
+    raw_mock.response_metadata = {"usage": {"input_tokens": 10, "output_tokens": 5}}
     mock_sequence.ainvoke = mocker.AsyncMock(
-        return_value=IntentResult(intent="WRITING", confidence=0.99)
+        return_value={"parsed": IntentResult(intent="WRITING", confidence=0.99), "raw": raw_mock}
     )
     mocker.patch("app.services.supervisor.structured_llm", mock_sequence)
 
@@ -89,8 +91,10 @@ async def test_chat_roundtrip_and_sse_intent(mocker):
 
 async def test_downstream_error_circuit_breaker(mocker):
     mock_sequence = mocker.MagicMock()
+    raw_mock = mocker.MagicMock()
+    raw_mock.response_metadata = {"usage": {"input_tokens": 10, "output_tokens": 5}}
     mock_sequence.ainvoke = mocker.AsyncMock(
-        return_value=IntentResult(intent="RAG", confidence=0.95)
+        return_value={"parsed": IntentResult(intent="RAG", confidence=0.95), "raw": raw_mock}
     )
     mocker.patch("app.services.supervisor.structured_llm", mock_sequence)
 

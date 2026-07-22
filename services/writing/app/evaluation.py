@@ -81,13 +81,14 @@ class EvaluationCoordinator:
         essay_text: str,
         exam_type: str,
         *,
+        user_id: str = "anonymous",
         trace: Any = None,
         on_partial: PartialCallback | None = None,
     ) -> EvaluationSummary:
         async def run_one(criterion: Criterion) -> AgentExecution:
             child_span = _span(trace, criterion, from_cache=False)
             try:
-                execution = await self.runner.evaluate(criterion, essay_text, exam_type)
+                execution = await self.runner.evaluate(criterion, essay_text, exam_type, user_id=user_id)
                 AGENT_BAND_SCORE.labels(criterion=criterion).observe(
                     execution.result.band_score
                 )
@@ -162,13 +163,18 @@ class EvaluationCoordinator:
         exam_type: str,
         *,
         task_number: TaskNumber,
+        user_id: str = "anonymous",
         stimulus_s3_key: str | None = None,
         task_prompt: str | None = None,
         trace: Any = None,
         on_partial: PartialCallback | None = None,
     ) -> EvaluationSummary:
+        is_academic_task1 = exam_type.lower() == "academic" and task_number == 1
+        if is_academic_task1 and not stimulus_s3_key:
+            raise EvaluationFailed("Academic Task 1 requires a stimulus image.")
+
         chart_context: str | None = None
-        if stimulus_s3_key:
+        if is_academic_task1 and stimulus_s3_key:
             chart_context = await extract_chart_context(stimulus_s3_key)
 
         async def run_one(criterion: Criterion) -> AgentExecution:
@@ -179,6 +185,7 @@ class EvaluationCoordinator:
                     essay_text,
                     exam_type,
                     task_number,
+                    user_id=user_id,
                     chart_context=chart_context,
                     task_prompt=task_prompt,
                 )

@@ -20,8 +20,10 @@ class Settings:
     cv_processed_queue_url: str = ""
     cv_processor_queue_url: str = ""
     anthropic_api_key: str = ""
-    writing_model: str = "claude-sonnet-4-6"
+    anthropic_base_url: str = ""
+    writing_model: str = "claude-opus-4-8"
     cv_extraction_model: str = "claude-haiku-4-5-20251001"
+    anthropic_user_agent: str = "Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14"
     anthropic_timeout_seconds: float = 25.0
     openai_api_key: str = ""
     langfuse_public_key: str = ""
@@ -41,8 +43,9 @@ def get_settings() -> Settings:
         cv_uploaded_queue_url=os.getenv("CV_UPLOADED_QUEUE_URL", ""),
         cv_processed_queue_url=os.getenv("CV_PROCESSED_QUEUE_URL", ""),
         cv_processor_queue_url=os.getenv("CV_PROCESSOR_QUEUE_URL", ""),
-        anthropic_api_key=os.getenv("ANTHROPIC_API_KEY", ""),
-        writing_model=os.getenv("WRITING_MODEL", "claude-sonnet-4-6"),
+        anthropic_api_key=os.getenv("ANTHROPIC_AUTH_TOKEN") or os.getenv("ANTHROPIC_API_KEY", ""),
+        anthropic_base_url=os.getenv("ANTHROPIC_BASE_URL", ""),
+        writing_model=os.getenv("WRITING_MODEL", "claude-opus-4-8"),
         cv_extraction_model=os.getenv(
             "CV_EXTRACTION_MODEL", "claude-haiku-4-5-20251001"
         ),

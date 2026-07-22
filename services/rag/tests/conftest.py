@@ -3,10 +3,11 @@ import os
 # Settings is strict — without these the whole suite fails at COLLECTION with a pydantic
 # ValidationError, which reads like a code bug rather than a missing local env var.
 os.environ.setdefault("DATABASE_URL", "postgresql://goa:goa_pass@localhost:5432/rag_db")
-os.environ.setdefault("OPENAI_API_KEY", "test-openai-key")
 os.environ.setdefault("ANTHROPIC_API_KEY", "test-anthropic-key")
 os.environ.setdefault("INTERNAL_API_KEY", "supersecret_internal_key_123")
-
+os.environ.setdefault("EMBEDDING_BASE_URL", "http://localhost:11434/v1")
+os.environ.setdefault("EMBEDDING_MODEL", "nomic-embed-text")
+os.environ.setdefault("EMBEDDING_API_KEY", "ollama")
 import pytest  # noqa: E402
 
 

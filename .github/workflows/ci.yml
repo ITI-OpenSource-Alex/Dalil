@@ -196,6 +196,8 @@ jobs:
           DATABASE_URL: postgresql://test:test@127.0.0.1:5432/test
           OPENAI_API_KEY: dummy-key
           ANTHROPIC_API_KEY: dummy-key
+          REDIS_URL: redis://127.0.0.1:6379/0
+          REDIS_GATEWAY_URL: redis://127.0.0.1:6379/0
         # [RESILIENCE FIX 1]: Gracefully skip Pytest if no tests folder exists to avoid Exit Code 5
         run: |
           if [ -d "tests" ]; then

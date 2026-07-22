@@ -78,7 +78,9 @@ async def question_bank_stats(
         exam_type = row["exam_type"]
         skill_area = row["skill_area"]
         payload.setdefault(exam_type, {})
-        payload[exam_type][skill_area] = payload[exam_type].get(skill_area, 0) + row["count"]
+        payload[exam_type][skill_area] = (
+            payload[exam_type].get(skill_area, 0) + row["count"]
+        )
 
     if not raw_stats:
         payload["academic"]["reading"] = 1
@@ -97,7 +99,9 @@ async def question_bank_stats(
         book = row["book_ref"]
         exam_type = row["exam_type"]
         skill_area = row["skill_area"]
-        by_book.setdefault(book, {}).setdefault(exam_type, {})[skill_area] = row["count"]
+        by_book.setdefault(book, {}).setdefault(exam_type, {})[skill_area] = row[
+            "count"
+        ]
 
     return {**payload, "by_book": by_book}
 
@@ -158,7 +162,7 @@ async def submit_transcript(session_id: UUID, payload: TranscriptPayload):
         )
         start_time = time.time()
         result = await speaking_client.evaluate_holistic(
-            session_id, {"concatenated_transcript": text}
+            session_id, {"concatenated_transcript": text, "user_id": str(sessions_res["user_id"])}
         )
         duration_ms = (time.time() - start_time) * 1000
         goa_speaking_exam_evaluation_ms.observe(duration_ms)

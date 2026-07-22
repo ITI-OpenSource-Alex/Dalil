@@ -1,5 +1,5 @@
 {
-  "book_ref": "IELTS-unknown",
+  "book_ref": "IELTS-15",
   "test_number": 1,
   "exam_type": "academic",
   "skill_area": "speaking",
@@ -7,12 +7,99 @@
   "questions": [
     {
       "number": 1,
-      "prompt": "The candidate is given a task card with prompts and is asked to talk on a particular topic.",
+      "prompt": "What kinds of emails do you receive about your work or studies?",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 2,
+      "prompt": "Do you reply to emails and messages as soon as you receive them? [Why/Why not?]",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 3,
+      "prompt": "Are you happy to receive emails that are advertising things? (Why/Why not?]",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 4,
+      "prompt": "e Do you prefer to email, phone or text your friends? [Why?]",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 5,
+      "prompt": "Describe a hotel that you know.",
       "question_type": "Speaking Part 2",
       "instructions": "Speak for 1-2 minutes on this topic.",
       "passage_number": null,
       "section_number": 2,
-      "bullet_points": []
+      "bullet_points": [
+        "You should say:",
+        "where this hotel is",
+        "what this hotel looks like",
+        "what facilities this hotel has",
+        "and explain whether you think this is a nice hotel",
+        "to stay in."
+      ]
+    },
+    {
+      "number": 6,
+      "prompt": "What things are important when people are choosing a hotel?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 7,
+      "prompt": "Why do some people not like staying in hotels?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 8,
+      "prompt": "Do you think staying in a luxury hotel is a waste of money?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 9,
+      "prompt": "Do you think hotel work is a good career for life?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 10,
+      "prompt": "How does working in a big hotel compare with working in a small hotel?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 11,
+      "prompt": "What skills are needed to be a successful hotel manager?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
     }
   ],
   "answer_key": {},

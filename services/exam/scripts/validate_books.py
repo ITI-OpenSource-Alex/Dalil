@@ -111,7 +111,6 @@ def _validate_listening(
         issues.append(
             f"{label}: strict: expected exactly 40 questions, got {len(questions)}"
         )
-
     if len(answers) < 30:
         issues.append(f"{label}: expected ~40 answer keys, got {len(answers)}")
     if strict and len(answers) != 40:
@@ -132,7 +131,6 @@ def _validate_listening(
         issues.append(
             f"{label}: expected 4 sections, got {len(sections)} ({sorted(sections)})"
         )
-
     if strict:
         numbers = [q.get("number") for q in questions]
         expected_numbers = set(range(1, 41))

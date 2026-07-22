@@ -221,7 +221,7 @@ variable "ecr_notification_sender_repo_url" {
   type        = string
 }
 
-# --- Temporary, until modules/secrets and modules/sqs exist (see GOA-070) ---
+
 variable "lambda_secret_arns" {
   description = "Secret ARNs Lambda workers may read. Empty until modules/secrets exists."
   type        = list(string)
@@ -229,9 +229,9 @@ variable "lambda_secret_arns" {
 }
 
 variable "sqs_notification_queue_arn" {
-  description = "ARN of the SQS queue notification-sender consumes. Null until modules/sqs exists — the SQS trigger is skipped while null."
-  type        = string
-  default     = null
+
+  type    = string
+  default = null
 }
 
 variable "sqs_notification_queue_url" {
@@ -239,3 +239,29 @@ variable "sqs_notification_queue_url" {
   type        = string
   default     = null
 }
+
+# -----------------------------------------------------------------------------
+# GOA-074: GitHub & OIDC Configuration
+# -----------------------------------------------------------------------------
+
+variable "github_org" {
+  description = "GitHub organization or username that owns the repository."
+  type        = string
+  default     = "ITI-OpenSource-Alex"
+}
+
+variable "github_repo" {
+  description = "GitHub repository name (without the org prefix)."
+  type        = string
+  default     = "GOA"
+}
+
+# NOTE: GitHub provider requires a paid org plan for branch protection.
+# Uncomment when the org is upgraded.
+# variable "github_token" {
+#   description = "GitHub token for the Terraform GitHub provider. Pass via TF_VAR_github_token env var."
+#   type        = string
+#   sensitive   = true
+#   default     = ""
+# }
+

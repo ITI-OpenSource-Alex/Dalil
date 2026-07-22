@@ -78,6 +78,9 @@ services:
       - PYTHONPATH=/app:/packages/contracts/py
       - OTEL_SERVICE_NAME=writing-service
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-}
+      - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
+      - LLM_MODEL=${LLM_MODEL:-claude-opus-4-8}
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
       - LANGFUSE_HOST=${LANGFUSE_HOST}
@@ -85,10 +88,11 @@ services:
       - CV_EXTRACTION_MODEL=${CV_EXTRACTION_MODEL:-claude-haiku-4-5-20251001}
       - ANTHROPIC_TIMEOUT_SECONDS=${ANTHROPIC_TIMEOUT_SECONDS:-25}
       - WRITING_CACHE_VERSION=${WRITING_CACHE_VERSION:-v1}
-      - OPENAI_API_KEY=sk-proj-a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8s9T0u1V2w3X4
     volumes:
       - ./services/writing/app:/app/app
+      - ./services/writing/cv_processor:/app/cv_processor
       - ./services/writing/migrations:/app/migrations
+      - ./services/writing/tests:/app/tests
       - ./packages/contracts/py:/packages/contracts/py
     depends_on:
       postgres:
@@ -212,10 +216,16 @@ services:
       - PORT=8082
       - MAX_CONNECTIONS=100
       - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
+      - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-}
+      - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
+      - LLM_MODEL=${LLM_MODEL:-claude-opus-4-8}
+      - SPEAKING_PRACTICE_MODEL=${SPEAKING_PRACTICE_MODEL:-claude-opus-4-8}
+      - SPEAKING_EXAM_MODEL=${SPEAKING_EXAM_MODEL:-claude-opus-4-8}
       - OTEL_SERVICE_NAME=speaking
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
       - LANGFUSE_HOST=${LANGFUSE_HOST}
+      - SPEECH_SERVICE_URL=http://speech:8086
     volumes:
       - ./services/speaking:/app
     depends_on:
@@ -233,6 +243,9 @@ services:
       - DATABASE_URL=postgresql://goa:goa_pass@postgres:5432/rag_db
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-}
+      - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
+      - LLM_MODEL=${LLM_MODEL:-claude-opus-4-8}
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
       - LANGFUSE_HOST=${LANGFUSE_HOST}
@@ -245,6 +258,9 @@ services:
       - AWS_SECRET_ACCESS_KEY=test
       - AWS_ENDPOINT_URL=http://localstack:4566
       - SQS_QUEUE_NAME=user-events
+      - EMBEDDING_BASE_URL=${EMBEDDING_BASE_URL:-http://host.docker.internal:11434/v1}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-nomic-embed-text}
+      - EMBEDDING_API_KEY=${EMBEDDING_API_KEY:-ollama}
     volumes:
       - ./services/rag:/app
     depends_on:
@@ -293,6 +309,9 @@ services:
       - DATABASE_URL=postgresql://goa:goa_pass@postgres:5432/orchestration_db
       - REDIS_URL=redis://redis-cache:6379/1
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-}
+      - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
+      - LLM_MODEL=${LLM_MODEL:-claude-opus-4-8}
       - INTERNAL_API_KEY=supersecret_internal_key_123
       - OTEL_SERVICE_NAME=orchestration
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
@@ -308,6 +327,14 @@ services:
         condition: service_healthy
       redis-cache:
         condition: service_started
+
+  speech:
+    build:
+      context: ./services/speech
+    ports:
+      - "8086:8086"
+    environment:
+      - PORT=8086
 
 volumes:
   pgdata:

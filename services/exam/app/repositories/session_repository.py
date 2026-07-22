@@ -4,7 +4,6 @@ from asyncpg import Pool, Record
 
 
 class SessionRepository:
-
     def __init__(self, pool: Pool):
         self.pool = pool
 

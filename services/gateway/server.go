@@ -64,6 +64,8 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	api.Get("/ping", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"status": "ok"})
 	})
+
+	app.Get("/admin/costs", handlers.AdminCosts(redisClient, cfg.BudgetUSD, cfg.CostPromptPer1M, cfg.CostCompletionPer1M))
 	api.Post("/writing/essays/upload", middleware.ValidateEssayTextLength(5000), writingHandler.UploadEssay)
 	api.Post("/writing/cv/upload", writingHandler.UploadCV)
 	api.Get("/exam/listening/start", examHandler.StartListening)

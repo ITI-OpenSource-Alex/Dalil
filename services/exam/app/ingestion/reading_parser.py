@@ -194,7 +194,7 @@ class ReadingParser(BaseParser):
             return test_block
         start = m.end()
         end_m = re.search(
-            r"(?i)^(LISTENING|WRITING|SPEAKING|TEST\s+\d+)\b",
+            r"(?i)^(LISTENING|WRITING|SPEAKING|TEST\s+\d+|Answer\s+keys?)\b",
             test_block[start:], re.MULTILINE,
         )
         return test_block[start: start + end_m.start()] if end_m else test_block[start:]

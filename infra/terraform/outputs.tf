@@ -151,11 +151,36 @@ output "eval_reports_bucket_name" {
   value = module.eval_reports_bucket.bucket_name
 }
 output "cv_processor_function_name" {
-  value = module.cv_processor_lambda.function_name
+  value = try(module.cv_processor_lambda[0].function_name, null)
 }
 output "scholarship_matcher_function_name" {
-  value = module.scholarship_matcher_lambda.function_name
+  value = try(module.scholarship_matcher_lambda[0].function_name, null)
 }
 output "notification_sender_function_name" {
-  value = module.notification_sender_lambda.function_name
+  value = try(module.notification_sender_lambda[0].function_name, null)
+}
+
+output "ecr_repository_urls" {
+  description = "ECR repository URLs keyed by ECS service."
+  value       = module.ecr.repository_urls
+}
+
+output "ecs_cluster_name" {
+  description = "ECS cluster name."
+  value       = module.ecs_cluster.cluster_name
+}
+
+output "ecs_service_names" {
+  description = "ECS service names keyed by service."
+  value       = module.ecs_cluster.service_names
+}
+
+output "cloudfront_distribution_id" {
+  description = "CloudFront distribution ID, or null when disabled."
+  value       = module.cloudfront.distribution_id
+}
+
+output "cloudfront_domain_name" {
+  description = "CloudFront domain, or null when disabled."
+  value       = module.cloudfront.domain_name
 }

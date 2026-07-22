@@ -50,7 +50,25 @@ variable "rds_max_allocated_storage_gb" {
 variable "rds_engine_version" {
   description = "PostgreSQL engine version."
   type        = string
-  default     = "16.3"
+  default     = "16.14"
+}
+
+variable "rds_backup_retention_days" {
+  description = "RDS automated backup retention; staging free-plan accounts support one day."
+  type        = number
+  default     = 7
+}
+
+variable "rds_performance_insights_enabled" {
+  description = "Enable RDS Performance Insights."
+  type        = bool
+  default     = true
+}
+
+variable "enable_rds_proxy" {
+  description = "Create RDS Proxy. Disable in AWS free-plan accounts where the service is unavailable."
+  type        = bool
+  default     = true
 }
 
 variable "redis_num_cache_clusters" {

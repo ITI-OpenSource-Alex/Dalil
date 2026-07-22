@@ -25,9 +25,13 @@ module "nat_gateway" {
 module "security_groups" {
   source = "./modules/security-groups"
 
-  environment = var.environment
-  vpc_id      = module.vpc.vpc_id
-  tags        = var.tags
+  environment  = var.environment
+  vpc_id       = module.vpc.vpc_id
+  gateway_port = local.service_ports.gateway
+  ecs_service_ports = [
+    for service, port in local.service_ports : port if service != "gateway"
+  ]
+  tags = var.tags
 }
 
 module "vpc_endpoints" {
@@ -45,6 +49,19 @@ module "vpc_endpoints" {
   tags = var.tags
 }
 
+module "nonproduction_alb_certificate" {
+  count  = var.create_self_signed_alb_certificate ? 1 : 0
+  source = "./modules/acm"
+
+  name_prefix = local.name_prefix
+  domain_name = coalesce(var.domain_name, "${var.environment}.goa.internal")
+  tags        = local.common_tags
+}
+
+locals {
+  effective_alb_certificate_arn = var.create_self_signed_alb_certificate ? module.nonproduction_alb_certificate[0].certificate_arn : var.alb_certificate_arn
+}
+
 module "alb" {
   source = "./modules/alb"
 
@@ -52,11 +69,22 @@ module "alb" {
   vpc_id                     = module.vpc.vpc_id
   public_subnet_ids          = module.vpc.public_subnet_ids
   alb_security_group_id      = module.security_groups.alb_security_group_id
-  certificate_arn            = var.alb_certificate_arn
+  certificate_arn            = local.effective_alb_certificate_arn
   enable_deletion_protection = var.alb_enable_deletion_protection
   default_target_group_name  = var.alb_default_target_group_name
   target_groups              = var.alb_target_groups
   tags                       = var.tags
+}
+
+module "cloudfront" {
+  source = "./modules/cloudfront"
+
+  enabled                = var.enable_cloudfront
+  name_prefix            = local.name_prefix
+  alb_dns_name           = module.alb.alb_dns_name
+  origin_protocol_policy = "https-only"
+  price_class            = var.cloudfront_price_class
+  tags                   = local.common_tags
 }
 
 module "iam" {
@@ -76,6 +104,29 @@ module "iam" {
   lambda_sqs_queue_arns              = concat(var.sqs_notification_queue_arn != null ? [var.sqs_notification_queue_arn] : [], values(module.sqs.queue_arns), [aws_sqs_queue.cv_processed.arn, aws_sqs_queue.cv_processor_failures.arn])
   lambda_s3_bucket_arns              = [module.writing_files_bucket.bucket_arn]
   tags                               = var.tags
+}
+
+module "ecr" {
+  source = "./modules/ecr"
+
+  name_prefix  = local.name_prefix
+  repositories = toset(local.service_names)
+  tags         = local.common_tags
+}
+
+module "ecs_cluster" {
+  source = "./modules/ecs-cluster"
+
+  environment                = var.environment
+  name_prefix                = local.name_prefix
+  private_subnet_ids         = module.vpc.private_app_subnet_ids
+  gateway_security_group_id  = module.security_groups.gateway_security_group_id
+  services_security_group_id = module.security_groups.ecs_services_security_group_id
+  task_execution_role_arn    = module.iam.ecs_task_execution_role_arn
+  task_role_arn              = module.iam.ecs_task_role_arn
+  target_group_arns          = module.alb.target_group_arns
+  services                   = local.ecs_services
+  tags                       = local.common_tags
 }
 
 data "aws_region" "current" {}
@@ -148,6 +199,7 @@ module "eval_reports_bucket" {
 # ---------------------------------------------------------------------------
 
 module "cv_processor_lambda" {
+  count             = var.enable_lambda_workers ? 1 : 0
   source            = "./modules/lambda"
   function_name     = "goa-cv-processor-${var.environment}"
   package_type      = "Image"
@@ -176,7 +228,8 @@ module "cv_processor_lambda" {
 }
 
 resource "aws_cloudwatch_log_group" "cv_processor" {
-  name              = "/aws/lambda/${module.cv_processor_lambda.function_name}"
+  count             = var.enable_lambda_workers ? 1 : 0
+  name              = "/aws/lambda/${module.cv_processor_lambda[0].function_name}"
   retention_in_days = 30
   tags = merge(local.goa071_tags, {
     Purpose = "cv-processor-runtime-logs"
@@ -184,7 +237,8 @@ resource "aws_cloudwatch_log_group" "cv_processor" {
 }
 
 resource "aws_lambda_function_event_invoke_config" "cv_processor" {
-  function_name                = module.cv_processor_lambda.function_name
+  count                        = var.enable_lambda_workers ? 1 : 0
+  function_name                = module.cv_processor_lambda[0].function_name
   maximum_event_age_in_seconds = 21600
   maximum_retry_attempts       = 2
 
@@ -196,6 +250,7 @@ resource "aws_lambda_function_event_invoke_config" "cv_processor" {
 }
 
 module "scholarship_matcher_lambda" {
+  count         = var.enable_lambda_workers ? 1 : 0
   source        = "./modules/lambda"
   function_name = "goa-scholarship-matcher-${var.environment}"
   package_type  = "Image"
@@ -218,6 +273,7 @@ module "scholarship_matcher_lambda" {
 }
 
 module "notification_sender_lambda" {
+  count         = var.enable_lambda_workers ? 1 : 0
   source        = "./modules/lambda"
   function_name = "goa-notification-sender-${var.environment}"
   package_type  = "Image"
@@ -250,22 +306,24 @@ module "notification_sender_lambda" {
 # scholarship-matcher as a PLACEHOLDER so plan/apply succeeds. Swap for the
 # real ingestion function once it exists, or drop this block if out of scope.
 module "weekly_ingestion_rule" {
+  count                = var.enable_lambda_workers ? 1 : 0
   source               = "./modules/eventbridge"
   rule_name            = "goa-weekly-ingestion-${var.environment}"
   description          = "Weekly ingestion run — Sunday 02:00 UTC"
   schedule_expression  = "cron(0 2 ? * SUN *)"
-  target_function_name = module.scholarship_matcher_lambda.function_name # PLACEHOLDER
-  target_function_arn  = module.scholarship_matcher_lambda.function_arn  # PLACEHOLDER
+  target_function_name = module.scholarship_matcher_lambda[0].function_name # PLACEHOLDER
+  target_function_arn  = module.scholarship_matcher_lambda[0].function_arn  # PLACEHOLDER
   tags                 = local.goa071_tags
 }
 
 module "daily_scholarship_match_rule" {
+  count                = var.enable_lambda_workers ? 1 : 0
   source               = "./modules/eventbridge"
   rule_name            = "goa-daily-scholarship-match-${var.environment}"
   description          = "Daily scholarship matching run — 08:00 UTC"
   schedule_expression  = "cron(0 8 * * ? *)"
-  target_function_name = module.scholarship_matcher_lambda.function_name
-  target_function_arn  = module.scholarship_matcher_lambda.function_arn
+  target_function_name = module.scholarship_matcher_lambda[0].function_name
+  target_function_arn  = module.scholarship_matcher_lambda[0].function_arn
   tags                 = local.goa071_tags
 }
 
@@ -274,19 +332,21 @@ module "daily_scholarship_match_rule" {
 # ---------------------------------------------------------------------------
 
 resource "aws_lambda_permission" "s3_invoke_cv_processor" {
+  count          = var.enable_lambda_workers ? 1 : 0
   statement_id   = "AllowExecutionFromS3WritingFiles"
   action         = "lambda:InvokeFunction"
-  function_name  = module.cv_processor_lambda.function_name
+  function_name  = module.cv_processor_lambda[0].function_name
   principal      = "s3.amazonaws.com"
   source_arn     = module.writing_files_bucket.bucket_arn
   source_account = var.aws_account_id
 }
 
 resource "aws_s3_bucket_notification" "writing_files" {
+  count  = var.enable_lambda_workers ? 1 : 0
   bucket = module.writing_files_bucket.bucket_id
 
   lambda_function {
-    lambda_function_arn = module.cv_processor_lambda.function_arn
+    lambda_function_arn = module.cv_processor_lambda[0].function_arn
     events              = ["s3:ObjectCreated:*"]
     filter_prefix       = local.cv_upload_prefix
   }
@@ -297,10 +357,10 @@ resource "aws_s3_bucket_notification" "writing_files" {
 # Skipped entirely until modules/sqs exists and sqs_notification_queue_arn
 # is set — this whole resource is conditionally created via count.
 resource "aws_lambda_event_source_mapping" "sqs_to_notification_sender" {
-  count = var.sqs_notification_queue_arn != null ? 1 : 0
+  count = var.enable_lambda_workers && var.sqs_notification_queue_arn != null ? 1 : 0
 
   event_source_arn                   = module.sqs.queue_arns["notification"]
-  function_name                      = module.notification_sender_lambda.function_name
+  function_name                      = module.notification_sender_lambda[0].function_name
   batch_size                         = 10
   maximum_batching_window_in_seconds = 5
   function_response_types            = ["ReportBatchItemFailures"]

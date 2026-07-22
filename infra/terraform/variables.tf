@@ -63,6 +63,31 @@ variable "private_data_subnet_cidrs" {
 variable "alb_certificate_arn" {
   description = "ACM certificate ARN used by the public ALB HTTPS listener."
   type        = string
+  default     = null
+  nullable    = true
+}
+
+variable "create_self_signed_alb_certificate" {
+  description = "Create a self-signed ACM certificate for non-production validation. Must be false in production."
+  type        = bool
+  default     = false
+
+  validation {
+    condition     = !(var.environment == "production" && var.create_self_signed_alb_certificate)
+    error_message = "Production must use a trusted ACM certificate."
+  }
+}
+
+variable "enable_cloudfront" {
+  description = "Create a CloudFront distribution in front of the ALB."
+  type        = bool
+  default     = false
+}
+
+variable "cloudfront_price_class" {
+  description = "CloudFront price class."
+  type        = string
+  default     = "PriceClass_100"
 }
 
 variable "domain_name" {
@@ -105,7 +130,13 @@ variable "alb_target_groups" {
       deregistration_delay = 30
     }
     user = {
-      port                 = 3000
+      port                 = 8081
+      protocol             = "HTTP"
+      health_check_path    = "/health"
+      deregistration_delay = 30
+    }
+    orchestration = {
+      port                 = 8083
       protocol             = "HTTP"
       health_check_path    = "/health"
       deregistration_delay = 30
@@ -122,7 +153,49 @@ variable "alb_target_groups" {
       health_check_path    = "/health"
       deregistration_delay = 30
     }
+    writing = {
+      port                 = 8000
+      protocol             = "HTTP"
+      health_check_path    = "/health"
+      deregistration_delay = 30
+    }
+    exam = {
+      port                 = 8085
+      protocol             = "HTTP"
+      health_check_path    = "/health"
+      deregistration_delay = 30
+    }
+    notification = {
+      port                 = 8087
+      protocol             = "HTTP"
+      health_check_path    = "/health"
+      deregistration_delay = 30
+    }
+    ingestion = {
+      port                 = 8088
+      protocol             = "HTTP"
+      health_check_path    = "/health"
+      deregistration_delay = 30
+    }
   }
+}
+
+variable "ecs_image_tag" {
+  description = "Image tag used by ECS task definitions."
+  type        = string
+  default     = "latest"
+}
+
+variable "ecs_desired_counts" {
+  description = "Desired task count overrides keyed by service. Defaults to zero for safe initial provisioning."
+  type        = map(number)
+  default     = {}
+}
+
+variable "enable_lambda_workers" {
+  description = "Create image-based Lambda workers after their ECR images have been published."
+  type        = bool
+  default     = false
 }
 
 variable "task_execution_secret_arns" {
@@ -204,21 +277,19 @@ variable "image_tag" {
 variable "ecr_cv_processor_repo_url" {
   description = "ECR repository URL for the cv-processor image (without tag)."
   type        = string
-
-  validation {
-    condition     = trimspace(var.ecr_cv_processor_repo_url) != ""
-    error_message = "ecr_cv_processor_repo_url must not be empty."
-  }
+  default     = ""
 }
 
 variable "ecr_scholarship_matcher_repo_url" {
   description = "ECR repository URL for the scholarship-matcher image (without tag)."
   type        = string
+  default     = ""
 }
 
 variable "ecr_notification_sender_repo_url" {
   description = "ECR repository URL for the notification-sender image (without tag)."
   type        = string
+  default     = ""
 }
 
 

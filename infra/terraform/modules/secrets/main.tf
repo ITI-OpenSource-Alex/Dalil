@@ -11,7 +11,7 @@ locals {
 
   database_url_by_service = {
     for service, database_name in var.database_names :
-    service => var.rds_proxy_endpoint == "" ? "" : format(
+    service => var.rds_proxy_endpoint == null || var.rds_proxy_endpoint == "" ? "" : format(
       "postgresql://%s:%s@%s:%s/%s",
       urlencode(var.rds_master_username),
       urlencode(random_password.rds_master.result),

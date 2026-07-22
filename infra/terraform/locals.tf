@@ -13,6 +13,42 @@ locals {
     "ingestion",
   ]
 
+  service_ports = {
+    gateway       = 8080
+    user          = 8081
+    orchestration = 8083
+    speaking      = 8082
+    writing       = 8000
+    rag           = 8084
+    exam          = 8085
+    notification  = 8087
+    ingestion     = 8088
+  }
+
+  ecs_services = {
+    for service in local.service_names : service => {
+      image                             = "${module.ecr.repository_urls[service]}:${var.ecs_image_tag}"
+      container_port                    = local.service_ports[service]
+      cpu                               = 256
+      memory                            = 512
+      desired_count                     = lookup(var.ecs_desired_counts, service, 0)
+      attach_to_load_balancer           = service == "gateway"
+      health_check_grace_period_seconds = service == "gateway" ? 60 : 0
+      environment = service == "gateway" ? {
+        PORT                = "8080"
+        REDIS_URL           = "redis://${module.elasticache.primary_endpoint_address}:${module.elasticache.port}/0"
+        WRITING_SERVICE_URL = "http://${local.name_prefix}-writing:8000"
+        EXAM_SERVICE_URL    = "http://${local.name_prefix}-exam:8085"
+        USER_SERVICE_URL    = "http://${local.name_prefix}-user:8081"
+        INTERNAL_API_KEY    = "terraform-managed-internal"
+        SECURE_COOKIES      = "true"
+      } : {}
+      secrets = service == "gateway" ? {
+        JWT_SECRET = "${module.secrets.service_secret_arns["gateway"]}:JWT_SECRET::"
+      } : {}
+    }
+  }
+
   postgres_databases = {
     user          = "user_db"
     orchestration = "orchestration_db"
@@ -225,7 +261,7 @@ locals {
         description         = "${service} ECS service running task count is below the GOA-027 threshold."
         namespace           = "ECS/ContainerInsights"
         metric_name         = "RunningTaskCount"
-        dimensions          = { ClusterName = var.ecs_cluster_name, ServiceName = local.ecs_service_names[service] }
+        dimensions          = { ClusterName = local.name_prefix, ServiceName = local.ecs_service_names[service] }
         comparison_operator = "LessThanThreshold"
         threshold           = var.ecs_running_task_minimum
         evaluation_periods  = 2

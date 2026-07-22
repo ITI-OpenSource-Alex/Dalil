@@ -25,6 +25,9 @@ coverage.xml
 *.tfstate.backup
 *.tfvars
 !*.tfvars.example
+!infra/terraform/environments/staging.tfvars
+!infra/terraform/environments/production.tfvars
+infra/terraform/environments/shared.backend.hcl
 
 # Logs / OS
 *.log

@@ -11,7 +11,7 @@ output "rds_endpoint" {
 }
 
 output "rds_proxy_endpoint" {
-  value = module.rds_proxy.proxy_endpoint
+  value = try(module.rds_proxy[0].proxy_endpoint, null)
 }
 
 output "rds_database_bootstrap_sql" {

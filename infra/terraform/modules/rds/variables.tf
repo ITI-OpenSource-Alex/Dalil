@@ -67,8 +67,8 @@ variable "backup_retention_days" {
   default     = 7
 
   validation {
-    condition     = var.backup_retention_days == 7
-    error_message = "GOA-070 requires RDS automated backups to retain exactly 7 days."
+    condition     = var.environment == "production" ? var.backup_retention_days == 7 : contains([1, 7], var.backup_retention_days)
+    error_message = "Production requires seven backup days; staging supports one or seven days."
   }
 }
 
@@ -87,7 +87,7 @@ variable "max_allocated_storage_gb" {
 variable "engine_version" {
   description = "PostgreSQL engine version."
   type        = string
-  default     = "16.3"
+  default     = "16.14"
 }
 
 variable "parameter_group_family" {

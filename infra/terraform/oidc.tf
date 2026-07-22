@@ -4,14 +4,16 @@
 
 # Fetch the TLS certificate for GitHub's OIDC endpoint (auto-rotating thumbprint)
 data "tls_certificate" "github_actions" {
-  url = "https://token.actions.githubusercontent.com/.well-known/openid-configuration"
+  count = var.environment == "staging" ? 1 : 0
+  url   = "https://token.actions.githubusercontent.com/.well-known/openid-configuration"
 }
 
 # Register GitHub as an OIDC identity provider in AWS
 resource "aws_iam_openid_connect_provider" "github" {
+  count           = var.environment == "staging" ? 1 : 0
   url             = "https://token.actions.githubusercontent.com"
   client_id_list  = ["sts.amazonaws.com"]
-  thumbprint_list = [data.tls_certificate.github_actions.certificates[0].sha1_fingerprint]
+  thumbprint_list = [data.tls_certificate.github_actions[0].certificates[0].sha1_fingerprint]
 
   tags = merge(var.tags, {
     Name   = "github-actions-oidc"
@@ -24,12 +26,13 @@ resource "aws_iam_openid_connect_provider" "github" {
 # -----------------------------------------------------------------------------
 
 data "aws_iam_policy_document" "github_assume_staging" {
+  count = var.environment == "staging" ? 1 : 0
   statement {
     actions = ["sts:AssumeRoleWithWebIdentity"]
 
     principals {
       type        = "Federated"
-      identifiers = [aws_iam_openid_connect_provider.github.arn]
+      identifiers = [aws_iam_openid_connect_provider.github[0].arn]
     }
 
     condition {
@@ -47,8 +50,9 @@ data "aws_iam_policy_document" "github_assume_staging" {
 }
 
 resource "aws_iam_role" "staging_deploy" {
+  count              = var.environment == "staging" ? 1 : 0
   name               = "goa-staging-deploy"
-  assume_role_policy = data.aws_iam_policy_document.github_assume_staging.json
+  assume_role_policy = data.aws_iam_policy_document.github_assume_staging[0].json
   description        = "Assumed by GitHub Actions (OIDC) to deploy to staging ECS and push to staging ECR."
 
   tags = merge(var.tags, {
@@ -59,8 +63,9 @@ resource "aws_iam_role" "staging_deploy" {
 }
 
 resource "aws_iam_role_policy" "staging_deploy" {
-  name = "staging-deploy-permissions"
-  role = aws_iam_role.staging_deploy.id
+  count = var.environment == "staging" ? 1 : 0
+  name  = "staging-deploy-permissions"
+  role  = aws_iam_role.staging_deploy[0].id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -118,12 +123,13 @@ resource "aws_iam_role_policy" "staging_deploy" {
 # -----------------------------------------------------------------------------
 
 data "aws_iam_policy_document" "github_assume_production" {
+  count = var.environment == "staging" ? 1 : 0
   statement {
     actions = ["sts:AssumeRoleWithWebIdentity"]
 
     principals {
       type        = "Federated"
-      identifiers = [aws_iam_openid_connect_provider.github.arn]
+      identifiers = [aws_iam_openid_connect_provider.github[0].arn]
     }
 
     condition {
@@ -142,8 +148,9 @@ data "aws_iam_policy_document" "github_assume_production" {
 }
 
 resource "aws_iam_role" "production_deploy" {
+  count              = var.environment == "staging" ? 1 : 0
   name               = "goa-production-deploy"
-  assume_role_policy = data.aws_iam_policy_document.github_assume_production.json
+  assume_role_policy = data.aws_iam_policy_document.github_assume_production[0].json
   description        = "Assumed by GitHub Actions (OIDC) to deploy to production ECS and push to production ECR."
 
   tags = merge(var.tags, {
@@ -154,8 +161,9 @@ resource "aws_iam_role" "production_deploy" {
 }
 
 resource "aws_iam_role_policy" "production_deploy" {
-  name = "production-deploy-permissions"
-  role = aws_iam_role.production_deploy.id
+  count = var.environment == "staging" ? 1 : 0
+  name  = "production-deploy-permissions"
+  role  = aws_iam_role.production_deploy[0].id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -214,15 +222,15 @@ resource "aws_iam_role_policy" "production_deploy" {
 
 output "github_oidc_provider_arn" {
   description = "ARN of the GitHub OIDC provider registered in AWS IAM."
-  value       = aws_iam_openid_connect_provider.github.arn
+  value       = try(aws_iam_openid_connect_provider.github[0].arn, null)
 }
 
 output "staging_deploy_role_arn" {
   description = "ARN of the staging deploy IAM role (use in deploy-staging.yml)."
-  value       = aws_iam_role.staging_deploy.arn
+  value       = try(aws_iam_role.staging_deploy[0].arn, null)
 }
 
 output "production_deploy_role_arn" {
   description = "ARN of the production deploy IAM role (use in deploy-production.yml)."
-  value       = aws_iam_role.production_deploy.arn
+  value       = try(aws_iam_role.production_deploy[0].arn, null)
 }

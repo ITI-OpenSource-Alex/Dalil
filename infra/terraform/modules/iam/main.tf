@@ -278,6 +278,7 @@ resource "aws_cloudwatch_log_group" "session_manager" {
 }
 
 resource "aws_ssm_document" "session_manager_preferences" {
+  count           = var.environment == "staging" ? 1 : 0
   name            = "SSM-SessionManagerRunShell"
   document_type   = "Session"
   document_format = "JSON"

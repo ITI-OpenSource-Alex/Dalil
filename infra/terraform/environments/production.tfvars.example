@@ -11,10 +11,6 @@ aws_region  = "eu-west-1"
 aws_account_id = "123456789012"
 image_tag       = "replace-with-immutable-git-sha"
 
-ecr_cv_processor_repo_url        = "123456789012.dkr.ecr.eu-west-1.amazonaws.com/goa-cv-processor"
-ecr_scholarship_matcher_repo_url = "123456789012.dkr.ecr.eu-west-1.amazonaws.com/goa-scholarship-matcher"
-ecr_notification_sender_repo_url = "123456789012.dkr.ecr.eu-west-1.amazonaws.com/goa-notification-sender"
-
 vpc_cidr = "10.0.0.0/16"
 
 availability_zones = [
@@ -43,6 +39,10 @@ alb_certificate_arn = "arn:aws:acm:eu-west-1:123456789012:certificate/11111111-1
 
 alb_enable_deletion_protection = true
 alb_default_target_group_name  = "gateway"
+create_self_signed_alb_certificate = false
+enable_cloudfront                  = true
+ecs_desired_counts                 = {}
+enable_lambda_workers              = false
 
 task_execution_secret_arns  = []
 task_execution_kms_key_arns = []

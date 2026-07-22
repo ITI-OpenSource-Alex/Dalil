@@ -7,6 +7,7 @@
 
 environment = "staging"
 aws_region  = "eu-west-1"
+aws_account_id = "123456789012"
 
 vpc_cidr = "10.0.0.0/16"
 
@@ -30,12 +31,19 @@ private_data_subnet_cidrs = [
   "10.0.21.0/24",
 ]
 
-domain_name         = "staging.goa.example.com"
-hosted_zone_id      = "Z000000000000000STAGE"
-alb_certificate_arn = "arn:aws:acm:eu-west-1:123456789012:certificate/00000000-0000-0000-0000-000000000000"
+domain_name                        = "staging.goa.internal"
+hosted_zone_id                     = null
+alb_certificate_arn                = null
+create_self_signed_alb_certificate = true
+enable_cloudfront                  = false
 
 alb_enable_deletion_protection = false
 alb_default_target_group_name  = "gateway"
+ecs_desired_counts             = {}
+enable_lambda_workers          = false
+enable_rds_proxy                 = false
+rds_backup_retention_days        = 1
+rds_performance_insights_enabled = false
 
 task_execution_secret_arns  = []
 task_execution_kms_key_arns = []

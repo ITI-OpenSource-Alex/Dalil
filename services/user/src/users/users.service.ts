@@ -102,14 +102,14 @@ export class UsersService {
     );
 
     // 4. Fire notifications safely outside the database transaction locks
+    //
+    // Email delivery in this environment is intentionally log-based rather
+    // than routed through LocalStack SES/SQS: no notification service
+    // consumes these events yet, and SES is not enabled in the local
+    // LocalStack container. Writing the link to stdout keeps the
+    // verification flow fully testable end-to-end without a real mail
+    // provider. See docs/local-dev-setup.md for the rationale.
     const rawToken = (savedUser as any).rawVerificationToken;
-
-    // TODO: Uncomment once SQS module is available
-    // await this.sqsService.send('EmailVerificationRequired', {
-    //   email: savedUser.email,
-    //   userId: savedUser.id,
-    //   token: rawToken,
-    // });
 
     console.log(
       `[SQS Simulation] Send verification email to ${savedUser.email} with link: https://goa.app/verify-email/${rawToken}`,
@@ -246,15 +246,9 @@ export class UsersService {
     });
     await this.resetTokenRepository.save(resetTokenEntry);
 
-    // 6. Publish PasswordResetRequested SQS event to Notification service
-    // Pass the RAW unhashed token here so it can be emailed to the user
-    // await this.sqsService.publish('PasswordResetRequested', {
-    //   email: user.email,
-    //   userId: user.id,
-    //   token: rawToken, // This must be the raw token!
-    // });
-
-    // until we are able to use SQS
+    // 6. Same log-based delivery approach as registration (see the note in
+    // register() above) — the raw token is written to stdout in place of
+    // an actual email.
     console.log(
       `[SQS Simulation] Send email to ${email} with link: https://goa.app/reset-password?token=${rawToken}`,
     );
@@ -302,11 +296,12 @@ export class UsersService {
           usedAt: now,
         });
 
-        // 6. TODO/Note: Revoke all refresh tokens for this user.
-        // If your refresh tokens are in a separate table/Redis store, invalidate them here:
-        // await transactionalEntityManager.delete(RefreshTokenEntity, { userId: tokenRecord.userId });
-        console.log(
-          `[Session Invalidation] Revoked all refresh tokens for user ${tokenRecord.userId}`,
+        // 6. Revoke every refresh token for this user so a leaked/stolen
+        // session cannot survive a password reset.
+        await transactionalEntityManager.update(
+          RefreshToken,
+          { userId: tokenRecord.userId },
+          { revokedAt: now },
         );
       },
     );

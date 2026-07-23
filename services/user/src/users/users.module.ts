@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
+import { AuthController } from './auth.controller';
 import { User } from './entities/user.entity';
 import { UserProfile } from '../profile/entities/profile.entity';
 import { ResetToken } from './entities/reset-tokens.entity';
@@ -19,7 +20,7 @@ import { InternalAuthController } from './internal-auth.controller';
       RefreshToken,
     ]),
   ],
-  controllers: [UsersController, InternalAuthController],
+  controllers: [UsersController, InternalAuthController, AuthController],
   providers: [UsersService],
   exports: [UsersService], // Export if other modules need to find users
 })

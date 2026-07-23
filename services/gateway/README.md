@@ -72,7 +72,24 @@ The Gateway service is the secure entry point for all client requests. It handle
 ```
 * **Description**: Revokes all refresh tokens registered for this user in the User database.
 
-### 5. `GET /health`
+### 5. `POST /auth/forgot-password`
+* **Auth Required**: No
+* **Request Shape**: `{"email": "user@example.com"}`
+* **Response Shape (200 OK)**: `{"message": "If the email matches an account in our system, a reset link has been sent."}`
+* **Description**: Plain proxy to the User Service's `POST /auth/forgot-password` — always 200 regardless of whether the email exists, and rate-limited per email (3 requests/hour) by the User Service.
+
+### 6. `POST /auth/reset-password`
+* **Auth Required**: No
+* **Request Shape**: `{"token": "reset_token_xyz", "newPassword": "newpassword123"}`
+* **Response Shape (200 OK)**: `{"message": "Password has been successfully reset. You can now log in with your new password."}`
+* **Description**: Plain proxy to the User Service's `POST /auth/reset-password`. A successful reset revokes every existing refresh token for that user.
+
+### 7. `GET /auth/verify-email/:token`
+* **Auth Required**: No
+* **Response Shape (200 OK)**: `{"message": "Your email address has been verified successfully. Welcome aboard!"}`
+* **Description**: Plain proxy to the User Service's `GET /auth/verify-email/:token`.
+
+### 8. `GET /health`
 * **Auth Required**: No
 * **Response Shape (200 OK)**:
 ```json

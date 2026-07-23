@@ -139,6 +139,36 @@ describe('UsersService', () => {
         }),
       ).rejects.toThrow(BadRequestException);
     });
+
+    it('should revoke every refresh token for the user when the reset succeeds', async () => {
+      const futureExpiry = new Date();
+      futureExpiry.setHours(futureExpiry.getHours() + 1);
+      const userId = 'user-uuid';
+
+      mockResetTokenRepository.findOne.mockResolvedValue({
+        id: 'token-uuid',
+        userId,
+        expiresAt: futureExpiry,
+        usedAt: null,
+      });
+
+      const transactionalEntityManager = { update: jest.fn() };
+      mockUserRepository.manager.transaction.mockImplementation(
+        async (cb: (m: typeof transactionalEntityManager) => Promise<void>) =>
+          cb(transactionalEntityManager),
+      );
+
+      await service.resetPassword({
+        token: 'raw_token',
+        newPassword: 'NewPassword123!',
+      });
+
+      expect(transactionalEntityManager.update).toHaveBeenCalledWith(
+        RefreshToken,
+        { userId },
+        { revokedAt: expect.any(Date) },
+      );
+    });
   });
 
   describe('updateProfile (GOA-016)', () => {

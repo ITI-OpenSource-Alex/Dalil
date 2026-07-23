@@ -52,8 +52,12 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	app.Get("/metrics", handlers.Metrics())
 
 	// Public auth endpoints
+	app.Post("/users", authHandler.Register)
 	app.Post("/auth/login", authHandler.Login)
 	app.Post("/auth/refresh", authHandler.Refresh)
+	app.Post("/auth/forgot-password", authHandler.ForgotPassword)
+	app.Post("/auth/reset-password", authHandler.ResetPassword)
+	app.Get("/auth/verify-email/:token", authHandler.VerifyEmail)
 
 	// Protected auth endpoints (gated by JWT middleware containing the Redis blacklist check)
 	app.Post("/auth/logout", middleware.JWT(cfg.JWTSecret, redisClient, metrics), authHandler.Logout)

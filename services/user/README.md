@@ -14,7 +14,7 @@ The User service is a NestJS application that manages user registration, credent
 
 ## API Reference
 
-*Note: All endpoints are protected internally and require the `X-Internal-Api-Key` header.*
+*Note: `GET /users/internal`, `GET /users/:id`, and everything under `/internal/auth/*` require the `X-Internal-Api-Key` header and are only meant to be called by the Gateway. `POST /users` and everything under `/auth/*` below are public-facing.*
 
 ### 1. `POST /users`
 * **Request Shape**:
@@ -85,7 +85,26 @@ The User service is a NestJS application that manages user registration, credent
 
 ### 5. `POST /auth/reset-password`
 * **Request Shape**: `{"token": "reset_token_xyz", "newPassword": "newpassword123"}`
-* **Response Shape (200 OK)**: `{"status": "success", "message": "Password reset successfully"}`
+* **Response Shape (200 OK)**: `{"message": "Password has been successfully reset. You can now log in with your new password."}`
+* **Description**: Revokes every existing refresh token for the user as part of the same transaction, so any session issued before the reset (including one held by an attacker) is terminated.
+
+### 6. `GET /auth/verify-email/:token`
+* **Response Shape (200 OK)**: `{"message": "Your email address has been verified successfully. Welcome aboard!"}`
+* **Error Codes**:
+  * `400 Bad Request`: Token is invalid, already used, or unknown.
+
+---
+
+## Email Delivery (Local/Test Environments)
+
+Verification and password-reset links are **not** sent through LocalStack SES or SQS in this environment — that path is intentionally not wired up (SES isn't enabled in the LocalStack container, and no notification service currently consumes those events). Instead, `register()` and `forgotPassword()` write the link directly to the service's stdout as a single structured line:
+
+```
+[SQS Simulation] Send verification email to user@example.com with link: https://goa.app/verify-email/<token>
+[SQS Simulation] Send email to user@example.com with link: https://goa.app/reset-password?token=<token>
+```
+
+To retrieve a token during manual or automated testing, read the `user-service` container logs (`docker compose logs user-service`) and grab the token from the relevant line. If real email delivery via SES/SQS becomes a requirement, that work should enable `ses` in `infra/localstack`, uncomment/implement the SQS publish calls in `UsersService`, and register a consumer for the `EmailVerificationRequired` / `PasswordResetRequested` events — none of that exists today, so partially wiring only one side of it would be worse than the current log-based approach.
 
 ---
 

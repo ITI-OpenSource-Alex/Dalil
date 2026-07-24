@@ -139,6 +139,12 @@ async def calculate_score(user_id: str, program_id: str, apply_llm_boost: bool =
         if llm_feedback:
             gap_report["llm_feedback"] = llm_feedback
 
+        if getattr(program, "country", None):
+            from app.services.visa_finance import get_student_visa_finance
+            finance_items = await get_student_visa_finance(program.country)
+            if finance_items:
+                gap_report["financial"] = finance_items
+
         final_result = {
             "score": final_score,
             "blocked_by": None,

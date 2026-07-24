@@ -46,7 +46,7 @@ async def fetch_all_adapters():
             # document chunk pipeline below, so pop them out before they'd otherwise be
             # discarded here -- see GOA-086 implementation plan Task 16.
             all_visa_records.extend(d.pop("visa_requirements", []))
-            all_docs.append(Document(page_content=d['content'], metadata={'source_url': d.get('url'), 'category': d.get('category')}))
+            all_docs.append(Document(page_content=d['content'], metadata={'source_url': d.get('source_url') or d.get('url'), 'category': d.get('category')}))
     return all_docs, all_visa_records
 
 def handle_ingestion(event: dict, context=None) -> dict:

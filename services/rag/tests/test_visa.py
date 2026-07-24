@@ -17,12 +17,13 @@ VALID_PAYLOAD = {
     "issuing_body": "German Embassy Cairo",
     "requirements": {"passport": True, "funds_eur": 11208},
     "proof_of_funds": {
-        "amount_eur": 11208.0,
-        "accepted_account_types": ["blocked_account"],
-        "blocked_account_providers": ["Fintiba"],
-        "minimum_balance_period_days": 365,
-        "sponsor_letter_accepted": False,
-        "notes_egypt": "EGP transfers must be converted to EUR before deposit."
+        "pathways": [
+            {
+                "pathway": "blocked_account",
+                "amounts": [{"amount": 11208.0, "currency": "EUR", "period": "per_year"}],
+                "notes": "EGP transfers must be converted to EUR before deposit."
+            }
+        ]
     },
     "source_url": "https://germany.info",
     "processing_days_min": 30,
@@ -36,8 +37,8 @@ VALID_PAYLOAD = {
 def test_valid_payload_passes_validation():
     request = VisaRequirementsRequest(**VALID_PAYLOAD)
     assert request.egyptian_specific is True
-    assert request.proof_of_funds.amount_eur == 11208.0
-    assert request.proof_of_funds.blocked_account_providers == ["Fintiba"]
+    assert request.proof_of_funds.pathways[0].amounts[0].amount == 11208.0
+    assert request.proof_of_funds.pathways[0].pathway == "blocked_account"
 
 
 def test_missing_egyptian_specific_raises_validation_error():
@@ -48,8 +49,7 @@ def test_missing_egyptian_specific_raises_validation_error():
 
 def test_malformed_proof_of_funds_amount_raises_validation_error():
     payload = dict(VALID_PAYLOAD)
-    payload["proof_of_funds"] = dict(VALID_PAYLOAD["proof_of_funds"])
-    payload["proof_of_funds"]["amount_eur"] = "not-a-number"
+    payload["proof_of_funds"] = {"pathways": "not-a-list"}
     with pytest.raises(ValidationError):
         VisaRequirementsRequest(**payload)
 
@@ -61,9 +61,8 @@ def test_model_dump_produces_plain_nested_dict():
     assert isinstance(dumped, dict)
     assert dumped["egyptian_specific"] is True
     assert isinstance(dumped["proof_of_funds"], dict)
-    assert dumped["proof_of_funds"]["amount_eur"] == 11208.0
-    assert dumped["proof_of_funds"]["blocked_account_providers"] == ["Fintiba"]
-    assert dumped["proof_of_funds"]["minimum_balance_period_days"] == 365
+    assert dumped["proof_of_funds"]["pathways"][0]["amounts"][0]["amount"] == 11208.0
+    assert dumped["proof_of_funds"]["pathways"][0]["pathway"] == "blocked_account"
 
 
 # ---------------------------------------------------------------------------

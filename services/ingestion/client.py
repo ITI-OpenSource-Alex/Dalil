@@ -165,3 +165,29 @@ def upsert_chunks(chunks: list[dict]) -> bool:
     except Exception as e:
         logger.error("Failed to connect to RAG documents upsert endpoint: %s", str(e))
         raise e
+
+
+def touch_visa_requirement(sources: list[dict]) -> bool:
+    """
+    Calls the RAG service's internal /internal/visa-requirements/touch endpoint
+    to refresh last_verified_at for unchanged visa sources.
+    `sources` is a list of dicts carrying country, visa_type, and issuing_body.
+    """
+    if not sources:
+        return True
+
+    url = f"{settings.rag_service_url}/internal/visa-requirements/touch"
+    headers = get_headers()
+
+    try:
+        logger.info("Sending touch request for %d sources to RAG service at %s", len(sources), url)
+        response = requests.post(url, json=sources, headers=headers, timeout=15)
+        if response.status_code == 200:
+            logger.info("Successfully touched %d visa requirement rows", len(sources))
+            return True
+        else:
+            logger.warning("RAG touch endpoint returned status %d: %s", response.status_code, response.text)
+            return False
+    except Exception as e:
+        logger.warning("Failed to connect to RAG touch endpoint: %s", str(e))
+        return False

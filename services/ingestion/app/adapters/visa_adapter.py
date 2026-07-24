@@ -13,17 +13,25 @@ import json
 import os
 import time
 import uuid
-
+from app.evidence import validate_evidence
 import httpx
 import pydantic
 import structlog
 from anthropic import AsyncAnthropic
 from bs4 import BeautifulSoup
 from pydantic import BaseModel
+from app.schemas.visa_schema import ProofOfFunds, funding_schema_prompt_block
+import hashlib
+import httpx
 
-from client import fetch_visa_sources
+from client import fetch_visa_sources, touch_visa_requirement
 
 logger = structlog.get_logger("ingestion_worker.visa_adapter")
+
+
+def normalize_text_for_hash(text: str) -> str:
+    """Strips line-level whitespace and normalizes CRLF line endings prior to SHA-256 hashing."""
+    return "\n".join(line.strip() for line in text.splitlines() if line.strip())
 
 # Extraction, not reasoning — same tier as GOA-087's CV extraction.
 EXTRACTION_MODEL = os.environ.get("EXTRACTION_MODEL", "claude-opus-4-8")
@@ -32,7 +40,7 @@ EXTRACTION_MODEL = os.environ.get("EXTRACTION_MODEL", "claude-opus-4-8")
 # the tail is almost always footer/nav boilerplate.
 MAX_TEXT_CHARS = 20000
 
-EXTRACTION_SYSTEM_PROMPT = """You are extracting structured visa-requirement data for \
+EXTRACTION_SYSTEM_PROMPT = f"""You are extracting structured visa-requirement data for \
 Egyptian student-visa applicants. You will be given the fetched text content of one \
 official source page. Extract ONLY information explicitly present in that text. Do not \
 use outside knowledge of visa requirements, even if you believe you know the answer — \
@@ -41,30 +49,42 @@ the fetched text is the only permitted source.
 Rules:
 1. Any field not stated in the provided text -> return null. Do not estimate, round, or
    infer a "typical" figure.
-2. For every non-null field, include a verbatim quote (<=20 words) from the provided text
-   in the `extraction_evidence` object, keyed by field name.
+2. For EVERY non-null leaf field extracted in your JSON response (including enum fields like pathway, period, currency), you MUST include an entry in the
+   `extraction_evidence` object. The key MUST be the exact dot-notation JSON path of that
+   leaf field (using array bracket indices for lists).
+   - Pathway enum example: `"proof_of_funds.pathways[0].pathway": "You must have enough money to pay for your course"`
+   - Amount field example: `"proof_of_funds.pathways[0].amounts[0].amount": "£1,334 per month in London"`
+   - Currency enum example: `"proof_of_funds.pathways[0].amounts[0].currency": "£1,334 per month"`
+   - Period enum example: `"proof_of_funds.pathways[0].amounts[0].period": "for up to 9 months"`
+   - Accepted evidence item example: `"proof_of_funds.pathways[0].accepted_evidence[0]": "bank statement showing you have the money"`
+   - Flat field example: `"processing_days_min": "Processing time is 15 days"`
+   - Requirement dict example: `"requirements.aps_certificate": "An APS certificate is required"`
+   CRITICAL REQUIREMENT FOR QUOTES: Each quote in `extraction_evidence` MUST be very concise (strictly 1 to 15 words, NEVER EXCEEDING 20 WORDS) and an exact verbatim match. If a sentence is long, extract only a short verbatim snippet of 5-15 words.
+   Every non-null leaf field in your JSON output MUST have a corresponding verbatim quote in `extraction_evidence`,
+   and `extraction_evidence` MUST NOT contain any orphan keys.
 3. Never output a source URL — it will be set by the calling system.
 4. If the provided text does not appear to be about the expected country/visa type (e.g.
    a fetch error page, a redirect stub, a cookie wall, or unrelated content), set
    `extraction_valid` to false and leave all extracted fields null.
 
 Return ONLY raw JSON matching this schema — no markdown fence, no prose:
-{
+{{
   "extraction_valid": true,
-  "requirements": {"<requirement_name>": "<value stated on the page>"},
-  "proof_of_funds": {
-    "amount_eur": null,
-    "accepted_account_types": null,
-    "blocked_account_providers": null,
-    "minimum_balance_period_days": null,
-    "sponsor_letter_accepted": null,
-    "notes_egypt": null
-  },
+  "requirements": {{"<requirement_name>": "<value stated on the page>"}},
+  "proof_of_funds": {funding_schema_prompt_block()},
   "processing_days_min": null,
   "processing_days_max": null,
   "notes": null,
-  "extraction_evidence": {"<field_name>": "<verbatim quote from the text>"}
-}"""
+  "extraction_evidence": {{
+    "processing_days_min": "<verbatim quote for processing_days_min>",
+    "requirements.<requirement_name>": "<verbatim quote for requirement field>",
+    "proof_of_funds.pathways[0].pathway": "<verbatim quote for pathway>",
+    "proof_of_funds.pathways[0].amounts[0].amount": "<verbatim quote for amount>",
+    "proof_of_funds.pathways[0].amounts[0].currency": "<verbatim quote for currency>",
+    "proof_of_funds.pathways[0].amounts[0].period": "<verbatim quote for period>",
+    "proof_of_funds.pathways[0].accepted_evidence[0]": "<verbatim quote for accepted evidence>"
+  }}
+}}"""
 
 
 class VisaSource(BaseModel):
@@ -76,6 +96,7 @@ class VisaSource(BaseModel):
     issuing_body: str
     source_url: str
     fetch_method: str = "httpx"
+    content_hash: str | None = None
 
 
 class ExtractionOutcome(BaseModel):
@@ -93,20 +114,26 @@ class ExtractionOutcome(BaseModel):
     source_url: str
     extraction_valid: bool
     requirements: dict = {}
-    proof_of_funds: dict | None = None
+    proof_of_funds: ProofOfFunds | None = None
     processing_days_min: int | None = None
     processing_days_max: int | None = None
     notes: str | None = None
     extraction_evidence: dict | None = None
+    content_hash: str | None = None
 
 
 def _strip_markdown_fence(raw: str) -> str:
-    """Models wrap JSON in ```json fences despite being told not to."""
+    """Models wrap JSON in ```json fences or include prose despite being told not to."""
     text = raw.strip()
     if text.startswith("```"):
         text = text.split("\n", 1)[-1] if "\n" in text else text
         text = text.rsplit("```", 1)[0]
-    return text.strip()
+    text = text.strip()
+    start_idx = text.find("{")
+    end_idx = text.rfind("}")
+    if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+        return text[start_idx : end_idx + 1]
+    return text
 
 
 class VisaSourceAdapter:
@@ -120,8 +147,9 @@ class VisaSourceAdapter:
         # API key comes from the environment. An empty key is allowed at construction so
         # the adapter can be instantiated in keyless environments (CI, local dev) — the
         # run loop degrades to extraction_valid=False rather than crashing the orchestrator.
+        api_key = os.environ.get("ANTHROPIC_AUTH_TOKEN") or os.environ.get("ANTHROPIC_API_KEY") or "dummy-key"
         client_kwargs = {
-            "api_key": os.environ.get("ANTHROPIC_AUTH_TOKEN") or os.environ.get("ANTHROPIC_API_KEY", ""),
+            "api_key": api_key,
             "default_headers": {"User-Agent": os.environ.get("ANTHROPIC_USER_AGENT", "Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14")},
         }
         if os.environ.get("ANTHROPIC_BASE_URL"):
@@ -150,19 +178,42 @@ class VisaSourceAdapter:
         ]
         for key, value in (outcome.requirements or {}).items():
             content_lines.append(f"{key}: {value}")
+
+        if outcome.proof_of_funds and outcome.proof_of_funds.pathways:
+            for p in outcome.proof_of_funds.pathways:
+                content_lines.append(f"Pathway: {p.pathway}")
+                for amt in p.amounts:
+                    qual = f" ({amt.qualifier})" if amt.qualifier else ""
+                    content_lines.append(f"  Amount: {amt.amount} {amt.currency} {amt.period}{qual}")
+                if p.accepted_evidence:
+                    content_lines.append(f"  Accepted evidence: {', '.join(p.accepted_evidence)}")
+                if p.notes:
+                    content_lines.append(f"  Pathway notes: {p.notes}")
+        if outcome.proof_of_funds and outcome.proof_of_funds.notes:
+            content_lines.append(f"Proof of funds notes: {outcome.proof_of_funds.notes}")
+
+        if outcome.processing_days_min is not None or outcome.processing_days_max is not None:
+            min_d = outcome.processing_days_min if outcome.processing_days_min is not None else "?"
+            max_d = outcome.processing_days_max if outcome.processing_days_max is not None else "?"
+            content_lines.append(f"Processing time: {min_d}–{max_d} days")
+
         if outcome.notes:
             content_lines.append(outcome.notes)
+
+        content_lines.append(f"Official source: {outcome.source_url}")
 
         visa_record = {
             "country": outcome.country,
             "visa_type": outcome.visa_type,
             "issuing_body": outcome.issuing_body,
             "requirements": outcome.requirements or {},
-            "proof_of_funds": outcome.proof_of_funds,
+            "proof_of_funds": outcome.proof_of_funds.model_dump() if outcome.proof_of_funds else None,
             "source_url": outcome.source_url,
             "processing_days_min": outcome.processing_days_min,
             "processing_days_max": outcome.processing_days_max,
             "notes": outcome.notes,
+            "content_hash": getattr(outcome, "content_hash", None),
+            "extraction_evidence": outcome.extraction_evidence,
             "egyptian_specific": True,
         }
 
@@ -211,8 +262,7 @@ class VisaSourceAdapter:
         started = time.perf_counter()
         response = await self.anthropic.messages.create(
             model=EXTRACTION_MODEL,
-            max_tokens=2000,
-            temperature=0.0,
+            max_tokens=4000,
             system=EXTRACTION_SYSTEM_PROMPT,
             messages=[
                 {
@@ -241,7 +291,23 @@ class VisaSourceAdapter:
         except ImportError:
             pass
             
-        return json.loads(_strip_markdown_fence(response.content[0].text)), telemetry
+        text_content = ""
+        for block in response.content:
+            b_text = getattr(block, "text", "")
+            if b_text and "{" in b_text:
+                text_content = b_text
+                break
+        if not text_content and response.content:
+            for block in response.content:
+                if hasattr(block, "text"):
+                    text_content = block.text
+                    break
+
+        stripped = _strip_markdown_fence(text_content)
+        if not stripped or "{" not in stripped:
+            raise ValueError(f"LLM response did not contain a valid JSON object: {text_content[:200]}")
+
+        return json.loads(stripped), telemetry
 
     def _invalid(self, source: VisaSource, reason: str) -> ExtractionOutcome:
         logger.warning(
@@ -274,14 +340,30 @@ class VisaSourceAdapter:
                 outcomes.append(self._invalid(source, "empty_page_text"))
                 continue
 
+
+
+            normalized_text = normalize_text_for_hash(text)
+            fetched_hash = hashlib.sha256(normalized_text.encode('utf-8')).hexdigest()
+
+            if source.content_hash and source.content_hash == fetched_hash:
+                logger.info("visa_source_unchanged", source=source.id)
+                try:
+                    touch_visa_requirement([{
+                        "country": source.country, 
+                        "visa_type": source.visa_type, 
+                        "issuing_body": source.issuing_body
+                    }])
+                except Exception as e:
+                    logger.warning("failed_to_touch_visa_source", source=source.id, error=str(e))
+                # Skip the LLM and go to the next source!
+                continue
             max_attempts = 2
             prompt_text = text
             for attempt in range(max_attempts):
                 try:
                     raw_data, telemetry = await self._call_llm(prompt_text, source)
 
-                    # The model never gets to decide identity or provenance — this code
-                    # stamps them, overwriting anything the model returned.
+                    raw_data.setdefault("extraction_valid", True)
                     raw_data["source_id"] = source.id
                     raw_data["country"] = source.country
                     raw_data["visa_type"] = source.visa_type
@@ -290,6 +372,11 @@ class VisaSourceAdapter:
 
                     outcome = ExtractionOutcome(**raw_data)
 
+                    outcome.content_hash = fetched_hash
+
+                    validate_evidence(outcome, text)
+
+                    
                     if not outcome.extraction_valid:
                         outcomes.append(
                             self._invalid(source, "model_reported_content_mismatch")

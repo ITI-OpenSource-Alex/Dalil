@@ -29,11 +29,13 @@ def test_embeddings_client_targets_configured_base_url():
 def test_no_openai_model_names_remain():
     bad_string = "text-embedding-" + "3-small"
     root_dirs = [".", "../ingestion"]
+    skip_dirs = {"venv", ".venv", "__pycache__", ".git", "site-packages", ".pytest_cache"}
     for root_dir in root_dirs:
-        for root, _, files in os.walk(root_dir):
+        for root, dirs, files in os.walk(root_dir):
+            dirs[:] = [d for d in dirs if d not in skip_dirs and not d.endswith("venv")]
             for file in files:
                 if file.endswith(".py"):
                     filepath = os.path.join(root, file)
-                    with open(filepath, "r", encoding="utf-8") as f:
+                    with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
                         content = f.read()
                         assert bad_string not in content, f"Found hardcoded OpenAI model name in {filepath}"

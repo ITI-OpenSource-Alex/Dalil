@@ -113,7 +113,7 @@ Read before planning anything; several of the ticket's criteria are already part
 1. `test_judge_prompt_contains_official_descriptors` — the loaded rubric text appears in the prompt.
 2. `test_judge_prompt_includes_agent_bands_and_justification`.
 3. `test_verdict_is_computed_in_code_not_taken_from_model` — feed a model response claiming ACCURATE while bands differ by 1.5; assert the code returns OVERSCORED.
-4. `test_within_half_band_is_accurate` — boundary cases at exactly 0.5 and 0.51.
+4. test_verdict_boundary_cases — boundary cases at exactly 0.5 (ACCURATE) and 1.0 (OVERSCORED/UNDERSCORED).
 5. `test_thinking_block_response_parsed` — mock a response whose first block has no `.text`.
 6. `test_non_json_response_retried_then_recorded_as_failure`.
 7. **All of these mock the LLM.** Zero live calls in the default suite — the cassette lesson from the AgentRouter migration applies.

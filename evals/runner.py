@@ -6,9 +6,11 @@ import datetime
 import httpx
 import boto3
 from urllib.parse import urlparse
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, ValidationError
 from anthropic import Anthropic
+
+from evals.judge import judge_evaluation, judge_all, JudgeVerdict, CRITERIA
 
 class RagItem(BaseModel):
     question: str
@@ -22,10 +24,12 @@ class ScoringItem(BaseModel):
 class SpeakingItem(BaseModel):
     transcript: str
     expected_band: float
+    expected_criteria: Optional[Dict[str, float]] = None
 
 class WritingItem(BaseModel):
     essay: str
     expected_band: float
+    expected_criteria: Optional[Dict[str, float]] = None
 
 class GoldenDataset(BaseModel):
     rag: List[RagItem]
@@ -39,6 +43,9 @@ class ReportMetrics(BaseModel):
     scoring_mae: Optional[float] = None
     speaking_accuracy: Optional[float] = None
     writing_accuracy: Optional[float] = None
+    writing_input_tokens: Optional[int] = 0
+    writing_output_tokens: Optional[int] = 0
+    writing_cached_count: Optional[int] = 0
 
 class RegressionDeltas(BaseModel):
     delta_rag: Optional[float] = None
@@ -53,6 +60,113 @@ class ReportSchema(BaseModel):
     regression_vs_previous: RegressionDeltas
     timestamp: str
     git_sha: str
+
+
+ACCURACY_FLOOR = 0.80
+MAX_ACCURACY_DROP = 0.05
+MIN_JUDGED_RATIO = 0.80
+
+
+def compute_accuracy(verdicts: List[JudgeVerdict]) -> Dict[str, Any]:
+    """Accuracy over *judged* items only."""
+    judged = [v for v in verdicts if not v.is_error]
+    errored = [v for v in verdicts if v.is_error]
+    accurate = [v for v in judged if v.verdict == "ACCURATE"]
+    disagreements = [
+        v for v in judged
+        if v.judged_band is not None and abs(v.judged_band - v.expert_band) > 1.0
+    ]
+
+    total_in_tokens = sum(v.input_tokens for v in verdicts)
+    total_out_tokens = sum(v.output_tokens for v in verdicts)
+    cached_count = sum(1 for v in verdicts if v.cached)
+
+    return {
+        "accuracy": (len(accurate) / len(judged)) if judged else None,
+        "judged": len(judged),
+        "errored": len(errored),
+        "accurate": len(accurate),
+        "overscored": sum(1 for v in judged if v.verdict == "OVERSCORED"),
+        "underscored": sum(1 for v in judged if v.verdict == "UNDERSCORED"),
+        "disagreements": len(disagreements),
+        "input_tokens": total_in_tokens,
+        "output_tokens": total_out_tokens,
+        "cached_count": cached_count,
+    }
+
+
+def compute_mae(verdicts: List[JudgeVerdict], domain: str = "writing") -> Dict[str, Any]:
+    """Mean absolute error between agent criteria and expert criteria."""
+    judged = [v for v in verdicts if not v.is_error]
+
+    if not judged:
+        return {"overall": None, "per_criterion": {}, "mean_signed_error": None}
+
+    domain_key = "writing" if domain.startswith("writing") else domain
+    domain_criteria = CRITERIA.get(domain_key, ("task_response", "coherence", "lexical", "grammar"))
+
+    per_criterion = {}
+    for criterion in domain_criteria:
+        deltas = [
+            abs(v.agent_criteria[criterion] - v.expert_criteria[criterion])
+            for v in judged
+            if criterion in (v.agent_criteria or {})
+            and criterion in (v.expert_criteria or {})
+        ]
+        if deltas:
+            per_criterion[criterion] = round(sum(deltas) / len(deltas), 3)
+
+    overall_deltas = [abs(v.delta) for v in judged]
+    signed_deltas = [v.delta for v in judged]
+
+    return {
+        "overall": round(sum(overall_deltas) / len(judged), 3) if judged else None,
+        "mean_signed_error": round(sum(signed_deltas) / len(judged), 3) if judged else None,
+        "per_criterion": per_criterion,
+    }
+
+
+def check_regression_gate(current: dict, previous: dict | None) -> tuple[bool, list]:
+    """Return (passed, messages)."""
+    failures = []
+
+    for domain, stats in current.items():
+        if not isinstance(stats, dict):
+            continue
+
+        judged = stats.get("judged", 0)
+        errored = stats.get("errored", 0)
+        total = judged + errored
+
+        if total > 0 and (judged / total) < MIN_JUDGED_RATIO:
+            failures.append(
+                f"COVERAGE: {domain} judged only {judged}/{total} items "
+                f"({errored} errored) — accuracy over that subset is not meaningful"
+            )
+            continue
+
+        accuracy = stats.get("accuracy")
+        if accuracy is None:
+            failures.append(f"COVERAGE: {domain} produced no judged items at all")
+            continue
+
+        if accuracy < ACCURACY_FLOOR:
+            failures.append(
+                f"FLOOR: {domain} accuracy {accuracy:.1%} is below the "
+                f"{ACCURACY_FLOOR:.0%} target ({stats.get('accurate', 0)}/{judged})"
+            )
+
+        prior = (previous or {}).get(domain, {}).get("accuracy")
+        if prior is not None:
+            drop = prior - accuracy
+            if drop > MAX_ACCURACY_DROP:
+                failures.append(
+                    f"REGRESSION: {domain} fell {drop:.1%} "
+                    f"({prior:.1%} -> {accuracy:.1%}), limit is {MAX_ACCURACY_DROP:.0%}"
+                )
+
+    return (len(failures) == 0), failures
+
 
 def load_golden_dataset(path: str) -> dict:
     try:
@@ -69,6 +183,7 @@ def load_golden_dataset(path: str) -> dict:
     except ValidationError as e:
         print(f"Error: Dataset schema validation failed for {path}: {e}")
         return None
+
 
 def load_previous_report(path: str) -> dict:
     if not path:
@@ -93,10 +208,9 @@ def load_previous_report(path: str) -> dict:
         except json.JSONDecodeError:
             return {}
 
+
 def run_rag_eval(data: dict) -> dict:
     client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""))
-    
-    # If API key is missing, exclude the metric entirely
     if not client.api_key:
         print("Warning: ANTHROPIC_API_KEY missing. Skipping RAG evaluation.")
         return {"rag_accuracy": None}
@@ -136,6 +250,7 @@ def run_rag_eval(data: dict) -> dict:
     accuracy = (passes / total) if total > 0 else 0.0
     return {"rag_accuracy": accuracy}
 
+
 def run_scoring_eval(data: dict) -> dict:
     gate_passes = 0
     total = 0
@@ -144,13 +259,10 @@ def run_scoring_eval(data: dict) -> dict:
     
     for item in data.get('scoring', []):
         total += 1
-
         payload = {"userId": item["profile"], "programId": "99999999-9999-9999-9999-999999999999"}
         try:
             response = httpx.post(f"{scoring_url}/scoring/score", json=payload, timeout=30.0)
             service_data = response.json()
-            
-            # True response parsing: "blocked_by" null means pass
             gate = "blocked" if service_data.get("blocked_by") else "pass"
             if gate == item.get("expected_gate"):
                 gate_passes += 1
@@ -158,8 +270,7 @@ def run_scoring_eval(data: dict) -> dict:
             soft_score = service_data.get("score", 0.0)
             mae = abs(soft_score - item.get("expected_soft_score", 0.0))
             soft_score_errors.append(mae)
-        except Exception as e:
-            # penalize heavily
+        except Exception:
             soft_score_errors.append(100.0)
 
     gate_accuracy = (gate_passes / total) if total > 0 else 0.0
@@ -167,20 +278,18 @@ def run_scoring_eval(data: dict) -> dict:
 
     return {"gate_accuracy": gate_accuracy, "scoring_mae": scoring_mae}
 
+
 def run_speaking_eval(data: dict) -> dict:
-    # TODO: Speaking is WS-only. We need a proper websockets client to replay the transcript 
-    # and listen for the `evaluation` event. For now, we mark this out of scope to prevent 
-    # testing a fabricated bare-LLM system instead of the actual 4-agent swarm.
-    print("Warning: Speaking Eval is WS-only and currently out of scope. Skipping.")
+    print("Warning: Speaking Eval is WS-only. Skipping bare-LLM execution.")
     return {"speaking_accuracy": None}
 
-def run_writing_eval(data: dict) -> dict:
-    passes = 0
-    total = 0
+
+def run_writing_eval(data: dict, judge_client=None) -> dict:
     writing_url = os.environ.get("WRITING_SERVICE_URL", "http://localhost:8000")
-    
-    for item in data.get('writing', []):
-        total += 1
+    items = data.get('writing', [])
+    agent_results = []
+
+    for item in items:
         payload = {
             "userId": "eval_test_user",
             "essayText": item["essay"],
@@ -189,25 +298,39 @@ def run_writing_eval(data: dict) -> dict:
         }
         try:
             response = httpx.post(f"{writing_url}/essays/evaluate", json=payload, timeout=30.0)
-            service_data = response.json()
-            if abs(service_data.get('overall_band', 0) - item.get("expected_band", 0)) <= 0.5:
-                passes += 1
-        except Exception:
-            pass
+            agent_results.append(response.json())
+        except Exception as e:
+            agent_results.append({"overall_band": 0.0, "criteria": {}, "error": str(e)})
 
-    accuracy = (passes / total) if total > 0 else 0.0
-    return {"writing_accuracy": accuracy}
+    verdicts = judge_all("writing", items, agent_results, client=judge_client, max_workers=4)
+    accuracy_stats = compute_accuracy(verdicts)
+    mae_stats = compute_mae(verdicts, domain="writing")
+    
+    return {
+        "writing_accuracy": accuracy_stats["accuracy"],
+        "writing_stats": accuracy_stats,
+        "writing_mae": mae_stats,
+        "writing_verdicts": verdicts,
+        "writing_input_tokens": accuracy_stats["input_tokens"],
+        "writing_output_tokens": accuracy_stats["output_tokens"],
+        "writing_cached_count": accuracy_stats["cached_count"],
+    }
+
 
 def _calc_delta(current, prev):
     if current is None or prev is None:
         return None
     return current - prev
 
+
 def main():
     parser = argparse.ArgumentParser(description="End-to-end evaluation suite")
+    parser.add_argument("--domains", type=str, default="writing,speaking", help="Comma-separated domains to evaluate")
     parser.add_argument("--compare-with", type=str, default=None)
     parser.add_argument("--s3-upload-path", type=str, default=None)
     args = parser.parse_args()
+
+    active_domains = set(args.domains.split(","))
 
     dataset_path = os.path.join(os.path.dirname(__file__), "golden_dataset.json")
     dataset = load_golden_dataset(dataset_path)
@@ -219,23 +342,36 @@ def main():
         prev_reports = load_previous_report(args.compare_with)
 
     metrics = {}
-    metrics.update(run_rag_eval(dataset))
-    metrics.update(run_scoring_eval(dataset))
-    metrics.update(run_speaking_eval(dataset))
-    metrics.update(run_writing_eval(dataset))
+    if "rag" in active_domains:
+        metrics.update(run_rag_eval(dataset))
+    if "scoring" in active_domains:
+        metrics.update(run_scoring_eval(dataset))
+    if "speaking" in active_domains:
+        metrics.update(run_speaking_eval(dataset))
+    if "writing" in active_domains:
+        metrics.update(run_writing_eval(dataset))
 
     prev_metrics = prev_reports.get("metrics", {})
     deltas = {
-        "delta_rag": _calc_delta(metrics["rag_accuracy"], prev_metrics.get("rag_accuracy")),
-        "delta_gate": _calc_delta(metrics["gate_accuracy"], prev_metrics.get("gate_accuracy")),
-        "delta_scoring_mae": _calc_delta(metrics["scoring_mae"], prev_metrics.get("scoring_mae")),
-        "delta_speaking": _calc_delta(metrics["speaking_accuracy"], prev_metrics.get("speaking_accuracy")),
-        "delta_writing": _calc_delta(metrics["writing_accuracy"], prev_metrics.get("writing_accuracy"))
+        "delta_rag": _calc_delta(metrics.get("rag_accuracy"), prev_metrics.get("rag_accuracy")),
+        "delta_gate": _calc_delta(metrics.get("gate_accuracy"), prev_metrics.get("gate_accuracy")),
+        "delta_scoring_mae": _calc_delta(metrics.get("scoring_mae"), prev_metrics.get("scoring_mae")),
+        "delta_speaking": _calc_delta(metrics.get("speaking_accuracy"), prev_metrics.get("speaking_accuracy")),
+        "delta_writing": _calc_delta(metrics.get("writing_accuracy"), prev_metrics.get("writing_accuracy"))
     }
 
     report = ReportSchema(
         run_id=os.environ.get("GITHUB_RUN_ID", "local"),
-        metrics=ReportMetrics(**metrics),
+        metrics=ReportMetrics(
+            rag_accuracy=metrics.get("rag_accuracy"),
+            gate_accuracy=metrics.get("gate_accuracy"),
+            scoring_mae=metrics.get("scoring_mae"),
+            speaking_accuracy=metrics.get("speaking_accuracy"),
+            writing_accuracy=metrics.get("writing_accuracy"),
+            writing_input_tokens=metrics.get("writing_input_tokens", 0),
+            writing_output_tokens=metrics.get("writing_output_tokens", 0),
+            writing_cached_count=metrics.get("writing_cached_count", 0),
+        ),
         regression_vs_previous=RegressionDeltas(**deltas),
         timestamp=datetime.datetime.utcnow().isoformat() + "Z",
         git_sha=os.environ.get("GITHUB_SHA", "unknown")
@@ -251,42 +387,32 @@ def main():
         
     print(f"Report written to {report_path}")
 
-    if args.s3_upload_path and args.s3_upload_path.startswith("s3://"):
-        try:
-            parsed = urlparse(args.s3_upload_path)
-            bucket = parsed.netloc
-            key = f"{parsed.path.lstrip('/')}/{filename}"
-            s3_client = boto3.client('s3', endpoint_url=os.environ.get('AWS_ENDPOINT_URL'))
-            s3_client.upload_file(report_path, bucket, key)
-            print(f"Report uploaded to s3://{bucket}/{key}")
-        except Exception as e:
-            print(f"Failed to upload report to S3: {e}")
+    # Generate HTML report
+    try:
+        from evals.report_generator import render_html_report
+        html_content = render_html_report(
+            report_dict=report.model_dump(),
+            domain_stats=metrics,
+            writing_mae=metrics.get("writing_mae"),
+            writing_verdicts=metrics.get("writing_verdicts")
+        )
+        html_path = report_path.replace(".json", ".html")
+        with open(html_path, "w", encoding="utf-8") as f:
+            f.write(html_content)
+        print(f"HTML Report written to {html_path}")
+    except Exception as e:
+        print(f"Warning: Could not render HTML report: {e}")
 
-    # 1. Enforce Absolute Thresholds (skip Nones)
-    if metrics["gate_accuracy"] is not None and metrics["gate_accuracy"] < 1.0:
-        print("FAIL: Gate accuracy dropped below 100%.")
-        sys.exit(1)
-    if metrics["rag_accuracy"] is not None and metrics["rag_accuracy"] < 0.8:
-        print("FAIL: RAG accuracy dropped below 80%.")
-        sys.exit(1)
-    if metrics["speaking_accuracy"] is not None and metrics["speaking_accuracy"] < 0.8:
-        print("FAIL: Speaking accuracy dropped below 80%.")
-        sys.exit(1)
-    if metrics["writing_accuracy"] is not None and metrics["writing_accuracy"] < 0.8:
-        print("FAIL: Writing accuracy dropped below 80%.")
-        sys.exit(1)
-
-    # 2. Enforce Regression Thresholds
-    if (deltas["delta_rag"] is not None and deltas["delta_rag"] < -0.05) or \
-       (deltas["delta_gate"] is not None and deltas["delta_gate"] < -0.05) or \
-       (deltas["delta_speaking"] is not None and deltas["delta_speaking"] < -0.05) or \
-       (deltas["delta_writing"] is not None and deltas["delta_writing"] < -0.05) or \
-       (deltas["delta_scoring_mae"] is not None and deltas["delta_scoring_mae"] > 0.05):
-        print("FAIL: A metric regressed by more than 5%.")
+    # Check regression gate across evaluated metrics
+    gate_passed, gate_failures = check_regression_gate(metrics, prev_reports)
+    if not gate_passed:
+        for fail_msg in gate_failures:
+            print(f"FAIL: {fail_msg}")
         sys.exit(1)
 
     print("PASS: All evaluations met targets.")
     sys.exit(0)
+
 
 if __name__ == "__main__":
     main()

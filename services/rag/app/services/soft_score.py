@@ -36,13 +36,28 @@ PROGRAM_FIT_WEIGHT = 0.35
 # A requirement the program does not state cannot count for or against fit.
 NEUTRAL_FIT = 0.5
 
-# Headroom above a requirement at which fit saturates, per dimension. Beyond this,
-# extra margin stops earning credit — clearing IELTS by 3.0 bands is not meaningfully
-# safer than clearing it by 1.5.
-_FIT_HEADROOM = {"ielts": 1.5, "gpa": 1.0, "ects": 60, "work": 3}
+# Scale at which a surplus counts as "comfortably clear" per dimension. This is a
+# soft scale, not a ceiling: fit approaches 1.0 asymptotically and never pins there.
+#
+# The previous hard cap (min(surplus / headroom, 1.0)) made every comfortably-cleared
+# requirement score identically. That was invisible at ~100 programs and obvious at
+# 1,333: the entire top-10 tied at 83.46 because they had all saturated. Ranking has
+# to keep discriminating at the top of a large candidate set, which is exactly where
+# it matters most.
+_FIT_SCALE = {"ielts": 1.5, "gpa": 1.0, "ects": 60, "work": 3}
+
+# How much of program fit comes from *how many* of its stated requirements we could
+# actually check, rather than from the margins alone. A program stating IELTS, GPA and
+# ECTS that the profile clears is a better-evidenced match than one stating a single
+# ECTS minimum — we verified more of it. This also breaks ties on match quality rather
+# than on something unrelated to the profile.
+COVERAGE_WEIGHT = 0.25
+
+# Requirement dimensions a program can state, used as the denominator for coverage.
+JUDGEABLE_DIMENSIONS = 4
 
 
-def _margin_fit(profile_value: float | None, required: float | None, headroom: float) -> float | None:
+def _margin_fit(profile_value: float | None, required: float | None, scale: float) -> float | None:
     """Fit for one requirement: how comfortably the profile clears it.
 
     Returns None when the dimension cannot be judged (program states no requirement,
@@ -53,6 +68,10 @@ def _margin_fit(profile_value: float | None, required: float | None, headroom: f
 
     0.5 means "exactly meets"; above means margin to spare; below means short of the
     requirement but not disqualified (hard gates own disqualification).
+
+    Above the requirement the curve is surplus / (surplus + scale) — diminishing
+    returns without a ceiling, so clearing IELTS 5.5 with a 7.0 still outranks clearing
+    IELTS 6.5 with the same 7.0, however large the catalog gets.
     """
     if required is None or profile_value is None:
         return None
@@ -63,8 +82,10 @@ def _margin_fit(profile_value: float | None, required: float | None, headroom: f
         # below programs that simply left the field blank.
         return None
     if profile_value >= required:
-        surplus = min((profile_value - required) / headroom, 1.0) if headroom else 0.0
-        return NEUTRAL_FIT + (NEUTRAL_FIT * surplus)
+        surplus = profile_value - required
+        if not scale:
+            return NEUTRAL_FIT
+        return NEUTRAL_FIT + NEUTRAL_FIT * (surplus / (surplus + scale))
     return NEUTRAL_FIT * max(profile_value / required, 0.0)
 
 
@@ -75,17 +96,24 @@ def compute_program_fit(profile: UserProfile, program: ProgramRequirements) -> f
     alone rather than being pushed to the top or bottom of the list.
     """
     dimensions = [
-        _margin_fit(profile.ieltsScore, program.min_ielts, _FIT_HEADROOM["ielts"]),
-        _margin_fit(profile.gpa, program.min_gpa, _FIT_HEADROOM["gpa"]),
-        _margin_fit(profile.ects, program.min_ects, _FIT_HEADROOM["ects"]),
+        _margin_fit(profile.ieltsScore, program.min_ielts, _FIT_SCALE["ielts"]),
+        _margin_fit(profile.gpa, program.min_gpa, _FIT_SCALE["gpa"]),
+        _margin_fit(profile.ects, program.min_ects, _FIT_SCALE["ects"]),
         _margin_fit(
-            profile.workExperienceYears, program.min_work_experience, _FIT_HEADROOM["work"]
+            profile.workExperienceYears, program.min_work_experience, _FIT_SCALE["work"]
         ),
     ]
     judged = [d for d in dimensions if d is not None]
     if not judged:
         return NEUTRAL_FIT
-    return sum(judged) / len(judged)
+
+    margin_fit = sum(judged) / len(judged)
+
+    # Blend in how much of the program we could actually verify. Two programs whose
+    # margins average the same are not equally good matches if one was checked on
+    # three requirements and the other on one.
+    coverage = len(judged) / JUDGEABLE_DIMENSIONS
+    return margin_fit * (1 - COVERAGE_WEIGHT) + coverage * COVERAGE_WEIGHT
 
 
 def compute_soft_score(profile: UserProfile, program: ProgramRequirements) -> float:

@@ -42,14 +42,40 @@ def test_perfect_candidate_at_requirementless_program_is_capped():
     assert compute_soft_score(profile, program) == 82.5
 
 
-def test_100_is_reachable_when_all_stated_requirements_are_cleared():
-    """100 now means: a perfect candidate who comfortably clears everything this
-    program actually asks for."""
+def test_score_approaches_but_never_pins_at_100():
+    """100 is an asymptote, not a ceiling that many programs sit on.
+
+    The previous hard cap (min(surplus / scale, 1.0)) meant every comfortably-cleared
+    requirement scored identically, which was invisible at ~100 programs and obvious at
+    1,333: the whole top-10 tied at 83.46. Ranking has to keep discriminating at the top
+    of a large candidate set."""
     profile = UserProfile(userId="1", ects=180, **PERFECT_PROFILE)
     program = ProgramRequirements(
         id="p1", min_ielts=6.0, min_gpa=3.0, min_ects=120, min_work_experience=1
     )
-    assert compute_soft_score(profile, program) == 100.0
+    score = compute_soft_score(profile, program)
+    assert 90.0 < score < 100.0
+
+
+def test_wider_margin_outranks_narrower_margin_without_saturating():
+    """The granularity fix: two programs a strong profile clears comfortably must still
+    be ordered by how comfortably."""
+    profile = UserProfile(userId="1", ieltsScore=8.0)
+    easy = compute_program_fit(profile, ProgramRequirements(id="a", min_ielts=5.0))
+    mid = compute_program_fit(profile, ProgramRequirements(id="b", min_ielts=6.5))
+    tight = compute_program_fit(profile, ProgramRequirements(id="c", min_ielts=7.5))
+    assert easy > mid > tight
+
+
+def test_more_verified_requirements_outrank_fewer_at_equal_margin():
+    """Coverage: a program checked on three requirements is a better-evidenced match
+    than one checked on a single requirement, all margins being equal."""
+    profile = UserProfile(userId="1", gpa=3.5, gpaScale="4.0", ieltsScore=7.0, ects=180)
+    one_dim = compute_program_fit(profile, ProgramRequirements(id="a", min_ielts=6.0))
+    three_dims = compute_program_fit(
+        profile, ProgramRequirements(id="b", min_ielts=6.0, min_gpa=3.0, min_ects=120)
+    )
+    assert three_dims > one_dim
 
 
 def test_two_programs_the_user_qualifies_for_score_differently():
@@ -77,11 +103,14 @@ def test_fit_neutral_when_nothing_judgeable():
     assert compute_program_fit(profile, ProgramRequirements(id="x")) == NEUTRAL_FIT
 
 
-def test_exactly_meeting_a_requirement_is_neutral():
+def test_exactly_meeting_ranks_between_falling_short_and_clearing_comfortably():
+    """Program fit now blends margin with coverage, so 'exactly meets' is no longer
+    literally NEUTRAL_FIT — but it must still sit between the two cases either side."""
     profile = UserProfile(userId="1", ieltsScore=6.5)
-    assert compute_program_fit(
-        profile, ProgramRequirements(id="p", min_ielts=6.5)
-    ) == NEUTRAL_FIT
+    short = compute_program_fit(profile, ProgramRequirements(id="a", min_ielts=7.5))
+    exact = compute_program_fit(profile, ProgramRequirements(id="b", min_ielts=6.5))
+    clear = compute_program_fit(profile, ProgramRequirements(id="c", min_ielts=5.0))
+    assert short < exact < clear
 
 
 def test_below_requirement_is_under_neutral_but_not_zero():

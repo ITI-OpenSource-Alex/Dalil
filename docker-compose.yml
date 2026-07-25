@@ -336,6 +336,33 @@ services:
     environment:
       - PORT=8086
 
+  ingestion:
+    profiles: ["ingestion"]
+    build:
+      context: ./services/ingestion
+      dockerfile: Dockerfile
+    environment:
+      - RAG_SERVICE_URL=http://rag:8084
+      - INTERNAL_API_KEY=supersecret_internal_key_123
+      - DRY_RUN=false
+      - INGESTION_DATABASE_URL=postgresql://goa:goa_pass@postgres:5432/ingestion_db
+      # GOA-123: the visa adapter's LLM extraction runs here. Without these the
+      # container fell back to api.anthropic.com with no key -> 401 on every source.
+      - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
+      - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-}
+      - ANTHROPIC_USER_AGENT=${ANTHROPIC_USER_AGENT:-}
+      - EXTRACTION_MODEL=${EXTRACTION_MODEL:-claude-opus-4-8}
+      - EMBEDDING_BASE_URL=${EMBEDDING_BASE_URL:-http://host.docker.internal:11434/v1}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-nomic-embed-text}
+      - EMBEDDING_DIMENSIONS=${EMBEDDING_DIMENSIONS:-768}
+    volumes:
+      - ./services/ingestion:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rag:
+        condition: service_started
+
 volumes:
   pgdata:
   grafana-data:

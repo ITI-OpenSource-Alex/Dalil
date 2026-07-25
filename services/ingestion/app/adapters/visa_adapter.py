@@ -150,7 +150,10 @@ class VisaSourceAdapter:
         api_key = os.environ.get("ANTHROPIC_AUTH_TOKEN") or os.environ.get("ANTHROPIC_API_KEY") or "dummy-key"
         client_kwargs = {
             "api_key": api_key,
-            "default_headers": {"User-Agent": os.environ.get("ANTHROPIC_USER_AGENT", "Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14")},
+            # `or` not a get() default: compose injects an empty string when the var is
+            # unset, and an empty UA makes AgentRouter reject the client outright.
+            "default_headers": {"User-Agent": os.environ.get("ANTHROPIC_USER_AGENT")
+                                or "Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14"},
         }
         if os.environ.get("ANTHROPIC_BASE_URL"):
             client_kwargs["base_url"] = os.environ.get("ANTHROPIC_BASE_URL")

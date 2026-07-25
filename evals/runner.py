@@ -25,11 +25,16 @@ class SpeakingItem(BaseModel):
     transcript: str
     expected_band: float
     expected_criteria: Optional[Dict[str, float]] = None
+    id: Optional[str] = None
 
 class WritingItem(BaseModel):
     essay: str
     expected_band: float
     expected_criteria: Optional[Dict[str, float]] = None
+    # Declared so validation does not strip it: model_dump() drops undeclared keys,
+    # so every judged item and every report row was labelled "<unknown>" — a report
+    # whose rows cannot be traced back to an essay.
+    id: Optional[str] = None
 
 class GoldenDataset(BaseModel):
     rag: List[RagItem]
@@ -57,6 +62,13 @@ class RegressionDeltas(BaseModel):
 class ReportSchema(BaseModel):
     run_id: str
     metrics: ReportMetrics
+    # Per-domain accuracy stats and per-criterion MAE. These existed only in memory
+    # and in the HTML, so the JSON artifact CI uploads carried an accuracy number
+    # with no breakdown behind it — and --compare-with had nothing to compare, which
+    # silently disabled the regression half of the gate.
+    domain_stats: Dict[str, Any] = {}
+    mae: Dict[str, Any] = {}
+    items: List[Dict[str, Any]] = []
     regression_vs_previous: RegressionDeltas
     timestamp: str
     git_sha: str
@@ -65,6 +77,10 @@ class ReportSchema(BaseModel):
 ACCURACY_FLOOR = 0.80
 MAX_ACCURACY_DROP = 0.05
 MIN_JUDGED_RATIO = 0.80
+
+# Four criterion agents run per essay, each a full model call. The old 30s budget
+# timed out under normal latency and the timeout was then scored as a band of 0.0.
+WRITING_REQUEST_TIMEOUT = 180.0
 
 
 def compute_accuracy(verdicts: List[JudgeVerdict]) -> Dict[str, Any]:
@@ -119,15 +135,39 @@ def compute_mae(verdicts: List[JudgeVerdict], domain: str = "writing") -> Dict[s
     overall_deltas = [abs(v.delta) for v in judged]
     signed_deltas = [v.delta for v in judged]
 
+    # An empty per_criterion renders identically whether the criteria were compared
+    # and agreed, or were never comparable at all. Say which. The officially banded
+    # IELTS scripts publish only an overall band, so there is no per-criterion ground
+    # truth to compute against — that is a property of the source, not a bug, but a
+    # report that hides it invites "MAE per criterion" to be claimed as delivered.
+    rows_with_expert_criteria = sum(1 for v in judged if v.expert_criteria)
+    unavailable_reason = None
+    if not per_criterion:
+        unavailable_reason = (
+            "no per-criterion ground truth in the dataset: the official IELTS sample "
+            "scripts publish only an overall band"
+            if rows_with_expert_criteria == 0
+            else "agent returned no criterion bands to compare"
+        )
+
     return {
         "overall": round(sum(overall_deltas) / len(judged), 3) if judged else None,
         "mean_signed_error": round(sum(signed_deltas) / len(judged), 3) if judged else None,
         "per_criterion": per_criterion,
+        "per_criterion_unavailable_reason": unavailable_reason,
+        "rows_with_expert_criteria": rows_with_expert_criteria,
     }
 
 
 def check_regression_gate(current: dict, previous: dict | None) -> tuple[bool, list]:
-    """Return (passed, messages)."""
+    """Return (passed, messages).
+
+    `current` maps DOMAIN NAME -> accuracy stats, and nothing else. It used to be
+    handed the whole metrics dict, so `writing_mae` — a metrics key, not a domain —
+    was walked as if it were a domain and failed the run with
+    "COVERAGE: writing_mae produced no judged items at all". Keep the input to real
+    domains so a new metric cannot invent a phantom failing domain again.
+    """
     failures = []
 
     for domain, stats in current.items():
@@ -284,6 +324,31 @@ def run_speaking_eval(data: dict) -> dict:
     return {"speaking_accuracy": None}
 
 
+# The writing service and the eval vocabulary disagree on two of the four criterion
+# names. Left untranslated, per-criterion MAE silently computes over an empty
+# intersection and reports {} — a metric that looks present and measures nothing.
+SERVICE_TO_EVAL_CRITERION = {
+    "task_response": "task_response",
+    "cohesion": "coherence",
+    "vocabulary": "lexical",
+    "grammar": "grammar",
+}
+
+
+def _normalise_agent_result(payload: dict) -> dict:
+    """Flatten the service's `evaluations` list into the `criteria` dict the judge reads."""
+    criteria = {}
+    for entry in payload.get("evaluations") or []:
+        name = SERVICE_TO_EVAL_CRITERION.get(entry.get("criterion"))
+        if name is not None and entry.get("band_score") is not None:
+            criteria[name] = float(entry["band_score"])
+    return {
+        "overall_band": payload.get("overall_band"),
+        "criteria": criteria,
+        "justification": payload.get("justification"),
+    }
+
+
 def run_writing_eval(data: dict, judge_client=None) -> dict:
     writing_url = os.environ.get("WRITING_SERVICE_URL", "http://localhost:8000")
     items = data.get('writing', [])
@@ -297,10 +362,19 @@ def run_writing_eval(data: dict, judge_client=None) -> dict:
             "examType": "IELTS Writing"
         }
         try:
-            response = httpx.post(f"{writing_url}/essays/evaluate", json=payload, timeout=30.0)
-            agent_results.append(response.json())
+            response = httpx.post(f"{writing_url}/essays/evaluate", json=payload,
+                                  timeout=WRITING_REQUEST_TIMEOUT)
+            response.raise_for_status()
+            body = response.json()
+            if body.get("overall_band") is None:
+                # A response without a band is a broken call, not a candidate who
+                # scored zero. Recording 0.0 here is what made a dead port look like
+                # 0% agent accuracy: every item came back UNDERSCORED against a band
+                # the agent never actually produced.
+                raise ValueError(f"response carried no overall_band: {str(body)[:200]}")
+            agent_results.append(_normalise_agent_result(body))
         except Exception as e:
-            agent_results.append({"overall_band": 0.0, "criteria": {}, "error": str(e)})
+            agent_results.append({"agent_error": f"{type(e).__name__}: {e}"})
 
     verdicts = judge_all("writing", items, agent_results, client=judge_client, max_workers=4)
     accuracy_stats = compute_accuracy(verdicts)
@@ -315,6 +389,92 @@ def run_writing_eval(data: dict, judge_client=None) -> dict:
         "writing_output_tokens": accuracy_stats["output_tokens"],
         "writing_cached_count": accuracy_stats["cached_count"],
     }
+
+
+def upload_report(report_path: str, s3_upload_path: str) -> bool:
+    """Publish the report, and refresh `latest_report.json`.
+
+    `--s3-upload-path` was parsed and then never used. Because CI compares against
+    s3://goa-eval-reports/latest_report.json and nothing ever wrote that key, the
+    comparison silently found nothing on every run — the regression half of the gate
+    has never once fired in CI. Updating `latest_report.json` is the part that makes
+    --compare-with mean anything on the next PR.
+    """
+    try:
+        parsed = urlparse(s3_upload_path)
+        bucket = parsed.netloc
+        prefix = parsed.path.strip("/")
+        key = f"{prefix}/{os.path.basename(report_path)}" if prefix else os.path.basename(report_path)
+
+        s3_client = boto3.client("s3", endpoint_url=os.environ.get("AWS_ENDPOINT_URL"))
+        with open(report_path, "rb") as handle:
+            body = handle.read()
+        s3_client.put_object(Bucket=bucket, Key=key, Body=body,
+                             ContentType="application/json")
+        latest_key = f"{prefix}/latest_report.json" if prefix else "latest_report.json"
+        s3_client.put_object(Bucket=bucket, Key=latest_key, Body=body,
+                             ContentType="application/json")
+        print(f"Report uploaded to s3://{bucket}/{key} (and {latest_key})")
+        return True
+    except Exception as e:
+        # Never fail the run on a publishing problem: the gate's verdict is the
+        # product, the upload is bookkeeping.
+        print(f"Warning: Could not upload report to {s3_upload_path}: {e}")
+        return False
+
+
+def format_pr_comment(domain_stats: dict, mae_by_domain: dict,
+                      gate_failures: list, gate_passed: bool) -> str:
+    """The PR comment body the ticket's DoD asks for."""
+    lines = [
+        "## Eval report",
+        "",
+        f"**Gate: {'PASS' if gate_passed else 'FAIL'}**",
+        "",
+        "| Domain | Accuracy | Judged | Errored | MAE (overall) |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    for domain, stats in sorted(domain_stats.items()):
+        accuracy = stats.get("accuracy")
+        accuracy_text = f"{accuracy:.1%}" if accuracy is not None else "n/a"
+        mae = (mae_by_domain.get(domain) or {}).get("overall")
+        lines.append(
+            f"| {domain} | {accuracy_text} | {stats.get('judged', 0)} "
+            f"| {stats.get('errored', 0)} | {mae if mae is not None else 'n/a'} |"
+        )
+
+    if not domain_stats:
+        lines.append("| _none measured_ | | | | |")
+
+    # State n next to the number. Three items cannot carry a percentage without it.
+    judged_total = sum(s.get("judged", 0) for s in domain_stats.values())
+    lines += ["", f"_n = {judged_total} judged item(s)._"]
+
+    if gate_failures:
+        lines += ["", "### Failures"] + [f"- {f}" for f in gate_failures]
+    return "\n".join(lines)
+
+
+def write_pr_summary(domain_stats: dict, mae_by_domain: dict,
+                     gate_failures: list, gate_passed: bool) -> None:
+    """Write to GITHUB_STEP_SUMMARY and a file the workflow posts as a PR comment."""
+    body = format_pr_comment(domain_stats, mae_by_domain, gate_failures, gate_passed)
+
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary_path:
+        try:
+            with open(summary_path, "a", encoding="utf-8") as handle:
+                handle.write(body + "\n")
+        except Exception as e:
+            print(f"Warning: Could not write step summary: {e}")
+
+    comment_path = os.path.join(os.path.dirname(__file__), "reports", "pr_comment.md")
+    try:
+        with open(comment_path, "w", encoding="utf-8") as handle:
+            handle.write(body + "\n")
+        print(f"PR comment body written to {comment_path}")
+    except Exception as e:
+        print(f"Warning: Could not write PR comment body: {e}")
 
 
 def _calc_delta(current, prev):
@@ -351,6 +511,31 @@ def main():
     if "writing" in active_domains:
         metrics.update(run_writing_eval(dataset))
 
+    # Only real domains reach the gate.
+    domain_stats = {}
+    if metrics.get("writing_stats"):
+        domain_stats["writing"] = metrics["writing_stats"]
+    if metrics.get("speaking_stats"):
+        domain_stats["speaking"] = metrics["speaking_stats"]
+
+    mae_by_domain = {}
+    if metrics.get("writing_mae"):
+        mae_by_domain["writing"] = metrics["writing_mae"]
+
+    item_rows = [
+        {
+            "id": v.item_id,
+            "verdict": v.verdict,
+            "agent_band": None if v.is_error else v.agent_band,
+            "expert_band": v.expert_band,
+            "judged_band": v.judged_band,
+            "delta": None if v.is_error else v.delta,
+            "reason": v.reason,
+            "error": v.error,
+        }
+        for v in (metrics.get("writing_verdicts") or [])
+    ]
+
     prev_metrics = prev_reports.get("metrics", {})
     deltas = {
         "delta_rag": _calc_delta(metrics.get("rag_accuracy"), prev_metrics.get("rag_accuracy")),
@@ -372,6 +557,9 @@ def main():
             writing_output_tokens=metrics.get("writing_output_tokens", 0),
             writing_cached_count=metrics.get("writing_cached_count", 0),
         ),
+        domain_stats=domain_stats,
+        mae=mae_by_domain,
+        items=item_rows,
         regression_vs_previous=RegressionDeltas(**deltas),
         timestamp=datetime.datetime.utcnow().isoformat() + "Z",
         git_sha=os.environ.get("GITHUB_SHA", "unknown")
@@ -382,7 +570,9 @@ def main():
     filename = f"{report.timestamp.replace(':', '')}.json"
     report_path = os.path.join(reports_dir, filename)
     
-    with open(report_path, "w") as f:
+    # encoding is explicit: the default is cp1252 on Windows, and the first judge
+    # reason containing an em-dash wrote a file that json.load could not read back.
+    with open(report_path, "w", encoding="utf-8") as f:
         f.write(report.model_dump_json(indent=2))
         
     print(f"Report written to {report_path}")
@@ -403,8 +593,16 @@ def main():
     except Exception as e:
         print(f"Warning: Could not render HTML report: {e}")
 
-    # Check regression gate across evaluated metrics
-    gate_passed, gate_failures = check_regression_gate(metrics, prev_reports)
+    if args.s3_upload_path:
+        upload_report(report_path, args.s3_upload_path)
+
+    # Check regression gate across evaluated domains
+    gate_passed, gate_failures = check_regression_gate(
+        domain_stats, prev_reports.get("domain_stats")
+    )
+
+    write_pr_summary(domain_stats, mae_by_domain, gate_failures, gate_passed)
+
     if not gate_passed:
         for fail_msg in gate_failures:
             print(f"FAIL: {fail_msg}")

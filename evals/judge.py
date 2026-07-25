@@ -189,9 +189,27 @@ def judge_evaluation(domain: str, item: dict, agent_result: dict,
     item_id = item.get("id", "<unknown>")
     expert_band = float(item.get("expected_band", 0.0))
     expert_criteria = item.get("expected_criteria", {})
-    agent_band = float(agent_result.get("overall_band") or 0.0)
     agent_criteria = agent_result.get("criteria", {})
     text = item.get("essay") or item.get("transcript") or ""
+
+    # The agent call failed upstream. Spend no tokens judging a band that does not
+    # exist, and — critically — do not let it reach compute_verdict, which would
+    # coerce the absence into 0.0 and report a confident UNDERSCORED.
+    if agent_result.get("agent_error"):
+        return JudgeVerdict(
+            item_id=item_id,
+            verdict="ERROR",
+            agent_band=float("nan"),
+            expert_band=expert_band,
+            delta=float("nan"),
+            reason="",
+            judged_band=None,
+            agent_criteria=agent_criteria,
+            expert_criteria=expert_criteria,
+            error=f"Agent call failed: {agent_result['agent_error']}",
+        )
+
+    agent_band = float(agent_result.get("overall_band") or 0.0)
 
     # Compute per-criterion verdicts
     per_criterion_verdicts = {}

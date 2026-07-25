@@ -57,7 +57,11 @@ def _margin_fit(profile_value: float | None, required: float | None, headroom: f
     if required is None or profile_value is None:
         return None
     if required <= 0:
-        return NEUTRAL_FIT
+        # "Requires 0 years of experience" is the absence of a requirement, not a
+        # requirement that is exactly met. Scoring it NEUTRAL_FIT dragged down the
+        # average of programs that were explicit about requiring nothing, ranking them
+        # below programs that simply left the field blank.
+        return None
     if profile_value >= required:
         surplus = min((profile_value - required) / headroom, 1.0) if headroom else 0.0
         return NEUTRAL_FIT + (NEUTRAL_FIT * surplus)

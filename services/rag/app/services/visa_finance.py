@@ -17,8 +17,13 @@ async def get_student_visa_finance(country: str, conn=None) -> list[dict]:
     query = """
         SELECT country, visa_type, issuing_body, proof_of_funds, source_url, last_verified_at
         FROM visa_requirements
-        WHERE country = $1 
-          AND visa_type ILIKE '%student%' 
+        -- No visa_type filter. Every row here derives from visa_sources, which IS the
+        -- student-visa source registry, so the filter was redundant — and actively
+        -- harmful: real visa types are 'Blocked Account' (Germany), 'Residence Permit
+        -- (Studies)' (Sweden) and 'Residence Permit (Study)' (Netherlands), none of
+        -- which match ILIKE '%student%'. Only the UK's 'Student Visa' did, so three of
+        -- four countries' proof-of-funds data was invisible to /score and /match.
+        WHERE country = $1
           AND proof_of_funds IS NOT NULL
         ORDER BY issuing_body
     """

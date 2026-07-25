@@ -31,6 +31,30 @@ def normalize_extracurriculars(score: int) -> float:
 # candidate's absolute strength. Stage 1 already removed the disqualifying programs
 # and Stage 3's LLM boost was removed from /match by GOA-125, so without this the
 # score is identical for every program a user passes — a "ranked" list that isn't.
+#
+# GOA-028 swept this through the real scorer over a 32-program catalog spanning the
+# requirement space (evals/match_ranking_eval.run_real_program_fit_sweep), scoring
+# each weight on dominance accuracy — the share of program pairs where the program
+# the profile clears by more actually ranks higher — and on how many distinct scores
+# survive:
+#
+#   weight   dominance   distinct   spread
+#   0.00     0.000       1/32       0.00     <- the 83.46 tie, reproduced
+#   0.15     0.804       27/32      3.52
+#   0.35     0.804       27/32      8.20     <- production
+#   0.80     0.804       27/32      18.74
+#   1.00     0.804       27/32      23.42
+#
+# The sweep settles ONE question: the weight must not be zero. Ordering quality is
+# flat across every non-zero value — only the spread grows, linearly — so the sweep
+# cannot and does not select 0.35 over 0.15 or 0.5. The magnitude is a product
+# judgement: at 0.35 program fit reorders candidates of comparable strength but
+# cannot rank a weak candidate's perfect-fit program above a strong candidate's
+# good-fit one. Recorded as a decision, not as an empirical optimum.
+#
+# Dominance tops out at 0.804 rather than 1.0 by design: COVERAGE_WEIGHT deliberately
+# rewards programs whose requirements we could actually verify, which sometimes
+# outranks a larger margin on fewer stated requirements.
 PROGRAM_FIT_WEIGHT = 0.35
 
 # A requirement the program does not state cannot count for or against fit.

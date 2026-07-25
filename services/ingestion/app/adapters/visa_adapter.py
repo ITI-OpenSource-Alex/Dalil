@@ -240,14 +240,31 @@ class VisaSourceAdapter:
         return self._visible_text(response.text)
 
     async def _fetch_text_playwright(self, url: str) -> str:
-        """JS-rendered sources (VFS Global is the only one today)."""
+        """JS-rendered sources, and sources a plain HTTP client cannot render.
+
+        Waits for `domcontentloaded`, not `networkidle`. Government sites run
+        analytics and polling that never go quiet, so `networkidle` times out on
+        pages that finished rendering seconds earlier — that is how several sources
+        were misdiagnosed as unreachable rather than merely slow. A short, optional
+        settle afterwards catches client-side rendering without waiting for silence
+        that never arrives.
+
+        No automation-evasion flags are used here, deliberately. Sites that answer
+        with a bot-verification interstitial have decided they do not want automated
+        access; cover those countries through an official data source or manual entry
+        instead of defeating the check.
+        """
         from playwright.async_api import async_playwright
 
         async with async_playwright() as p:
             browser = await p.chromium.launch()
             try:
                 page = await browser.new_page()
-                await page.goto(url, wait_until="networkidle", timeout=30000)
+                await page.goto(url, wait_until="domcontentloaded", timeout=45000)
+                try:
+                    await page.wait_for_load_state("networkidle", timeout=6000)
+                except Exception:
+                    pass
                 html = await page.content()
             finally:
                 await browser.close()

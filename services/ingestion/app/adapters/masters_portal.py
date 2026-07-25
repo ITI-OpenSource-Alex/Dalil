@@ -1,162 +1,323 @@
+"""MastersPortal adapter — API-driven discovery, page-based document extraction.
+
+DISCOVERY MECHANISM (verified live, 2026-07-25 — do not "simplify" back to HTML scraping):
+The /search/... HTML pages are an SPA. Their server-rendered markup contains a
+"featured programmes" module whose 20 cards IGNORE the discipline/region filter in the
+URL (observed: fashion, counselling, paramedicine cards on a computer-science search).
+Scraping anchors from that HTML is how off-scope programs polluted program_requirements.
+The page's real result list comes from the site's own public JSON endpoint:
+
+    GET https://search-api.prtl.co/programmes/search
+        ?educationalLevels=master&disciplines=<id>&resultSize=20&resultOffset=<n>
+
+which this adapter now calls directly. Discipline ids come from the site's own
+sitemap (sitemaps/disciplines.xml): 7 = Engineering & Technology, 24 = Computer
+Science & IT. The API has no working region parameter (probed), so Europe scoping
+is applied client-side via each card's getCountryIsoCode against EUROPE_ISO below —
+region and disciplines therefore remain configuration, per GOA-111's scope decision.
+
+Program pages themselves are still fetched (politely, robots-checked) for document
+text and the application deadline; card fields take precedence for identity and
+numeric requirements because they are structured at the source.
+"""
+
+import datetime
 import re
 
+import httpx
 import structlog
 from bs4 import BeautifulSoup
 
 from app.adapters.base_playwright_adapter import BasePlaywrightAdapter
 from app.core.content_hash import compute_content_hash
+from app.core.crawl_state import crawl_state
 from app.core.rate_limiter import polite_delay
 from app.core.robots import robot_checker
+from app.core.url_normalizer import normalize_url
 
 logger = structlog.get_logger(__name__)
 
-_UNIVERSITY_URL_RE = re.compile(r"/universities/\d+/")
 _PROGRAMME_URL_RE = re.compile(r"/studies/\d+/")
-
 _DEADLINE_LABEL_RE = re.compile(r"^application deadline$", re.IGNORECASE)
 _COUNTRY_RE = re.compile(r"^Study in\s+(.+)$", re.IGNORECASE)
-
 _IELTS_LABEL_RE = re.compile(r"^ielts$", re.IGNORECASE)
 _ECTS_LABEL_RE = re.compile(r"^ects$", re.IGNORECASE)
 _GPA_LABEL_RE = re.compile(r"^gpa$", re.IGNORECASE)
 _NUMERIC_LINE_RE = re.compile(r"^\d+(\.\d+)?$")
-_DEGREE_LEVEL_TITLE_RE = re.compile(
-    r"\b(Master|Bachelor|MBA|PhD|LLM|Postgraduate Diploma|Postgraduate Certificate)\b\s+at\b",
-    re.IGNORECASE,
-)
+_STRICT_NUMBER_RE = re.compile(r"^\d+(\.\d+)?$")
 
-# A standalone-line label that marks the start of a *different* field's section.
-# _find_numeric_after_label() stops scanning as soon as it hits one of these,
-# rather than a fixed lookahead window -- otherwise a field with no numeric value
-# on the page (e.g. GPA sometimes resolves to a classification like "Upper Second
-# Class" rather than a number) could wrongly pick up a neighboring section's number
-# (e.g. a TOEFL score) just because it happened to fall within the window.
+# A standalone-line label marking the start of a *different* field's section;
+# _find_numeric_after_label() stops there instead of using a blind window, so a
+# field with no numeric value can't pick up a neighboring section's number.
 _SECTION_BOUNDARY_LABELS = {
     "ielts", "toefl", "gpa", "ects", "pte academic",
     "english requirements", "academic requirements", "admission requirements",
     "key information",
 }
 
-# Third-tier crawl safeguards. The country -> university hop already capped detail
-# pages at 50 (matching BasePlaywrightAdapter.scrape()'s historical `[:50]`); with a
-# university -> programme hop added on top, a per-university cap is also needed or a
-# single run could attempt hundreds of programme-page fetches.
-MAX_UNIVERSITIES_PER_RUN = 50
-MAX_PROGRAMMES_PER_UNIVERSITY = 5
+SEARCH_API = "https://search-api.prtl.co/programmes/search"
+PAGE_SIZE = 20
+
+# Region/discipline scope is configuration (GOA-111): edit these, not the parser.
+DISCIPLINE_IDS = {
+    "engineering": 7,        # sitemaps/disciplines.xml -> /disciplines/7/engineering-technology.html
+    "computer_science": 24,  # -> /disciplines/24/computer-science-it.html
+}
+
+# ISO 3166-1 alpha-2 -> country name, European scope for the GOA catalog.
+EUROPE_ISO = {
+    "AL": "Albania", "AD": "Andorra", "AT": "Austria", "BA": "Bosnia and Herzegovina",
+    "BE": "Belgium", "BG": "Bulgaria", "BY": "Belarus", "CH": "Switzerland",
+    "CY": "Cyprus", "CZ": "Czech Republic", "DE": "Germany", "DK": "Denmark",
+    "EE": "Estonia", "ES": "Spain", "FI": "Finland", "FR": "France",
+    "GB": "United Kingdom", "GE": "Georgia", "GR": "Greece", "HR": "Croatia",
+    "HU": "Hungary", "IE": "Ireland", "IS": "Iceland", "IT": "Italy",
+    "LI": "Liechtenstein", "LT": "Lithuania", "LU": "Luxembourg", "LV": "Latvia",
+    "MC": "Monaco", "MD": "Moldova", "ME": "Montenegro", "MK": "North Macedonia",
+    "MT": "Malta", "NL": "Netherlands", "NO": "Norway", "PL": "Poland",
+    "PT": "Portugal", "RO": "Romania", "RS": "Serbia", "SE": "Sweden",
+    "SI": "Slovenia", "SK": "Slovakia", "SM": "San Marino", "UA": "Ukraine",
+}
+
+
+def parse_deadline(date_str: str | None) -> datetime.date | None:
+    if not date_str:
+        return None
+    for fmt in ("%Y-%m-%d", "%d %b %Y", "%d %B %Y", "%B %d, %Y", "%d/%m/%Y"):
+        try:
+            return datetime.datetime.strptime(date_str.strip(), fmt).date()
+        except ValueError:
+            pass
+    return None
+
+
+# The canonical degree vocabulary the RAG scoring gate compares against.
+_DEGREE_LEVEL_CANON = {
+    "master": "Master", "masters": "Master", "pre-master": "Master",
+    "bachelor": "Bachelor", "bachelors": "Bachelor",
+    "phd": "PhD", "doctorate": "PhD",
+}
+
+
+def _normalize_degree_level(value) -> str | None:
+    """Map an API level/degree string onto the canonical vocabulary, or None."""
+    if not isinstance(value, str) or not value.strip():
+        return None
+    key = value.strip().lower().rstrip(".")
+    if key in _DEGREE_LEVEL_CANON:
+        return _DEGREE_LEVEL_CANON[key]
+    # Display abbreviations: M.Sc./MSc/M.A./M.Eng. are all master's level.
+    compact = key.replace(".", "").replace(" ", "")
+    if compact.startswith("m") and len(compact) <= 5:
+        return "Master"
+    if compact.startswith("b") and len(compact) <= 5:
+        return "Bachelor"
+    return None
+
+
+def _as_number(value) -> float | None:
+    """Coerce a card value to a number, or None — never a guess.
+
+    The API's numeric-looking fields are not uniformly numeric. getEcts is an int,
+    but getGPA is an IGPARequirement object whose score may be a non-numeric grade
+    classification, e.g. {"getScale": "uk_honours", "getScore": "2_2"}. Feeding that
+    object to the RAG schema produced 422s on every UK program. Per GOA-111's
+    null-discipline, an unrepresentable value stays null instead of being converted
+    into an invented GPA.
+    """
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, dict):
+        inner = value.get("func", value)
+        return _as_number(inner.get("getScore")) if isinstance(inner, dict) else None
+    if isinstance(value, str):
+        # Strict pattern, not bare float(): Python treats '_' as a digit separator,
+        # so float('2_2') == 22.0 — a UK 2:2 honours grade would silently become a
+        # GPA of 22. Only plain decimal numbers are accepted.
+        return float(value.strip()) if _STRICT_NUMBER_RE.match(value.strip()) else None
+    return None
+
+
+def _card_field(card: dict, *path, default=None):
+    """Walk the API's nested {'func': {...}} card shape: _card_field(c, 'getEnglishRequirements', 'getIELTS')."""
+    node = card
+    for key in path:
+        if not isinstance(node, dict):
+            return default
+        node = node.get(key)
+        if isinstance(node, dict) and "func" in node:
+            node = node["func"]
+        if node is None:
+            return default
+    return node
 
 
 class MastersPortalAdapter(BasePlaywrightAdapter):
     def __init__(self):
         super().__init__(
             base_url="https://www.mastersportal.com",
-            # Country id 30 is the current United Kingdom listing. Id 1 (the
-            # previous value here) now resolves and canonicalizes to the
-            # Netherlands -- verified by inspecting the live page's <title> and
-            # canonical link, not assumed from the URL slug alone.
-            target_url="https://www.mastersportal.com/countries/30/united-kingdom.html",
+            target_url="https://www.mastersportal.com/search/master/engineering-and-technology/europe",
             source_name="masters_portal",
             category="universities",
-            country="UK",
-            wait_selector="body"
+            country="Europe",
+            wait_selector="body",
         )
 
-    def extract_urls(self, html: str) -> list[str]:
-        """Discovers university profile page links from a country listing page."""
-        # TODO (GOA-115 discipline filter): point discovery at MastersPortal's Engineering and Computer Science search results.
-        # Verify at the live site whether the discipline filter is a URL path segment, a query param, or a facet click.
-        # Extract from BOTH disciplines and merge/dedupe into one URL set before the cap.
-        
-        # TODO (GOA-115 pagination): rework MastersPortalAdapter.extract_urls() to walk result pages 
-        # exactly the way DAADAdapter's verified fix does — but FIRST verify against the live site 
-        # whether mastersportal.eu uses ?page=N URLs or infinite scroll.
-        # Cap at 50 distinct program URLs TOTAL across both disciplines, dedupe, stop early when a page yields no new links.
-        return self._extract_matching_urls(html, _UNIVERSITY_URL_RE)
+    # ------------------------------------------------------------------ discovery
 
-    def extract_programme_urls(self, html: str) -> list[str]:
-        """Discovers programme (/studies/<id>/...) links from a university profile
-        page. Admission-requirements fields (IELTS, GPA, ECTS, ...) live on these
-        pages, not on the university profile page itself."""
-        return self._extract_matching_urls(html, _PROGRAMME_URL_RE)
+    async def discover_page(self, discipline_id: int, offset: int) -> tuple[list[dict], int]:
+        """One API result page. Returns (cards, hits_total). Cards are raw 'func' dicts."""
+        async with httpx.AsyncClient(
+            timeout=30.0,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                              "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                "Origin": "https://www.mastersportal.com",
+                "Referer": "https://www.mastersportal.com/",
+            },
+        ) as client:
+            resp = await client.get(SEARCH_API, params={
+                "educationalLevels": "master",
+                "disciplines": str(discipline_id),
+                "resultSize": PAGE_SIZE,
+                "resultOffset": offset,
+                "sortBy": "default",
+            })
+            resp.raise_for_status()
+            data = resp.json()
+        cards = [p["card"]["func"] for p in data.get("programmes", []) if p.get("card")]
+        return cards, int(data.get("hitsTotal", 0))
 
     @staticmethod
-    def _extract_matching_urls(html: str, pattern: re.Pattern) -> list[str]:
-        soup = BeautifulSoup(html, "lxml")
-        urls = []
-        for a in soup.find_all("a", href=True):
-            href = a["href"]
-            if pattern.search(href) and href.startswith("http"):
-                if href not in urls:
-                    urls.append(href)
-        return urls
+    def card_in_scope(card: dict) -> bool:
+        return _card_field(card, "getCountryIsoCode") in EUROPE_ISO
 
-    def extract_documents(self, html: str, url: str = None, university: str = None) -> list[dict]:
+    def card_to_url(self, card: dict) -> str | None:
+        rel = _card_field(card, "getProgrammeLink", "getUrl")
+        if not rel:
+            return None
+        return normalize_url(self.base_url + rel if rel.startswith("/") else rel)
+
+    # ------------------------------------------------------------------ extraction
+
+    def extract_documents(self, html: str, url: str = None, university: str = None,
+                          card: dict | None = None, discipline: str | None = None) -> list[dict]:
         soup = BeautifulSoup(html, "lxml")
         documents = []
 
-        # FIX: Target specific content wrappers to avoid navigation menus
-        main_content = soup.find(id="UniversityProfile") or soup.find("main")
+        main_content = soup.find(id="UniversityProfile") or soup.find("main") or soup.find("body")
+        if not main_content:
+            return documents
 
-        if main_content:
-            text_content = main_content.get_text(separator="\n", strip=True)
-            effective_url = url or self.target_url
-            doc = {
-                "source": self.source_name,
-                "category": self.category,
-                "country": self.country,
-                "url": effective_url,
-                "content": text_content,
-            }
+        text_content = main_content.get_text(separator="\n", strip=True)
+        effective_url = normalize_url(url or self.target_url)
+        doc = {
+            "source": self.source_name,
+            "category": self.category,
+            "country": (EUROPE_ISO.get(_card_field(card, "getCountryIsoCode")) if card else None) or self.country,
+            "url": effective_url,
+            "source_url": effective_url,
+            "content": text_content,
+        }
 
-            if _PROGRAMME_URL_RE.search(effective_url):
-                record = self._extract_program_requirement(soup, text_content, effective_url, university)
-                if record:
-                    doc["program_requirements"] = [record]
+        if _PROGRAMME_URL_RE.search(effective_url):
+            record = self._build_record(soup, text_content, effective_url, university, card, discipline)
+            if record:
+                doc["program_requirements"] = [record]
 
-            documents.append(doc)
-
+        documents.append(doc)
         return documents
 
-    def _extract_program_requirement(
-        self, soup: BeautifulSoup, text_content: str, url: str, university: str | None
-    ) -> dict | None:
-        """Extracts a structured program_requirements record from an already-parsed
-        programme page. Conservative by design: a field is left None rather than
-        guessed when the page doesn't state it unambiguously -- e.g. this adapter
-        will not convert a UK degree classification ("Upper Second Class") into a
-        fabricated numeric GPA, and will not treat a non-ECTS credit total (e.g.
-        "180 alternative credits") as an ECTS figure."""
-
-
+    def _build_record(self, soup: BeautifulSoup, text_content: str, url: str,
+                      university: str | None, card: dict | None,
+                      discipline: str | None = None) -> dict | None:
+        """Card fields win (structured at source); page parsing is the fallback."""
         lines = text_content.split("\n")
-        
+
+        iso = _card_field(card, "getCountryIsoCode") if card else None
         record = {
-            "university": self._extract_university_name(soup),
-            "country": self._extract_country(lines),
-            "degree_level": self._extract_degree_level(soup),
-            "min_ects": self._find_numeric_after_label(lines, _ECTS_LABEL_RE),
-            "min_gpa": self._find_numeric_after_label(lines, _GPA_LABEL_RE),
-            "min_ielts": self._find_numeric_after_label(lines, _IELTS_LABEL_RE),
+            "university": (_card_field(card, "getUniversityLink", "getDescription") if card else None)
+                          or university or self._extract_university_name(soup),
+            "country": (EUROPE_ISO.get(iso) if iso else None) or self._extract_country(lines),
+            # getLevel is the API's canonical enum ('master'); getDegree is a display
+            # name ('M.Sc.', 'M.A.', 'Pre-Master'). The scoring gate compares
+            # degree_level by exact string, so display names blocked 33 of 46 programs
+            # with "Requires M.Sc. degree" — normalize to the canonical vocabulary.
+            "degree_level": _normalize_degree_level(
+                (_card_field(card, "getLevel") if card else None)
+                or (_card_field(card, "getDegree") if card else None)
+            ) or "Master",
+            "program_name": (_card_field(card, "getTitle") if card else None)
+                            or self._extract_title(soup),
+            "deadline": parse_deadline(self._find_string_after_label(lines, _DEADLINE_LABEL_RE)),
+            "min_ects": _as_number(_card_field(card, "getEcts") if card else None)
+                        or self._find_numeric_after_label(lines, _ECTS_LABEL_RE),
+            "min_gpa": _as_number(_card_field(card, "getGPA") if card else None)
+                       or self._find_numeric_after_label(lines, _GPA_LABEL_RE),
+            "min_ielts": _as_number(_card_field(card, "getEnglishRequirements", "getIELTS") if card else None)
+                         or self._find_numeric_after_label(lines, _IELTS_LABEL_RE),
             "required_citizenship": None,
-            "min_work_experience": None,
-            "program_name": soup.find("h1").get_text(strip=True) if soup.find("h1") else None,
-            "deadline": self._find_string_after_label(lines, _DEADLINE_LABEL_RE),
-            "source_url": url,
+            "min_work_experience": _as_number(_card_field(card, "getWorkExperienceYears") if card else None),
+            "source_url": normalize_url(url),
+            # Which configured search bucket found this program. /match pre-filters on
+            # it (migration 022); NULL stays eligible rather than being hidden.
+            "discipline": discipline,
         }
-        
-        has_real_data = any([
-            record["min_ects"], 
-            record["min_gpa"], 
-            record["min_ielts"],
-            record["deadline"]
-        ])
 
-
-        if not record["program_name"] or not has_real_data:
-            logger.warning("quality_gate_rejected", url=url, reason="listing_fallback")
+        # Null-tolerant quality gate: identity is required, numerics/deadline are not.
+        # country IS identity here — 'Europe' placeholder rows broke the Profile
+        # Matcher's visa-finance join, so a record needs a real country, never the
+        # region literal.
+        if not record["program_name"] or not record["university"] or not record["source_url"] \
+                or not record["country"] or record["country"].strip().lower() == "europe":
+            logger.warning("quality_gate_rejected", url=url, reason="missing_identity")
             return None
+
+        if isinstance(record["deadline"], datetime.date):
+            record["deadline"] = record["deadline"].isoformat()
 
         record["content_hash"] = compute_content_hash(record)
         return record
+
+    @staticmethod
+    def _extract_title(soup: BeautifulSoup) -> str | None:
+        """Page-fallback title. StudyTitle spans nest the name twice on some pages
+        (observed: 'Generative AIGenerative AI') — take the deepest single text node."""
+        study_title = soup.find("span", class_="StudyTitle")
+        if study_title:
+            texts = [t.strip() for t in study_title.stripped_strings]
+            if texts:
+                title = texts[0]
+                # collapse exact doubling, e.g. 'Data ScienceData Science'
+                half = len(title) // 2
+                if len(title) % 2 == 0 and title[:half] == title[half:]:
+                    title = title[:half]
+                return title
+        h1 = soup.find("h1")
+        return h1.get_text(strip=True) if h1 else None
+
+    @staticmethod
+    def _extract_country(lines: list[str]) -> str | None:
+        for line in lines:
+            match = _COUNTRY_RE.search(line.strip())
+            if match:
+                return match.group(1).strip()
+        return None
+
+    @staticmethod
+    def _find_numeric_after_label(lines: list[str], label_pattern: re.Pattern, lookahead: int = 8) -> float | None:
+        for i, line in enumerate(lines):
+            if not label_pattern.match(line.strip()):
+                continue
+            for candidate in lines[i + 1: i + 1 + lookahead]:
+                candidate_stripped = candidate.strip()
+                if _NUMERIC_LINE_RE.match(candidate_stripped):
+                    return float(candidate_stripped)
+                if candidate_stripped.lower() in _SECTION_BOUNDARY_LABELS:
+                    break
+        return None
 
     @staticmethod
     def _find_string_after_label(lines: list[str], label_pattern: re.Pattern, lookahead: int = 4) -> str | None:
@@ -169,120 +330,248 @@ class MastersPortalAdapter(BasePlaywrightAdapter):
                     return candidate_stripped
         return None
 
-
-    @staticmethod
-    def _extract_country(lines: list[str]) -> str | None:
-        for line in lines:
-            match = _COUNTRY_RE.search(line.strip())
+    def _extract_university_name(self, soup: BeautifulSoup) -> str | None:
+        header = (
+            soup.find("a", class_="js-essential-info-organisation-link")
+            or soup.find("span", class_="OrganisationName")
+            or soup.find("a", class_="UniversityLink")
+        )
+        if header:
+            return header.get_text(strip=True)
+        title = soup.find("title")
+        if title:
+            match = re.search(r"\bat\s+(.*?)\s*\|", title.get_text(strip=True))
             if match:
                 return match.group(1).strip()
         return None
 
-    @staticmethod
-    def _extract_degree_level(soup: BeautifulSoup) -> str | None:
-        title_tag = soup.find("title")
-        if not title_tag:
+    # ------------------------------------------------------------ tier 1: card sweep
+
+    def _card_to_document(self, card: dict, url: str, discipline: str) -> dict | None:
+        """Build a structured record and a small document from the API card alone.
+
+        Tier 1 of the two-tier crawl. A page fetch costs ~10 seconds, so covering the
+        ~20,000 in-scope catalog that way is ~55 hours — impossible inside any bounded
+        worker. The card already carries everything program_requirements needs except
+        the application deadline (null on every program observed so far), and its
+        getSummary field is real prose, so one searchable chunk per program comes free.
+
+        Tier 2 later fetches the page for richer document text; the deadline and the
+        full requirements sections are the only things sacrificed here.
+        """
+        iso = _card_field(card, "getCountryIsoCode")
+        country = EUROPE_ISO.get(iso)
+        title = _card_field(card, "getTitle")
+        university = _card_field(card, "getUniversityLink", "getDescription")
+        if not (country and title and university):
             return None
-        match = _DEGREE_LEVEL_TITLE_RE.search(title_tag.get_text(strip=True))
-        return match.group(1) if match else None
 
-    
-    def _extract_university_name(self, soup: BeautifulSoup) -> str | None:
-        # E.g. find it in an <h1> or a specific class on the program page
-        header = soup.find("a", class_="UniversityLink")
-        return header.get_text(strip=True) if header else None
+        record = {
+            "university": university,
+            "country": country,
+            "degree_level": _normalize_degree_level(
+                _card_field(card, "getLevel") or _card_field(card, "getDegree")
+            ) or "Master",
+            "program_name": title,
+            "deadline": None,  # not published on the card; Tier 2's page carries it
+            "min_ects": _as_number(_card_field(card, "getEcts")),
+            "min_gpa": _as_number(_card_field(card, "getGPA")),
+            "min_ielts": _as_number(_card_field(card, "getEnglishRequirements", "getIELTS")),
+            "required_citizenship": None,
+            "min_work_experience": _as_number(_card_field(card, "getWorkExperienceYears")),
+            "source_url": url,
+            "discipline": discipline,
+        }
+        record["content_hash"] = compute_content_hash(record)
 
-    @staticmethod
-    def _find_numeric_after_label(lines: list[str], label_pattern: re.Pattern, lookahead: int = 8) -> float | None:
-        """Finds a standalone label line (e.g. an "IELTS" line on its own) and scans
-        forward for the first purely-numeric line, skipping the descriptive
-        paragraph MastersPortal places between a label and its value. Stops early if
-        it reaches another recognized section's label first, rather than risk
-        attributing a neighboring section's number to the wrong field."""
-        for i, line in enumerate(lines):
-            if not label_pattern.match(line.strip()):
+        summary = _card_field(card, "getSummary") or ""
+        location = _card_field(card, "getLocationText") or country
+        content = "\n".join(
+            part for part in (
+                f"{title} — {university} ({location})",
+                f"Degree: {record['degree_level']}",
+                f"IELTS requirement: {record['min_ielts']}" if record["min_ielts"] else "",
+                f"ECTS: {record['min_ects']}" if record["min_ects"] else "",
+                summary,
+                f"Official source: {url}",
+            ) if part
+        )
+
+        return {
+            "source": self.source_name,
+            "category": self.category,
+            "country": country,
+            "url": url,
+            "source_url": url,
+            "content": content,
+            "program_requirements": [record],
+        }
+
+    async def scrape_cards(self, per_run_cap_per_discipline: int = 500) -> list[dict]:
+        """Tier 1 sweep: whole catalog from the search API, no browser, no page fetch."""
+        documents: list[dict] = []
+        telemetry: dict[str, dict] = {}
+
+        for discipline, discipline_id in DISCIPLINE_IDS.items():
+            counts = {"discovered": 0, "skipped": 0, "extracted": 0, "failed": 0, "remaining": 0}
+            cursor = crawl_state.get_cursor(self.source_name, discipline)
+            if cursor["exhausted"]:
+                telemetry[discipline] = counts
                 continue
-            for candidate in lines[i + 1: i + 1 + lookahead]:
-                candidate_stripped = candidate.strip()
-                if _NUMERIC_LINE_RE.match(candidate_stripped):
-                    return float(candidate_stripped)
-                if candidate_stripped.lower() in _SECTION_BOUNDARY_LABELS:
-                    break
-        return None
 
-    async def scrape(self) -> list[dict]:
-        """Discovery phase: Paginate through Europe-wide Engineering and CS programs."""
-        search_urls = [
-            "https://www.mastersportal.com/search/master/engineering-and-technology/europe",
-            "https://www.mastersportal.com/search/master/computer-science-and-it/europe"
-        ]
+            offset = cursor["scroll_offset"]
+            hits_total = None
+            produced = 0
 
-
-        all_programme_urls = set()
-
-
-        for page in range(1, 20):
-            # For each discipline, construct the paginated URL
-            page_links = []
-            for base_url in search_urls:
-                # Append ?page=N for pages > 1
-                url = base_url if page == 1 else f"{base_url}?page={page}"
-                
-                # Check robots.txt (good citizenship!)
-                if not robot_checker.is_allowed(url):
-                    continue
-                    
+            while produced < per_run_cap_per_discipline:
                 await polite_delay(self.min_delay, self.max_delay)
-
-
                 try:
-                    html = await self.fetch_page(url)
-
-                    discovered = self._extract_matching_urls(html, _PROGRAMME_URL_RE)
-                    page_links.extend(discovered)
+                    cards, hits_total = await self.discover_page(discipline_id, offset)
                 except Exception as e:
-                    logger.error("crawl_fetch_error", url=url, error=str(e))
-
-
-            if not page_links:
-                break
-
-            for link in page_links:
-                all_programme_urls.add(link)
-                # Stop immediately if we hit our cap
-                if len(all_programme_urls) >= 50:
+                    logger.error("tier1_discovery_failed", discipline=discipline,
+                                 offset=offset, error=str(e))
+                    break
+                if not cards:
+                    crawl_state.update_cursor(self.source_name, discipline,
+                                              offset // PAGE_SIZE + 1,
+                                              scroll_offset=offset, exhausted=True)
                     break
 
-            if len(all_programme_urls) >= 50:
-                break
+                for card in cards:
+                    url = self.card_to_url(card)
+                    if not url:
+                        continue
+                    if not self.card_in_scope(card):
+                        counts["skipped"] += 1
+                        continue
+                    counts["discovered"] += 1
+                    if crawl_state.is_url_scraped(url):
+                        counts["skipped"] += 1
+                        continue
+                    doc = self._card_to_document(card, url, discipline)
+                    if doc is None:
+                        counts["failed"] += 1
+                        crawl_state.mark_url_status(self.source_name, discipline, url,
+                                                    "failed", "card_missing_identity")
+                        continue
+                    documents.append(doc)
+                    produced += 1
+                    counts["extracted"] += 1
+                    crawl_state.mark_url_status(self.source_name, discipline, url, "extracted")
+                    if produced >= per_run_cap_per_discipline:
+                        break
 
-        programme_urls = list(all_programme_urls)[:50]
-        if not programme_urls:
-            return []
-            
+                offset += PAGE_SIZE
+                exhausted = hits_total is not None and offset >= hits_total
+                crawl_state.update_cursor(self.source_name, discipline,
+                                          offset // PAGE_SIZE + 1,
+                                          scroll_offset=offset, exhausted=exhausted)
+                if exhausted:
+                    break
 
-        documents = []
-        for programme_url in programme_urls:
-            if not robot_checker.is_allowed(programme_url):
-                continue
-                
-            await polite_delay(self.min_delay, self.max_delay)
-            try:
-                programme_html = await self.fetch_page(programme_url)
-            except Exception as e:
-                logger.error("crawl_fetch_error", url=programme_url, error=str(e))
-                continue
-            # Pass the HTML to extract_documents
-            documents.extend(self.extract_documents(programme_html, programme_url))
+            if hits_total is not None:
+                counts["remaining"] = max(0, hits_total - offset)
+            telemetry[discipline] = counts
+            logger.info("masters_portal_tier1_batch", discipline=discipline, **counts)
+
+        logger.info("masters_portal_tier1_telemetry", telemetry=telemetry)
         return documents
 
+    # ------------------------------------------------------- tier 2: page enrichment
 
-        
-        
+    async def scrape(self, per_run_cap_per_discipline: int = 10) -> list[dict]:
+        """Resumable catalog crawl: API discovery per discipline, page fetch per program.
+
+        Status contract (GOA-111): this adapter marks a URL 'extracted' when a
+        structured record was produced, or 'failed' otherwise. Only the handler,
+        after a successful RAG upsert, promotes it to 'scraped' — so an upsert
+        failure is retried on the next run instead of being silently lost.
+        """
+        documents = []
+        telemetry = {}
+
+        for discipline, discipline_id in DISCIPLINE_IDS.items():
+            counts = {"discovered": 0, "skipped": 0, "extracted": 0, "failed": 0, "remaining": 0}
+            cursor = crawl_state.get_cursor(self.source_name, discipline)
+            if cursor["exhausted"]:
+                telemetry[discipline] = counts
+                continue
+
+            offset = cursor["scroll_offset"]
+            hits_total = None
+            to_fetch: list[tuple[str, dict]] = []
+
+            while len(to_fetch) < per_run_cap_per_discipline:
+                await polite_delay(self.min_delay, self.max_delay)
+                try:
+                    cards, hits_total = await self.discover_page(discipline_id, offset)
+                except Exception as e:
+                    logger.error("discovery_page_failed", discipline=discipline, offset=offset, error=str(e))
+                    break
+                if not cards:
+                    crawl_state.update_cursor(self.source_name, discipline, offset // PAGE_SIZE + 1,
+                                              scroll_offset=offset, exhausted=True)
+                    break
+
+                for card in cards:
+                    p_url = self.card_to_url(card)
+                    if not p_url:
+                        continue
+                    if not self.card_in_scope(card):
+                        counts["skipped"] += 1
+                        continue
+                    counts["discovered"] += 1
+                    # Tier 2 checks the PAGE axis: Tier 1 already marked these URLs
+                    # scraped for the structured row, so reusing that flag here would
+                    # skip every program and the document corpus would never grow.
+                    if crawl_state.is_page_fetched(p_url):
+                        counts["skipped"] += 1
+                        continue
+                    to_fetch.append((p_url, card))
+                    if len(to_fetch) >= per_run_cap_per_discipline:
+                        break
+
+                offset += PAGE_SIZE
+                crawl_state.update_cursor(self.source_name, discipline, offset // PAGE_SIZE + 1,
+                                          scroll_offset=offset,
+                                          exhausted=(hits_total is not None and offset >= hits_total))
+                if hits_total is not None and offset >= hits_total:
+                    break
+
+            for p_url, card in to_fetch:
+                if not robot_checker.is_allowed(p_url):
+                    counts["skipped"] += 1
+                    continue
+                await polite_delay(self.min_delay, self.max_delay)
+                try:
+                    programme_html = await self.fetch_page(p_url)
+                    extracted = self.extract_documents(programme_html, p_url, card=card,
+                                                       discipline=discipline)
+                    has_record = any(d.get("program_requirements") for d in extracted)
+                    if has_record:
+                        documents.extend(extracted)
+                        counts["extracted"] += 1
+                        crawl_state.mark_url_status(self.source_name, discipline, p_url, "extracted")
+                        crawl_state.mark_page_status(p_url, "fetched")
+                    else:
+                        counts["failed"] += 1
+                        crawl_state.mark_url_status(self.source_name, discipline, p_url,
+                                                    "failed", "no_record_extracted")
+                except Exception as e:
+                    counts["failed"] += 1
+                    logger.error("programme_fetch_failed", url=p_url, error=str(e))
+                    crawl_state.mark_url_status(self.source_name, discipline, p_url, "failed", str(e))
+
+            if hits_total is not None:
+                counts["remaining"] = max(0, hits_total - offset)
+            telemetry[discipline] = counts
+            logger.info("masters_portal_batch_complete", discipline=discipline, **counts)
+
+        logger.info("masters_portal_run_telemetry", telemetry=telemetry)
+        return documents
+
     async def scrape_structured(self) -> list[dict]:
-        """Returns only the flattened program_requirements records discovered
-        during a full scrape() run, for direct testability against fixture HTML
-        without needing to inspect full document dicts."""
+        """Flattened program_requirements from a scrape() run, for tests."""
         documents = await self.scrape()
         records = []
         for doc in documents:

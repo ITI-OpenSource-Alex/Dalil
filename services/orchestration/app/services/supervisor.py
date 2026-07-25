@@ -26,8 +26,9 @@ llm = ChatAnthropic(
     anthropic_api_key=settings.anthropic_auth_token or settings.anthropic_api_key,
     **({"anthropic_api_url": settings.anthropic_base_url} if settings.anthropic_base_url else {}),
     default_headers={"User-Agent": settings.anthropic_user_agent} if settings.anthropic_user_agent else None,
-    timeout=25.0,
-    max_retries=1,
+    # ChatAnthropic 0.1.13 supports default_request_timeout, not timeout/max_retries.
+    # Retry lives in classify_intent()'s explicit 2-attempt loop below.
+    default_request_timeout=25.0,
 )
 
 # Monkeypatch to fix langchain_anthropic 0.1.13 bug where it assumes tools are beta

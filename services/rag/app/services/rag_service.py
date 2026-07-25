@@ -35,9 +35,76 @@ llm = ChatAnthropic(
     anthropic_api_key=settings.anthropic_auth_token or settings.anthropic_api_key,
     **({"anthropic_api_url": settings.anthropic_base_url} if settings.anthropic_base_url else {}),
     model_kwargs={"extra_headers": {"User-Agent": settings.anthropic_user_agent}},
-    timeout=25.0,
-    max_retries=1,
+    # langchain_anthropic 0.1.13 has no `timeout` or `max_retries` field on
+    # ChatAnthropic; unrecognized kwargs are forwarded to AsyncMessages.create(),
+    # which rejects max_retries — that made every /query return 500. The supported
+    # field is default_request_timeout, and the retry now lives at the call site.
+    default_request_timeout=25.0,
 )
+
+
+class _LLMResponse:
+    """Minimal stand-in for a LangChain message: `.content` plus `.response_metadata`."""
+
+    def __init__(self, content: str, usage):
+        self.content = content
+        self.response_metadata = {"usage": usage} if usage is not None else {}
+
+
+async def _invoke_via_sdk(prompt) -> _LLMResponse:
+    """Call the gateway through the raw Anthropic SDK, tolerating thinking blocks.
+
+    langchain_anthropic 0.1.13 predates extended thinking and reads `content[0].text`
+    unconditionally, so any response whose first block is a ThinkingBlock raises
+    "'ThinkingBlock' object has no attribute 'text'" — intermittently, because the
+    model only sometimes thinks first. The ingestion service already hit this and
+    iterates the blocks; RAG's LangChain path never got that treatment.
+
+    Pinning langchain-anthropic <0.2.0 is load-bearing elsewhere (supervisor.py carries
+    a monkeypatch for this exact version), so the fix is to bypass the wrapper for this
+    one call rather than upgrade it.
+    """
+    from anthropic import AsyncAnthropic
+
+    client_kwargs = {
+        "api_key": settings.anthropic_auth_token or settings.anthropic_api_key,
+        "default_headers": {"User-Agent": settings.anthropic_user_agent},
+        "timeout": 25.0,
+    }
+    if settings.anthropic_base_url:
+        client_kwargs["base_url"] = settings.anthropic_base_url
+
+    text = prompt if isinstance(prompt, str) else str(prompt)
+    response = await AsyncAnthropic(**client_kwargs).messages.create(
+        model=settings.llm_model,
+        max_tokens=1024,
+        messages=[{"role": "user", "content": text}],
+    )
+
+    # Take the first block that actually carries text; thinking blocks have none.
+    answer = next(
+        (b.text for b in response.content if getattr(b, "text", None)),
+        "",
+    )
+    return _LLMResponse(answer, getattr(response, "usage", None))
+
+
+async def _invoke_llm_with_retry(prompt, attempts: int = 2):
+    """Gateway tail latency is erratic (measured 2.5s–110s for identical calls),
+    so a timed-out or failed call is retried once before surfacing the error."""
+    last_error = None
+    for attempt in range(attempts):
+        try:
+            return await _invoke_via_sdk(prompt)
+        except Exception as e:  # noqa: BLE001 — retry any transport/timeout failure
+            last_error = e
+            # NOTE: this module's logger is a stdlib logger, not structlog —
+            # keyword fields raise "Logger._log() got an unexpected keyword
+            # argument", which would mask the real failure behind a logging error.
+            logger.warning(
+                "LLM invoke failed (attempt %d/%d): %s", attempt + 1, attempts, e
+            )
+    raise last_error
 
 
 async def generate_embedding(text: str) -> List[float]:
@@ -162,7 +229,7 @@ Answer:"""
 
     # 5. Call LLM (Claude)
     llm_start_time = time.time()
-    response = await llm.ainvoke(prompt)
+    response = await _invoke_llm_with_retry(prompt)
     llm_latency_ms = (time.time() - llm_start_time) * 1000
     answer_text = response.content
 

@@ -59,7 +59,10 @@ def mock_ai_apis(monkeypatch):
     mock_response.content = "Mocked answer."
     mock_response.response_metadata = {"usage": {"input_tokens": 10, "output_tokens": 5}}
     mock_llm = AsyncMock(return_value=mock_response)
-    monkeypatch.setattr("langchain_anthropic.ChatAnthropic.ainvoke", mock_llm)
+    # RAG generation calls the Anthropic SDK directly rather than going through
+    # ChatAnthropic.ainvoke: langchain_anthropic 0.1.13 reads content[0].text and
+    # blows up on thinking blocks. Patch the seam that is actually used.
+    monkeypatch.setattr("app.services.rag_service._invoke_via_sdk", mock_llm)
     return mock_embed, mock_llm
 
 

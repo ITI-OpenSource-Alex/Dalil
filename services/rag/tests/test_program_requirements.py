@@ -51,7 +51,8 @@ def test_missing_degree_level_raises_validation_error():
 
 def test_optional_fields_default_to_none():
     request = ProgramRequirementsUpsertRequest(
-        university="ETH Zurich", country="Switzerland", degree_level="Master"
+        university="ETH Zurich", country="Switzerland", degree_level="Master",
+        source_url="https://goa.internal/seed/program/eth"
     )
     assert request.min_ects is None
     assert request.required_citizenship is None

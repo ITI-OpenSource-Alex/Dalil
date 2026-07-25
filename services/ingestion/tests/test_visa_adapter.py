@@ -9,6 +9,7 @@ from app.adapters.visa_adapter import (
     VisaSource,
     VisaSourceAdapter,
 )
+from app.schemas.visa_schema import ProofOfFunds, FundingPathway
 
 
 @pytest.fixture
@@ -31,7 +32,8 @@ def _llm(payload: dict):
 @pytest.mark.asyncio
 async def test_extraction_populates_fields_with_evidence(mocker, dummy_source):
     adapter = VisaSourceAdapter()
-    mocker.patch.object(adapter, "_fetch_text", return_value="German visa page text.")
+    text = "German visa page text. proof of 11,208 EUR in a blocked account. An APS certificate is required."
+    mocker.patch.object(adapter, "_fetch_text", return_value=text)
     mocker.patch.object(
         adapter,
         "_call_llm",
@@ -39,12 +41,22 @@ async def test_extraction_populates_fields_with_evidence(mocker, dummy_source):
             {
                 "extraction_valid": True,
                 "requirements": {"aps_certificate": "Required for Egyptian applicants"},
-                "proof_of_funds": {"amount_eur": 11208.0, "blocked_account_providers": ["Fintiba"]},
+                "proof_of_funds": {
+                    "pathways": [{
+                        "pathway": "blocked_account",
+                        "amounts": [{"amount": 11208.0, "currency": "EUR", "period": "per_year"}]
+                    }]
+                },
                 "processing_days_min": 28,
                 "processing_days_max": 42,
                 "extraction_evidence": {
-                    "proof_of_funds": "proof of 11,208 EUR in a blocked account",
-                    "aps_certificate": "An APS certificate is required",
+                    "requirements.aps_certificate": "An APS certificate is required",
+                    "proof_of_funds.pathways[0].pathway": "proof of 11,208 EUR in a blocked account",
+                    "proof_of_funds.pathways[0].amounts[0].amount": "proof of 11,208 EUR in a blocked account",
+                    "proof_of_funds.pathways[0].amounts[0].currency": "proof of 11,208 EUR in a blocked account",
+                    "proof_of_funds.pathways[0].amounts[0].period": "proof of 11,208 EUR in a blocked account",
+                    "processing_days_min": "German visa page text.",
+                    "processing_days_max": "German visa page text.",
                 },
             }
         ),
@@ -55,11 +67,9 @@ async def test_extraction_populates_fields_with_evidence(mocker, dummy_source):
     assert len(outcomes) == 1
     outcome = outcomes[0]
     assert outcome.extraction_valid is True
-    # proof_of_funds is a structured dict (JSONB), not a flat float — GOA-109/110 need
-    # room for funding-pathway data here.
-    assert outcome.proof_of_funds["amount_eur"] == 11208.0
+    assert outcome.proof_of_funds.pathways[0].amounts[0].amount == 11208.0
     assert outcome.requirements["aps_certificate"]
-    assert outcome.extraction_evidence.get("proof_of_funds")
+    assert outcome.extraction_evidence.get("proof_of_funds.pathways[0].amounts[0].amount")
     assert outcome.source_url == "http://example.com/german-visa"
 
 
@@ -219,7 +229,7 @@ async def test_scrape_reads_sources_and_returns_orchestrator_shape(mocker, dummy
         "app.adapters.visa_adapter.fetch_visa_sources",
         return_value=[dummy_source.model_dump()],
     )
-    mocker.patch.object(adapter, "_fetch_text", return_value="German visa page text.")
+    mocker.patch.object(adapter, "_fetch_text", return_value="German visa page text. 11,208 EUR.")
     mocker.patch.object(
         adapter,
         "_call_llm",
@@ -227,8 +237,19 @@ async def test_scrape_reads_sources_and_returns_orchestrator_shape(mocker, dummy
             {
                 "extraction_valid": True,
                 "requirements": {"aps_certificate": "Required"},
-                "proof_of_funds": {"amount_eur": 11208.0},
-                "extraction_evidence": {"proof_of_funds": "11,208 EUR"},
+                "proof_of_funds": {
+                    "pathways": [{
+                        "pathway": "blocked_account",
+                        "amounts": [{"amount": 11208.0, "currency": "EUR", "period": "per_year"}]
+                    }]
+                },
+                "extraction_evidence": {
+                    "requirements.aps_certificate": "German visa page text.",
+                    "proof_of_funds.pathways[0].pathway": "11,208 EUR",
+                    "proof_of_funds.pathways[0].amounts[0].amount": "11,208 EUR",
+                    "proof_of_funds.pathways[0].amounts[0].currency": "11,208 EUR",
+                    "proof_of_funds.pathways[0].amounts[0].period": "11,208 EUR",
+                },
             }
         ),
     )
@@ -242,7 +263,7 @@ async def test_scrape_reads_sources_and_returns_orchestrator_shape(mocker, dummy
     record = doc["visa_requirements"][0]
     assert record["country"] == "Germany"
     assert record["source_url"] == "http://example.com/german-visa"
-    assert record["proof_of_funds"]["amount_eur"] == 11208.0
+    assert record["proof_of_funds"]["pathways"][0]["amounts"][0]["amount"] == 11208.0
     assert record["egyptian_specific"] is True
 
 
@@ -301,13 +322,12 @@ def test_extraction_outcome_proof_of_funds_is_structured():
         issuing_body="Hungarian Consular Services",
         source_url="http://example.com",
         extraction_valid=True,
-        proof_of_funds={
-            "amount_eur": 5000.0,
-            "notes_egypt": "Stipendium Hungaricum award letter satisfies this requirement",
-        },
+        proof_of_funds=ProofOfFunds(
+            pathways=[FundingPathway(pathway="scholarship", notes="Stipendium Hungaricum award letter satisfies this requirement")]
+        ),
     )
-    assert outcome.proof_of_funds["notes_egypt"]
-    assert json.dumps(outcome.proof_of_funds)  # must be JSONB-serialisable
+    assert outcome.proof_of_funds.pathways[0].notes
+    assert outcome.proof_of_funds.model_dump()
 
 
 # ---------------------------------------------------------------------------
@@ -399,12 +419,24 @@ async def test_end_to_end_german_fixture_produces_expected_visa_record(mocker, d
                     "items": ["Valid passport", "APS certificate"],
                     "aps_certificate": "Required",
                 },
-                "proof_of_funds": {"amount_eur": 11208.0},
+                "proof_of_funds": {
+                    "pathways": [{
+                        "pathway": "blocked_account",
+                        "amounts": [{"amount": 11208.0, "currency": "EUR", "period": "per_year"}]
+                    }]
+                },
                 "processing_days_min": 15,
                 "processing_days_max": 20,
                 "extraction_evidence": {
-                    "proof_of_funds": "Proof of funds: EUR 11208 in a blocked account",
-                    "processing_days_min": "Processing time: 15-20 working days",
+                    "proof_of_funds.pathways[0].pathway": "blocked account",
+                    "proof_of_funds.pathways[0].amounts[0].amount": "EUR 11208",
+                    "proof_of_funds.pathways[0].amounts[0].currency": "EUR 11208",
+                    "proof_of_funds.pathways[0].amounts[0].period": "EUR 11208",
+                    "processing_days_min": "15-20 working days",
+                    "processing_days_max": "15-20 working days",
+                    "requirements.items[0]": "Valid passport",
+                    "requirements.items[1]": "APS certificate",
+                    "requirements.aps_certificate": "APS certificate"
                 },
             }
         ),
@@ -424,7 +456,7 @@ async def test_end_to_end_german_fixture_produces_expected_visa_record(mocker, d
     assert record["egyptian_specific"] is True
     assert record["processing_days_min"] == 15
     assert record["processing_days_max"] == 20
-    assert record["proof_of_funds"]["amount_eur"] == 11208.0
+    assert record["proof_of_funds"]["pathways"][0]["amounts"][0]["amount"] == 11208.0
     assert "Valid passport" in record["requirements"]["items"]
 
 
@@ -447,7 +479,7 @@ async def test_missing_fields_yield_nulls_not_guesses(mocker, dummy_source):
                 "proof_of_funds": None,
                 "processing_days_min": None,
                 "processing_days_max": None,
-                "extraction_evidence": {"items": "Valid passport"},
+                "extraction_evidence": {"requirements.items[0]": "Valid passport"},
             }
         ),
     )
@@ -475,10 +507,10 @@ async def test_extraction_evidence_quotes_are_verbatim(mocker, dummy_source):
         return_value=_llm(
             {
                 "extraction_valid": True,
-                "requirements": {"passport": "Valid passport required", "photos": "Two photos"},
+                "requirements": {"passport": "valid passport", "photos": "two photos"},
                 "extraction_evidence": {
-                    "passport": "valid passport",
-                    "photos": "two photos"
+                    "requirements.passport": "valid passport",
+                    "requirements.photos": "two photos"
                 }
             }
         ),
@@ -488,7 +520,7 @@ async def test_extraction_evidence_quotes_are_verbatim(mocker, dummy_source):
     assert len(outcomes) == 1
     evidence = outcomes[0].extraction_evidence
     for key, quote in evidence.items():
-        assert quote.lower() in text.lower(), f"Quote '{quote}' for '{key}' not found in source text!"
+        assert quote in text, f"Quote '{quote}' for '{key}' not found in source text!"
 
 @pytest.mark.asyncio
 async def test_usage_tokens_recorded_in_telemetry(mocker, dummy_source):

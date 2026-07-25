@@ -25,7 +25,7 @@ INSERT INTO visa_sources (country, visa_type, issuing_body, source_url, fetch_me
     ('Germany', 'National Visa (Study)', 'German Embassy Cairo', 'https://cairo.diplo.de/eg-en/service/05-VisaEinreise/-/2102148', 'httpx'),
     ('Germany', 'Academic Credential Verification', 'APS Cairo', 'https://aps-egypt.de/', 'httpx'),
     ('France', 'Long-stay Visa (Study)', 'Campus France Egypt', 'https://www.egypte.campusfrance.org/visa-long-sejour-etudiant', 'httpx'),
-    ('UK', 'Student Visa', 'UK Visas and Immigration', 'https://www.gov.uk/student-visa', 'httpx'),
+    ('United Kingdom', 'Student Visa', 'UK Visas and Immigration', 'https://www.gov.uk/student-visa', 'httpx'),
     ('Egypt', 'Biometric Appointment', 'VFS Global Egypt', 'https://visa.vfsglobal.com/egy/en/', 'playwright'),
     ('Germany', 'Blocked Account', 'Fintiba', 'https://www.fintiba.com/blocked-account/', 'httpx'),
     ('Czech Republic', 'Long-term Visa (Study)', 'Czech Embassy Cairo', 'https://mzv.gov.cz/cairo/en/visas_and_consular_information/long_term_visa/study.html', 'httpx'),

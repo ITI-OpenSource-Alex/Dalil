@@ -11,6 +11,11 @@ on:
 jobs:
   evaluate:
     runs-on: ubuntu-latest
+    # Required for the PR comment step; the default token is read-only for
+    # pull-requests, so github-script would 403 without this.
+    permissions:
+      contents: read
+      pull-requests: write
     env:
       STRICT_EVAL_MODE: "false"
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -75,10 +80,40 @@ jobs:
         continue-on-error: ${{ env.STRICT_EVAL_MODE != 'true' }}
 
       - name: Upload Report Artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: evals-report
-          path: evals/reports/*.json
+          # The HTML carries the per-item reasons; uploading only JSON meant the
+          # artifact could not be read the way the DoD asks it to be read.
+          path: |
+            evals/reports/*.json
+            evals/reports/*.html
+
+      # DoD: "CI posts the PR comment". The runner writes the body; this posts it.
+      - name: Comment eval results on PR
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = 'evals/reports/pr_comment.md';
+            if (!fs.existsSync(path)) {
+              core.info('No eval comment body was produced; skipping.');
+              return;
+            }
+            const body = fs.readFileSync(path, 'utf8');
+            const marker = '## Eval report';
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const existing = await github.rest.issues.listComments({ owner, repo, issue_number });
+            // Update in place so a PR with many pushes keeps one comment, not twenty.
+            const mine = existing.data.find(c => c.body && c.body.startsWith(marker));
+            if (mine) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: mine.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
 
       - name: Shutdown Docker Compose
         if: always()

@@ -58,5 +58,30 @@ async def test_extraction_unit_with_all_fields(mocker):
     assert record["min_gpa"] == 3.0
     assert record["min_ielts"] == 6.5
     assert record["program_name"] == "Test Program"
-    assert record["deadline"] == "12 Jan 2026"
+    assert record["deadline"] == "2026-01-12"
+
+@pytest.mark.asyncio
+async def test_null_tolerant_quality_gate(mocker):
+    adapter = MastersPortalAdapter()
+    html = """
+    <html>
+      <head><title>Master at Test Uni | MastersPortal</title></head>
+      <body>
+        <main>
+          <h1>Robotics M.Sc.</h1>
+          <a class="UniversityLink">Test Uni</a>
+          Study in Germany
+        </main>
+      </body>
+    </html>
+    """
+    docs = adapter.extract_documents(html, url="https://www.mastersportal.com/studies/999/robotics.html")
+    assert "program_requirements" in docs[0]
+    record = docs[0]["program_requirements"][0]
+    assert record["program_name"] == "Robotics M.Sc."
+    assert record["university"] == "Test Uni"
+    assert record["min_gpa"] is None
+    assert record["min_ielts"] is None
+    assert record["min_ects"] is None
+    assert record["deadline"] is None
 

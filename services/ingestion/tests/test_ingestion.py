@@ -17,7 +17,7 @@ def test_dry_run_logging_only(mocker):
     # Mock the adapters fetch to just return the 10 fixture documents (no visa records)
     from langchain_core.documents import Document
     fixture_docs = [Document(page_content=f"Doc {i}", metadata={"id": f"id_{i}"}) for i in range(10)]
-    async def mock_fetch(): return fixture_docs, []
+    async def mock_fetch(only=None, tier=2): return fixture_docs, []
     mocker.patch("handler.fetch_all_adapters", side_effect=mock_fetch)
 
     # Spy on the handler logger
@@ -61,7 +61,7 @@ def test_idempotency_skips_embedding_api_calls(mocker):
     # Mock the adapters fetch (no visa records)
     from langchain_core.documents import Document
     fixture_docs = [Document(page_content=f"Doc {i}", metadata={"id": f"id_{i}", "source_url": "test"}) for i in range(10)]
-    async def mock_fetch(): return fixture_docs, []
+    async def mock_fetch(only=None, tier=2): return fixture_docs, []
     mocker.patch("handler.fetch_all_adapters", side_effect=mock_fetch)
     
     # FIRST RUN: Mock check-existing to indicate no chunks exist in DB (first time run)
@@ -116,7 +116,7 @@ def test_visa_requirements_upserted_independently_of_document_pipeline(mocker):
         {"country": "Germany", "visa_type": "Student Visa", "issuing_body": "German Embassy Cairo"},
         {"country": "France", "visa_type": "Student Visa", "issuing_body": "Campus France Egypt"},
     ]
-    async def mock_fetch(): return fixture_docs, visa_records
+    async def mock_fetch(only=None, tier=2): return fixture_docs, visa_records
     mocker.patch("handler.fetch_all_adapters", side_effect=mock_fetch)
 
     event = {"dry_run": False}
@@ -153,7 +153,7 @@ def test_visa_requirement_failure_does_not_block_others_or_document_pipeline(moc
 
     from langchain_core.documents import Document
     fixture_docs = [Document(page_content=f"Doc {i}", metadata={"id": f"id_{i}", "source_url": "test"}) for i in range(2)]
-    async def mock_fetch(): return fixture_docs, visa_records
+    async def mock_fetch(only=None, tier=2): return fixture_docs, visa_records
     mocker.patch("handler.fetch_all_adapters", side_effect=mock_fetch)
 
     event = {"dry_run": False}
@@ -180,7 +180,7 @@ def test_dry_run_logs_visa_requirements_without_upserting(mocker):
     ]
     from langchain_core.documents import Document
     fixture_docs = [Document(page_content="Doc 0", metadata={"id": "id_0"})]
-    async def mock_fetch(): return fixture_docs, visa_records
+    async def mock_fetch(only=None, tier=2): return fixture_docs, visa_records
     mocker.patch("handler.fetch_all_adapters", side_effect=mock_fetch)
 
     spy_logger = mocker.spy(logging.getLogger("ingestion_worker.handler"), "info")

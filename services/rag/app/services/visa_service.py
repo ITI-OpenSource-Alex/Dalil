@@ -14,6 +14,8 @@ async def upsert_visa_requirements(data: Dict[str, Any]) -> Dict[str, Any]:
     Skips rewriting mutable fields and last_scraped_at when the incoming content_hash
     matches the stored value, to avoid needless churn on unchanged source content.
     """
+
+
     country = data["country"]
     visa_type = data["visa_type"]
     issuing_body = data["issuing_body"]
@@ -23,6 +25,9 @@ async def upsert_visa_requirements(data: Dict[str, Any]) -> Dict[str, Any]:
     proof_of_funds = data.get("proof_of_funds")
     proof_of_funds_json = json.dumps(proof_of_funds) if proof_of_funds is not None else None
 
+    evidence = data.get("extraction_evidence")
+    evidence_json = json.dumps(evidence) if evidence is not None else None
+
     async with db.pool.acquire() as conn:
         async with conn.transaction():
             row = await conn.fetchrow(
@@ -30,9 +35,9 @@ async def upsert_visa_requirements(data: Dict[str, Any]) -> Dict[str, Any]:
                 INSERT INTO visa_requirements (
                     country, visa_type, issuing_body, source_url, egyptian_specific,
                     requirements, proof_of_funds, processing_days_min, processing_days_max,
-                    notes, content_hash, last_scraped_at
+                    notes, content_hash, extraction_evidence, last_scraped_at, last_verified_at
                 )
-                VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9, $10, $11, NOW())
+                VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9, $10, $11, $12::jsonb, NOW(), NOW())
                 ON CONFLICT (country, visa_type, issuing_body) DO UPDATE
                 SET source_url = EXCLUDED.source_url,
                     egyptian_specific = EXCLUDED.egyptian_specific,
@@ -42,7 +47,9 @@ async def upsert_visa_requirements(data: Dict[str, Any]) -> Dict[str, Any]:
                     processing_days_max = EXCLUDED.processing_days_max,
                     notes = EXCLUDED.notes,
                     content_hash = EXCLUDED.content_hash,
-                    last_scraped_at = NOW()
+                    extraction_evidence = EXCLUDED.extraction_evidence,
+                    last_scraped_at = NOW(),
+                    last_verified_at = NOW()
                 WHERE visa_requirements.content_hash IS DISTINCT FROM EXCLUDED.content_hash
                 RETURNING id, (xmax = 0) AS inserted
                 """,
@@ -57,6 +64,7 @@ async def upsert_visa_requirements(data: Dict[str, Any]) -> Dict[str, Any]:
                 data.get("processing_days_max"),
                 data.get("notes"),
                 incoming_content_hash,
+                evidence_json,
             )
 
             if row is not None:

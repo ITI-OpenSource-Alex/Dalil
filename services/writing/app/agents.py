@@ -245,7 +245,13 @@ async def extract_chart_context(s3_key: str) -> str:
 
     response = await client.messages.create(
         model="claude-opus-4-8",
-        temperature=0,
+        # No `temperature`. The gateway fronts Bedrock, which rejects the parameter
+        # outright for this model:
+        #   ValidationException: `temperature` is deprecated for this model
+        # It surfaced as an intermittent 502 ("2 of 4 writing agents failed") because
+        # only some requests land on the backend that enforces it — the same erratic
+        # routing seen elsewhere on this gateway. Determinism now comes from the
+        # rubric and the JSON schema, not from a sampling parameter.
         max_tokens=500,
         messages=[
             {
@@ -344,12 +350,23 @@ class WritingAgentRunner:
         started = time.perf_counter()
         response = await self.client.messages.create(
             model=self.model,
-            max_tokens=1600,
-            temperature=0,
+            # A criterion response carries feedback, sentence examples AND the
+            # highlighted-issue spans, so it scales with essay length. At 1600 a
+            # 375-word essay truncated mid-JSON, and because the cut landed inside a
+            # string there was no closing brace to find — surfacing as the useless
+            # "did not return a JSON object" rather than "you ran out of room".
+            max_tokens=4000,
+            # See the note in describe_task1_stimulus: `temperature` is rejected for
+            # this model and was failing 2 of the 4 criterion agents per request.
             system=system,
             messages=[{"role": "user", "content": prompt}],
         )
         latency_ms = (time.perf_counter() - started) * 1000
+        if getattr(response, "stop_reason", None) == "max_tokens":
+            raise ValueError(
+                f"Writing agent for '{criterion}' hit the max_tokens ceiling; its JSON "
+                f"is truncated. Raise max_tokens rather than retrying."
+            )
         raw = RawAgentResponse.model_validate_json(_json_object(_response_text(response)))
         feedback = raw.feedback.rstrip() + "\n\nSentence-level examples:\n" + "\n".join(
             f"{index}. {example}"

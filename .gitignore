@@ -67,3 +67,6 @@ services/ingestion/scratch/
 .gemini/
 *.wav
 *.png
+
+# Judge response cache: local cost optimisation, not shared state.
+evals/.judge_cache.json

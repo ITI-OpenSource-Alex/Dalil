@@ -396,8 +396,28 @@ class VisaSourceAdapter:
                         )
                         if f is not None
                     ) + len(outcome.requirements or {})
+                    # Proof-of-funds amounts are the highest-value field for Egyptian
+                    # applicants. A source can extract requirements cleanly and still
+                    # publish no figure (observed: gov.uk/student-visa says only "the
+                    # amount will vary"), which used to count as an unqualified success.
+                    # Surface it so the source URL can be pointed at the page that
+                    # actually publishes the money.
+                    pathways = (
+                        outcome.proof_of_funds.pathways if outcome.proof_of_funds else []
+                    )
+                    amount_count = sum(len(p.amounts or []) for p in pathways)
+                    if amount_count == 0:
+                        logger.warning(
+                            "visa_extraction_without_financial_amounts",
+                            issuing_body=source.issuing_body,
+                            country=source.country,
+                            source_url=source.source_url,
+                            hint="point this source at the page that publishes the figures",
+                        )
+
                     logger.info(
                         "visa_extraction_succeeded",
+                        financial_amounts=amount_count,
                         issuing_body=source.issuing_body,
                         country=source.country,
                         fields_extracted=non_null,

@@ -52,11 +52,31 @@ async def get_student_visa_finance(country: str, conn=None) -> list[dict]:
                     per = amt.get("period", "")
                     qual = f" ({amt['qualifier']})" if amt.get("qualifier") else ""
                     amounts_str.append(f"{val} {curr} {per}{qual}")
-                
-                amt_desc = ", ".join(amounts_str) if amounts_str else "financial proof"
+
+                # Proof-of-funds is the requirement Egyptian applicants must plan months
+                # ahead for, so a pathway with no published figure and no accepted
+                # evidence is not actionable — it produced items reading "requires proof
+                # of financial proof via self_funded", which tells the student nothing.
+                # Skip it and let the source's URL be fixed to a page that has amounts.
+                if not amounts_str and not p.get("accepted_evidence"):
+                    logger.warning(
+                        "visa_pathway_without_amounts",
+                        country=r["country"],
+                        issuing_body=r["issuing_body"],
+                        pathway=ptype,
+                        source_url=r["source_url"],
+                    )
+                    continue
+
+                amt_desc = ", ".join(amounts_str) if amounts_str else "documented financial evidence"
                 messages.append(f"requires proof of {amt_desc} via {ptype}")
-            
-            summary_msg = f"{r['visa_type']} ({r['issuing_body']}) " + "; ".join(messages) if messages else f"Student visa requirements apply for {country}."
+
+            # No actionable pathway left -> emit no item at all, rather than a
+            # contentless one. GOA-108: absent facts stay absent.
+            if not messages:
+                continue
+
+            summary_msg = f"{r['visa_type']} ({r['issuing_body']}) " + "; ".join(messages)
             
             items.append({
                 "type": "informational",

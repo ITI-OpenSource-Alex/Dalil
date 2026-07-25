@@ -27,7 +27,7 @@ from app.adapters.masters_portal import MastersPortalAdapter
 from app.adapters.visa_adapter import VisaSourceAdapter
 import asyncio
 
-async def fetch_all_adapters(only: list[str] | None = None):
+async def fetch_all_adapters(only: list[str] | None = None, tier: int = 2):
     adapters = [
         IELTSOrgAdapter(), DAADAdapter(), CheveningAdapter(),
         StudyInPolandAdapter(), StipendiumHungaricumAdapter(), MastersPortalAdapter(),
@@ -37,15 +37,25 @@ async def fetch_all_adapters(only: list[str] | None = None):
     # sources: event {"adapters": ["masters_portal"]} or INGESTION_ADAPTERS env.
     if only:
         adapters = [a for a in adapters if a.source_name in only]
+
+    # Option B Tier 1: build the catalog from search-API cards with no page fetch.
+    # INGESTION_TIER=1 (or event {"tier": 1}) selects it. Tier 2 remains the default
+    # page-fetching path that enriches the document corpus for a prioritised subset.
+    if tier == 1:
+        adapters = [a for a in adapters if hasattr(a, "scrape_cards")]
+        calls = [a.scrape_cards() for a in adapters]
+    else:
+        calls = [a.scrape() for a in adapters]
+
     from langchain_core.documents import Document
 
     for adapter in adapters:
-        logger.info("Scraping source: %s", adapter.source_name)
+        logger.info("Scraping source: %s (tier %d)", adapter.source_name, tier)
 
     # Scrape all adapters concurrently; return_exceptions=True isolates a single
     # adapter's failure so it can't abort the whole run (matches the isolation
     # pattern already used in app/services/run_orchestrator.py).
-    results = await asyncio.gather(*[adapter.scrape() for adapter in adapters], return_exceptions=True)
+    results = await asyncio.gather(*calls, return_exceptions=True)
 
     all_docs = []
     all_visa_records = []
@@ -80,8 +90,10 @@ def handle_ingestion(event: dict, context=None) -> dict:
         [s.strip() for s in os.environ["INGESTION_ADAPTERS"].split(",") if s.strip()]
         if os.environ.get("INGESTION_ADAPTERS") else None
     )
+    # Tier 1 (cards only, whole catalog, no browser) vs Tier 2 (page enrichment).
+    tier = int(event.get("tier") or os.environ.get("INGESTION_TIER") or 2)
     # 1. Scrape documents using the real adapters
-    res = asyncio.run(fetch_all_adapters(only=only))
+    res = asyncio.run(fetch_all_adapters(only=only, tier=tier))
     if len(res) == 4:
         documents, visa_records, program_records, scholarship_records = res
     else:

@@ -49,12 +49,26 @@ class CrawlStateManager:
                             source_name VARCHAR(100) NOT NULL,
                             discipline VARCHAR(100) NOT NULL,
                             url TEXT NOT NULL,
-                            status VARCHAR(30) NOT NULL, -- 'pending', 'scraped', 'failed'
+                            -- Tier 1 axis: is the structured row ingested?
+                            -- 'pending' | 'extracted' | 'scraped' | 'failed'
+                            status VARCHAR(30) NOT NULL,
+                            -- Tier 2 axis: has the page been fetched for the document
+                            -- corpus? Separate on purpose — a single flag would make
+                            -- Tier 2 skip everything Tier 1 already covered.
+                            page_status VARCHAR(30) NULL,
                             attempts INTEGER DEFAULT 0,
                             error_message TEXT,
                             updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
                         );
                     """)
+                    # The table predates the Tier 1 / Tier 2 split, and
+                    # CREATE TABLE IF NOT EXISTS is a no-op on an existing volume, so
+                    # the second axis has to be added explicitly for anyone who
+                    # already has crawl state.
+                    cursor.execute(
+                        "ALTER TABLE crawl_urls "
+                        "ADD COLUMN IF NOT EXISTS page_status VARCHAR(30) NULL;"
+                    )
                 conn.commit()
                 self._initialized = True
         except Exception as e:
@@ -102,6 +116,7 @@ class CrawlStateManager:
             logger.error("crawl_state_update_cursor_failed", error=str(e))
 
     def is_url_scraped(self, url: str) -> bool:
+        """Has this program's structured row been ingested? (Tier 1 axis.)"""
         self._init_db()
         url_hash = hashlib.sha256(url.encode('utf-8')).hexdigest()
         try:
@@ -115,6 +130,51 @@ class CrawlStateManager:
         except Exception as e:
             logger.error("crawl_state_is_url_scraped_failed", error=str(e))
             return False
+
+    def is_page_fetched(self, url: str) -> bool:
+        """Has this program's PAGE been fetched for the document corpus? (Tier 2 axis.)
+
+        Two axes are required, not one. Tier 1 builds program_requirements from the
+        search API's cards with no page fetch, and marks the URL scraped. If Tier 2
+        reused that same flag it would skip every program Tier 1 had already covered —
+        which is every program — and the document corpus would never grow.
+        """
+        self._init_db()
+        url_hash = hashlib.sha256(url.encode('utf-8')).hexdigest()
+        try:
+            with self._get_conn() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        "SELECT page_status FROM crawl_urls WHERE url_hash = %s;",
+                        (url_hash,),
+                    )
+                    row = cursor.fetchone()
+                    return bool(row and row["page_status"] == "fetched")
+        except Exception as e:
+            logger.error("crawl_state_is_page_fetched_failed", error=str(e))
+            return False
+
+    def mark_page_status(self, url: str, page_status: str,
+                         error_message: Optional[str] = None):
+        """Record the Tier 2 (page fetch) axis without disturbing the Tier 1 status."""
+        self._init_db()
+        url_hash = hashlib.sha256(url.encode('utf-8')).hexdigest()
+        try:
+            with self._get_conn() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        """
+                        UPDATE crawl_urls
+                        SET page_status = %s,
+                            error_message = COALESCE(%s, error_message),
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE url_hash = %s;
+                        """,
+                        (page_status, error_message, url_hash),
+                    )
+                conn.commit()
+        except Exception as e:
+            logger.error("crawl_state_mark_page_status_failed", error=str(e))
 
     def mark_url_status(self, source_name: str, discipline: str, url: str, status: str, error_message: Optional[str] = None):
         self._init_db()

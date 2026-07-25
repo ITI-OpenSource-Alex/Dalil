@@ -345,7 +345,139 @@ class MastersPortalAdapter(BasePlaywrightAdapter):
                 return match.group(1).strip()
         return None
 
-    # ------------------------------------------------------------------ crawl loop
+    # ------------------------------------------------------------ tier 1: card sweep
+
+    def _card_to_document(self, card: dict, url: str, discipline: str) -> dict | None:
+        """Build a structured record and a small document from the API card alone.
+
+        Tier 1 of the two-tier crawl. A page fetch costs ~10 seconds, so covering the
+        ~20,000 in-scope catalog that way is ~55 hours — impossible inside any bounded
+        worker. The card already carries everything program_requirements needs except
+        the application deadline (null on every program observed so far), and its
+        getSummary field is real prose, so one searchable chunk per program comes free.
+
+        Tier 2 later fetches the page for richer document text; the deadline and the
+        full requirements sections are the only things sacrificed here.
+        """
+        iso = _card_field(card, "getCountryIsoCode")
+        country = EUROPE_ISO.get(iso)
+        title = _card_field(card, "getTitle")
+        university = _card_field(card, "getUniversityLink", "getDescription")
+        if not (country and title and university):
+            return None
+
+        record = {
+            "university": university,
+            "country": country,
+            "degree_level": _normalize_degree_level(
+                _card_field(card, "getLevel") or _card_field(card, "getDegree")
+            ) or "Master",
+            "program_name": title,
+            "deadline": None,  # not published on the card; Tier 2's page carries it
+            "min_ects": _as_number(_card_field(card, "getEcts")),
+            "min_gpa": _as_number(_card_field(card, "getGPA")),
+            "min_ielts": _as_number(_card_field(card, "getEnglishRequirements", "getIELTS")),
+            "required_citizenship": None,
+            "min_work_experience": _as_number(_card_field(card, "getWorkExperienceYears")),
+            "source_url": url,
+            "discipline": discipline,
+        }
+        record["content_hash"] = compute_content_hash(record)
+
+        summary = _card_field(card, "getSummary") or ""
+        location = _card_field(card, "getLocationText") or country
+        content = "\n".join(
+            part for part in (
+                f"{title} — {university} ({location})",
+                f"Degree: {record['degree_level']}",
+                f"IELTS requirement: {record['min_ielts']}" if record["min_ielts"] else "",
+                f"ECTS: {record['min_ects']}" if record["min_ects"] else "",
+                summary,
+                f"Official source: {url}",
+            ) if part
+        )
+
+        return {
+            "source": self.source_name,
+            "category": self.category,
+            "country": country,
+            "url": url,
+            "source_url": url,
+            "content": content,
+            "program_requirements": [record],
+        }
+
+    async def scrape_cards(self, per_run_cap_per_discipline: int = 500) -> list[dict]:
+        """Tier 1 sweep: whole catalog from the search API, no browser, no page fetch."""
+        documents: list[dict] = []
+        telemetry: dict[str, dict] = {}
+
+        for discipline, discipline_id in DISCIPLINE_IDS.items():
+            counts = {"discovered": 0, "skipped": 0, "extracted": 0, "failed": 0, "remaining": 0}
+            cursor = crawl_state.get_cursor(self.source_name, discipline)
+            if cursor["exhausted"]:
+                telemetry[discipline] = counts
+                continue
+
+            offset = cursor["scroll_offset"]
+            hits_total = None
+            produced = 0
+
+            while produced < per_run_cap_per_discipline:
+                await polite_delay(self.min_delay, self.max_delay)
+                try:
+                    cards, hits_total = await self.discover_page(discipline_id, offset)
+                except Exception as e:
+                    logger.error("tier1_discovery_failed", discipline=discipline,
+                                 offset=offset, error=str(e))
+                    break
+                if not cards:
+                    crawl_state.update_cursor(self.source_name, discipline,
+                                              offset // PAGE_SIZE + 1,
+                                              scroll_offset=offset, exhausted=True)
+                    break
+
+                for card in cards:
+                    url = self.card_to_url(card)
+                    if not url:
+                        continue
+                    if not self.card_in_scope(card):
+                        counts["skipped"] += 1
+                        continue
+                    counts["discovered"] += 1
+                    if crawl_state.is_url_scraped(url):
+                        counts["skipped"] += 1
+                        continue
+                    doc = self._card_to_document(card, url, discipline)
+                    if doc is None:
+                        counts["failed"] += 1
+                        crawl_state.mark_url_status(self.source_name, discipline, url,
+                                                    "failed", "card_missing_identity")
+                        continue
+                    documents.append(doc)
+                    produced += 1
+                    counts["extracted"] += 1
+                    crawl_state.mark_url_status(self.source_name, discipline, url, "extracted")
+                    if produced >= per_run_cap_per_discipline:
+                        break
+
+                offset += PAGE_SIZE
+                exhausted = hits_total is not None and offset >= hits_total
+                crawl_state.update_cursor(self.source_name, discipline,
+                                          offset // PAGE_SIZE + 1,
+                                          scroll_offset=offset, exhausted=exhausted)
+                if exhausted:
+                    break
+
+            if hits_total is not None:
+                counts["remaining"] = max(0, hits_total - offset)
+            telemetry[discipline] = counts
+            logger.info("masters_portal_tier1_batch", discipline=discipline, **counts)
+
+        logger.info("masters_portal_tier1_telemetry", telemetry=telemetry)
+        return documents
+
+    # ------------------------------------------------------- tier 2: page enrichment
 
     async def scrape(self, per_run_cap_per_discipline: int = 10) -> list[dict]:
         """Resumable catalog crawl: API discovery per discipline, page fetch per program.
@@ -389,7 +521,10 @@ class MastersPortalAdapter(BasePlaywrightAdapter):
                         counts["skipped"] += 1
                         continue
                     counts["discovered"] += 1
-                    if crawl_state.is_url_scraped(p_url):
+                    # Tier 2 checks the PAGE axis: Tier 1 already marked these URLs
+                    # scraped for the structured row, so reusing that flag here would
+                    # skip every program and the document corpus would never grow.
+                    if crawl_state.is_page_fetched(p_url):
                         counts["skipped"] += 1
                         continue
                     to_fetch.append((p_url, card))
@@ -417,6 +552,7 @@ class MastersPortalAdapter(BasePlaywrightAdapter):
                         documents.extend(extracted)
                         counts["extracted"] += 1
                         crawl_state.mark_url_status(self.source_name, discipline, p_url, "extracted")
+                        crawl_state.mark_page_status(p_url, "fetched")
                     else:
                         counts["failed"] += 1
                         crawl_state.mark_url_status(self.source_name, discipline, p_url,

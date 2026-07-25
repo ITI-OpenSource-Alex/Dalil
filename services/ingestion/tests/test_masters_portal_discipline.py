@@ -43,6 +43,8 @@ async def test_crawl_loop_passes_discipline_through(mocker):
     state = mocker.patch("app.adapters.masters_portal.crawl_state")
     state.get_cursor.return_value = {"last_page": 1, "scroll_offset": 0, "exhausted": False}
     state.is_url_scraped.return_value = False
+    # Tier 2 gates on the page axis, not the row axis (see crawl_state).
+    state.is_page_fetched.return_value = False
 
     docs = await adapter.scrape(per_run_cap_per_discipline=2)
 

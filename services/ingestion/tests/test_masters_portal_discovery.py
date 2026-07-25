@@ -117,6 +117,8 @@ async def test_scrape_marks_extracted_not_scraped(mocker):
     state = mocker.patch("app.adapters.masters_portal.crawl_state")
     state.get_cursor.return_value = {"last_page": 1, "scroll_offset": 0, "exhausted": False}
     state.is_url_scraped.return_value = False
+    # Tier 2 gates on the page axis, not the row axis (see crawl_state).
+    state.is_page_fetched.return_value = False
 
     docs = await adapter.scrape(per_run_cap_per_discipline=5)
 
@@ -136,6 +138,8 @@ async def test_scrape_skips_out_of_scope_cards_without_fetching(mocker):
     state = mocker.patch("app.adapters.masters_portal.crawl_state")
     state.get_cursor.return_value = {"last_page": 1, "scroll_offset": 0, "exhausted": False}
     state.is_url_scraped.return_value = False
+    # Tier 2 gates on the page axis, not the row axis (see crawl_state).
+    state.is_page_fetched.return_value = False
 
     docs = await adapter.scrape(per_run_cap_per_discipline=5)
 
@@ -158,6 +162,8 @@ async def test_scrape_resumes_from_saved_offset(mocker):
     state = mocker.patch("app.adapters.masters_portal.crawl_state")
     state.get_cursor.return_value = {"last_page": 3, "scroll_offset": 40, "exhausted": False}
     state.is_url_scraped.return_value = False
+    # Tier 2 gates on the page axis, not the row axis (see crawl_state).
+    state.is_page_fetched.return_value = False
 
     await adapter.scrape(per_run_cap_per_discipline=5)
 

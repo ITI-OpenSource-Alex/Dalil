@@ -1,9 +1,17 @@
 import logging
+import os
 from config import settings
 from adapters import TestFixtureAdapter
 from chunker import chunk_documents
 from embedder import generate_embeddings
-from client import check_existing_chunks, upsert_chunks, upsert_visa_requirement
+from client import (
+    check_existing_chunks,
+    upsert_chunks,
+    upsert_program_requirement,
+    upsert_scholarship_program,
+    upsert_visa_requirement,
+)
+from app.core.crawl_state import crawl_state
 
 
 # Configure logging
@@ -19,12 +27,16 @@ from app.adapters.masters_portal import MastersPortalAdapter
 from app.adapters.visa_adapter import VisaSourceAdapter
 import asyncio
 
-async def fetch_all_adapters():
+async def fetch_all_adapters(only: list[str] | None = None):
     adapters = [
         IELTSOrgAdapter(), DAADAdapter(), CheveningAdapter(),
         StudyInPolandAdapter(), StipendiumHungaricumAdapter(), MastersPortalAdapter(),
         VisaSourceAdapter(),
     ]
+    # Controlled runs (GOA-111 live verification, demos) can scope to specific
+    # sources: event {"adapters": ["masters_portal"]} or INGESTION_ADAPTERS env.
+    if only:
+        adapters = [a for a in adapters if a.source_name in only]
     from langchain_core.documents import Document
 
     for adapter in adapters:
@@ -37,6 +49,8 @@ async def fetch_all_adapters():
 
     all_docs = []
     all_visa_records = []
+    all_program_records = []
+    all_scholarship_records = []
     for adapter, result in zip(adapters, results):
         if isinstance(result, Exception):
             logger.error("Adapter %s failed completely: %s", adapter.source_name, str(result))
@@ -45,9 +59,11 @@ async def fetch_all_adapters():
             # Structured visa requirements (GOA-086) are upserted independently of the
             # document chunk pipeline below, so pop them out before they'd otherwise be
             # discarded here -- see GOA-086 implementation plan Task 16.
+            all_program_records.extend(d.pop("program_requirements", []))
+            all_scholarship_records.extend(d.pop("scholarship_programs", []))
             all_visa_records.extend(d.pop("visa_requirements", []))
             all_docs.append(Document(page_content=d['content'], metadata={'source_url': d.get('source_url') or d.get('url'), 'category': d.get('category')}))
-    return all_docs, all_visa_records
+    return all_docs, all_visa_records, all_program_records, all_scholarship_records
 
 def handle_ingestion(event: dict, context=None) -> dict:
     """
@@ -59,8 +75,18 @@ def handle_ingestion(event: dict, context=None) -> dict:
     # Allow overriding dry_run and url via the lambda trigger event
     url = event.get("url", "https://goa.app/test-fixture")
     dry_run = event.get("dry_run", settings.dry_run)
+    # Controlled runs may scope to specific sources (GOA-111 live verification).
+    only = event.get("adapters") or (
+        [s.strip() for s in os.environ["INGESTION_ADAPTERS"].split(",") if s.strip()]
+        if os.environ.get("INGESTION_ADAPTERS") else None
+    )
     # 1. Scrape documents using the real adapters
-    documents, visa_records = asyncio.run(fetch_all_adapters())
+    res = asyncio.run(fetch_all_adapters(only=only))
+    if len(res) == 4:
+        documents, visa_records, program_records, scholarship_records = res
+    else:
+        documents, visa_records = res[0], res[1]
+        program_records, scholarship_records = [], []
     logger.info("Scraped %d source documents", len(documents))
     # 2. Chunk documents and assign deterministic UUID v5 IDs
     chunks = chunk_documents(documents)
@@ -80,6 +106,16 @@ def handle_ingestion(event: dict, context=None) -> dict:
                 "Would upsert visa requirement: %s / %s / %s",
                 record.get("country"), record.get("visa_type"), record.get("issuing_body")
             )
+        for record in program_records:
+            logger.info(
+                "Would upsert program requirement: %s / %s",
+                record.get("university"), record.get("program_name")
+            )
+        for record in scholarship_records:
+            logger.info(
+                "Would upsert scholarship program: %s",
+                record.get("name")
+            )
         return {
             "status": "success",
             "dry_run": True,
@@ -88,11 +124,15 @@ def handle_ingestion(event: dict, context=None) -> dict:
             "new_chunks_upserted": 0,
             "skipped_chunks": len(chunks),
             "visa_requirements_upserted": 0,
-            "visa_requirements_failed": 0
+            "visa_requirements_failed": 0,
+            "program_requirements_upserted": 0,
+            "program_requirements_failed": 0,
+            "scholarship_programs_upserted": 0,
+            "scholarship_programs_failed": 0
         }
-    # 4. Upsert structured visa requirements (GOA-086) independently of the document
+    # 4. Upsert structured records (visa, program, scholarship) independently of the document
     #    chunk pipeline below -- each record's success/failure is isolated so a failure
-    #    on one side never blocks the other (dual-write strategy, see Task 16).
+    #    on one side never blocks the other (dual-write strategy).
     visa_requirements_upserted = 0
     visa_requirements_failed = 0
     for record in visa_records:
@@ -105,6 +145,36 @@ def handle_ingestion(event: dict, context=None) -> dict:
                 record.get("issuing_body"), record.get("visa_type"), str(e)
             )
             visa_requirements_failed += 1
+
+    program_requirements_upserted = 0
+    program_requirements_failed = 0
+    for record in program_records:
+        try:
+            upsert_program_requirement(record)
+            program_requirements_upserted += 1
+            # Promote crawl status to 'scraped' only after the RAG upsert succeeded —
+            # the adapter left it at 'extracted', so a failure here gets retried next run.
+            if record.get("source_url") and "mastersportal.com" in record["source_url"]:
+                crawl_state.mark_url_status("masters_portal", "unknown", record["source_url"], "scraped")
+        except Exception as e:
+            logger.error(
+                "Failed to upsert program requirement (%s / %s): %s",
+                record.get("university"), record.get("program_name"), str(e)
+            )
+            program_requirements_failed += 1
+
+    scholarship_programs_upserted = 0
+    scholarship_programs_failed = 0
+    for record in scholarship_records:
+        try:
+            upsert_scholarship_program(record)
+            scholarship_programs_upserted += 1
+        except Exception as e:
+            logger.error(
+                "Failed to upsert scholarship program (%s): %s",
+                record.get("name"), str(e)
+            )
+            scholarship_programs_failed += 1
     # 5. Check which chunks already exist in the database (Idempotency check)
     chunk_ids = [chunk.metadata["id"] for chunk in chunks]
     existing_ids = check_existing_chunks(chunk_ids)
@@ -122,7 +192,11 @@ def handle_ingestion(event: dict, context=None) -> dict:
             "new_chunks_upserted": 0,
             "skipped_chunks": len(chunks),
             "visa_requirements_upserted": visa_requirements_upserted,
-            "visa_requirements_failed": visa_requirements_failed
+            "visa_requirements_failed": visa_requirements_failed,
+            "program_requirements_upserted": program_requirements_upserted,
+            "program_requirements_failed": program_requirements_failed,
+            "scholarship_programs_upserted": scholarship_programs_upserted,
+            "scholarship_programs_failed": scholarship_programs_failed
         }
     # 6. Generate embeddings for the new chunks
     new_texts = [c.page_content for c in new_chunks]
@@ -149,5 +223,29 @@ def handle_ingestion(event: dict, context=None) -> dict:
         "new_chunks_upserted": len(new_chunks),
         "skipped_chunks": len(chunks) - len(new_chunks),
         "visa_requirements_upserted": visa_requirements_upserted,
-        "visa_requirements_failed": visa_requirements_failed
+        "visa_requirements_failed": visa_requirements_failed,
+        "program_requirements_upserted": program_requirements_upserted,
+        "program_requirements_failed": program_requirements_failed,
+        "scholarship_programs_upserted": scholarship_programs_upserted,
+        "scholarship_programs_failed": scholarship_programs_failed
     }
+
+
+if __name__ == "__main__":
+    # Canonical runner (GOA-111): same entry point for CLI, Docker CMD, and Lambda.
+    # Exits 0 on success, 1 on failure — `docker compose run --rm ingestion` reports it.
+    import json
+    import sys
+
+    try:
+        summary = handle_ingestion({})
+        print(json.dumps(summary, indent=2, default=str))
+        failed = (
+            summary.get("visa_requirements_failed", 0)
+            + summary.get("program_requirements_failed", 0)
+            + summary.get("scholarship_programs_failed", 0)
+        )
+        sys.exit(0 if summary.get("status") == "success" and failed == 0 else 1)
+    except Exception as exc:  # noqa: BLE001 — the runner must never die silently
+        logger.exception("Ingestion run failed: %s", exc)
+        sys.exit(1)

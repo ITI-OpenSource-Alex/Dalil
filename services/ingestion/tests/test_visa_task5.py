@@ -50,6 +50,7 @@ async def test_handler_preserves_source_url_metadata(mocker):
         "visa_requirements": []
     }]))
     
-    docs, visa_records = await fetch_all_adapters()
+    res = await fetch_all_adapters()
+    docs, visa_records = res[0], res[1]
     assert len(docs) == 1
     assert docs[0].metadata["source_url"] == "https://gov.uk/visa"

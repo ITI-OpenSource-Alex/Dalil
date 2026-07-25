@@ -125,6 +125,12 @@ class SessionService:
                 detail="Session not found",
             )
 
+        if session["status"] == "abandoned":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Session abandoned",
+            )
+
         if session["status"] != "in_progress":
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -271,6 +277,12 @@ class SessionService:
                 detail="Session not found",
             )
 
+        if session["status"] == "abandoned":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Session abandoned",
+            )
+
         if session["status"] in {"submitted", "scored"}:
             existing = await self.result_repository.get_by_session(session_id)
             if existing is not None:
@@ -397,6 +409,11 @@ class SessionService:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Session is not a listening exam",
+            )
+        if session["status"] == "abandoned":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Session abandoned",
             )
         if session["status"] in {"submitted", "scored"}:
             raise HTTPException(

@@ -37,8 +37,9 @@ async def get_llm_boost(cv_text: str | None, program_description: str, user_id: 
             **({"anthropic_api_url": settings.anthropic_base_url} if settings.anthropic_base_url else {}),
             model_kwargs={"extra_headers": {"User-Agent": settings.anthropic_user_agent}},
             temperature=0.0,
-            timeout=25.0,
-            max_retries=1,
+            # ChatAnthropic 0.1.13 supports default_request_timeout, not
+            # timeout/max_retries; unknown kwargs leak into the SDK create() call.
+            default_request_timeout=25.0,
         )
 
         # Enforce structured output via Pydantic

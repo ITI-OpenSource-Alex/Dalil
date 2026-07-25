@@ -35,9 +35,30 @@ llm = ChatAnthropic(
     anthropic_api_key=settings.anthropic_auth_token or settings.anthropic_api_key,
     **({"anthropic_api_url": settings.anthropic_base_url} if settings.anthropic_base_url else {}),
     model_kwargs={"extra_headers": {"User-Agent": settings.anthropic_user_agent}},
-    timeout=25.0,
-    max_retries=1,
+    # langchain_anthropic 0.1.13 has no `timeout` or `max_retries` field on
+    # ChatAnthropic; unrecognized kwargs are forwarded to AsyncMessages.create(),
+    # which rejects max_retries — that made every /query return 500. The supported
+    # field is default_request_timeout, and the retry now lives at the call site.
+    default_request_timeout=25.0,
 )
+
+
+async def _invoke_llm_with_retry(prompt, attempts: int = 2):
+    """Gateway tail latency is erratic (measured 2.5s–110s for identical calls),
+    so a timed-out or failed call is retried once before surfacing the error."""
+    last_error = None
+    for attempt in range(attempts):
+        try:
+            return await llm.ainvoke(prompt)
+        except Exception as e:  # noqa: BLE001 — retry any transport/timeout failure
+            last_error = e
+            # NOTE: this module's logger is a stdlib logger, not structlog —
+            # keyword fields raise "Logger._log() got an unexpected keyword
+            # argument", which would mask the real failure behind a logging error.
+            logger.warning(
+                "LLM invoke failed (attempt %d/%d): %s", attempt + 1, attempts, e
+            )
+    raise last_error
 
 
 async def generate_embedding(text: str) -> List[float]:
@@ -162,7 +183,7 @@ Answer:"""
 
     # 5. Call LLM (Claude)
     llm_start_time = time.time()
-    response = await llm.ainvoke(prompt)
+    response = await _invoke_llm_with_retry(prompt)
     llm_latency_ms = (time.time() - llm_start_time) * 1000
     answer_text = response.content
 

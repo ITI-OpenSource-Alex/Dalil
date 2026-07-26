@@ -2,13 +2,41 @@ import json
 from typing import Any
 from uuid import UUID
 
+import structlog
 from asyncpg import Pool, Record
+
+logger = structlog.get_logger("exam_service.question_repository")
 
 
 def _decode_json(value: Any) -> Any:
     if isinstance(value, str):
         return json.loads(value)
     return value
+
+
+# A test is servable only if every question it shows can actually be scored.
+#
+# Reading and Listening are graded deterministically against answer_key, and the
+# parsed bank is badly under-keyed: IELTS-17 test 1 presents 40 questions with a
+# single key, so a candidate answering all 40 correctly scores raw 1 -> band 0.0
+# (BUG-050). Counting questions alone is not enough — BUG-021's guard let those
+# through because the questions array is full; it is the key array that is short.
+#
+# Speaking and Writing are LLM-graded and carry no answer_key at all, so the
+# check must be skill-aware or it would make them unservable too.
+#
+# This is deliberately strict rather than a percentage threshold: a partially
+# scorable exam produces a confidently wrong band, which is worse than no exam.
+# It currently leaves 4 reading tests servable and 0 listening tests — listening
+# being unavailable is correct, since its audio bucket is empty as well
+# (BUG-022), so every listening session was already broken end to end.
+_SCORABLE_CLAUSE = """
+          AND (
+                q.skill_area NOT IN ('reading', 'listening')
+             OR (SELECT count(*) FROM jsonb_object_keys(q.answer_key))
+                = jsonb_array_length(q.questions)
+          )
+"""
 
 
 class QuestionRepository:
@@ -25,13 +53,14 @@ class QuestionRepository:
         # never be handed to a candidate. 11 of 20 writing tests and 6 of 21
         # speaking tests parsed with zero questions, so this path returned sessions
         # whose first_question_set was literally `"questions": []` (BUG-021).
-        query = """
+        query = f"""
         SELECT q.*
         FROM questions q
         LEFT JOIN exam_sessions s ON s.question_id = q.id AND s.user_id = $3
         WHERE q.exam_type=$1
           AND q.skill_area=$2
           AND jsonb_array_length(q.questions) > 0
+          {_SCORABLE_CLAUSE}
           AND s.id IS NULL
         ORDER BY RANDOM()
         LIMIT 1
@@ -57,12 +86,13 @@ class QuestionRepository:
         # who drew one got a created session, a running clock and nothing to
         # answer (BUG-021). This guard belongs on the read path regardless of what
         # ingestion lets through.
-        query = """
+        query = f"""
         SELECT q.*
         FROM questions q
         WHERE q.exam_type=$1
           AND q.skill_area=$2
           AND jsonb_array_length(q.questions) > 0
+          {_SCORABLE_CLAUSE}
           AND q.id NOT IN (
               SELECT question_id FROM exam_sessions WHERE user_id=$3
           )
@@ -71,7 +101,43 @@ class QuestionRepository:
         """
         async with self.pool.acquire() as conn:
             row = await conn.fetchrow(query, exam_type, skill_area, user_id)
+            if row is None:
+                await self._log_why_nothing_servable(conn, exam_type, skill_area)
         return row
+
+    async def _log_why_nothing_servable(self, conn, exam_type: str, skill_area: str) -> None:
+        """Explain an empty selection instead of letting it read as an empty bank.
+
+        "No reading tests available" is the same message whether nothing was ever
+        ingested or seventeen tests exist and every one is unscorable. An operator
+        needs to tell those apart — that ambiguity is what let BUG-050 sit
+        unnoticed behind a plausible-looking 404.
+        """
+        stats = await conn.fetchrow(
+            """
+            SELECT count(*) AS total,
+                   count(*) FILTER (WHERE jsonb_array_length(questions) = 0) AS no_questions,
+                   count(*) FILTER (
+                       WHERE jsonb_array_length(questions) > 0
+                         AND (SELECT count(*) FROM jsonb_object_keys(answer_key))
+                             <> jsonb_array_length(questions)
+                   ) AS incomplete_keys
+            FROM questions
+            WHERE exam_type = $1 AND skill_area = $2
+            """,
+            exam_type,
+            skill_area,
+        )
+        if stats and stats["total"]:
+            logger.warning(
+                "no_servable_test_found",
+                exam_type=exam_type,
+                skill_area=skill_area,
+                tests_in_bank=stats["total"],
+                excluded_no_questions=stats["no_questions"],
+                excluded_incomplete_answer_key=stats["incomplete_keys"],
+                detail="tests exist but none are fully scorable; see BUG-050",
+            )
 
     async def get_answer_key(
         self,

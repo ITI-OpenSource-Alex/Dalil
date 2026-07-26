@@ -1,7 +1,7 @@
 import { ExamType, SkillArea } from "@/app/types/exam";
 
 const API_BASE =
-  process.env.NEXT_PUBLIC_EXAM_API_URL ?? "http://localhost:8000";
+  process.env.NEXT_PUBLIC_EXAM_API_URL ?? "http://localhost:8085";
 
 const INTERNAL_API_KEY = process.env.NEXT_PUBLIC_INTERNAL_API_KEY ?? "";
 

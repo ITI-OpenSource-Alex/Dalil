@@ -22,3 +22,10 @@ scrape_configs:
     metrics_path: /metrics
     static_configs:
       - targets: ['writing:8000']
+  # Exam has always exposed /metrics and was never scraped, so
+  # goa_exam_sessions_total, the reading-session counters, grading latency and
+  # the score histograms were produced and collected by nobody (BUG-034).
+  # GOA-100's EXM-12 asserts on exactly those, and GOA-066 builds on them.
+  - job_name: 'exam'
+    static_configs:
+      - targets: ['exam:8085']

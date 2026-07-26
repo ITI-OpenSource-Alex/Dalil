@@ -61,9 +61,15 @@ async def fetch_all_adapters(only: list[str] | None = None, tier: int = 2):
     all_visa_records = []
     all_program_records = []
     all_scholarship_records = []
+    adapter_failures = {}
     for adapter, result in zip(adapters, results):
         if isinstance(result, Exception):
             logger.error("Adapter %s failed completely: %s", adapter.source_name, str(result))
+            # Record it, don't just log it. A blocked source produces zero rows, and
+            # zero rows on their own look exactly like a source that had nothing new
+            # -- the summary has to distinguish the two or nobody notices for a
+            # sprint (BUG-010a).
+            adapter_failures[adapter.source_name] = f"{type(result).__name__}: {result}"
             continue
         for d in result:
             # Structured visa requirements (GOA-086) are upserted independently of the
@@ -82,7 +88,7 @@ async def fetch_all_adapters(only: list[str] | None = None, tier: int = 2):
         for adapter in adapters
     }
     return (all_docs, all_visa_records, all_program_records, all_scholarship_records,
-            source_telemetry)
+            source_telemetry, adapter_failures)
 
 INGESTION_REPORTS_BUCKET = os.getenv("INGESTION_REPORTS_BUCKET", "goa-ingestion-reports")
 
@@ -144,6 +150,9 @@ def handle_ingestion(event: dict, context=None) -> dict:
     program_records = res[2] if len(res) > 2 else []
     scholarship_records = res[3] if len(res) > 3 else []
     source_telemetry = res[4] if len(res) > 4 else {}
+    adapter_failures = res[5] if len(res) > 5 else {}
+    if adapter_failures:
+        logger.error("Adapters that produced nothing due to failure: %s", adapter_failures)
     docs_skipped_at_source = sum(
         counts.get("skipped", 0)
         for per_discipline in source_telemetry.values()
@@ -180,7 +189,7 @@ def handle_ingestion(event: dict, context=None) -> dict:
                 record.get("name")
             )
         return {
-            "status": "success",
+            "status": "degraded" if adapter_failures else "success",
             "dry_run": True,
             "processed_documents": len(documents),
             "total_chunks": len(chunks),
@@ -194,6 +203,7 @@ def handle_ingestion(event: dict, context=None) -> dict:
             "scholarship_programs_failed": 0,
             "docs_skipped_at_source": docs_skipped_at_source,
             "source_telemetry": source_telemetry,
+            "adapter_failures": adapter_failures,
         }
     # 4. Upsert structured records (visa, program, scholarship) independently of the document
     #    chunk pipeline below -- each record's success/failure is isolated so a failure
@@ -250,7 +260,7 @@ def handle_ingestion(event: dict, context=None) -> dict:
     if not new_chunks:
         logger.info("All chunks already exist in the database. Ingestion completed with 0 updates.")
         summary = {
-            "status": "success",
+            "status": "degraded" if adapter_failures else "success",
             "dry_run": False,
             "processed_documents": len(documents),
             "total_chunks": len(chunks),
@@ -264,6 +274,7 @@ def handle_ingestion(event: dict, context=None) -> dict:
             "scholarship_programs_failed": scholarship_programs_failed,
             "docs_skipped_at_source": docs_skipped_at_source,
             "source_telemetry": source_telemetry,
+            "adapter_failures": adapter_failures,
         }
         summary["report_key"] = write_completion_report(summary)
         return summary
@@ -285,7 +296,7 @@ def handle_ingestion(event: dict, context=None) -> dict:
     upsert_chunks(upsert_payload)
     logger.info("Bulk upsert of %d chunks completed successfully", len(new_chunks))
     summary = {
-        "status": "success",
+        "status": "degraded" if adapter_failures else "success",
         "dry_run": False,
         "processed_documents": len(documents),
         "total_chunks": len(chunks),
@@ -299,6 +310,7 @@ def handle_ingestion(event: dict, context=None) -> dict:
         "scholarship_programs_failed": scholarship_programs_failed,
         "docs_skipped_at_source": docs_skipped_at_source,
         "source_telemetry": source_telemetry,
+        "adapter_failures": adapter_failures,
     }
     summary["report_key"] = write_completion_report(summary)
     return summary
@@ -307,6 +319,8 @@ def handle_ingestion(event: dict, context=None) -> dict:
 if __name__ == "__main__":
     # Canonical runner (GOA-111): same entry point for CLI, Docker CMD, and Lambda.
     # Exits 0 on success, 1 on failure — `docker compose run --rm ingestion` reports it.
+    # A source blocked outright yields status "degraded" and so exits 1: it produced
+    # zero rows, and a green run over zero rows is what BUG-010a was made of.
     import json
     import sys
 

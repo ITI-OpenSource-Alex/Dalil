@@ -36,6 +36,17 @@ async def fetch_all_adapters(only: list[str] | None = None, tier: int = 2):
     # Controlled runs (GOA-111 live verification, demos) can scope to specific
     # sources: event {"adapters": ["masters_portal"]} or INGESTION_ADAPTERS env.
     if only:
+        known = {a.source_name for a in adapters}
+        unknown = [name for name in only if name not in known]
+        if unknown:
+            # A name that matches nothing used to filter every adapter out and
+            # report success over zero sources -- `visa_source` instead of
+            # `visa_adapter` cost a full verification pass (BUG-014). A typo must
+            # not be indistinguishable from a healthy no-op run.
+            raise ValueError(
+                f"Unknown adapter(s) in INGESTION_ADAPTERS: {', '.join(sorted(unknown))}. "
+                f"Known sources: {', '.join(sorted(known))}"
+            )
         adapters = [a for a in adapters if a.source_name in only]
 
     # Option B Tier 1: build the catalog from search-API cards with no page fetch.

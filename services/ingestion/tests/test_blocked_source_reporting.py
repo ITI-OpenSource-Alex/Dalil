@@ -113,3 +113,32 @@ async def test_fetch_all_adapters_records_failure_without_aborting_the_run(mocke
     assert "403" in failures["daad"]
     # The healthy adapter still produced its document.
     assert len(docs) == 1
+
+
+# ---------------------------------------------------------------------------
+# BUG-014: a typo in INGESTION_ADAPTERS must not look like a healthy no-op run
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_unknown_adapter_name_raises_instead_of_matching_nothing():
+    """`INGESTION_ADAPTERS=visa_source` (the real name is `visa_adapter`) filtered
+    every adapter out and reported success over zero sources -- costing a whole
+    verification pass before anyone noticed the corpus had no visa content."""
+    with pytest.raises(ValueError) as exc:
+        await handler.fetch_all_adapters(only=["visa_source"])
+
+    assert "visa_source" in str(exc.value)
+    # The message must name the real options, or the next person repeats the typo.
+    assert "visa_adapter" in str(exc.value)
+
+
+@pytest.mark.asyncio
+async def test_known_adapter_names_are_still_accepted(mocker):
+    stub = mocker.Mock()
+    stub.source_name = "daad"
+    stub.scrape = mocker.AsyncMock(return_value=[])
+    mocker.patch("handler.DAADAdapter", return_value=stub)
+
+    docs, *_ = await handler.fetch_all_adapters(only=["daad"])
+
+    assert docs == []

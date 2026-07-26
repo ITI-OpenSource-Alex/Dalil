@@ -12,6 +12,7 @@ import {
   InternalRefreshDto,
   InternalRevokeDto,
 } from './dto/refresh-token.dto';
+import Redis from 'ioredis';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -305,6 +306,49 @@ export class UsersService {
         );
       },
     );
+
+    // 7. Revoking refresh tokens alone did not achieve step 6's stated intent: a
+    // stolen ACCESS token kept working for the rest of its hour, and a password
+    // reset is exactly what a user does when they believe one was stolen
+    // (BUG-028). The gateway checks this per-user epoch on every authenticated
+    // request, so stamping it here invalidates all outstanding access tokens.
+    await this.revokeAllAccessTokens(tokenRecord.userId, now);
+  }
+
+  /**
+   * Stamps the revocation epoch read by the gateway's JWT middleware.
+   *
+   * Key and value format must match `middleware.UserRevokedBeforeKey` in the Go
+   * gateway exactly: `user_revoked_before:{userId}` holding unix seconds, with a
+   * TTL equal to the access-token lifetime — past that, every token issued
+   * before the stamp has expired on its own and the key carries no meaning.
+   *
+   * Failure is logged rather than thrown: the password is already changed and
+   * the refresh tokens already revoked, so raising here would tell the user the
+   * reset failed when it succeeded.
+   */
+  private async revokeAllAccessTokens(userId: string, at: Date): Promise<void> {
+    const ACCESS_TOKEN_TTL_SECONDS = 3600;
+    const redis = new Redis({
+      host: process.env.REDIS_HOST || 'localhost',
+      port: parseInt(process.env.REDIS_PORT || '6379', 10),
+    });
+    try {
+      await redis.set(
+        `user_revoked_before:${userId}`,
+        Math.floor(at.getTime() / 1000).toString(),
+        'EX',
+        ACCESS_TOKEN_TTL_SECONDS,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to stamp access-token revocation epoch for user ${userId}; ` +
+          'outstanding access tokens remain valid until they expire',
+        error instanceof Error ? error.stack : String(error),
+      );
+    } finally {
+      redis.disconnect();
+    }
   }
 
   // Call this method inside your existing GOA-004 User Registration flow

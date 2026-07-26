@@ -1,5 +1,9 @@
+// The Writing service listens on 8000 (see docker-compose.yml). The previous
+// fallback of 8001 pointed at nothing at all, so a developer without a .env file
+// got connection failures rather than a clear "you are misconfigured" — and no
+// .env.example existed to copy from (BUG-045).
 const API_BASE =
-  process.env.NEXT_PUBLIC_WRITING_API_URL ?? "http://localhost:8001";
+  process.env.NEXT_PUBLIC_WRITING_API_URL ?? "http://localhost:8000";
 
 const headers = {
   "Content-Type": "application/json",

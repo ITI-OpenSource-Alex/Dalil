@@ -12,8 +12,15 @@ import (
 )
 
 var (
+	// Used solely by the STT call in stt.go. Whisper runs on CPU in the speech
+	// sidecar, so transcription time scales with utterance length: 35 seconds of
+	// audio measured at 11.4s, which blew straight through the previous 10s
+	// budget and failed every non-trivial utterance (BUG-037). IELTS Part 2
+	// answers run one to two minutes by design, so the ceiling has to allow for
+	// roughly 40s of processing plus headroom -- the exam format sets this
+	// number, not a round figure.
 	httpClient = &http.Client{
-		Timeout: 10 * time.Second,
+		Timeout: 120 * time.Second,
 		Transport: &http.Transport{
 			MaxIdleConns:        100,
 			MaxIdleConnsPerHost: 100,

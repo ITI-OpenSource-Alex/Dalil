@@ -29,6 +29,12 @@ var (
 	activeConns int32
 )
 
+// swarmEvaluationTimeout bounds the 4-agent evaluation swarm. Every agent call
+// traverses the AgentRouter gateway, measured at roughly 2.5s to over a minute
+// per request, so the deadline has to clear the slow tail or the partial-result
+// path never gets a single completed agent to work with. See BUG-038.
+const swarmEvaluationTimeout = 60 * time.Second
+
 // WSMessage abstracts websocket payloads to make concurrent writes safe
 type WSMessage struct {
 	Type    int
@@ -253,8 +259,18 @@ func (c *Client) writePump() {
 
 // runEvaluationAndTTS coordinates evaluation, telemetry, audio streaming, and async persistence
 func (c *Client) runEvaluationAndTTS(transcript string, transcriptionMs int64) {
-	// 1. Run parallel evaluation swarm with a 3.5s timeout context
-	swarmCtx, swarmCancel := context.WithTimeout(c.ctx, 3500*time.Millisecond)
+	// 1. Run the parallel evaluation swarm under a deadline. Agents that finish
+	// contribute; stragglers are marked TimedOut and excluded from the average.
+	//
+	// The budget was 3500ms, which no agent could meet: every call goes out
+	// through the AgentRouter gateway, whose measured latency ranges from ~2.5s
+	// to well over a minute. All four timed out on every session, so this path
+	// always returned "Evaluation completely failed due to timeout" and the
+	// partial-result machinery below was unreachable (BUG-038).
+	//
+	// swarmEvaluationTimeout is sized off that measured distribution. Reducing it
+	// again needs a faster provider, not a smaller number.
+	swarmCtx, swarmCancel := context.WithTimeout(c.ctx, swarmEvaluationTimeout)
 	swarmCtx = context.WithValue(swarmCtx, "userID", c.userID)
 	defer swarmCancel()
 

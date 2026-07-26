@@ -82,12 +82,12 @@ async def question_bank_stats(
             payload[exam_type].get(skill_area, 0) + row["count"]
         )
 
-    if not raw_stats:
-        payload["academic"]["reading"] = 1
-        payload["academic"]["listening"] = 0
-        payload["general"]["reading"] = 0
-        payload["general"]["listening"] = 0
-
+    # An empty question bank must report zeros. This previously hardcoded
+    # academic.reading = 1 whenever raw_stats came back empty, so the endpoint was
+    # at its most confident precisely when there was nothing there: it reported
+    # "1 academic reading test" against a `questions` table holding 0 rows, while
+    # /exam/reading/start correctly answered "No reading tests available"
+    # (BUG-020). The zero-fill below already handles absent keys.
     for skill in ("reading", "listening", "writing", "speaking"):
         if skill not in payload.get("academic", {}):
             payload.setdefault("academic", {})[skill] = 0

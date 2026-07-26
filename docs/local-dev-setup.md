@@ -82,3 +82,57 @@ docker compose exec gateway go test ./...
 # 5. User Service (TypeScript/Jest)
 docker compose exec user npm run test
 ```
+
+---
+
+## Exam Service: Seeding the Question Bank
+
+The Exam Service's question database starts empty. To seed it with Cambridge IELTS test questions (Stage 3 DB ingestion), follow these steps:
+
+1. **Verify PostgreSQL is Running**: Make sure the Docker database container is up (`docker compose up -d`).
+2. **Configure Database Connection**: Set the `DATABASE_URL` pointing to localhost's `exam_db`:
+   - **Windows (PowerShell)**:
+     ```powershell
+     $env:DATABASE_URL="postgresql://goa:goa_pass@localhost:5432/exam_db"
+     ```
+   - **Linux/macOS (bash)**:
+     ```bash
+     export DATABASE_URL="postgresql://goa:goa_pass@localhost:5432/exam_db"
+     ```
+3. **Run Ingestion**: From the `services/exam/` directory, run the ingestion script using the Python environment:
+   - **Windows**:
+     ```powershell
+     cd services/exam
+     # Initialize python virtualenv if needed:
+     python -m venv .venv
+     .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+     .\.venv\Scripts\python.exe scripts/ingest_books.py
+     ```
+   - **Linux/macOS**:
+     ```bash
+     cd services/exam
+     python3 -m venv .venv
+     source .venv/bin/activate
+     pip install -r requirements.txt
+     python scripts/ingest_books.py
+     ```
+
+To verify that the questions successfully ingested, run:
+```bash
+curl -H "X-Internal-API-Key: supersecret_internal_key_123" http://localhost:8085/internal/question-bank/stats
+```
+Expected response:
+```json
+{
+  "academic": { "reading": 20, "listening": 20 },
+  "general": { "reading": 20, "listening": 20 }
+}
+```
+
+---
+
+## Architecture Decision: Gateway vs. Direct Calls
+
+* **Local Development**: For simplicity, the frontend directly queries the Exam Service on port `8085` (using the `NEXT_PUBLIC_EXAM_API_URL` environment variable). This bypasses the API Gateway for local ease-of-use.
+* **Production**: In staging and production, the frontend routes all requests through the public ALB/Gateway (e.g., `/api/exam/*`). The gateway validates JWT authentication and forwards requests internally to the Exam Service, preventing the Exam port from being exposed publicly. See GOA-071 for routing details and ADR 0002 for more context.
+

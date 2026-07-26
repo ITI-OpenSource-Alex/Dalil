@@ -72,3 +72,9 @@ goa_exam_grading_latency_ms = Histogram(
     labelnames=["skill_area"],
     buckets=(10, 50, 100, 250, 500),
 )
+
+goa_exam_history_requests_total = Counter(
+    "goa_exam_history_requests_total",
+    "Total requests to the exam history / progress / weak-area endpoints",
+    labelnames=["endpoint"],
+)

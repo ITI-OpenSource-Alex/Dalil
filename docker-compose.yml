@@ -288,6 +288,7 @@ services:
       - PORT=8085
       - DATABASE_URL=postgresql://goa:goa_pass@postgres:5432/exam_db
       - INTERNAL_API_KEY=supersecret_internal_key_123
+      - WATCHFILES_FORCE_POLLING=true
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
       - LANGFUSE_HOST=${LANGFUSE_HOST}

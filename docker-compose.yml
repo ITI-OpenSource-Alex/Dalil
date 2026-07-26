@@ -85,7 +85,9 @@ services:
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
       - LANGFUSE_HOST=${LANGFUSE_HOST}
       - WRITING_MODEL=${WRITING_MODEL:-claude-sonnet-4-6}
-      - CV_EXTRACTION_MODEL=${CV_EXTRACTION_MODEL:-claude-haiku-4-5-20251001}
+      # AgentRouter serves no channel for haiku ("无可用渠道" / 503), only
+      # claude-opus-4-8. Revert to a cheaper model if the gateway ever routes one.
+      - CV_EXTRACTION_MODEL=${CV_EXTRACTION_MODEL:-claude-opus-4-8}
       - ANTHROPIC_TIMEOUT_SECONDS=${ANTHROPIC_TIMEOUT_SECONDS:-25}
       - WRITING_CACHE_VERSION=${WRITING_CACHE_VERSION:-v1}
     volumes:
@@ -120,7 +122,14 @@ services:
       - CV_PROCESSOR_QUEUE_URL=http://localstack:4566/000000000000/goa-cv-processing
       - CV_PROCESSED_QUEUE_URL=http://localstack:4566/000000000000/goa-cv-processed
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - CV_EXTRACTION_MODEL=${CV_EXTRACTION_MODEL:-claude-haiku-4-5-20251001}
+      # The CV processor is an AI service like any other and must reach the same
+      # gateway. Without these two it fell back to the real Anthropic API with an
+      # empty key and every CV stayed stuck in `processing` (BUG-018).
+      - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-}
+      - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
+      # AgentRouter serves no channel for haiku ("无可用渠道" / 503), only
+      # claude-opus-4-8. Revert to a cheaper model if the gateway ever routes one.
+      - CV_EXTRACTION_MODEL=${CV_EXTRACTION_MODEL:-claude-opus-4-8}
       - ANTHROPIC_TIMEOUT_SECONDS=${ANTHROPIC_TIMEOUT_SECONDS:-25}
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}

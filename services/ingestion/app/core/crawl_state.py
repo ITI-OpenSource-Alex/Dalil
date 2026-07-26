@@ -14,12 +14,19 @@ class CrawlStateManager:
     without restarting from page 1 or re-scraping completed URLs.
     """
 
-    def __init__(self, db_url: Optional[str] = None):
+    def __init__(self, db_url: Optional[str] = None, read_only: bool = False):
         self.db_url = db_url or os.getenv(
             "INGESTION_DATABASE_URL",
             "postgresql://goa:goa_pass@localhost:5432/ingestion_db"
         )
         self._initialized = False
+        # Dry-run guard. The adapters write crawl state DURING the scrape, long before
+        # handle_ingestion reaches its `if dry_run:` branch, so a dry run was marking
+        # URLs 'extracted'/'fetched' and silently making the next REAL run skip them.
+        # That is worse than the criterion it violates: a rehearsal quietly suppressed
+        # the thing it was rehearsing. The flag lives here rather than being threaded
+        # through every adapter so that a future write site is covered by default.
+        self.read_only = read_only
 
     def _get_conn(self):
         return psycopg2.connect(self.db_url, cursor_factory=RealDictCursor)
@@ -95,6 +102,10 @@ class CrawlStateManager:
         return {"last_page": 1, "scroll_offset": 0, "exhausted": False}
 
     def update_cursor(self, source_name: str, discipline: str, last_page: int, scroll_offset: int = 0, exhausted: bool = False):
+        if self.read_only:
+            logger.info("crawl_state_write_suppressed", op="update_cursor",
+                        source_name=source_name, discipline=discipline, last_page=last_page)
+            return
         self._init_db()
         try:
             with self._get_conn() as conn:
@@ -157,6 +168,10 @@ class CrawlStateManager:
     def mark_page_status(self, url: str, page_status: str,
                          error_message: Optional[str] = None):
         """Record the Tier 2 (page fetch) axis without disturbing the Tier 1 status."""
+        if self.read_only:
+            logger.info("crawl_state_write_suppressed", op="mark_page_status",
+                        url=url, page_status=page_status)
+            return
         self._init_db()
         url_hash = hashlib.sha256(url.encode('utf-8')).hexdigest()
         try:
@@ -177,6 +192,10 @@ class CrawlStateManager:
             logger.error("crawl_state_mark_page_status_failed", error=str(e))
 
     def mark_url_status(self, source_name: str, discipline: str, url: str, status: str, error_message: Optional[str] = None):
+        if self.read_only:
+            logger.info("crawl_state_write_suppressed", op="mark_url_status",
+                        url=url, status=status)
+            return
         self._init_db()
         url_hash = hashlib.sha256(url.encode('utf-8')).hexdigest()
         try:

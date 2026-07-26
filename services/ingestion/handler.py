@@ -75,6 +75,38 @@ async def fetch_all_adapters(only: list[str] | None = None, tier: int = 2):
             all_docs.append(Document(page_content=d['content'], metadata={'source_url': d.get('source_url') or d.get('url'), 'category': d.get('category')}))
     return all_docs, all_visa_records, all_program_records, all_scholarship_records
 
+INGESTION_REPORTS_BUCKET = os.getenv("INGESTION_REPORTS_BUCKET", "goa-ingestion-reports")
+
+
+def write_completion_report(summary: dict) -> str | None:
+    """Publish the run summary to S3 (ING-02). Returns the key, or None if not written.
+
+    A reporting failure must never fail an otherwise-good ingestion run: the data is
+    the product, the report is bookkeeping. Dry runs write nothing, by definition.
+    """
+    if summary.get("dry_run"):
+        return None
+    try:
+        import datetime
+        import json as _json
+
+        import boto3
+
+        key = f"reports/{datetime.datetime.utcnow().strftime('%Y-%m-%dT%H%M%SZ')}.json"
+        client = boto3.client("s3", endpoint_url=os.getenv("AWS_ENDPOINT_URL"))
+        client.put_object(
+            Bucket=INGESTION_REPORTS_BUCKET,
+            Key=key,
+            Body=_json.dumps(summary, indent=2, default=str).encode("utf-8"),
+            ContentType="application/json",
+        )
+        logger.info("Completion report written to s3://%s/%s", INGESTION_REPORTS_BUCKET, key)
+        return key
+    except Exception as e:
+        logger.error("Could not write completion report: %s", e)
+        return None
+
+
 def handle_ingestion(event: dict, context=None) -> dict:
     """
     Lambda-compatible entry point for the ingestion worker.
@@ -92,6 +124,11 @@ def handle_ingestion(event: dict, context=None) -> dict:
     )
     # Tier 1 (cards only, whole catalog, no browser) vs Tier 2 (page enrichment).
     tier = int(event.get("tier") or os.environ.get("INGESTION_TIER") or 2)
+    # A dry run must be read-only from the FIRST network call, not from step 3. The
+    # adapters mark crawl state as they scrape, so this has to be armed before
+    # fetch_all_adapters, otherwise the rehearsal marks URLs done and the next real
+    # run skips them.
+    crawl_state.read_only = dry_run
     # 1. Scrape documents using the real adapters
     res = asyncio.run(fetch_all_adapters(only=only, tier=tier))
     if len(res) == 4:
@@ -196,7 +233,7 @@ def handle_ingestion(event: dict, context=None) -> dict:
     logger.info("Identified %d new chunks that require embedding and upsert", len(new_chunks))
     if not new_chunks:
         logger.info("All chunks already exist in the database. Ingestion completed with 0 updates.")
-        return {
+        summary = {
             "status": "success",
             "dry_run": False,
             "processed_documents": len(documents),
@@ -210,6 +247,8 @@ def handle_ingestion(event: dict, context=None) -> dict:
             "scholarship_programs_upserted": scholarship_programs_upserted,
             "scholarship_programs_failed": scholarship_programs_failed
         }
+        summary["report_key"] = write_completion_report(summary)
+        return summary
     # 6. Generate embeddings for the new chunks
     new_texts = [c.page_content for c in new_chunks]
     embeddings = generate_embeddings(new_texts)
@@ -227,7 +266,7 @@ def handle_ingestion(event: dict, context=None) -> dict:
     # 8. Upsert to RAG service
     upsert_chunks(upsert_payload)
     logger.info("Bulk upsert of %d chunks completed successfully", len(new_chunks))
-    return {
+    summary = {
         "status": "success",
         "dry_run": False,
         "processed_documents": len(documents),
@@ -241,6 +280,8 @@ def handle_ingestion(event: dict, context=None) -> dict:
         "scholarship_programs_upserted": scholarship_programs_upserted,
         "scholarship_programs_failed": scholarship_programs_failed
     }
+    summary["report_key"] = write_completion_report(summary)
+    return summary
 
 
 if __name__ == "__main__":

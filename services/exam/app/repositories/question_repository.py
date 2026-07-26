@@ -21,12 +21,17 @@ class QuestionRepository:
         skill_area: str,
         user_id: UUID,
     ) -> Record | None:
+        # Same guard as get_random_unseen_question: a test with no questions must
+        # never be handed to a candidate. 11 of 20 writing tests and 6 of 21
+        # speaking tests parsed with zero questions, so this path returned sessions
+        # whose first_question_set was literally `"questions": []` (BUG-021).
         query = """
         SELECT q.*
         FROM questions q
         LEFT JOIN exam_sessions s ON s.question_id = q.id AND s.user_id = $3
         WHERE q.exam_type=$1
           AND q.skill_area=$2
+          AND jsonb_array_length(q.questions) > 0
           AND s.id IS NULL
         ORDER BY RANDOM()
         LIMIT 1
@@ -46,11 +51,18 @@ class QuestionRepository:
         skill_area: str,
         user_id: UUID,
     ) -> Record | None:
+        # jsonb_array_length > 0 keeps unusable tests out of circulation. Three
+        # reading tests parsed as book_ref `IELTS-unknown` with zero questions and
+        # the ingest script inserted them while reporting "Errors: 0"; a candidate
+        # who drew one got a created session, a running clock and nothing to
+        # answer (BUG-021). This guard belongs on the read path regardless of what
+        # ingestion lets through.
         query = """
         SELECT q.*
         FROM questions q
         WHERE q.exam_type=$1
           AND q.skill_area=$2
+          AND jsonb_array_length(q.questions) > 0
           AND q.id NOT IN (
               SELECT question_id FROM exam_sessions WHERE user_id=$3
           )

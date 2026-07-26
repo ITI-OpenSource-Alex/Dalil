@@ -1,7 +1,39 @@
+from datetime import datetime
+
 import structlog
 from app.core.database import db
 
 logger = structlog.get_logger("rag_service.profile_repo")
+
+
+def _as_datetime(value):
+    """Coerce the event envelope's timestamp into something asyncpg accepts.
+
+    The User service stamps events with JavaScript's `new Date().toISOString()`,
+    which yields `2026-07-26T15:32:04.553Z`. asyncpg binds timestamptz strictly
+    and rejects a str, so every UserUpdated message failed here with
+    "invalid input for query argument $10 ... got 'str'" and was retried forever
+    -- the profile sync had never once succeeded (BUG-024).
+
+    The trailing `Z` is handled explicitly rather than relying on
+    fromisoformat's 3.11+ support for it, so this stays correct if the service
+    is ever run on an older interpreter.
+    """
+    if value is None or isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        text = value.strip()
+        if text.endswith(("Z", "z")):
+            text = text[:-1] + "+00:00"
+        try:
+            return datetime.fromisoformat(text)
+        except ValueError:
+            # A malformed timestamp must not poison the whole profile. Treating it
+            # as absent lets the upsert proceed; the ordering guard then behaves as
+            # it does for any event that carries no timestamp.
+            logger.warning("Unparseable event timestamp; treating as absent", value=value)
+            return None
+    return value
 
 
 async def upsert_local_profiles(profile_dict: dict) -> None:
@@ -24,7 +56,7 @@ async def upsert_local_profiles(profile_dict: dict) -> None:
         # We will dump the list/dict into a JSON string for asyncpg's parameter binding.
 
         target_countries = profile_dict.get("targetCountries", [])
-        last_synced_at = profile_dict.get("last_synced_at")
+        last_synced_at = _as_datetime(profile_dict.get("last_synced_at"))
 
         query = """
             INSERT INTO local_user_profiles (

@@ -44,11 +44,6 @@ from app.schemas import (
 
 router = APIRouter(prefix="/essays", tags=["essays"])
 
-# TODO (GOA-112): Add `POST ""` on the existing `/essays`-prefixed router (i.e., bare `POST /essays`), returning 201.
-# - Persist an Essay with status='ready' and return its id. 
-# - Constraint: the returned id must be immediately usable by the existing POST /essays/{id}/evaluate SSE route with no extra setup — that means extracted_text, submission_type, and exam_type must be populated the same way /essays/evaluate populates them, or the SSE route's cache-key derivation will diverge for created-then-evaluated essays vs directly-evaluated ones.
-# - Check whether the Essay model has an exam_session_id column. If not: nullable column + migration, following this service's existing migration numbering. Do not silently drop the field — GOA-053's exam mode will need it.
-
 @router.post('', response_model=EssayCreateResponse, status_code=201)
 async def create_essay(
     payload: EssayCreateRequest,

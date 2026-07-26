@@ -5,6 +5,7 @@ import (
 
 	"github.com/ITI-OpenSource-Alex/GOA/services/gateway/observability"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/utils"
 	"github.com/rs/zerolog"
 )
 
@@ -20,9 +21,13 @@ func RequestLogger(logger zerolog.Logger, metrics *observability.Metrics) fiber.
 			}
 		}
 
+		// c.Route().Path is a registered route pattern -- an ordinary Go string
+		// that outlives the request. c.Path() is not: like c.Method(), it is a
+		// zero-copy view over fasthttp's reused request buffer and must be copied
+		// before anything retains it (BUG-031).
 		route := c.Route().Path
 		if route == "" {
-			route = c.Path()
+			route = utils.CopyString(c.Path())
 		}
 
 		status := c.Response().StatusCode()
@@ -39,7 +44,14 @@ func RequestLogger(logger zerolog.Logger, metrics *observability.Metrics) fiber.
 		}
 
 		c.Locals(ContextKeyRoute, route)
-		metrics.RecordRequest(route, c.Method(), status, latency)
+		// Prometheus keeps label values in its own map for the process lifetime,
+		// so handing it fasthttp's buffer-backed string corrupted the series after
+		// the buffer was reused: a POST to /auth/login surfaced as method "GETT",
+		// and the mutated labels then collided with the originals. The whole
+		// /metrics endpoint 500'd as a result -- "was collected before with the
+		// same name and label values" -- so Prometheus could not scrape the
+		// gateway at all (BUG-031).
+		metrics.RecordRequest(route, utils.CopyString(c.Method()), status, latency)
 
 		logger.Info().
 			Str("request_id", requestID).
@@ -63,9 +75,13 @@ func ErrorHandler(logger zerolog.Logger) fiber.ErrorHandler {
 			message = fiberError.Message
 		}
 
+		// c.Route().Path is a registered route pattern -- an ordinary Go string
+		// that outlives the request. c.Path() is not: like c.Method(), it is a
+		// zero-copy view over fasthttp's reused request buffer and must be copied
+		// before anything retains it (BUG-031).
 		route := c.Route().Path
 		if route == "" {
-			route = c.Path()
+			route = utils.CopyString(c.Path())
 		}
 
 		requestID, _ := c.Locals(ContextKeyRequestID).(string)

@@ -3,7 +3,7 @@ from playwright.async_api import async_playwright
 import structlog
 from app.core.robots import robot_checker
 from app.core.rate_limiter import polite_delay
-from app.core.retry import with_playwright_backoff
+from app.core.retry import PageFetchError, with_playwright_backoff
 logger = structlog.get_logger(__name__)
 
 
@@ -30,7 +30,14 @@ class BasePlaywrightAdapter(ABC):
             page = page = await browser.new_page(
                 user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
             )
-            await page.goto(url, wait_until="networkidle")
+            response = await page.goto(url, wait_until="networkidle")
+            # Playwright hands back the error page's body on a 4xx/5xx rather than
+            # raising, so an unchecked goto() turns "we were blocked" into "the
+            # catalog is empty" -- silently, and with status: success. Fail loudly
+            # here instead; scrape() already isolates a single URL's failure.
+            if response is not None and response.status >= 400:
+                await browser.close()
+                raise PageFetchError(url, response.status)
             await page.wait_for_timeout(2000)
 
             # Wait for the site's specific wrapper to populate

@@ -16,6 +16,11 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+// accessTokenTTL mirrors the access-token cookie lifetime set in Login/Refresh.
+// Used as the TTL of the per-user revocation epoch: past that point every token
+// issued before the stamp has expired anyway.
+const accessTokenTTL = time.Hour
+
 type AuthHandler struct {
 	redisClient    *redis.Client
 	tokenService   *gatewayauth.TokenService
@@ -296,9 +301,29 @@ func (h *AuthHandler) LogoutAll(c *fiber.Ctx) error {
 	}
 	h.fireAndForgetRevoke(c, payload)
 
+	// Revoking refresh tokens alone left every other device's access token working
+	// for the rest of its hour -- "log out everywhere" is precisely what a user
+	// does when they think the account is compromised, so that window mattered
+	// (BUG-027). The jti blacklist cannot help here: the gateway only knows the
+	// calling session's jti. A per-user epoch revokes all of them at once.
+	h.revokeAllAccessTokensForUser(c, userID)
+
 	h.blacklistCurrentAccessToken(c)
 	h.clearCookies(c)
 	return c.SendStatus(fiber.StatusOK)
+}
+
+// revokeAllAccessTokensForUser stamps the revocation epoch checked by
+// middleware.JWT. The TTL matches the access-token lifetime: once that has
+// elapsed every token issued before the stamp has expired on its own, so the key
+// carries no further meaning and should not linger.
+func (h *AuthHandler) revokeAllAccessTokensForUser(c *fiber.Ctx, userID string) {
+	_ = h.redisClient.Set(
+		c.UserContext(),
+		middleware.UserRevokedBeforeKey(userID),
+		time.Now().Unix(),
+		accessTokenTTL,
+	).Err()
 }
 
 func (h *AuthHandler) fireAndForgetRevoke(c *fiber.Ctx, payload []byte) {

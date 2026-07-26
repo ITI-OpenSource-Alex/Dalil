@@ -286,9 +286,16 @@ def get_processor() -> CVProcessor:
 
     from anthropic import Anthropic
 
+    # Mirror app/agents.py. Without base_url this client talks to the real Anthropic
+    # API instead of the AgentRouter gateway the rest of the stack uses, and the
+    # gateway also requires the pinned User-Agent. get_settings() already resolves
+    # ANTHROPIC_AUTH_TOKEN ahead of ANTHROPIC_API_KEY, so the routing bits were the
+    # only thing missing here (BUG-018).
     anthropic_client = Anthropic(
         api_key=settings.anthropic_api_key,
         timeout=settings.anthropic_timeout_seconds,
+        default_headers={"User-Agent": settings.anthropic_user_agent},
+        **({"base_url": settings.anthropic_base_url} if settings.anthropic_base_url else {}),
     )
     return CVProcessor(
         s3_client=_aws_client("s3", settings),

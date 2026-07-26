@@ -36,6 +36,17 @@ async def fetch_all_adapters(only: list[str] | None = None, tier: int = 2):
     # Controlled runs (GOA-111 live verification, demos) can scope to specific
     # sources: event {"adapters": ["masters_portal"]} or INGESTION_ADAPTERS env.
     if only:
+        known = {a.source_name for a in adapters}
+        unknown = [name for name in only if name not in known]
+        if unknown:
+            # A name that matches nothing used to filter every adapter out and
+            # report success over zero sources -- `visa_source` instead of
+            # `visa_adapter` cost a full verification pass (BUG-014). A typo must
+            # not be indistinguishable from a healthy no-op run.
+            raise ValueError(
+                f"Unknown adapter(s) in INGESTION_ADAPTERS: {', '.join(sorted(unknown))}. "
+                f"Known sources: {', '.join(sorted(known))}"
+            )
         adapters = [a for a in adapters if a.source_name in only]
 
     # Option B Tier 1: build the catalog from search-API cards with no page fetch.
@@ -61,9 +72,15 @@ async def fetch_all_adapters(only: list[str] | None = None, tier: int = 2):
     all_visa_records = []
     all_program_records = []
     all_scholarship_records = []
+    adapter_failures = {}
     for adapter, result in zip(adapters, results):
         if isinstance(result, Exception):
             logger.error("Adapter %s failed completely: %s", adapter.source_name, str(result))
+            # Record it, don't just log it. A blocked source produces zero rows, and
+            # zero rows on their own look exactly like a source that had nothing new
+            # -- the summary has to distinguish the two or nobody notices for a
+            # sprint (BUG-010a).
+            adapter_failures[adapter.source_name] = f"{type(result).__name__}: {result}"
             continue
         for d in result:
             # Structured visa requirements (GOA-086) are upserted independently of the
@@ -73,7 +90,48 @@ async def fetch_all_adapters(only: list[str] | None = None, tier: int = 2):
             all_scholarship_records.extend(d.pop("scholarship_programs", []))
             all_visa_records.extend(d.pop("visa_requirements", []))
             all_docs.append(Document(page_content=d['content'], metadata={'source_url': d.get('source_url') or d.get('url'), 'category': d.get('category')}))
-    return all_docs, all_visa_records, all_program_records, all_scholarship_records
+
+    # Adapter-level skips are the ones that carry the idempotency signal — a card
+    # already ingested never reaches the chunker, so counting only chunk-level skips
+    # reports 0 for a run that skipped nearly everything.
+    source_telemetry = {
+        adapter.source_name: getattr(adapter, "last_run_telemetry", {}) or {}
+        for adapter in adapters
+    }
+    return (all_docs, all_visa_records, all_program_records, all_scholarship_records,
+            source_telemetry, adapter_failures)
+
+INGESTION_REPORTS_BUCKET = os.getenv("INGESTION_REPORTS_BUCKET", "goa-ingestion-reports")
+
+
+def write_completion_report(summary: dict) -> str | None:
+    """Publish the run summary to S3 (ING-02). Returns the key, or None if not written.
+
+    A reporting failure must never fail an otherwise-good ingestion run: the data is
+    the product, the report is bookkeeping. Dry runs write nothing, by definition.
+    """
+    if summary.get("dry_run"):
+        return None
+    try:
+        import datetime
+        import json as _json
+
+        import boto3
+
+        key = f"reports/{datetime.datetime.utcnow().strftime('%Y-%m-%dT%H%M%SZ')}.json"
+        client = boto3.client("s3", endpoint_url=os.getenv("AWS_ENDPOINT_URL"))
+        client.put_object(
+            Bucket=INGESTION_REPORTS_BUCKET,
+            Key=key,
+            Body=_json.dumps(summary, indent=2, default=str).encode("utf-8"),
+            ContentType="application/json",
+        )
+        logger.info("Completion report written to s3://%s/%s", INGESTION_REPORTS_BUCKET, key)
+        return key
+    except Exception as e:
+        logger.error("Could not write completion report: %s", e)
+        return None
+
 
 def handle_ingestion(event: dict, context=None) -> dict:
     """
@@ -92,13 +150,26 @@ def handle_ingestion(event: dict, context=None) -> dict:
     )
     # Tier 1 (cards only, whole catalog, no browser) vs Tier 2 (page enrichment).
     tier = int(event.get("tier") or os.environ.get("INGESTION_TIER") or 2)
+    # A dry run must be read-only from the FIRST network call, not from step 3. The
+    # adapters mark crawl state as they scrape, so this has to be armed before
+    # fetch_all_adapters, otherwise the rehearsal marks URLs done and the next real
+    # run skips them.
+    crawl_state.read_only = dry_run
     # 1. Scrape documents using the real adapters
     res = asyncio.run(fetch_all_adapters(only=only, tier=tier))
-    if len(res) == 4:
-        documents, visa_records, program_records, scholarship_records = res
-    else:
-        documents, visa_records = res[0], res[1]
-        program_records, scholarship_records = [], []
+    documents, visa_records = res[0], res[1]
+    program_records = res[2] if len(res) > 2 else []
+    scholarship_records = res[3] if len(res) > 3 else []
+    source_telemetry = res[4] if len(res) > 4 else {}
+    adapter_failures = res[5] if len(res) > 5 else {}
+    if adapter_failures:
+        logger.error("Adapters that produced nothing due to failure: %s", adapter_failures)
+    docs_skipped_at_source = sum(
+        counts.get("skipped", 0)
+        for per_discipline in source_telemetry.values()
+        for counts in per_discipline.values()
+    )
+    logger.info("Skipped %d already-ingested items at the source", docs_skipped_at_source)
     logger.info("Scraped %d source documents", len(documents))
     # 2. Chunk documents and assign deterministic UUID v5 IDs
     chunks = chunk_documents(documents)
@@ -129,7 +200,7 @@ def handle_ingestion(event: dict, context=None) -> dict:
                 record.get("name")
             )
         return {
-            "status": "success",
+            "status": "degraded" if adapter_failures else "success",
             "dry_run": True,
             "processed_documents": len(documents),
             "total_chunks": len(chunks),
@@ -140,7 +211,10 @@ def handle_ingestion(event: dict, context=None) -> dict:
             "program_requirements_upserted": 0,
             "program_requirements_failed": 0,
             "scholarship_programs_upserted": 0,
-            "scholarship_programs_failed": 0
+            "scholarship_programs_failed": 0,
+            "docs_skipped_at_source": docs_skipped_at_source,
+            "source_telemetry": source_telemetry,
+            "adapter_failures": adapter_failures,
         }
     # 4. Upsert structured records (visa, program, scholarship) independently of the document
     #    chunk pipeline below -- each record's success/failure is isolated so a failure
@@ -196,8 +270,8 @@ def handle_ingestion(event: dict, context=None) -> dict:
     logger.info("Identified %d new chunks that require embedding and upsert", len(new_chunks))
     if not new_chunks:
         logger.info("All chunks already exist in the database. Ingestion completed with 0 updates.")
-        return {
-            "status": "success",
+        summary = {
+            "status": "degraded" if adapter_failures else "success",
             "dry_run": False,
             "processed_documents": len(documents),
             "total_chunks": len(chunks),
@@ -208,8 +282,13 @@ def handle_ingestion(event: dict, context=None) -> dict:
             "program_requirements_upserted": program_requirements_upserted,
             "program_requirements_failed": program_requirements_failed,
             "scholarship_programs_upserted": scholarship_programs_upserted,
-            "scholarship_programs_failed": scholarship_programs_failed
+            "scholarship_programs_failed": scholarship_programs_failed,
+            "docs_skipped_at_source": docs_skipped_at_source,
+            "source_telemetry": source_telemetry,
+            "adapter_failures": adapter_failures,
         }
+        summary["report_key"] = write_completion_report(summary)
+        return summary
     # 6. Generate embeddings for the new chunks
     new_texts = [c.page_content for c in new_chunks]
     embeddings = generate_embeddings(new_texts)
@@ -227,8 +306,8 @@ def handle_ingestion(event: dict, context=None) -> dict:
     # 8. Upsert to RAG service
     upsert_chunks(upsert_payload)
     logger.info("Bulk upsert of %d chunks completed successfully", len(new_chunks))
-    return {
-        "status": "success",
+    summary = {
+        "status": "degraded" if adapter_failures else "success",
         "dry_run": False,
         "processed_documents": len(documents),
         "total_chunks": len(chunks),
@@ -239,13 +318,20 @@ def handle_ingestion(event: dict, context=None) -> dict:
         "program_requirements_upserted": program_requirements_upserted,
         "program_requirements_failed": program_requirements_failed,
         "scholarship_programs_upserted": scholarship_programs_upserted,
-        "scholarship_programs_failed": scholarship_programs_failed
+        "scholarship_programs_failed": scholarship_programs_failed,
+        "docs_skipped_at_source": docs_skipped_at_source,
+        "source_telemetry": source_telemetry,
+        "adapter_failures": adapter_failures,
     }
+    summary["report_key"] = write_completion_report(summary)
+    return summary
 
 
 if __name__ == "__main__":
     # Canonical runner (GOA-111): same entry point for CLI, Docker CMD, and Lambda.
     # Exits 0 on success, 1 on failure — `docker compose run --rm ingestion` reports it.
+    # A source blocked outright yields status "degraded" and so exits 1: it produced
+    # zero rows, and a green run over zero rows is what BUG-010a was made of.
     import json
     import sys
 

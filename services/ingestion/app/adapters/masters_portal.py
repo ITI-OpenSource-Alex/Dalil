@@ -475,6 +475,11 @@ class MastersPortalAdapter(BasePlaywrightAdapter):
             logger.info("masters_portal_tier1_batch", discipline=discipline, **counts)
 
         logger.info("masters_portal_tier1_telemetry", telemetry=telemetry)
+        # Publish, don't just log. Already-ingested cards are skipped HERE, before
+        # chunking, so a run that correctly skipped 986 of 1000 still reported
+        # skipped_chunks: 0 — the exact metric ING-03 tells an operator to check.
+        # The number existed all along and died in a log line.
+        self.last_run_telemetry = telemetry
         return documents
 
     # ------------------------------------------------------- tier 2: page enrichment

@@ -147,9 +147,14 @@ async def forward_downstream_stream(
             duration_ms = (time.perf_counter() - start_time) * 1000
             goa_orchestration_downstream_latency_ms.labels(service=service_name).observe(duration_ms)
             
+            # Writing's Essay.id is an integer primary key, but essayId crosses the
+            # wire as a string (ChatStreamEvent, and GOA-019's client reads it as
+            # one). Without this cast Pydantic rejects the event and the WRITING
+            # intent fails outright -- see BUG-015: the service answered correctly
+            # and the user was still told it was offline.
             essay_id = data.get("id", "unknown")
             sse_url = f"{settings.writing_service_url}/essays/{essay_id}/evaluate"
-            yield ChatStreamEvent(type="writing_url", essayId=essay_id, sseUrl=sse_url)
+            yield ChatStreamEvent(type="writing_url", essayId=str(essay_id), sseUrl=sse_url)
 
         elif intent == "RAG":
             service_name = "rag"
@@ -225,10 +230,21 @@ async def forward_downstream_stream(
             yield ChatStreamEvent(type="error", error="I'm sorry, but the global opportunity database is currently offline. Please try again later.")
     except (httpx.HTTPError, Exception) as e:
         duration_ms = (time.perf_counter() - start_time) * 1000
+        # Distinguish "they didn't answer" from "we couldn't handle their answer".
+        # This handler catches bare Exception, so a local bug -- a Pydantic
+        # ValidationError on our own event schema, say -- used to be logged and
+        # reported as a downstream outage. BUG-015 was exactly that: the Writing
+        # service returned 201 with a valid essay and the log read "Downstream
+        # service unavailable", pointing debugging at the wrong service entirely.
+        is_downstream_fault = isinstance(e, httpx.HTTPError)
         logger.warning(
-            "Downstream service unavailable - activating fallback",
+            "Downstream service unavailable - activating fallback"
+            if is_downstream_fault
+            else "Orchestration failed to process a successful downstream response",
             service=service_name,
             error=str(e),
+            error_type=type(e).__name__,
+            downstream_fault=is_downstream_fault,
             latency_ms=duration_ms,
             correlation_id=correlation_id
         )

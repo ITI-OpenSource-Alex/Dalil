@@ -73,7 +73,16 @@ async def fetch_all_adapters(only: list[str] | None = None, tier: int = 2):
             all_scholarship_records.extend(d.pop("scholarship_programs", []))
             all_visa_records.extend(d.pop("visa_requirements", []))
             all_docs.append(Document(page_content=d['content'], metadata={'source_url': d.get('source_url') or d.get('url'), 'category': d.get('category')}))
-    return all_docs, all_visa_records, all_program_records, all_scholarship_records
+
+    # Adapter-level skips are the ones that carry the idempotency signal — a card
+    # already ingested never reaches the chunker, so counting only chunk-level skips
+    # reports 0 for a run that skipped nearly everything.
+    source_telemetry = {
+        adapter.source_name: getattr(adapter, "last_run_telemetry", {}) or {}
+        for adapter in adapters
+    }
+    return (all_docs, all_visa_records, all_program_records, all_scholarship_records,
+            source_telemetry)
 
 INGESTION_REPORTS_BUCKET = os.getenv("INGESTION_REPORTS_BUCKET", "goa-ingestion-reports")
 
@@ -131,11 +140,16 @@ def handle_ingestion(event: dict, context=None) -> dict:
     crawl_state.read_only = dry_run
     # 1. Scrape documents using the real adapters
     res = asyncio.run(fetch_all_adapters(only=only, tier=tier))
-    if len(res) == 4:
-        documents, visa_records, program_records, scholarship_records = res
-    else:
-        documents, visa_records = res[0], res[1]
-        program_records, scholarship_records = [], []
+    documents, visa_records = res[0], res[1]
+    program_records = res[2] if len(res) > 2 else []
+    scholarship_records = res[3] if len(res) > 3 else []
+    source_telemetry = res[4] if len(res) > 4 else {}
+    docs_skipped_at_source = sum(
+        counts.get("skipped", 0)
+        for per_discipline in source_telemetry.values()
+        for counts in per_discipline.values()
+    )
+    logger.info("Skipped %d already-ingested items at the source", docs_skipped_at_source)
     logger.info("Scraped %d source documents", len(documents))
     # 2. Chunk documents and assign deterministic UUID v5 IDs
     chunks = chunk_documents(documents)
@@ -177,7 +191,9 @@ def handle_ingestion(event: dict, context=None) -> dict:
             "program_requirements_upserted": 0,
             "program_requirements_failed": 0,
             "scholarship_programs_upserted": 0,
-            "scholarship_programs_failed": 0
+            "scholarship_programs_failed": 0,
+            "docs_skipped_at_source": docs_skipped_at_source,
+            "source_telemetry": source_telemetry,
         }
     # 4. Upsert structured records (visa, program, scholarship) independently of the document
     #    chunk pipeline below -- each record's success/failure is isolated so a failure
@@ -245,7 +261,9 @@ def handle_ingestion(event: dict, context=None) -> dict:
             "program_requirements_upserted": program_requirements_upserted,
             "program_requirements_failed": program_requirements_failed,
             "scholarship_programs_upserted": scholarship_programs_upserted,
-            "scholarship_programs_failed": scholarship_programs_failed
+            "scholarship_programs_failed": scholarship_programs_failed,
+            "docs_skipped_at_source": docs_skipped_at_source,
+            "source_telemetry": source_telemetry,
         }
         summary["report_key"] = write_completion_report(summary)
         return summary
@@ -278,7 +296,9 @@ def handle_ingestion(event: dict, context=None) -> dict:
         "program_requirements_upserted": program_requirements_upserted,
         "program_requirements_failed": program_requirements_failed,
         "scholarship_programs_upserted": scholarship_programs_upserted,
-        "scholarship_programs_failed": scholarship_programs_failed
+        "scholarship_programs_failed": scholarship_programs_failed,
+        "docs_skipped_at_source": docs_skipped_at_source,
+        "source_telemetry": source_telemetry,
     }
     summary["report_key"] = write_completion_report(summary)
     return summary

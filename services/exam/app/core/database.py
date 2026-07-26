@@ -1,4 +1,5 @@
 import glob
+import json
 import logging
 import os
 
@@ -17,12 +18,10 @@ class Database:
         if not self.pool:
             logger.info("Initializing asyncpg connection pool...")
             self.pool = await asyncpg.create_pool(
-                dsn=settings.database_url,
-                min_size=2,
-                max_size=10
+                dsn=settings.database_url, min_size=2, max_size=10
             )
-            # Run migrations on connection startup.
             await self.run_migrations()
+            await self.seed_band_tables()
 
     async def disconnect(self):
         if self.pool:
@@ -59,15 +58,97 @@ class Database:
                     with open(file_path, "r", encoding="utf-8") as f:
                         sql = f.read()
 
+                    # An empty (or comment-only) migration file makes asyncpg return None
+                    # for the statement, and the driver then raises
+                    # "AttributeError: 'NoneType' object has no attribute 'decode'",
+                    # which aborts startup entirely. Skip it WITHOUT recording it as
+                    # applied, so it still runs once real SQL is added to the file.
+                    if not sql.strip():
+                        logger.warning(
+                            "Migration %s is empty — skipping (not marked as applied)",
+                            filename,
+                        )
+                        continue
+
                     async with conn.transaction():
                         await conn.execute(sql)
                         await conn.execute(
                             "INSERT INTO migrations_log (migration_file) VALUES ($1)",
-                            filename
+                            filename,
                         )
                     logger.info("Migration %s executed successfully", filename)
                 else:
                     logger.debug("Migration %s already executed, skipping", filename)
+
+    async def seed_band_tables(self):
+        seeds = [
+            {
+                "skill_area": "reading",
+                "exam_type": "academic",
+                "conversion": [
+                    [39, 9.0],
+                    [37, 8.5],
+                    [35, 8.0],
+                    [33, 7.5],
+                    [30, 7.0],
+                    [27, 6.5],
+                    [23, 6.0],
+                    [19, 5.5],
+                    [15, 5.0],
+                    [13, 4.5],
+                    [10, 4.0],
+                    [6, 3.5],
+                    [4, 3.0],
+                    [3, 2.5],
+                    [2, 2.0],
+                    [0, 0.0],
+                ],
+            },
+            {
+                "skill_area": "reading",
+                "exam_type": "general",
+                "conversion": [
+                    [40, 9.0],
+                    [39, 8.5],
+                    [37, 8.0],
+                    [36, 7.5],
+                    [34, 7.0],
+                    [32, 6.5],
+                    [30, 6.0],
+                    [27, 5.5],
+                    [23, 5.0],
+                    [19, 4.5],
+                    [15, 4.0],
+                    [12, 3.5],
+                    [9, 3.0],
+                    [6, 2.5],
+                    [3, 2.0],
+                    [0, 0.0],
+                ],
+            },
+        ]
+        async with self.pool.acquire() as conn:
+            for seed in seeds:
+                exists = await conn.fetchval(
+                    "SELECT 1 FROM band_conversion_tables "
+                    "WHERE skill_area=$1 AND exam_type=$2",
+                    seed["skill_area"],
+                    seed["exam_type"],
+                )
+                if not exists:
+                    await conn.execute(
+                        "INSERT INTO band_conversion_tables "
+                        "(skill_area, exam_type, conversion) "
+                        "VALUES ($1, $2, $3::jsonb)",
+                        seed["skill_area"],
+                        seed["exam_type"],
+                        json.dumps(seed["conversion"]),
+                    )
+                    logger.info(
+                        "Seeded band table: %s/%s",
+                        seed["skill_area"],
+                        seed["exam_type"],
+                    )
 
 
 db = Database()

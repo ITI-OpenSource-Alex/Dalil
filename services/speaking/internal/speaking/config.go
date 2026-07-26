@@ -14,6 +14,7 @@ type Config struct {
 	LangfuseSecretKey string
 	LangfuseHost      string
 	DatabaseURL       string
+	SpeechServiceURL  string
 }
 
 func LoadConfig() *Config {
@@ -33,6 +34,7 @@ func LoadConfig() *Config {
 		LangfuseSecretKey: getEnv("LANGFUSE_SECRET_KEY", ""),
 		LangfuseHost:      getEnv("LANGFUSE_HOST", "https://cloud.langfuse.com"),
 		DatabaseURL:       getEnv("DATABASE_URL", "postgresql://goa:goa_pass@postgres:5432/speaking_db"),
+		SpeechServiceURL:  getEnv("SPEECH_SERVICE_URL", "http://speech:8086"),
 	}
 }
 

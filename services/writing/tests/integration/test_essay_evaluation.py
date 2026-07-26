@@ -127,3 +127,61 @@ def test_streaming_unknown_essay_returns_404(evaluation_client):
     client, *_ = evaluation_client
     response = client.post("/essays/99999/evaluate")
     assert response.status_code == 404
+
+
+def test_create_essay_returns_201_with_id_and_ready_status(evaluation_client, db_session):
+    client, *_ = evaluation_client
+    payload = {
+        "userId": "writer-123",
+        "essayText": "This is a newly created essay.",
+        "submissionType": "task2",
+    }
+    response = client.post("/essays", json=payload)
+    assert response.status_code == 201
+    body = response.json()
+    assert "id" in body
+    assert body["status"] == "ready"
+    
+    essay = db_session.get(Essay, body["id"])
+    assert essay is not None
+    assert essay.extracted_text == payload["essayText"]
+    assert essay.status == "ready"
+
+
+def test_create_essay_missing_essay_text_422(evaluation_client):
+    client, *_ = evaluation_client
+    response = client.post("/essays", json={"userId": "writer-123", "submissionType": "task1"})
+    assert response.status_code == 422
+
+
+def test_create_then_stream_evaluate(evaluation_client, db_session):
+    client, _runner, _langfuse, _trace = evaluation_client
+    payload = {
+        "userId": "writer-123",
+        "essayText": "Public transport should be improved.",
+        "submissionType": "task2",
+    }
+    create_response = client.post("/essays", json=payload)
+    assert create_response.status_code == 201
+    essay_id = create_response.json()["id"]
+
+    eval_response = client.post(f"/essays/{essay_id}/evaluate")
+    assert eval_response.status_code == 200
+    events = _events(eval_response.text)
+    assert events[-1][0] == "complete"
+
+
+def test_create_with_exam_session_id_persists(evaluation_client, db_session):
+    client, *_ = evaluation_client
+    payload = {
+        "userId": "writer-123",
+        "essayText": "Exam text.",
+        "submissionType": "task1",
+        "examSessionId": "session-xyz",
+    }
+    response = client.post("/essays", json=payload)
+    assert response.status_code == 201
+    body = response.json()
+    
+    essay = db_session.get(Essay, body["id"])
+    assert essay.exam_session_id == "session-xyz"

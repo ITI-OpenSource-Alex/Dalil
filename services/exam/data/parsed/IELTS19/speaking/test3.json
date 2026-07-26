@@ -1,0 +1,20 @@
+{
+  "book_ref": "IELTS-unknown",
+  "test_number": 3,
+  "exam_type": "academic",
+  "skill_area": "speaking",
+  "passage_text": null,
+  "questions": [
+    {
+      "number": 1,
+      "prompt": "The candidate is given a task card with prompts and is asked to talk on a particular topic.",
+      "question_type": "Speaking Part 2",
+      "instructions": "Speak for 1-2 minutes on this topic.",
+      "passage_number": null,
+      "section_number": 2,
+      "bullet_points": []
+    }
+  ],
+  "answer_key": {},
+  "time_limit_seconds": 900
+}

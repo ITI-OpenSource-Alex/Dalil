@@ -45,7 +45,7 @@ output "session_manager_log_group_name" {
 
 output "session_manager_preferences_document_name" {
   description = "Name of the Session Manager preferences SSM document."
-  value       = aws_ssm_document.session_manager_preferences.name
+  value       = try(aws_ssm_document.session_manager_preferences[0].name, null)
 }
 
 output "lambda_execution_role_name" {

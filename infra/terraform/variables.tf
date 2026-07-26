@@ -9,6 +9,12 @@ variable "aws_region" {
   default     = "eu-west-1"
 }
 
+variable "aws_offline_mode" {
+  description = "Use mock AWS credentials only for local terraform plan validation. Never enable for apply."
+  type        = bool
+  default     = false
+}
+
 variable "vpc_cidr" {
   description = "Primary CIDR block for the VPC."
   type        = string
@@ -57,6 +63,31 @@ variable "private_data_subnet_cidrs" {
 variable "alb_certificate_arn" {
   description = "ACM certificate ARN used by the public ALB HTTPS listener."
   type        = string
+  default     = null
+  nullable    = true
+}
+
+variable "create_self_signed_alb_certificate" {
+  description = "Create a self-signed ACM certificate for non-production validation. Must be false in production."
+  type        = bool
+  default     = false
+
+  validation {
+    condition     = !(var.environment == "production" && var.create_self_signed_alb_certificate)
+    error_message = "Production must use a trusted ACM certificate."
+  }
+}
+
+variable "enable_cloudfront" {
+  description = "Create a CloudFront distribution in front of the ALB."
+  type        = bool
+  default     = false
+}
+
+variable "cloudfront_price_class" {
+  description = "CloudFront price class."
+  type        = string
+  default     = "PriceClass_100"
 }
 
 variable "domain_name" {
@@ -99,7 +130,13 @@ variable "alb_target_groups" {
       deregistration_delay = 30
     }
     user = {
-      port                 = 3000
+      port                 = 8081
+      protocol             = "HTTP"
+      health_check_path    = "/health"
+      deregistration_delay = 30
+    }
+    orchestration = {
+      port                 = 8083
       protocol             = "HTTP"
       health_check_path    = "/health"
       deregistration_delay = 30
@@ -116,7 +153,49 @@ variable "alb_target_groups" {
       health_check_path    = "/health"
       deregistration_delay = 30
     }
+    writing = {
+      port                 = 8000
+      protocol             = "HTTP"
+      health_check_path    = "/health"
+      deregistration_delay = 30
+    }
+    exam = {
+      port                 = 8085
+      protocol             = "HTTP"
+      health_check_path    = "/health"
+      deregistration_delay = 30
+    }
+    notification = {
+      port                 = 8087
+      protocol             = "HTTP"
+      health_check_path    = "/health"
+      deregistration_delay = 30
+    }
+    ingestion = {
+      port                 = 8088
+      protocol             = "HTTP"
+      health_check_path    = "/health"
+      deregistration_delay = 30
+    }
   }
+}
+
+variable "ecs_image_tag" {
+  description = "Image tag used by ECS task definitions."
+  type        = string
+  default     = "latest"
+}
+
+variable "ecs_desired_counts" {
+  description = "Desired task count overrides keyed by service. Defaults to zero for safe initial provisioning."
+  type        = map(number)
+  default     = {}
+}
+
+variable "enable_lambda_workers" {
+  description = "Create image-based Lambda workers after their ECR images have been published."
+  type        = bool
+  default     = false
 }
 
 variable "task_execution_secret_arns" {
@@ -139,6 +218,12 @@ variable "task_secret_arns" {
 
 variable "task_sqs_queue_arns" {
   description = "SQS queue ARNs the ECS task role may use at runtime."
+  type        = list(string)
+  default     = []
+}
+
+variable "task_s3_read_object_arns" {
+  description = "S3 object ARN patterns ECS application tasks may read, including any externally managed buckets."
   type        = list(string)
   default     = []
 }
@@ -176,6 +261,11 @@ variable "tags" {
 variable "aws_account_id" {
   description = "AWS account ID, used for S3 bucket notification source_account."
   type        = string
+
+  validation {
+    condition     = can(regex("^[0-9]{12}$", var.aws_account_id))
+    error_message = "aws_account_id must contain exactly 12 digits."
+  }
 }
 
 variable "image_tag" {
@@ -187,19 +277,22 @@ variable "image_tag" {
 variable "ecr_cv_processor_repo_url" {
   description = "ECR repository URL for the cv-processor image (without tag)."
   type        = string
+  default     = ""
 }
 
 variable "ecr_scholarship_matcher_repo_url" {
   description = "ECR repository URL for the scholarship-matcher image (without tag)."
   type        = string
+  default     = ""
 }
 
 variable "ecr_notification_sender_repo_url" {
   description = "ECR repository URL for the notification-sender image (without tag)."
   type        = string
+  default     = ""
 }
 
-# --- Temporary, until modules/secrets and modules/sqs exist (see GOA-070) ---
+
 variable "lambda_secret_arns" {
   description = "Secret ARNs Lambda workers may read. Empty until modules/secrets exists."
   type        = list(string)
@@ -207,9 +300,9 @@ variable "lambda_secret_arns" {
 }
 
 variable "sqs_notification_queue_arn" {
-  description = "ARN of the SQS queue notification-sender consumes. Null until modules/sqs exists — the SQS trigger is skipped while null."
-  type        = string
-  default     = null
+
+  type    = string
+  default = null
 }
 
 variable "sqs_notification_queue_url" {
@@ -217,3 +310,29 @@ variable "sqs_notification_queue_url" {
   type        = string
   default     = null
 }
+
+# -----------------------------------------------------------------------------
+# GOA-074: GitHub & OIDC Configuration
+# -----------------------------------------------------------------------------
+
+variable "github_org" {
+  description = "GitHub organization or username that owns the repository."
+  type        = string
+  default     = "ITI-OpenSource-Alex"
+}
+
+variable "github_repo" {
+  description = "GitHub repository name (without the org prefix)."
+  type        = string
+  default     = "GOA"
+}
+
+# NOTE: GitHub provider requires a paid org plan for branch protection.
+# Uncomment when the org is upgraded.
+# variable "github_token" {
+#   description = "GitHub token for the Terraform GitHub provider. Pass via TF_VAR_github_token env var."
+#   type        = string
+#   sensitive   = true
+#   default     = ""
+# }
+

@@ -47,9 +47,13 @@ The Ingestion service is a background worker (compatible with AWS Lambda or stan
 ### Running outside Docker
 ```bash
 pip install -r requirements.txt
-# Run the pipeline handler directly
-PYTHONPATH=. python services/ingestion/handler.py
+# Run the pipeline handler directly (set RAG_SERVICE_URL=http://localhost:8084 if RAG is mapped locally)
+PYTHONPATH=. RAG_SERVICE_URL=http://localhost:8084 python services/ingestion/handler.py
 ```
+
+> [!NOTE]
+> **Host Execution Footnote (`RAG_SERVICE_URL`)**:
+> `RAG_SERVICE_URL` defaults to `http://rag:8084` (Docker Compose network DNS). When running ingestion scripts or test runs on your host machine outside Docker Compose, set `RAG_SERVICE_URL=http://localhost:8084` so internal touch (`/internal/visa-requirements/touch`) and document/visa upsert HTTP calls reach the local RAG container. Unreachable RAG connection errors are caught and logged as warnings so ingestion batches don't crash, making `RAG_SERVICE_URL` overrides essential for host-level verification.
 
 ### Running with Docker
 ```bash

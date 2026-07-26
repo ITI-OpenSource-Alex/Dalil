@@ -1,41 +1,26 @@
 from fastapi import APIRouter, HTTPException
 from app.schemas.scoring import ScoreRequest, MatchRequest
-from app.services.scoring import calculate_score
+from app.services.scoring import calculate_score, match_programs
 from app.core.database import db
 import structlog
+import asyncio
 
 
 logger = structlog.get_logger("rag_service.api.scoring")
-router = APIRouter(prefix="/scoring", tags=["scoring"])
-
-
+router = APIRouter(tags=["scoring"])
+match_router = APIRouter(tags = ["match"] )
 @router.post("/score")
 async def score_profile(request: ScoreRequest):
     return await calculate_score(request.userId, request.programId)
 
 
-@router.post("/match")
+@match_router.post("/match")
 async def match_profile(request: MatchRequest):
-    # 1. Fetch all program IDs in the database
-    async with db.pool.acquire() as conn:
-        rows = await conn.fetch("SELECT id FROM program_requirements")
-        program_ids = [str(r["id"]) for r in rows]
+    """Filtered, batch-scored, ranked top-N matches.
 
-    results = []
-    # 2. Score against every single program
-    for pid in program_ids:
-        try:
-            res = await calculate_score(request.userId, pid)
-            results.append({"programId": pid, "result": res})
-        except HTTPException as e:
-            # If a program is misconfigured or deleted mid-loop, just skip it gracefully
-            logger.warning(
-                f"Skipping program {pid} for user {request.userId}: {e.detail}"
-            )
-        except Exception as e:
-            logger.error(f"Unexpected error scoring program {pid}: {str(e)}")
-
-    # 3. Rank them from highest score to lowest score
-    results.sort(key=lambda x: x["result"]["score"], reverse=True)
-
-    return {"matches": results}
+    The previous implementation fanned out over every row in program_requirements with
+    two queries per program; see match_programs() for why that could not survive the
+    full catalog.
+    """
+    programs = await match_programs(request.userId)
+    return {"programs": programs}

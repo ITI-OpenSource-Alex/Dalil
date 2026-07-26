@@ -1,0 +1,111 @@
+interactions:
+- request:
+    body: '{"max_tokens":1024,"messages":[{"role":"user","content":"Score my essay
+      please"}],"model":"claude-opus-4-8","system":"You are a routing agent. Classify
+      the user message into exactly one of:\n                        SPEAKING  - IELTS
+      speaking practice or mock interview (e.g. \"I want to practice speaking\")\n                        WRITING   -
+      essay submission or writing evaluation (e.g. \"Score my essay please\")\n                        RAG       -
+      IELTS info, requirements, visa, scholarships (e.g. \"What are the visa requirements?\")\n                        OPPORTUNITY_SEARCH
+      - searching for study opportunities, scholarships, admissions (e.g. \"Find me
+      a scholarship in Germany\")\n                        CV_REVIEW - CV upload or
+      improvement request (e.g. \"Can you review my CV?\")","tool_choice":{"type":"any"},"tools":[{"name":"IntentResult","description":"!!!
+      abstract \"Usage Documentation\"\n    [Models](../concepts/models.md) A base
+      class for creating Pydantic models. Attributes:\n    __class_vars__: The names
+      of the class variables defined on the model.\n    __private_attributes__: Metadata
+      about the private attributes of the model.\n    __signature__: The synthesized
+      `__init__` [`Signature`][inspect.Signature] of the model.     __pydantic_complete__:
+      Whether model building is completed, or if there are still undefined fields.\n    __pydantic_core_schema__:
+      The core schema of the model.\n    __pydantic_custom_init__: Whether the model
+      has a custom `__init__` function.\n    __pydantic_decorators__: Metadata containing
+      the decorators defined on the model.\n        This replaces `Model.__validators__`
+      and `Model.__root_validators__` from Pydantic V1.\n    __pydantic_generic_metadata__:
+      A dictionary containing metadata about generic Pydantic models.\n        The
+      `origin` and `args` items map to the [`__origin__`][genericalias.__origin__]\n        and
+      [`__args__`][genericalias.__args__] attributes of [generic aliases][types-genericalias],\n        and
+      the `parameter` item maps to the `__parameter__` attribute of generic classes.\n    __pydantic_parent_namespace__:
+      Parent namespace of the model, used for automatic rebuilding of models.\n    __pydantic_post_init__:
+      The name of the post-init method for the model, if defined.\n    __pydantic_root_model__:
+      Whether the model is a [`RootModel`][pydantic.root_model.RootModel].\n    __pydantic_serializer__:
+      The `pydantic-core` `SchemaSerializer` used to dump instances of the model.\n    __pydantic_validator__:
+      The `pydantic-core` `SchemaValidator` used to validate instances of the model.     __pydantic_fields__:
+      A dictionary of field names and their corresponding [`FieldInfo`][pydantic.fields.FieldInfo]
+      objects.\n    __pydantic_computed_fields__: A dictionary of computed field names
+      and their corresponding [`ComputedFieldInfo`][pydantic.fields.ComputedFieldInfo]
+      objects.     __pydantic_extra__: A dictionary containing extra values, if [`extra`][pydantic.config.ConfigDict.extra]\n        is
+      set to `''allow''`.\n    __pydantic_fields_set__: The names of fields explicitly
+      set during instantiation.\n    __pydantic_private__: Values of private attributes
+      set on the model instance.","input_schema":{"type":"object","properties":{"intent":{"enum":["SPEAKING","WRITING","RAG","OPPORTUNITY_SEARCH","CV_REVIEW"],"type":"string"},"confidence":{"type":"number"},"is_fallback":{"type":"boolean"}},"required":["intent","confidence"]}}]}'
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate
+      anthropic-version:
+      - '2023-06-01'
+      connection:
+      - keep-alive
+      content-length:
+      - '3421'
+      content-type:
+      - application/json
+      cookie:
+      - acw_tc=0a0f6be917846526341513757e0a1eca46bdee094323ae51cb6530345726d2
+      host:
+      - agentrouter.org
+      user-agent:
+      - Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14
+      x-stainless-arch:
+      - x64
+      x-stainless-async:
+      - async:asyncio
+      x-stainless-lang:
+      - python
+      x-stainless-os:
+      - Linux
+      x-stainless-package-version:
+      - 0.117.0
+      x-stainless-read-timeout:
+      - '25.0'
+      x-stainless-retry-count:
+      - '1'
+      x-stainless-runtime:
+      - CPython
+      x-stainless-runtime-version:
+      - 3.11.15
+      x-stainless-timeout:
+      - NOT_GIVEN
+    method: POST
+    uri: https://agentrouter.org/v1/messages
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAAA5xU247TMBD9lcjPbZXeaZ+BVZeLUCnLA0KW60yb0MTO+gIbqvz7zrhpGlqQ0OYp
+        njMzPjNzxke2zfI8U3u2PDKrvZHAlszAowfrWI9pKb0xkPBCK5ciNIpHs348R+jsRIFeSrCWLZ3x
+        0GPWGRAFW+5EbvHo9AGUJb9Mld7x83k+XvSYFDIFLjHAZVrxPz3iM45wcoXNFyOk513XNp4QLWG1
+        woq6WZx2Im8Nw+lsWmNqbR2XqmqZYXnxIB6OY3bN64Tg1yLEqLEOJ9SowKSxhAwtkW5w27SLKfHm
+        5o5HL5TLXNW1lcKIAhyYrjEU1vCeT1iNZYky4weoeAkm0wkVd/nzVuyBu6qkKQc6FrAHlcwbw8mV
+        4ulc0yyFC7NrmHOpvXKhqc3UOxYwRpuuRxACvw6t/62JduIvUER8o4f4v+RAfLpaOPcUuxkQ5YBo
+        f0MEnmh0mxQib8FEmY2EPWDyqIDI6Qh+itwLh/8pZCb6ZTKH4IDmdGp5SFD3sGoSj9M693ybmAOP
+        h29ttdnvZu7TZlo8jeD3u9nD/d0XDG2keSQmuywBRSsaDxZzgk7U2Nf1arP6eEfeluPa5VshD80C
+        Yg0KhYNeq+C+Butz2u0zJ2TBsRxWf++deBV2j4RmI3X4UaitfJOuXz9Un99/qOb3W4wrdALUH5kL
+        n0Bfl972J/1XJCcddCSszVA3ii6xTpc0LBsE3t7VAJaUEQoi8TWEChQVyhQNQa63IgkPx19W/8XK
+        CW/J9cYfGZQpFGBQKsP0NtsFnRbXKCrnGQAA//8DAJXHb6JaBQAA
+    headers:
+      connection:
+      - keep-alive
+      content-encoding:
+      - gzip
+      content-type:
+      - text/plain; charset=utf-8
+      date:
+      - Tue, 21 Jul 2026 16:50:55 GMT
+      transfer-encoding:
+      - chunked
+      vary:
+      - Accept-Encoding
+      x-oneapi-request-id:
+      - 20260722005048262249321ksg9spBWr297n
+    status:
+      code: 200
+      message: OK
+version: 1

@@ -21,4 +21,5 @@ class QuestionResponse(BaseModel):
 
 class QuestionWithAnswerKey(QuestionResponse):
     """Internal exam question payload that includes grading answers."""
+
     answer_key: dict[str, Any]

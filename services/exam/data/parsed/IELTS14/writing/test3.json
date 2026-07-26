@@ -1,0 +1,27 @@
+{
+  "book_ref": "IELTS-14",
+  "test_number": 3,
+  "exam_type": "academic",
+  "skill_area": "writing",
+  "passage_text": null,
+  "questions": [
+    {
+      "number": 1,
+      "prompt": "You should spend about 20 minutes on this task.\nThe diagram below shows how electricity is generated in a hydroelectric\npower station.\nSummarise the information by selecting and reporting the main features, and\nmake.comparisons-where relevant.\nWrite at least 150 words.\nHydroelectric power station\nHigh-level\nreservoir\nG, A, Power station\n\"n On, \" )\n3 Power lines ¥ National grid\n%oy %,\nintake (Day: open,\nNight: closed)\nLow-level\nreservoir\nReversible turbines\nDay: operate generator\nNight: pump water into\nhigh-level reservoir\nWriting",
+      "question_type": "Writing Task 1",
+      "instructions": "Summarise the information by selecting and reporting the main features.",
+      "passage_number": null,
+      "section_number": null
+    },
+    {
+      "number": 2,
+      "prompt": "You should spend about 40 minutes on this task.\nWrite about the following topic:\nSome people say that music is a good way of bringing people of different\ncultures and ages together.\nTo what extent do you agree or disagree with this opinion?\nGive reasons for your answer and include any relevant examples from your own\nknowledge or experience.\nWrite at least 250 words.\nTest3\nSPEAKING\nPART 1\nThe examiner asks the candidate about him/herself, histher home, work or studies and\nother familiar topics.\nEXAMPLE\nNeighbours\n• How often do you see your neighbours? [Why/Why not?]\n• Do you invite your neighbours to your home? [Why/Why not?]\n• Do you think you are a good neighbour? [Why/Why not?}\n• Has a neighbour ever helped you? [Why/Why not?]\nPART 2\nDescribe a very difficult task that you succeeded You will have to talk\nin doing as part of your work or studies. about the topic for one\nto two minutes. You\nhave one minute to\nthink about what you\nwhy this task was very difficuit are going to say. You\nhow you worked on this task can make some notes\nand explain how you felt when you had to help you if you wish.\nsuccessfully compieted this task.\nYou should say:\nwhat task you did\nPART 3\nDiscussion topics:\nDifficult jobs\nExample questions:\nWhat are the most difficult jobs that people do?\nWhy do you think some people choose to do difficult jobs?\nDo you agree or disagree that all jobs are difficult sometimes?\nPersonal and career success\nExample questions:\nHow important is it for everyone to have a goal in their personal life?\nIs it always necessary to work hard in order to achieve career success?\nDo you think that successful people are always happy people?",
+      "question_type": "Writing Task 2",
+      "instructions": "Write an essay of at least 250 words.",
+      "passage_number": null,
+      "section_number": null
+    }
+  ],
+  "answer_key": {},
+  "time_limit_seconds": 3600
+}

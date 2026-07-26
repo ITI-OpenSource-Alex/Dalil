@@ -1,0 +1,64 @@
+# WARNING:
+# Staging and production both default to 10.0.0.0/16 for now.
+# If they will run in the same AWS account/region, change one environment to a
+# non-overlapping VPC CIDR before applying Terraform.
+
+environment    = "staging"
+aws_region     = "eu-west-1"
+aws_account_id = "114403655381"
+
+vpc_cidr = "10.0.0.0/16"
+
+availability_zones = [
+  "eu-west-1a",
+  "eu-west-1b",
+]
+
+public_subnet_cidrs = [
+  "10.0.0.0/24",
+  "10.0.1.0/24",
+]
+
+private_app_subnet_cidrs = [
+  "10.0.10.0/24",
+  "10.0.11.0/24",
+]
+
+private_data_subnet_cidrs = [
+  "10.0.20.0/24",
+  "10.0.21.0/24",
+]
+
+domain_name                        = "staging.goa.internal"
+hosted_zone_id                     = null
+alb_certificate_arn                = null
+create_self_signed_alb_certificate = true
+enable_cloudfront                  = false
+
+alb_enable_deletion_protection = false
+alb_default_target_group_name  = "gateway"
+
+ecs_image_tag = "latest"
+ecs_desired_counts = {
+  gateway = 1
+}
+enable_lambda_workers            = false
+enable_rds_proxy                 = false
+rds_backup_retention_days        = 1
+rds_performance_insights_enabled = false
+
+task_execution_secret_arns  = []
+task_execution_kms_key_arns = []
+task_secret_arns            = []
+task_sqs_queue_arns         = []
+task_kms_key_arns           = []
+
+ecs_exec_operator_resource_arns    = ["*"]
+session_manager_log_retention_days = 30
+session_manager_kms_key_id         = ""
+
+tags = {
+  Environment = "staging"
+  Project     = "goa"
+  ManagedBy   = "terraform"
+}

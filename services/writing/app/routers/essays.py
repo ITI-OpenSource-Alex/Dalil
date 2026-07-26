@@ -6,7 +6,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-
+from app.schemas import EssayCreateRequest, EssayCreateResponse
 from app.config import Settings, get_settings
 from app.dependencies import get_db
 from app.evaluation import (
@@ -15,7 +15,11 @@ from app.evaluation import (
     EvaluationSummary,
     get_evaluation_coordinator,
 )
-from app.metrics import EVALUATION_LATENCY_MS, cache_hit_tracker
+from app.metrics import (
+    EVALUATION_LATENCY_MS,
+    cache_hit_tracker,
+    goa_writing_exam_evaluation_ms,
+)
 from app.models import Essay
 from app.observability import (
     get_langfuse_client,
@@ -30,8 +34,43 @@ from app.services.evaluation_store import (
     persist_evaluation,
 )
 
+from app.schemas import (
+    EssayEvaluationRequest,
+    EssayEvaluationResponse,
+    ExamTaskEvaluationRequest,
+    ExamTaskEvaluationResponse,
+)
+
 
 router = APIRouter(prefix="/essays", tags=["essays"])
+
+# TODO (GOA-112): Add `POST ""` on the existing `/essays`-prefixed router (i.e., bare `POST /essays`), returning 201.
+# - Persist an Essay with status='ready' and return its id. 
+# - Constraint: the returned id must be immediately usable by the existing POST /essays/{id}/evaluate SSE route with no extra setup — that means extracted_text, submission_type, and exam_type must be populated the same way /essays/evaluate populates them, or the SSE route's cache-key derivation will diverge for created-then-evaluated essays vs directly-evaluated ones.
+# - Check whether the Essay model has an exam_session_id column. If not: nullable column + migration, following this service's existing migration numbering. Do not silently drop the field — GOA-053's exam mode will need it.
+
+@router.post('', response_model=EssayCreateResponse, status_code=201)
+async def create_essay(
+    payload: EssayCreateRequest,
+    db: Session = Depends(get_db),
+):
+    essay = Essay(
+        user_id=payload.userId,
+        extracted_text=payload.essayText,
+        submission_type=payload.submissionType,
+        exam_type=payload.submissionType,  # Aligns exactly with how /evaluate derives task_type
+        exam_session_id=payload.examSessionId,
+        status="ready",
+    )
+
+    db.add(essay)
+    db.commit()
+    db.refresh(essay)
+
+    return EssayCreateResponse(
+        id=essay.id,
+        status=essay.status,
+    )
 
 
 def _response(
@@ -44,6 +83,22 @@ def _response(
         from_cache=from_cache,
     )
 
+def _exam_response(
+    essay: Essay,
+    summary: EvaluationSummary,
+    *,
+    exam_session_id: str,
+    task_number: int,
+    from_cache: bool,
+) -> ExamTaskEvaluationResponse:
+    return ExamTaskEvaluationResponse(
+        essay_id=essay.id,
+        exam_session_id=exam_session_id,
+        task_number=task_number,
+        evaluations=summary.evaluations,
+        overall_band=summary.overall_band,
+        from_cache=from_cache,
+    )
 
 def _record_request(
     essay: Essay,
@@ -84,8 +139,32 @@ async def _run_evaluation(
     return await coordinator.evaluate(
         essay.extracted_text,
         essay.exam_type or essay.submission_type or "IELTS Writing",
+        user_id=essay.user_id,
         trace=trace,
         on_partial=on_partial,
+    )
+
+async def _run_exam_evaluation(
+    essay: Essay,
+    payload: ExamTaskEvaluationRequest,
+    *,
+    cached_payload: dict | None,
+    coordinator: EvaluationCoordinator,
+    trace: Any,
+) -> EvaluationSummary:
+    if cached_payload is not None:
+        return await coordinator.replay_cached(
+            parse_cached_evaluations(cached_payload),
+            trace=trace,
+        )
+    return await coordinator.evaluate_exam_task(
+        essay_text=payload.essayText,
+        exam_type=payload.examType,
+        task_number=payload.taskNumber,
+        user_id=payload.userId,
+        stimulus_s3_key=payload.stimulusS3Key,
+        task_prompt=payload.taskPrompt,
+        trace=trace,
     )
 
 
@@ -136,7 +215,6 @@ async def evaluate_submitted_text(
         db.commit()
         cache_hit_tracker.record(hit=False)
         raise HTTPException(status_code=502, detail=str(exc)) from exc
-
     persist_evaluation(db, essay, summary)
     _record_request(essay, summary, started=started, from_cache=from_cache)
     return _response(essay, summary, from_cache=from_cache)
@@ -232,4 +310,67 @@ async def stream_essay_evaluation(
             "Cache-Control": "no-cache",
             "X-Accel-Buffering": "no",
         },
+    )
+
+@router.post("/evaluate/exam", response_model=ExamTaskEvaluationResponse)
+async def evaluate_exam_task(
+    payload: ExamTaskEvaluationRequest,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    coordinator: EvaluationCoordinator = Depends(get_evaluation_coordinator),
+    langfuse_client: Any = Depends(get_langfuse_client),
+):
+    started = time.perf_counter()
+    cache_key = evaluation_cache_key(
+        payload.essayText,
+        "exam",
+        payload.examType,
+        settings,
+    )
+    cached_payload = find_cached_evaluation(db, cache_key)
+    essay = Essay(
+        user_id=payload.userId,
+        extracted_text=payload.essayText,
+        submission_type="exam",
+        exam_type=payload.examType,
+        exam_session_id=payload.examSessionId,
+        task_number=payload.taskNumber,
+        evaluation_cache_key=cache_key,
+        status="evaluating",
+    )
+    db.add(essay)
+    db.commit()
+    db.refresh(essay)
+    from_cache = cached_payload is not None
+    trace = start_evaluation_trace(
+        langfuse_client,
+        user_id=essay.user_id,
+        essay_id=essay.id,
+        task_type=payload.examType,
+        from_cache=from_cache,
+    )
+    task_type_label = f"task{payload.taskNumber}"
+    try:
+        with goa_writing_exam_evaluation_ms.labels(task_type=task_type_label).time():
+            summary = await _run_exam_evaluation(
+                essay,
+                payload,
+                cached_payload=cached_payload,
+                coordinator=coordinator,
+                trace=trace,
+            )
+    except EvaluationFailed as exc:
+        essay.status = "evaluation_failed"
+        db.commit()
+        cache_hit_tracker.record(hit=False)
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    persist_evaluation(db, essay, summary)
+    _record_request(essay, summary, started=started, from_cache=from_cache)
+    return _exam_response(
+        essay,
+        summary,
+        exam_session_id=payload.examSessionId,
+        task_number=payload.taskNumber,
+        from_cache=from_cache,
     )

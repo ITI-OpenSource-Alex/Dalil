@@ -19,6 +19,10 @@ class UserProfile(BaseModel):
 
 class ProgramRequirements(BaseModel):
     id: str
+    # GOA-108's financial gap items join visa data by country. Without this field the
+    # call site's getattr(program, "country", None) guard was always None, so the
+    # feature silently never fired.
+    country: Optional[str] = None
     min_ects: Optional[int] = None
     degree_level: Optional[str] = None
     required_citizenship: Optional[str] = None

@@ -8,6 +8,7 @@ from typing import Any, Awaitable, Callable
 from app.agents import CRITERIA, AgentExecution, Criterion, WritingAgentRunner, get_agent_runner
 from app.metrics import AGENT_BAND_SCORE
 from app.schemas import CriterionEvaluation
+from app.agents import TaskNumber, extract_chart_context
 
 
 PartialCallback = Callable[[CriterionEvaluation], Awaitable[None] | None]
@@ -80,13 +81,14 @@ class EvaluationCoordinator:
         essay_text: str,
         exam_type: str,
         *,
+        user_id: str = "anonymous",
         trace: Any = None,
         on_partial: PartialCallback | None = None,
     ) -> EvaluationSummary:
         async def run_one(criterion: Criterion) -> AgentExecution:
             child_span = _span(trace, criterion, from_cache=False)
             try:
-                execution = await self.runner.evaluate(criterion, essay_text, exam_type)
+                execution = await self.runner.evaluate(criterion, essay_text, exam_type, user_id=user_id)
                 AGENT_BAND_SCORE.labels(criterion=criterion).observe(
                     execution.result.band_score
                 )
@@ -153,6 +155,77 @@ class EvaluationCoordinator:
             overall_band=calculate_overall_band([item.band_score for item in results]),
             total_tokens=0,
             total_cost_usd=0.0,
+        )
+        
+    async def evaluate_exam_task(
+        self,
+        essay_text: str,
+        exam_type: str,
+        *,
+        task_number: TaskNumber,
+        user_id: str = "anonymous",
+        stimulus_s3_key: str | None = None,
+        task_prompt: str | None = None,
+        trace: Any = None,
+        on_partial: PartialCallback | None = None,
+    ) -> EvaluationSummary:
+        is_academic_task1 = exam_type.lower() == "academic" and task_number == 1
+        if is_academic_task1 and not stimulus_s3_key:
+            raise EvaluationFailed("Academic Task 1 requires a stimulus image.")
+
+        chart_context: str | None = None
+        if is_academic_task1 and stimulus_s3_key:
+            chart_context = await extract_chart_context(stimulus_s3_key)
+
+        async def run_one(criterion: Criterion) -> AgentExecution:
+            child_span = _span(trace, criterion, from_cache=False)
+            try:
+                execution = await self.runner.evaluate_exam_task(
+                    criterion,
+                    essay_text,
+                    exam_type,
+                    task_number,
+                    user_id=user_id,
+                    chart_context=chart_context,
+                    task_prompt=task_prompt,
+                )
+                AGENT_BAND_SCORE.labels(criterion=criterion).observe(
+                    execution.result.band_score
+                )
+                _end_span(child_span, execution, from_cache=False)
+                await _notify(on_partial, execution.result)
+                return execution
+            except Exception as exc:
+                if child_span is not None:
+                    try:
+                        child_span.end(output={"error": str(exc)})
+                    except Exception:
+                        pass
+                raise
+
+        gathered = await asyncio.gather(
+            *(run_one(criterion) for criterion in CRITERIA),
+            return_exceptions=True,
+        )
+        failures = [item for item in gathered if isinstance(item, BaseException)]
+        if failures:
+            raise EvaluationFailed(
+                f"{len(failures)} of 4 writing agents failed: {failures[0]}"
+            ) from failures[0]
+
+        executions = [item for item in gathered if isinstance(item, AgentExecution)]
+        by_criterion = {item.result.criterion: item for item in executions}
+        ordered = [by_criterion[criterion] for criterion in CRITERIA]
+        evaluations = [item.result for item in ordered]
+        return EvaluationSummary(
+            evaluations=evaluations,
+            overall_band=calculate_overall_band(
+                [result.band_score for result in evaluations]
+            ),
+            total_tokens=sum(
+                item.prompt_tokens + item.completion_tokens for item in ordered
+            ),
+            total_cost_usd=sum(item.cost_usd for item in ordered),
         )
 
 

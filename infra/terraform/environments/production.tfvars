@@ -1,0 +1,59 @@
+# WARNING:
+# Staging and production both default to 10.0.0.0/16 for now.
+# If they will run in the same AWS account/region, change one environment to a
+# non-overlapping VPC CIDR before applying Terraform.
+
+environment    = "production"
+aws_region     = "eu-west-1"
+aws_account_id = "114403655381"
+
+vpc_cidr = "10.0.0.0/16"
+
+availability_zones = [
+  "eu-west-1a",
+  "eu-west-1b",
+]
+
+public_subnet_cidrs = [
+  "10.0.0.0/24",
+  "10.0.1.0/24",
+]
+
+private_app_subnet_cidrs = [
+  "10.0.10.0/24",
+  "10.0.11.0/24",
+]
+
+private_data_subnet_cidrs = [
+  "10.0.20.0/24",
+  "10.0.21.0/24",
+]
+
+domain_name         = "goa.example.com"
+hosted_zone_id      = "REPLACE_WITH_PRODUCTION_HOSTED_ZONE_ID"
+alb_certificate_arn = "arn:aws:acm:eu-west-1:444455556666:certificate/replace-with-production-certificate-id"
+
+alb_enable_deletion_protection     = true
+alb_default_target_group_name      = "gateway"
+create_self_signed_alb_certificate = false
+enable_cloudfront                  = true
+ecs_desired_counts                 = {}
+enable_lambda_workers              = false
+
+task_execution_secret_arns  = []
+task_execution_kms_key_arns = []
+task_secret_arns            = []
+task_sqs_queue_arns         = []
+task_s3_read_object_arns    = ["arn:aws:s3:::goa-exam-audio/exam-audio/*"]
+task_kms_key_arns           = []
+
+ecs_exec_operator_resource_arns    = ["*"]
+session_manager_log_retention_days = 90
+session_manager_kms_key_id         = ""
+
+tags = {
+  Environment = "production"
+  Project     = "goa"
+  ManagedBy   = "terraform"
+  Criticality = "high"
+}

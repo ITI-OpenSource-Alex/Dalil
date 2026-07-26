@@ -11,23 +11,25 @@ locals {
     }
   )
 
-  task_execution_secret_arns  = distinct(var.task_execution_secret_arns)
-  task_execution_kms_key_arns = distinct(var.task_execution_kms_key_arns)
-  task_secret_arns            = distinct(var.task_secret_arns)
-  task_sqs_queue_arns         = distinct(var.task_sqs_queue_arns)
-  task_kms_key_arns           = distinct(var.task_kms_key_arns)
+  task_execution_secret_arns  = var.task_execution_secret_arns
+  task_execution_kms_key_arns = var.task_execution_kms_key_arns
+  task_secret_arns            = var.task_secret_arns
+  task_sqs_queue_arns         = var.task_sqs_queue_arns
+  task_s3_read_object_arns    = var.task_s3_read_object_arns
+  task_kms_key_arns           = var.task_kms_key_arns
 
   create_task_execution_secrets_policy = length(local.task_execution_secret_arns) > 0 || length(local.task_execution_kms_key_arns) > 0
-  create_task_app_policy               = length(local.task_secret_arns) > 0 || length(local.task_sqs_queue_arns) > 0 || length(local.task_kms_key_arns) > 0
+  create_task_app_policy               = length(local.task_secret_arns) > 0 || length(local.task_sqs_queue_arns) > 0 || length(local.task_s3_read_object_arns) > 0 || length(local.task_kms_key_arns) > 0
 
   session_manager_log_group_name = coalesce(var.session_manager_log_group_name, "/aws/ssm/${local.name_prefix}/session-manager")
   session_manager_kms_key_id     = trimspace(var.session_manager_kms_key_id)
   session_manager_s3_bucket_name = trimspace(var.session_manager_s3_bucket_name)
 
-  lambda_secret_arns       = distinct(var.lambda_secret_arns)
-  lambda_kms_key_arns      = distinct(var.lambda_kms_key_arns)
-  lambda_sqs_queue_arns    = distinct(var.lambda_sqs_queue_arns)
-  create_lambda_app_policy = length(local.lambda_secret_arns) > 0 || length(local.lambda_sqs_queue_arns) > 0 || length(local.lambda_kms_key_arns) > 0
+  lambda_secret_arns       = var.lambda_secret_arns
+  lambda_kms_key_arns      = var.lambda_kms_key_arns
+  lambda_sqs_queue_arns    = var.lambda_sqs_queue_arns
+  lambda_s3_bucket_arns    = var.lambda_s3_bucket_arns
+  create_lambda_app_policy = length(local.lambda_secret_arns) > 0 || length(local.lambda_sqs_queue_arns) > 0 || length(local.lambda_s3_bucket_arns) > 0 || length(local.lambda_kms_key_arns) > 0
 }
 
 data "aws_iam_policy_document" "ecs_tasks_assume_role" {
@@ -188,6 +190,16 @@ data "aws_iam_policy_document" "ecs_task_app" {
   }
 
   dynamic "statement" {
+    for_each = length(local.task_s3_read_object_arns) > 0 ? [1] : []
+
+    content {
+      sid       = "ReadRuntimeObjects"
+      actions   = ["s3:GetObject"]
+      resources = local.task_s3_read_object_arns
+    }
+  }
+
+  dynamic "statement" {
     for_each = length(local.task_kms_key_arns) > 0 ? [1] : []
 
     content {
@@ -266,6 +278,7 @@ resource "aws_cloudwatch_log_group" "session_manager" {
 }
 
 resource "aws_ssm_document" "session_manager_preferences" {
+  count           = var.environment == "staging" ? 1 : 0
   name            = "SSM-SessionManagerRunShell"
   document_type   = "Session"
   document_format = "JSON"
@@ -360,6 +373,15 @@ data "aws_iam_policy_document" "lambda_app" {
         "sqs:SendMessage",
       ]
       resources = local.lambda_sqs_queue_arns
+    }
+  }
+
+  dynamic "statement" {
+    for_each = length(local.lambda_s3_bucket_arns) > 0 ? [1] : []
+    content {
+      sid       = "ReadLambdaS3Objects"
+      actions   = ["s3:GetObject"]
+      resources = [for arn in local.lambda_s3_bucket_arns : "${arn}/*"]
     }
   }
 

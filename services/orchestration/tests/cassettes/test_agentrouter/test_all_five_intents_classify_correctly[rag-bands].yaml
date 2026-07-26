@@ -1,0 +1,112 @@
+interactions:
+- request:
+    body: '{"max_tokens":1024,"messages":[{"role":"user","content":"What are the IELTS
+      band requirements?"}],"model":"claude-opus-4-8","system":"You are a routing
+      agent. Classify the user message into exactly one of:\n                        SPEAKING  -
+      IELTS speaking practice or mock interview (e.g. \"I want to practice speaking\")\n                        WRITING   -
+      essay submission or writing evaluation (e.g. \"Score my essay please\")\n                        RAG       -
+      IELTS info, requirements, visa, scholarships (e.g. \"What are the visa requirements?\")\n                        OPPORTUNITY_SEARCH
+      - searching for study opportunities, scholarships, admissions (e.g. \"Find me
+      a scholarship in Germany\")\n                        CV_REVIEW - CV upload or
+      improvement request (e.g. \"Can you review my CV?\")","tool_choice":{"type":"any"},"tools":[{"name":"IntentResult","description":"!!!
+      abstract \"Usage Documentation\"\n    [Models](../concepts/models.md) A base
+      class for creating Pydantic models. Attributes:\n    __class_vars__: The names
+      of the class variables defined on the model.\n    __private_attributes__: Metadata
+      about the private attributes of the model.\n    __signature__: The synthesized
+      `__init__` [`Signature`][inspect.Signature] of the model.     __pydantic_complete__:
+      Whether model building is completed, or if there are still undefined fields.\n    __pydantic_core_schema__:
+      The core schema of the model.\n    __pydantic_custom_init__: Whether the model
+      has a custom `__init__` function.\n    __pydantic_decorators__: Metadata containing
+      the decorators defined on the model.\n        This replaces `Model.__validators__`
+      and `Model.__root_validators__` from Pydantic V1.\n    __pydantic_generic_metadata__:
+      A dictionary containing metadata about generic Pydantic models.\n        The
+      `origin` and `args` items map to the [`__origin__`][genericalias.__origin__]\n        and
+      [`__args__`][genericalias.__args__] attributes of [generic aliases][types-genericalias],\n        and
+      the `parameter` item maps to the `__parameter__` attribute of generic classes.\n    __pydantic_parent_namespace__:
+      Parent namespace of the model, used for automatic rebuilding of models.\n    __pydantic_post_init__:
+      The name of the post-init method for the model, if defined.\n    __pydantic_root_model__:
+      Whether the model is a [`RootModel`][pydantic.root_model.RootModel].\n    __pydantic_serializer__:
+      The `pydantic-core` `SchemaSerializer` used to dump instances of the model.\n    __pydantic_validator__:
+      The `pydantic-core` `SchemaValidator` used to validate instances of the model.     __pydantic_fields__:
+      A dictionary of field names and their corresponding [`FieldInfo`][pydantic.fields.FieldInfo]
+      objects.\n    __pydantic_computed_fields__: A dictionary of computed field names
+      and their corresponding [`ComputedFieldInfo`][pydantic.fields.ComputedFieldInfo]
+      objects.     __pydantic_extra__: A dictionary containing extra values, if [`extra`][pydantic.config.ConfigDict.extra]\n        is
+      set to `''allow''`.\n    __pydantic_fields_set__: The names of fields explicitly
+      set during instantiation.\n    __pydantic_private__: Values of private attributes
+      set on the model instance.","input_schema":{"type":"object","properties":{"intent":{"enum":["SPEAKING","WRITING","RAG","OPPORTUNITY_SEARCH","CV_REVIEW"],"type":"string"},"confidence":{"type":"number"},"is_fallback":{"type":"boolean"}},"required":["intent","confidence"]}}]}'
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate
+      anthropic-version:
+      - '2023-06-01'
+      connection:
+      - keep-alive
+      content-length:
+      - '3437'
+      content-type:
+      - application/json
+      cookie:
+      - acw_tc=0a0f6be917846526341513757e0a1eca46bdee094323ae51cb6530345726d2
+      host:
+      - agentrouter.org
+      user-agent:
+      - Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14
+      x-stainless-arch:
+      - x64
+      x-stainless-async:
+      - async:asyncio
+      x-stainless-lang:
+      - python
+      x-stainless-os:
+      - Linux
+      x-stainless-package-version:
+      - 0.117.0
+      x-stainless-read-timeout:
+      - '25.0'
+      x-stainless-retry-count:
+      - '1'
+      x-stainless-runtime:
+      - CPython
+      x-stainless-runtime-version:
+      - 3.11.15
+      x-stainless-timeout:
+      - NOT_GIVEN
+    method: POST
+    uri: https://agentrouter.org/v1/messages
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAAA5xU204bMRD9FcvPCdqE3MhbHxACCioUqbRVtXLs2cTKrr34UghR/r0zziYsSStV
+        5Ck7Zy5nZo5nzWe6LLWZ8+maexudBD7lDp4i+MA73EoZnQOVV9aEBUL9rD/qZmOEdk4UGKUE7/k0
+        uAgd7oMDUfFpIUqPn8EuwXjy06aOId99jweDDpdCLiCXGBC0Nfl7j2yHI6wOsPHZKdKLoW0bTYiW
+        8NZgR+0swQZR7g29UTbcYGrrQy7Nas8M28tOst5pxg95bRH87RFi1Fh7AxpUYtJYRuS3J9IO3g/t
+        zaSiO6rxFIUJOqzatlo4UUEA1zamxraGfjbgG2xL1DpfwiqvwWmrqLm3f9GLOeRhVdOWEx0POIOV
+        LBvD1pXi6XtDuxQh7a5hnksbTUhDbbbesoBz1rU9khDyw9DNvzWx3/gHFJEd6SH7LzkQn7YWdjPF
+        aSbEBCDaPxGBF1rdwwJY9OCY9kz4JSZnYoal2eX554evbCaMYl5aB4w61w4qTOA7zFt2yQyAYsGy
+        OpYl06awrkqNssLZigVMvTT2uQQ1B8zk4V1qyprKYYXnhQhM6aIAh+lTVY8Fa9qpCSckju2eE+tN
+        B0dNig3WljGfKbfMs97j7eR6+EO9nt+N1Bczuvoex093FkOb97Cm9gutwNBdyE7OhgRt58HvP12Q
+        p8/xnZczIZfNi8ehGVQqelwm13vwsaRjsuODDHKcH9/86mw5VX6OZK6Kl/nt7zh5vtA3Ny/Xr9/6
+        38LjGcZVVgEtRJYiKujaOvruoDsh/dokXOG9RqEaKuKDrUkdPr2ofa0G8CTF1AypvSFUoYrxXaAh
+        vY9jVaZL9Zdb82GppuN1eGLWHOoFasWhNnuL42xv6LA6RFGqfwAAAP//AwA5AFEhywUAAA==
+    headers:
+      connection:
+      - keep-alive
+      content-encoding:
+      - gzip
+      content-type:
+      - text/plain; charset=utf-8
+      date:
+      - Tue, 21 Jul 2026 16:50:46 GMT
+      transfer-encoding:
+      - chunked
+      vary:
+      - Accept-Encoding
+      x-oneapi-request-id:
+      - 20260722005040849466885crx4kQZ6kTxcc
+    status:
+      code: 200
+      message: OK
+version: 1

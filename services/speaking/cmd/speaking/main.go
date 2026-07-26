@@ -47,17 +47,37 @@ func main() {
 	// 2. Initialize Repositories and Specialist Clients
 	dbRepo := db.NewPostgresRepository(dbPool)
 
-	// Fetch API keys from environment or config settings
-	anthropicAPIKey := os.Getenv("ANTHROPIC_API_KEY")
-	llmClient := llm.NewClient(anthropicAPIKey)
-	ttsClient := tts.NewClient(cfg.ElevenLabsAPIKey)
+	// Fetch API keys and config from environment
+	anthropicAPIKey := os.Getenv("ANTHROPIC_AUTH_TOKEN")
+	if anthropicAPIKey == "" {
+		anthropicAPIKey = os.Getenv("ANTHROPIC_API_KEY")
+	}
+	baseURL := os.Getenv("ANTHROPIC_BASE_URL")
+
+	practiceModel := os.Getenv("SPEAKING_PRACTICE_MODEL")
+	if practiceModel == "" {
+		practiceModel = "claude-opus-4-8"
+	}
+	examModel := os.Getenv("SPEAKING_EXAM_MODEL")
+	if examModel == "" {
+		examModel = "claude-opus-4-8"
+	}
+
+	practiceLLMClient := llm.NewClient(practiceModel, anthropicAPIKey, baseURL)
+	examLLMClient := llm.NewClient(examModel, anthropicAPIKey, baseURL)
+	ttsClient := tts.NewClient(cfg.SpeechServiceURL)
 	langfuseClient := langfuse.NewClient(cfg.LangfusePublicKey, cfg.LangfuseSecretKey, cfg.LangfuseHost)
 
 	speaking.StartBackgroundTasks()
 
 	// 3. HTTP Server configuration
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-		speaking.HandleWebSocket(w, r, cfg, dbRepo, llmClient, ttsClient, langfuseClient)
+		speaking.HandleWebSocket(w, r, cfg, dbRepo, practiceLLMClient, ttsClient, langfuseClient)
+	})
+
+	http.HandleFunc("/internal/evaluate/holistic", func(w http.ResponseWriter, r *http.Request) {
+		speaking.HandleHolisticEvaluation(w, r, cfg, examLLMClient, langfuseClient)
+
 	})
 
 	http.Handle("/metrics", promhttp.Handler())

@@ -3,6 +3,7 @@ import time
 import logging
 from datetime import datetime
 from typing import List, Tuple, Dict, Any
+from openai import AsyncOpenAI
 
 from langchain_openai import OpenAIEmbeddings
 from langchain_anthropic import ChatAnthropic
@@ -22,19 +23,97 @@ if settings.langfuse_public_key and settings.langfuse_secret_key:
         host=settings.langfuse_host,
     )
 
-openai_key = settings.openai_api_key or "mock-key"
 anthropic_key = settings.anthropic_api_key or "mock-key"
 
-embeddings_model = OpenAIEmbeddings(
-    model="text-embedding-3-small", openai_api_key=openai_key
+embedding_client = AsyncOpenAI(
+    api_key=settings.embedding_api_key,
+    base_url=settings.embedding_base_url
 )
 
-llm = ChatAnthropic(model="claude-haiku-4-5-20251001", anthropic_api_key=anthropic_key)
+llm = ChatAnthropic(
+    model=settings.llm_model,
+    anthropic_api_key=settings.anthropic_auth_token or settings.anthropic_api_key,
+    **({"anthropic_api_url": settings.anthropic_base_url} if settings.anthropic_base_url else {}),
+    model_kwargs={"extra_headers": {"User-Agent": settings.anthropic_user_agent}},
+    # langchain_anthropic 0.1.13 has no `timeout` or `max_retries` field on
+    # ChatAnthropic; unrecognized kwargs are forwarded to AsyncMessages.create(),
+    # which rejects max_retries — that made every /query return 500. The supported
+    # field is default_request_timeout, and the retry now lives at the call site.
+    default_request_timeout=25.0,
+)
+
+
+class _LLMResponse:
+    """Minimal stand-in for a LangChain message: `.content` plus `.response_metadata`."""
+
+    def __init__(self, content: str, usage):
+        self.content = content
+        self.response_metadata = {"usage": usage} if usage is not None else {}
+
+
+async def _invoke_via_sdk(prompt) -> _LLMResponse:
+    """Call the gateway through the raw Anthropic SDK, tolerating thinking blocks.
+
+    langchain_anthropic 0.1.13 predates extended thinking and reads `content[0].text`
+    unconditionally, so any response whose first block is a ThinkingBlock raises
+    "'ThinkingBlock' object has no attribute 'text'" — intermittently, because the
+    model only sometimes thinks first. The ingestion service already hit this and
+    iterates the blocks; RAG's LangChain path never got that treatment.
+
+    Pinning langchain-anthropic <0.2.0 is load-bearing elsewhere (supervisor.py carries
+    a monkeypatch for this exact version), so the fix is to bypass the wrapper for this
+    one call rather than upgrade it.
+    """
+    from anthropic import AsyncAnthropic
+
+    client_kwargs = {
+        "api_key": settings.anthropic_auth_token or settings.anthropic_api_key,
+        "default_headers": {"User-Agent": settings.anthropic_user_agent},
+        "timeout": 25.0,
+    }
+    if settings.anthropic_base_url:
+        client_kwargs["base_url"] = settings.anthropic_base_url
+
+    text = prompt if isinstance(prompt, str) else str(prompt)
+    response = await AsyncAnthropic(**client_kwargs).messages.create(
+        model=settings.llm_model,
+        max_tokens=1024,
+        messages=[{"role": "user", "content": text}],
+    )
+
+    # Take the first block that actually carries text; thinking blocks have none.
+    answer = next(
+        (b.text for b in response.content if getattr(b, "text", None)),
+        "",
+    )
+    return _LLMResponse(answer, getattr(response, "usage", None))
+
+
+async def _invoke_llm_with_retry(prompt, attempts: int = 2):
+    """Gateway tail latency is erratic (measured 2.5s–110s for identical calls),
+    so a timed-out or failed call is retried once before surfacing the error."""
+    last_error = None
+    for attempt in range(attempts):
+        try:
+            return await _invoke_via_sdk(prompt)
+        except Exception as e:  # noqa: BLE001 — retry any transport/timeout failure
+            last_error = e
+            # NOTE: this module's logger is a stdlib logger, not structlog —
+            # keyword fields raise "Logger._log() got an unexpected keyword
+            # argument", which would mask the real failure behind a logging error.
+            logger.warning(
+                "LLM invoke failed (attempt %d/%d): %s", attempt + 1, attempts, e
+            )
+    raise last_error
 
 
 async def generate_embedding(text: str) -> List[float]:
-    """Generate 1536-dimensional vector embedding for the input text."""
-    return await embeddings_model.aembed_query(text)
+    """Generate 768-dimensional vector embedding for the input text."""
+    response = await embedding_client.embeddings.create(
+        model=settings.embedding_model,
+        input=[text]
+    )
+    return response.data[0].embedding
 
 
 # Fuzzy-match threshold for the FAQ short-circuit below, per the architecture doc's
@@ -150,17 +229,27 @@ Answer:"""
 
     # 5. Call LLM (Claude)
     llm_start_time = time.time()
-    response = await llm.ainvoke(prompt)
+    response = await _invoke_llm_with_retry(prompt)
     llm_latency_ms = (time.time() - llm_start_time) * 1000
     answer_text = response.content
 
     # Extract token usage
     token_usage = response.response_metadata.get("usage", {})
-    input_tokens = token_usage.get("input_tokens", 0)
-    output_tokens = token_usage.get("output_tokens", 0)
+    if hasattr(token_usage, "input_tokens"):
+        input_tokens = getattr(token_usage, "input_tokens", 0)
+        output_tokens = getattr(token_usage, "output_tokens", 0)
+    else:
+        input_tokens = token_usage.get("input_tokens", 0) if isinstance(token_usage, dict) else 0
+        output_tokens = token_usage.get("output_tokens", 0) if isinstance(token_usage, dict) else 0
 
     # Estimated cost calculation for claude-haiku-4-5-20251001 ($0.25/M input, $1.25/M output tokens)
     cost_usd = (input_tokens * 0.25 + output_tokens * 1.25) / 1_000_000
+    
+    try:
+        from app.telemetry import record_llm_cost
+        record_llm_cost(user_id, settings.llm_model, input_tokens, output_tokens)
+    except ImportError:
+        logger.warning("telemetry helper not found")
 
     total_latency_ms = (time.time() - start_time) * 1000
 
@@ -189,7 +278,7 @@ Answer:"""
 
             trace.generation(
                 name="answer-generation",
-                model="claude-haiku-4-5-20251001",
+                model=settings.llm_model,
                 start_time=datetime.fromtimestamp(
                     start_time + (total_latency_ms - llm_latency_ms) / 1000
                 ),

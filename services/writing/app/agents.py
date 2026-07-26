@@ -1,3 +1,5 @@
+import asyncio
+import base64
 import json
 import re
 import time
@@ -5,10 +7,15 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, Literal
 
+import boto3
+import httpx
+from botocore.exceptions import ClientError
+from fastapi import HTTPException, status
+
 from pydantic import BaseModel, Field
 
 from app.config import get_settings
-from app.schemas import CriterionEvaluation, HighlightedIssue
+from app.schemas import CriterionEvaluation, InlineIssue
 
 
 Criterion = Literal["task_response", "cohesion", "vocabulary", "grammar"]
@@ -38,6 +45,44 @@ CRITERION_PROMPTS: dict[Criterion, str] = {
     ),
 }
 
+TaskNumber = Literal[1, 2]
+
+TASK1_ACADEMIC_INSTRUCTIONS = (
+    "This is IELTS Academic Writing Task 1: the candidate must summarise, describe, "
+    "and compare data from a chart, graph, table, or diagram in at least 150 words. "
+    "For Task Response specifically, check for a clear overview of the main trends, "
+    "accurate reporting of key figures against the supplied chart description, and "
+    "appropriate comparisons. The candidate must NOT give opinions or explain reasons "
+    "behind the data — penalise Task Response if they do."
+)
+
+TASK1_GENERAL_INSTRUCTIONS = (
+    "This is IELTS General Training Writing Task 1: a letter of at least 150 words "
+    "written for a specified purpose. For Task Response, check that the letter fully "
+    "covers all three bullet points in the prompt, and that its tone matches the "
+    "specified recipient: informal (friend/family), semi-formal (someone known but "
+    "not close), or formal (unknown/official recipient). For Cohesion, verify the "
+    "letter has an appropriate opening greeting (e.g. 'Dear ...') and closing that "
+    "match the required register — 'Yours sincerely' for a named recipient, 'Yours "
+    "faithfully' for 'Dear Sir/Madam', or a casual sign-off for an informal letter. "
+    "Penalise Cohesion if the greeting/closing register is mismatched or missing."
+)
+
+TASK2_INSTRUCTIONS = (
+    "This is IELTS Writing Task 2: a formal essay of at least 250 words responding "
+    "to a point of view, argument, or problem. For Task Response, check that the "
+    "candidate presents a clear position, addresses all parts of the question, and "
+    "supports ideas with relevant examples and explanation."
+)
+
+
+def _task_instructions(exam_type: str, task_number: int) -> str:
+    if task_number == 1:
+        if exam_type.strip().lower() in {"general", "general_training", "gt"}:
+            return TASK1_GENERAL_INSTRUCTIONS
+        return TASK1_ACADEMIC_INSTRUCTIONS
+    return TASK2_INSTRUCTIONS
+
 SYSTEM_PROMPT = """You are a certified IELTS Writing examiner. Apply the public IELTS
 Writing band descriptors conservatively and evaluate only the requested criterion.
 The input is computer-typed text; never discuss handwriting, OCR, or image quality.
@@ -46,13 +91,14 @@ Return one JSON object and no markdown with this exact shape:
 {
   "band_score": 0.0,
   "feedback": "criterion-specific summary",
+  "improvement_tip": "one actionable piece of advice to improve this specific criterion",
   "sentence_examples": [
     "specific example and explanation 1",
     "specific example and explanation 2",
     "specific example and explanation 3"
   ],
   "highlighted_issues": [
-    {"text": "exact verbatim substring from the essay", "issue": "what is wrong", "suggestion": "specific replacement or revision"}
+    {"text": "exact verbatim substring from the essay", "issue_type": "grammar/vocabulary/etc", "suggestion": "specific replacement or revision"}
   ]
 }
 
@@ -64,13 +110,14 @@ computed. Do not invent an issue merely to fill the list."""
 
 class RawIssue(BaseModel):
     text: str = Field(min_length=1)
-    issue: str = Field(min_length=1)
+    issue_type: str = Field(min_length=1)# Changed from 'issue' according to GOA-68 requirements    
     suggestion: str = Field(min_length=1)
 
 
 class RawAgentResponse(BaseModel):
     band_score: float
     feedback: str = Field(min_length=1)
+    improvement_tip: str = Field(min_length=1)# Added for GOA-068
     sentence_examples: list[str] = Field(min_length=3, max_length=3)
     highlighted_issues: list[RawIssue] = Field(default_factory=list)
 
@@ -108,23 +155,125 @@ def _response_text(response: Any) -> str:
     return "".join(parts)
 
 
-def _annotate_issues(essay_text: str, issues: list[RawIssue]) -> list[HighlightedIssue]:
-    annotated: list[HighlightedIssue] = []
+def _annotate_issues(essay_text: str, issues: list[RawIssue]) -> list[InlineIssue]:
+    annotated: list[InlineIssue] = []
     for item in issues:
         start = essay_text.find(item.text)
         if start < 0:
             continue
         annotated.append(
-            HighlightedIssue(
+            InlineIssue(
                 text=item.text,
-                issue=item.issue,
+                issue_type=item.issue_type,
                 suggestion=item.suggestion,
-                start=start,
-                end=start + len(item.text),
+                start_char=start,
+                end_char=start + len(item.text),
             )
         )
     return annotated
 
+def _s3_client():
+    settings = get_settings()
+    return boto3.client(
+        "s3",
+        region_name=settings.aws_region,
+        aws_access_key_id=settings.aws_access_key_id,
+        aws_secret_access_key=settings.aws_secret_access_key,
+        endpoint_url=settings.aws_endpoint_url,
+    )
+
+
+def calculate_word_count(text: str) -> int:
+    """Accurately count words handling multiple spaces and punctuation."""
+    return len(re.findall(r'\b\w+\b', text))
+async def _fetch_chart_bytes(s3_key: str) -> bytes:
+    settings = get_settings()
+
+    def _get() -> bytes:
+        try:
+            obj = _s3_client().get_object(Bucket=settings.s3_bucket, Key=s3_key)
+        except ClientError as exc:
+            error_code = exc.response.get("Error", {}).get("Code", "")
+            if error_code in {"NoSuchKey", "404"}:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Stimulus image not found for key '{s3_key}'",
+                ) from exc
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Unable to fetch stimulus image: {error_code or 'S3 error'}",
+            ) from exc
+        return obj["Body"].read()
+
+    # boto3 is sync; keep it off the event loop.
+    return await asyncio.to_thread(_get)
+
+
+async def extract_chart_context(s3_key: str) -> str:
+    """
+    Fetches an IELTS Task 1 (Academic) stimulus image from S3 and asks claude-opus-4-8
+    for a neutral, factual description, so the Claude-based examiner can verify
+    the candidate's data accuracy without needing vision input itself.
+    """
+    import logging
+    import base64
+    from anthropic import AsyncAnthropic
+
+    settings = get_settings()
+    key = settings.anthropic_api_key
+    if not key or key == "not-configured":
+        logging.getLogger(__name__).warning("ANTHROPIC_API_KEY is not configured or missing, using placeholder.")
+        key = "not-configured"
+
+    image_bytes = await _fetch_chart_bytes(s3_key)
+    encoded_image = base64.b64encode(image_bytes).decode("ascii")
+
+    media_type = "image/png"
+    if image_bytes.startswith(b"\xff\xd8"):
+        media_type = "image/jpeg"
+    elif image_bytes.startswith(b"GIF87a") or image_bytes.startswith(b"GIF89a"):
+        media_type = "image/gif"
+    elif image_bytes.startswith(b"RIFF") and image_bytes[8:12] == b"WEBP":
+        media_type = "image/webp"
+
+    client = AsyncAnthropic(
+        api_key=key,
+        timeout=settings.anthropic_timeout_seconds,
+        default_headers={"User-Agent": settings.anthropic_user_agent},
+        **({"base_url": settings.anthropic_base_url} if settings.anthropic_base_url else {}),
+    )
+
+    response = await client.messages.create(
+        model="claude-opus-4-8",
+        # No `temperature`. The gateway fronts Bedrock, which rejects the parameter
+        # outright for this model:
+        #   ValidationException: `temperature` is deprecated for this model
+        # It surfaced as an intermittent 502 ("2 of 4 writing agents failed") because
+        # only some requests land on the backend that enforces it — the same erratic
+        # routing seen elsewhere on this gateway. Determinism now comes from the
+        # rubric and the JSON schema, not from a sampling parameter.
+        max_tokens=500,
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": media_type,
+                            "data": encoded_image,
+                        },
+                    },
+                    {
+                        "type": "text",
+                        "text": "You objectively describe IELTS Writing Task 1 (Academic) stimulus images (line/bar charts, pie charts, tables, or process diagrams) so an examiner who cannot see the image can verify the candidate's data accuracy. List the exact axis labels, units, categories, and key data points/trends visible in the image. Do not evaluate or judge; describe only, factually and neutrally.\n\nDescribe this IELTS Task 1 chart/graph/table/diagram.",
+                    },
+                ],
+            }
+        ],
+    )
+    return response.content[0].text.strip()
 
 class WritingAgentRunner:
     def __init__(self, client: Any, *, model: str) -> None:
@@ -136,26 +285,88 @@ class WritingAgentRunner:
         criterion: Criterion,
         essay_text: str,
         exam_type: str,
+        user_id: str = "anonymous",
     ) -> AgentExecution:
-        started = time.perf_counter()
         prompt = (
             f"IELTS exam/task type: {exam_type}\n"
             f"Criterion: {criterion}\n"
             f"Criterion instructions: {CRITERION_PROMPTS[criterion]}\n\n"
             f"Essay:\n{essay_text}"
         )
+        system = (
+            SYSTEM_PROMPT
+            + "\n\nCriterion-specific examiner instruction: "
+            + CRITERION_PROMPTS[criterion]
+        )
+        return await self._execute(criterion, essay_text, prompt, system, user_id=user_id)
+
+    async def evaluate_exam_task(
+        self,
+        criterion: Criterion,
+        essay_text: str,
+        exam_type: str,
+        task_number: TaskNumber,
+        user_id: str = "anonymous",
+        chart_context: str | None = None,
+        task_prompt: str | None = None,
+    ) -> AgentExecution:
+        task_instructions = _task_instructions(exam_type, task_number)
+
+        prompt_sections = [
+            f"IELTS exam/task type: {exam_type}",
+            f"Task number: Task {task_number}",
+            f"Criterion: {criterion}",
+            f"Criterion instructions: {CRITERION_PROMPTS[criterion]}",
+            f"Task-specific instructions: {task_instructions}",
+        ]
+        if task_prompt:
+            prompt_sections.append(f"Exact task question given to the candidate: {task_prompt}")
+
+        if chart_context:
+            prompt_sections.append(
+                "Chart/graph/table/diagram description (for verifying data accuracy "
+                f"only, not part of the candidate's writing): {chart_context}"
+            )
+        prompt_sections.append(f"Essay:\n{essay_text}")
+        prompt = "\n\n".join(prompt_sections)
+
+        system = (
+            SYSTEM_PROMPT
+            + "\n\nCriterion-specific examiner instruction: "
+            + CRITERION_PROMPTS[criterion]
+            + "\n\nTask-specific examiner instruction: "
+            + task_instructions
+        )
+        return await self._execute(criterion, essay_text, prompt, system, user_id=user_id)
+
+    async def _execute(
+        self,
+        criterion: Criterion,
+        essay_text: str,
+        prompt: str,
+        system: str,
+        user_id: str = "anonymous",
+    ) -> AgentExecution:
+        started = time.perf_counter()
         response = await self.client.messages.create(
             model=self.model,
-            max_tokens=1600,
-            temperature=0,
-            system=(
-                SYSTEM_PROMPT
-                + "\n\nCriterion-specific examiner instruction: "
-                + CRITERION_PROMPTS[criterion]
-            ),
+            # A criterion response carries feedback, sentence examples AND the
+            # highlighted-issue spans, so it scales with essay length. At 1600 a
+            # 375-word essay truncated mid-JSON, and because the cut landed inside a
+            # string there was no closing brace to find — surfacing as the useless
+            # "did not return a JSON object" rather than "you ran out of room".
+            max_tokens=4000,
+            # See the note in describe_task1_stimulus: `temperature` is rejected for
+            # this model and was failing 2 of the 4 criterion agents per request.
+            system=system,
             messages=[{"role": "user", "content": prompt}],
         )
         latency_ms = (time.perf_counter() - started) * 1000
+        if getattr(response, "stop_reason", None) == "max_tokens":
+            raise ValueError(
+                f"Writing agent for '{criterion}' hit the max_tokens ceiling; its JSON "
+                f"is truncated. Raise max_tokens rather than retrying."
+            )
         raw = RawAgentResponse.model_validate_json(_json_object(_response_text(response)))
         feedback = raw.feedback.rstrip() + "\n\nSentence-level examples:\n" + "\n".join(
             f"{index}. {example}"
@@ -165,14 +376,21 @@ class WritingAgentRunner:
             criterion=criterion,
             band_score=_round_to_half(raw.band_score),
             feedback=feedback,
-            highlighted_issues=_annotate_issues(essay_text, raw.highlighted_issues),
+            improvement_tip=raw.improvement_tip,
+            word_count=calculate_word_count(essay_text),
+            inline_issues=_annotate_issues(essay_text, raw.highlighted_issues),
         )
         usage = getattr(response, "usage", None)
         prompt_tokens = int(getattr(usage, "input_tokens", 0) or 0)
         completion_tokens = int(getattr(usage, "output_tokens", 0) or 0)
-        # Sonnet pricing defaults ($3/M input, $15/M output) are isolated here so
-        # structured logs remain useful without coupling API responses to pricing.
         cost_usd = (prompt_tokens * 3 + completion_tokens * 15) / 1_000_000
+        
+        try:
+            from app.telemetry import record_llm_cost
+            record_llm_cost(user_id, self.model, prompt_tokens, completion_tokens)
+        except ImportError:
+            pass
+            
         return AgentExecution(
             result=result,
             prompt_tokens=prompt_tokens,
@@ -185,11 +403,20 @@ class WritingAgentRunner:
 @lru_cache
 def get_agent_runner() -> WritingAgentRunner:
     from anthropic import AsyncAnthropic
+    import logging
 
     settings = get_settings()
+    
+    key = settings.anthropic_api_key
+    if not key or key == "not-configured":
+        logging.getLogger(__name__).warning("ANTHROPIC_API_KEY is not configured or missing, using placeholder.")
+        key = "not-configured"
+
     client = AsyncAnthropic(
-        api_key=settings.anthropic_api_key or "not-configured",
+        api_key=key,
         timeout=settings.anthropic_timeout_seconds,
+        default_headers={"User-Agent": settings.anthropic_user_agent},
+        **({"base_url": settings.anthropic_base_url} if settings.anthropic_base_url else {}),
     )
     return WritingAgentRunner(client, model=settings.writing_model)
 
@@ -199,32 +426,33 @@ async def _public_evaluation(
     essay_text: str,
     exam_type: str,
     runner: WritingAgentRunner | None,
+    user_id: str = "anonymous",
 ) -> dict[str, Any]:
     execution = await (runner or get_agent_runner()).evaluate(
-        criterion, essay_text, exam_type
+        criterion, essay_text, exam_type, user_id=user_id
     )
     return execution.result.model_dump()
 
 
 async def evaluate_task_response(
-    essay_text: str, exam_type: str, runner: WritingAgentRunner | None = None
+    essay_text: str, exam_type: str, runner: WritingAgentRunner | None = None, user_id: str = "anonymous"
 ) -> dict[str, Any]:
-    return await _public_evaluation("task_response", essay_text, exam_type, runner)
+    return await _public_evaluation("task_response", essay_text, exam_type, runner, user_id)
 
 
 async def evaluate_cohesion(
-    essay_text: str, exam_type: str, runner: WritingAgentRunner | None = None
+    essay_text: str, exam_type: str, runner: WritingAgentRunner | None = None, user_id: str = "anonymous"
 ) -> dict[str, Any]:
-    return await _public_evaluation("cohesion", essay_text, exam_type, runner)
+    return await _public_evaluation("cohesion", essay_text, exam_type, runner, user_id)
 
 
 async def evaluate_vocabulary(
-    essay_text: str, exam_type: str, runner: WritingAgentRunner | None = None
+    essay_text: str, exam_type: str, runner: WritingAgentRunner | None = None, user_id: str = "anonymous"
 ) -> dict[str, Any]:
-    return await _public_evaluation("vocabulary", essay_text, exam_type, runner)
+    return await _public_evaluation("vocabulary", essay_text, exam_type, runner, user_id)
 
 
 async def evaluate_grammar(
-    essay_text: str, exam_type: str, runner: WritingAgentRunner | None = None
+    essay_text: str, exam_type: str, runner: WritingAgentRunner | None = None, user_id: str = "anonymous"
 ) -> dict[str, Any]:
-    return await _public_evaluation("grammar", essay_text, exam_type, runner)
+    return await _public_evaluation("grammar", essay_text, exam_type, runner, user_id)

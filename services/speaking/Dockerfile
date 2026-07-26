@@ -8,7 +8,10 @@ RUN go mod download
 
 # Dev target reload via air
 FROM base AS dev
-RUN go install github.com/air-verse/air@latest
+# Pinned, not @latest: air v1.67.2 raised its floor to Go 1.26 and broke every
+# from-scratch build on this 1.25 base while cached layers hid it locally.
+# Bump deliberately alongside the golang base image, never implicitly.
+RUN go install github.com/air-verse/air@v1.61.7
 COPY . .
 EXPOSE 8082
 CMD ["air", "-c", ".air.toml"]

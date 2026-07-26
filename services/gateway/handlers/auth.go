@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -326,6 +327,59 @@ func (h *AuthHandler) blacklistCurrentAccessToken(c *fiber.Ctx) {
 			}
 		}
 	}
+}
+
+// Register, ForgotPassword, ResetPassword and VerifyEmail are plain passthrough
+// proxies to the equivalent public User Service endpoints. Unlike Login/Refresh
+// they don't need to mint gateway-local tokens or set cookies, so a straight
+// forward-and-relay is enough to keep the client-facing API surface
+// consistent with the rest of /auth/*.
+
+func (h *AuthHandler) Register(c *fiber.Ctx) error {
+	return h.proxyToUserService(c, http.MethodPost, "/users")
+}
+
+func (h *AuthHandler) ForgotPassword(c *fiber.Ctx) error {
+	return h.proxyToUserService(c, http.MethodPost, "/auth/forgot-password")
+}
+
+func (h *AuthHandler) ResetPassword(c *fiber.Ctx) error {
+	return h.proxyToUserService(c, http.MethodPost, "/auth/reset-password")
+}
+
+func (h *AuthHandler) VerifyEmail(c *fiber.Ctx) error {
+	token := c.Params("token")
+	return h.proxyToUserService(c, http.MethodGet, "/auth/verify-email/"+token)
+}
+
+func (h *AuthHandler) proxyToUserService(c *fiber.Ctx, method string, path string) error {
+	var bodyReader io.Reader
+	if method != http.MethodGet {
+		bodyReader = bytes.NewReader(c.Body())
+	}
+
+	httpReq, err := http.NewRequestWithContext(c.UserContext(), method, h.userServiceURL+path, bodyReader)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "internal request error")
+	}
+	if method != http.MethodGet {
+		httpReq.Header.Set("Content-Type", "application/json")
+	}
+
+	resp, err := h.httpClient.Do(httpReq)
+	if err != nil {
+		return fiber.NewError(fiber.StatusServiceUnavailable, "auth service unavailable")
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "invalid response from auth service")
+	}
+
+	c.Status(resp.StatusCode)
+	c.Set(fiber.HeaderContentType, "application/json")
+	return c.Send(respBody)
 }
 
 func (h *AuthHandler) clearCookies(c *fiber.Ctx) {

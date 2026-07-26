@@ -1,12 +1,12 @@
 package agents
+
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/llm"
+	"strings"
 )
-
 
 // AgentResult represents the output metrics and feedback for a single IELTS criterion
 
@@ -23,22 +23,13 @@ type AgentResult struct {
 
 // LLMClient abstracts our Anthropic wrapper to enable offline unit testing
 
-
 type LLMClient interface {
 	StreamCompletion(ctx context.Context, systemPrompt, userPrompt string) (llm.CompletionResult, error)
 }
 
 // evaluateCriterion manages prompt construction, completion execution, and parsing/bound safety
-
-func evaluateCriterion(ctx context.Context, client LLMClient, criterion, systemPrompt, questionPrompt, questionType, transcript string) (AgentResult, error) {
-	// Build prompt containing prompt context and transcript
-	userPrompt := fmt.Sprintf("Question Prompt: %s\nQuestion Type: %s\nCandidate Transcript: %s", questionPrompt, questionType, transcript)
-	res, err := client.StreamCompletion(ctx, systemPrompt, userPrompt)
-	if err != nil {
-		return AgentResult{}, err
-	}
-	// Scrub potential markdown wrappers
-	cleanedText := strings.TrimSpace(res.Text)
+func cleanJSONResponse(raw string) string {
+	cleanedText := strings.TrimSpace(raw)
 	if strings.HasPrefix(cleanedText, "```json") {
 		cleanedText = strings.TrimPrefix(cleanedText, "```json")
 		cleanedText = strings.TrimSuffix(cleanedText, "```")
@@ -48,6 +39,18 @@ func evaluateCriterion(ctx context.Context, client LLMClient, criterion, systemP
 		cleanedText = strings.TrimSuffix(cleanedText, "```")
 		cleanedText = strings.TrimSpace(cleanedText)
 	}
+	return cleanedText
+}
+
+func evaluateCriterion(ctx context.Context, client LLMClient, criterion, systemPrompt, questionPrompt, questionType, transcript string) (AgentResult, error) {
+	// Build prompt containing prompt context and transcript
+	userPrompt := fmt.Sprintf("Question Prompt: %s\nQuestion Type: %s\nCandidate Transcript: %s", questionPrompt, questionType, transcript)
+	res, err := client.StreamCompletion(ctx, systemPrompt, userPrompt)
+	if err != nil {
+		return AgentResult{}, err
+	}
+	// Scrub potential markdown wrappers
+	cleanedText := cleanJSONResponse(res.Text)
 	// Parse JSON output
 	var parsed struct {
 		Band     float64  `json:"band"`
@@ -77,19 +80,21 @@ func evaluateCriterion(ctx context.Context, client LLMClient, criterion, systemP
 	}, nil
 }
 
-
 // EvaluateFluency evaluates Fluency and Coherence
 func EvaluateFluency(ctx context.Context, client LLMClient, questionPrompt, questionType, transcript string) (AgentResult, error) {
 	return evaluateCriterion(ctx, client, "Fluency and Coherence", FluencySystemPrompt, questionPrompt, questionType, transcript)
 }
+
 // EvaluateLexical evaluates Lexical Resource
 func EvaluateLexical(ctx context.Context, client LLMClient, questionPrompt, questionType, transcript string) (AgentResult, error) {
 	return evaluateCriterion(ctx, client, "Lexical Resource", LexicalSystemPrompt, questionPrompt, questionType, transcript)
 }
+
 // EvaluateGrammar evaluates Grammatical Range and Accuracy
 func EvaluateGrammar(ctx context.Context, client LLMClient, questionPrompt, questionType, transcript string) (AgentResult, error) {
 	return evaluateCriterion(ctx, client, "Grammatical Range and Accuracy", GrammarSystemPrompt, questionPrompt, questionType, transcript)
 }
+
 // EvaluatePronunciation evaluates Pronunciation
 func EvaluatePronunciation(ctx context.Context, client LLMClient, questionPrompt, questionType, transcript string) (AgentResult, error) {
 	return evaluateCriterion(ctx, client, "Pronunciation", PronunciationSystemPrompt, questionPrompt, questionType, transcript)

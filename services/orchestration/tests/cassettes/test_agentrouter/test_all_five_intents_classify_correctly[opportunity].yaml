@@ -1,0 +1,111 @@
+interactions:
+- request:
+    body: '{"max_tokens":1024,"messages":[{"role":"user","content":"Find me a masters
+      in Germany"}],"model":"claude-opus-4-8","system":"You are a routing agent. Classify
+      the user message into exactly one of:\n                        SPEAKING  - IELTS
+      speaking practice or mock interview (e.g. \"I want to practice speaking\")\n                        WRITING   -
+      essay submission or writing evaluation (e.g. \"Score my essay please\")\n                        RAG       -
+      IELTS info, requirements, visa, scholarships (e.g. \"What are the visa requirements?\")\n                        OPPORTUNITY_SEARCH
+      - searching for study opportunities, scholarships, admissions (e.g. \"Find me
+      a scholarship in Germany\")\n                        CV_REVIEW - CV upload or
+      improvement request (e.g. \"Can you review my CV?\")","tool_choice":{"type":"any"},"tools":[{"name":"IntentResult","description":"!!!
+      abstract \"Usage Documentation\"\n    [Models](../concepts/models.md) A base
+      class for creating Pydantic models. Attributes:\n    __class_vars__: The names
+      of the class variables defined on the model.\n    __private_attributes__: Metadata
+      about the private attributes of the model.\n    __signature__: The synthesized
+      `__init__` [`Signature`][inspect.Signature] of the model.     __pydantic_complete__:
+      Whether model building is completed, or if there are still undefined fields.\n    __pydantic_core_schema__:
+      The core schema of the model.\n    __pydantic_custom_init__: Whether the model
+      has a custom `__init__` function.\n    __pydantic_decorators__: Metadata containing
+      the decorators defined on the model.\n        This replaces `Model.__validators__`
+      and `Model.__root_validators__` from Pydantic V1.\n    __pydantic_generic_metadata__:
+      A dictionary containing metadata about generic Pydantic models.\n        The
+      `origin` and `args` items map to the [`__origin__`][genericalias.__origin__]\n        and
+      [`__args__`][genericalias.__args__] attributes of [generic aliases][types-genericalias],\n        and
+      the `parameter` item maps to the `__parameter__` attribute of generic classes.\n    __pydantic_parent_namespace__:
+      Parent namespace of the model, used for automatic rebuilding of models.\n    __pydantic_post_init__:
+      The name of the post-init method for the model, if defined.\n    __pydantic_root_model__:
+      Whether the model is a [`RootModel`][pydantic.root_model.RootModel].\n    __pydantic_serializer__:
+      The `pydantic-core` `SchemaSerializer` used to dump instances of the model.\n    __pydantic_validator__:
+      The `pydantic-core` `SchemaValidator` used to validate instances of the model.     __pydantic_fields__:
+      A dictionary of field names and their corresponding [`FieldInfo`][pydantic.fields.FieldInfo]
+      objects.\n    __pydantic_computed_fields__: A dictionary of computed field names
+      and their corresponding [`ComputedFieldInfo`][pydantic.fields.ComputedFieldInfo]
+      objects.     __pydantic_extra__: A dictionary containing extra values, if [`extra`][pydantic.config.ConfigDict.extra]\n        is
+      set to `''allow''`.\n    __pydantic_fields_set__: The names of fields explicitly
+      set during instantiation.\n    __pydantic_private__: Values of private attributes
+      set on the model instance.","input_schema":{"type":"object","properties":{"intent":{"enum":["SPEAKING","WRITING","RAG","OPPORTUNITY_SEARCH","CV_REVIEW"],"type":"string"},"confidence":{"type":"number"},"is_fallback":{"type":"boolean"}},"required":["intent","confidence"]}}]}'
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate
+      anthropic-version:
+      - '2023-06-01'
+      connection:
+      - keep-alive
+      content-length:
+      - '3428'
+      content-type:
+      - application/json
+      cookie:
+      - acw_tc=0a0f6be917846526341513757e0a1eca46bdee094323ae51cb6530345726d2
+      host:
+      - agentrouter.org
+      user-agent:
+      - Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14
+      x-stainless-arch:
+      - x64
+      x-stainless-async:
+      - async:asyncio
+      x-stainless-lang:
+      - python
+      x-stainless-os:
+      - Linux
+      x-stainless-package-version:
+      - 0.117.0
+      x-stainless-read-timeout:
+      - '25.0'
+      x-stainless-retry-count:
+      - '1'
+      x-stainless-runtime:
+      - CPython
+      x-stainless-runtime-version:
+      - 3.11.15
+      x-stainless-timeout:
+      - NOT_GIVEN
+    method: POST
+    uri: https://agentrouter.org/v1/messages
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAAA5xU70/bMBD9Vyp/blFCWwL9hjaksQ8DQZmAabKMc229JHbwj4lQ9X/nzk1D1m7S
+        RD9E9Xt39ru7Z6/ZkypLpZdstmbOBCuBzZiF5wDOsyEzUgZrIeeV0X6F1HFyfDJKMqR2QZQYpATn
+        2MzbAEPmvAVRsdlClA6X3hSgHcUpXQfPd+tskg6ZFHIFXGKCV0bzPyOSHY90vsdlZ2OUF3wfG5+R
+        LOGMxor6u3jjRdkB6TQbb3Br4zyXuumUYXnJUZKOE7ava8vgr2NIUYumE2pUVNIiY0I6If3krmnv
+        UB7swRnPQWivfNPHamFFBR5sH4yFtbqzU7bBskSteAENr8Eqk1Nx7/+CE0vgvqlpylGOA+xBI8sW
+        2IZSPq03NEvh4+xa5VyaoH1sajv1HgLWGtuPiEbg+6mbf3uim/gHHJEc+CH5LzuQnr4Xdj3FbkZG
+        eyDZP5CBFxrdfKXcoDSmwK8qYCAGbYUDbwYqx2i1aAamro31QSuvwB3RrLZtj5tshlg5GcgbUwb+
+        lNuCJ+nUPk6L7/X5yYX+rX7dvmT3q7v7HFNbe65JzYJOoGuaHJ1lRG3lsavr66ub+d23y/kDv704
+        v/n0hRIdx1tYPglZtPcRS9LoI0y4jJk34EJJV30nDwXx4IBtfg63Eiu3RG3F68nDa/pZP86vC63V
+        JG++ltUp5lUmB2qXLEXIYWTq4EaTETHWRFsJ5xTaSNMhzpuaZuei37uzWsJRG2Nt5MVWUIUeQ9ci
+        EN176Jn4jvzlJfiwkeLTsv8ArBnUK6jAonPS1eFu7+y02mfRSG8AAAD//wMAGcEsjmkFAAA=
+    headers:
+      connection:
+      - keep-alive
+      content-encoding:
+      - gzip
+      content-type:
+      - text/plain; charset=utf-8
+      date:
+      - Tue, 21 Jul 2026 16:51:01 GMT
+      transfer-encoding:
+      - chunked
+      vary:
+      - Accept-Encoding
+      x-oneapi-request-id:
+      - 2026072200505798777989ksg9sqKV6v7PE
+    status:
+      code: 200
+      message: OK
+version: 1

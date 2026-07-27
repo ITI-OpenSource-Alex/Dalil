@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
@@ -81,20 +80,21 @@ func main() {
 	speaking.StartBackgroundTasks()
 
 	// 3. HTTP Server configuration
-	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-		speaking.HandleWebSocket(w, r, cfg, dbRepo, practiceLLMClient, ttsClient, langfuseClient)
+	//
+	// Every route lives in speaking.NewRouter so the exact production routing
+	// table can be built (and asserted on) by tests without binding a port.
+	router := speaking.NewRouter(speaking.RouterDeps{
+		Config:      cfg,
+		Repo:        dbRepo,
+		PracticeLLM: practiceLLMClient,
+		ExamLLM:     examLLMClient,
+		TTS:         ttsClient,
+		Langfuse:    langfuseClient,
 	})
-
-	http.HandleFunc("/internal/evaluate/holistic", func(w http.ResponseWriter, r *http.Request) {
-		speaking.HandleHolisticEvaluation(w, r, cfg, examLLMClient, langfuseClient)
-
-	})
-
-	http.Handle("/metrics", promhttp.Handler())
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,
-		Handler: nil,
+		Handler: router,
 	}
 
 	// 4. Graceful Shutdown & Drain handling

@@ -35,4 +35,14 @@ export class AudioRecorder {
     this.mediaRecorder = null;
     this.stream = null;
   }
+
+  /**
+   * Exposes the live MediaStream so other consumers (e.g. a waveform
+   * visualizer) can tap the same microphone stream instead of requesting
+   * getUserMedia a second time. Returns null before start() resolves or
+   * after stop() has released the stream.
+   */
+  getStream(): MediaStream | null {
+    return this.stream;
+  }
 }

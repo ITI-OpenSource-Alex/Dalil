@@ -309,12 +309,39 @@ async def _private_pool():
     """
     import asyncpg
     from app.core.config import settings
-    from app.repositories.heartbeat_repository import HeartbeatRepository  # noqa: F401
+    from app.core.database import db
 
     try:
-        return await asyncpg.create_pool(dsn=settings.database_url, min_size=1, max_size=2)
+        pool = await asyncpg.create_pool(dsn=settings.database_url, min_size=1, max_size=2)
     except Exception:
         pytest.skip("Database not available for integration test")
+
+    async with pool.acquire() as conn:
+        has_schema = await conn.fetchval(
+            "SELECT to_regclass('public.questions') IS NOT NULL"
+        )
+
+    if not has_schema:
+        # A reachable database is not the same as a migrated one.
+        #
+        # Locally the service container has already migrated exam_db, so creating
+        # a raw pool was enough. CI stands up an empty exam_test and only the
+        # service's own startup path applies migrations -- which this pool
+        # deliberately bypasses to avoid the shared-event-loop problem. The first
+        # CI run failed with UndefinedTableError: relation "questions" does not
+        # exist, on a test that passed locally.
+        #
+        # db.connect() runs the migrations, then its pool is closed again so this
+        # test keeps its own loop-local one.
+        try:
+            await db.connect()
+        except Exception:
+            await pool.close()
+            pytest.skip("Database schema unavailable for integration test")
+        finally:
+            await db.disconnect()
+
+    return pool
 
 
 async def _seed_session(conn, *, session_id, user_id, started_at, time_limit_seconds,

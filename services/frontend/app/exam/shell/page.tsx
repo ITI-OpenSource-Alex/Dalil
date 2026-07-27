@@ -4,7 +4,11 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useExamTimer } from "@/app/hooks/useExamTimer";
 import { ExamType, SkillArea, ExamStatus } from "@/app/types/exam";
-import { getSession, submitSession } from "@/lib/exam-api";
+import { getSession, sendHeartbeat, submitSession } from "@/lib/exam-api";
+
+// Well inside the backend's 10-minute grace window, so several consecutive
+// failures are survivable.
+const HEARTBEAT_INTERVAL_MS = 60_000;
 // import { evaluateEssay } from "@/lib/writing-api";
 import type { ExamSessionResponse } from "@/lib/exam-api";
 import { Sidebar } from "@/components/ui/sidebar";
@@ -61,6 +65,29 @@ export default function ExamShell() {
       return () => cancelAnimationFrame(raf);
     }
   }, [examConfig]);
+
+  // Keep the session alive for as long as this page is open.
+  //
+  // The backend sweeps in-progress sessions that stop reporting and marks them
+  // abandoned; submit then returns 403 and the candidate loses the attempt. The
+  // heartbeat endpoint existed but no client had ever called it (BUG-054).
+  //
+  // 60s against a 10-minute grace window means roughly nine consecutive
+  // failures before a session is at risk, so a brief network drop costs
+  // nothing. One fires immediately so a session is marked live from the moment
+  // the exam opens rather than a minute into it.
+  useEffect(() => {
+    if (!sessionId || status !== "in_progress") {
+      return;
+    }
+
+    void sendHeartbeat(sessionId);
+    const timer = setInterval(() => {
+      void sendHeartbeat(sessionId);
+    }, HEARTBEAT_INTERVAL_MS);
+
+    return () => clearInterval(timer);
+  }, [sessionId, status]);
 
   const executeSubmission = async () => {
     setShowSubmitModal(false);

@@ -111,6 +111,7 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	api.Get("/exam/sessions/:sessionId", examHandler.GetSession)
 	api.Put("/exam/sessions/:sessionId/submit", examHandler.SubmitSession)
 	api.Get("/exam/sessions/:sessionId/result", examHandler.GetSessionResult)
+	api.Patch("/exam/sessions/:sessionId/heartbeat", examHandler.Heartbeat)
 	api.Post("/writing/essays/:essayId/evaluate", streamHandler.WritingEvaluate)
 	app.Post(
 		"/cv/upload",

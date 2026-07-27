@@ -136,6 +136,30 @@ export async function submitSession(
   return response.json();
 }
 
+/**
+ * Tell the backend this session is still being sat.
+ *
+ * The exam service sweeps in-progress sessions that stop reporting and marks
+ * them abandoned, after which submit returns 403 and the attempt is lost. The
+ * endpoint shipped with GOA-092 and nothing ever called it, so the sweep's only
+ * input was silence (BUG-054).
+ *
+ * Deliberately never throws. A dropped heartbeat is not worth surfacing to a
+ * candidate mid-exam, and the grace window covers several consecutive misses;
+ * throwing here would put a network blip in front of someone sitting a test.
+ */
+export async function sendHeartbeat(sessionId: string): Promise<boolean> {
+  try {
+    const response = await fetch(
+      `${API_BASE}/sessions/${sessionId}/heartbeat`,
+      { ...fetchOptions, method: "PATCH", headers },
+    );
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function getResult(
   sessionId: string,
 ): Promise<ExamResultResponse> {

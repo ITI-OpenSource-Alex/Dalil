@@ -45,12 +45,14 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	tokenService := gatewayauth.NewTokenService(cfg.JWTSecret, cfg.AccessTokenTTL, cfg.RefreshTokenTTL)
 	httpClient := &http.Client{Timeout: 10 * time.Second}
 	authHandler := handlers.NewAuthHandler(redisClient, tokenService, metrics, httpClient, cfg.UserServiceURL, cfg.InternalApiKey)
-	writingHandler := handlers.NewWritingHandler(httpClient, cfg.WritingServiceURL)
 	examHandler := handlers.NewExamHandler(httpClient, cfg.ExamServiceURL, cfg.InternalApiKey)
 	// Streaming paths need their own client: the shared one has a 10s timeout,
 	// which would sever a chat or essay-evaluation stream mid-flight. A speaking
 	// evaluation alone has been measured at ~77s.
 	streamClient := &http.Client{Timeout: 5 * time.Minute}
+	// llmClient (streamClient) for CV review: a model call cannot finish inside
+	// the shared 10s timeout.
+	writingHandler := handlers.NewWritingHandler(httpClient, streamClient, cfg.WritingServiceURL)
 	streamHandler := handlers.NewStreamHandler(
 		streamClient, cfg.OrchestrationServiceURL, cfg.WritingServiceURL, cfg.InternalApiKey,
 	)
@@ -96,6 +98,7 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	app.Get("/admin/costs", handlers.AdminCosts(redisClient, cfg.BudgetUSD, cfg.CostPromptPer1M, cfg.CostCompletionPer1M))
 	api.Post("/writing/essays/upload", middleware.ValidateEssayTextLength(5000), writingHandler.UploadEssay)
 	api.Post("/writing/cv/upload", writingHandler.UploadCV)
+	api.Post("/writing/cv/review", writingHandler.ReviewCV)
 	api.Get("/exam/listening/start", examHandler.StartListening)
 	api.Put("/exam/listening/:sessionId/submit", examHandler.SubmitListening)
 

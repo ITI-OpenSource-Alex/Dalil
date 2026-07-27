@@ -106,6 +106,10 @@ export default function ChatShell() {
     >
   >({});
   const [writingOverallBand, setWritingOverallBand] = useState<number>();
+  const [inlineIssues, setInlineIssues] = useState<CriterionEvaluation[]>([]);
+  const [submittedEssay, setSubmittedEssay] = useState<string>("");
+  const [improvedEssay, setImprovedEssay] = useState<string | undefined>();
+  const [isPaidTier] = useState(true); // TODO: hardcoded until tier comes from session/profile
 
   // Single source of truth for the session lock: which practice mode, if
   // any, currently owns the input area. Derived — not a separate flag — from
@@ -400,6 +404,10 @@ export default function ChatShell() {
 
         setWritingOverallBand(event.overall_band);
 
+        setInlineIssues(event.evaluations_full);
+
+        setImprovedEssay(event.improved_essay);
+
         setWritingLoading(false);
 
         break;
@@ -504,6 +512,9 @@ export default function ChatShell() {
   const handleEssaySubmit = async (essay: string) => {
     setWritingEvaluations({});
     setWritingOverallBand(undefined);
+    setInlineIssues([]);
+    setSubmittedEssay(essay);
+    setImprovedEssay(undefined);
 
     await handleSendMessage(essay);
   };
@@ -553,7 +564,6 @@ export default function ChatShell() {
     setSpeakingState("connecting");
     openSpeakingSocket(SPEAKING_WS_URL);
   };
-
 
   const stopSpeaking = () => {
     recorderRef.current?.stop();
@@ -651,6 +661,10 @@ export default function ChatShell() {
               evaluations={writingEvaluations}
               overallBand={writingOverallBand}
               loading={writingLoading}
+              inlineIssues={inlineIssues}
+              essayText={submittedEssay}
+              improvedEssay={improvedEssay}
+              isPaidTier={isPaidTier}
             />
           </div>
         )}

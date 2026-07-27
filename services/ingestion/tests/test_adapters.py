@@ -24,12 +24,41 @@ async def test_adapter_returns_structured_documents(mocker):
     # 2. Act: Run the scrape orchestration
     documents = await adapter.scrape()
 
-    # 3. Assert: Verify the HTML was parsed correctly
-    assert len(documents) == 1
-    assert documents[0]["source"] == "ielts_org"
-    assert documents[0]["category"] == "language_requirements"
-    assert documents[0]["country"] == "Global"
-    assert "Band 7 means you are a good user of English." in documents[0]["content"]
+    # 3. Assert: one document per configured page.
+    #
+    # This asserted 1 while the adapter scraped only ielts-scoring-in-detail,
+    # which left the corpus with band descriptors and no test format or timing
+    # at all (BUG-012).
+    assert len(documents) == len(IELTSOrgAdapter.CONTENT_URLS)
+    for document in documents:
+        assert document["source"] == "ielts_org"
+        assert document["category"] == "language_requirements"
+        assert document["country"] == "Global"
+        assert "Band 7 means you are a good user of English." in document["content"]
+
+    # Each document must carry the URL it actually came from. extract_documents
+    # used to hardcode self.target_url, which was invisible with one page and
+    # would have stamped all five with the scoring page's URL -- citations
+    # pointing at a page that does not contain the answer (BUG-052).
+    assert [d["url"] for d in documents] == IELTSOrgAdapter.CONTENT_URLS
+    assert len({d["url"] for d in documents}) == len(documents)
+
+
+@pytest.mark.asyncio
+async def test_scoring_page_is_still_ingested_after_the_format_pages_were_added(mocker):
+    """The original page must survive the multi-page change.
+
+    BaseAdapter.scrape() extracts the index page only when extract_urls()
+    returns nothing, so listing detail URLs without including the scoring page
+    would have silently dropped the coverage this adapter already had -- a
+    regression that no other assertion here would catch.
+    """
+    adapter = IELTSOrgAdapter()
+
+    assert adapter.target_url in IELTSOrgAdapter.CONTENT_URLS
+    assert (
+        "ielts-scoring-in-detail" in IELTSOrgAdapter.CONTENT_URLS[0]
+    ), "the scoring page must remain in the fetch list"
 
 @pytest.mark.asyncio
 async def test_robots_disallow_skips_url(mocker):

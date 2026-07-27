@@ -17,6 +17,10 @@ import EssayComposer from "./essay-composer";
 import WritingEvaluationPanel from "./writing-evaluation-panel";
 
 import { streamWritingEvaluation, WritingEvent } from "@/lib/writing-stream";
+// Used by the inlineIssues state below. The type was referenced without being
+// imported, so the frontend did not compile; that arrived on dev with the
+// inline-feedback work and is not something this branch introduced.
+import type { CriterionEvaluation } from "@/lib/writing-api";
 import { SpeakingEvaluationResult } from "@/app/types/speaking";
 import { extractCriteriaScores } from "@/lib/speaking-format";
 import { CURRENT_USER_ID } from "@/lib/current-user";

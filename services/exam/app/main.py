@@ -1,4 +1,5 @@
 import asyncio
+import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -56,9 +57,38 @@ async def correlation_id_middleware(request: Request, call_next):
     token = None
     if correlation_id:
         token = correlation_id_var.set(correlation_id)
+    start = time.perf_counter()
     try:
         response = await call_next(request)
+        # Emit one structured line per request.
+        #
+        # Correlation propagation was already correct end to end -- the gateway
+        # generates an ID, forwards it, and it reaches this middleware -- but no
+        # handler on any gateway-reachable path logged anything, so requests
+        # appeared only in uvicorn's access log, which has no correlation field.
+        # The ID was carried faithfully to a place where it was never written
+        # down, which makes tracing a request across services impossible in
+        # practice and GW-03 unverifiable as written (BUG-030).
+        #
+        # inject_correlation_id picks correlation_id up from the context var set
+        # above, so it lands on this line and on anything a handler logs within
+        # the request.
+        logger.info(
+            "request_handled",
+            method=request.method,
+            path=request.url.path,
+            status_code=response.status_code,
+            duration_ms=round((time.perf_counter() - start) * 1000, 2),
+        )
         return response
+    except Exception:
+        logger.exception(
+            "request_failed",
+            method=request.method,
+            path=request.url.path,
+            duration_ms=round((time.perf_counter() - start) * 1000, 2),
+        )
+        raise
     finally:
         if token is not None:
             correlation_id_var.reset(token)

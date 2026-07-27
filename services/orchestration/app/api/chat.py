@@ -65,15 +65,43 @@ async def chat_endpoint(request: ChatRequest, req: Request):
             # parent its LLM generation under.
             trace_id = trace.trace_id if trace else None
             parent_span_id = supervisor_span.id if supervisor_span else None
-            
+
+            # Load history *before* classifying.
+            #
+            # This call used to sit below, after classification, and its return
+            # value was thrown away -- `await load_memory_variables(...)` with no
+            # assignment. save_context wrote turns correctly and
+            # GET /sessions/{id}/history served them perfectly, so the plumbing
+            # looked complete from every angle except the one that mattered:
+            # nothing ever read the history back into a request. Every
+            # conversation was effectively stateless and turn 2 could not resolve
+            # "it" (BUG-017).
+            memory = get_session_memory(request.sessionId)
+            memory_vars = await load_memory_variables(memory, {"input": request.message})
+            history = memory_vars.get("history") or memory_vars.get("chat_history") or []
+
             intent_result = await classify_intent(
                 message=request.message,
                 trace_id=trace_id,
                 parent_span_id=parent_span_id,
-                user_id=request.userId
+                user_id=request.userId,
+                history=history,
             )
             intent = intent_result.intent
             downstream_service = intent.lower()
+
+            # What actually gets sent downstream. RAG and the other services
+            # receive this string and nothing else -- they have no access to the
+            # session -- so an unresolved pronoun here is unrecoverable further
+            # down. Falls back to the raw message when there is no history or the
+            # classifier failed into its fallback.
+            resolved_message = intent_result.standalone_question or request.message
+            if resolved_message != request.message:
+                logger.info(
+                    "Resolved message against history",
+                    original=request.message[:80],
+                    resolved=resolved_message[:80],
+                )
             if supervisor_span:
                 try:
                     # v4's end() takes only end_time; the output goes via update().
@@ -90,9 +118,6 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                     confidence=intent_result.confidence
                 ).model_dump_json()
             )
-            # 4. Load memory variables using thread pool executor
-            memory = get_session_memory(request.sessionId)
-            await load_memory_variables(memory, {"input": request.message})
             # 5. Initialize downstream call trace span
             downstream_span = None
             if trace:
@@ -100,7 +125,7 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                     downstream_span = trace.start_observation(
                         name="downstream_call",
                         as_type="span",
-                        input={"intent": intent, "message": request.message},
+                        input={"intent": intent, "message": resolved_message},
                     )
                 except Exception as e:
                     logger.warning("Failed to initialize Langfuse downstream span", error=str(e))
@@ -108,7 +133,7 @@ async def chat_endpoint(request: ChatRequest, req: Request):
             response_stream = forward_downstream_stream(
                 client=req.app.state.http_client,
                 intent=intent,
-                message=request.message,
+                message=resolved_message,
                 user_id=request.userId,
                 correlation_id=correlation_id,
                 attachments=request.attachments
@@ -128,6 +153,12 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                 except Exception as e:
                     logger.warning("Failed to end Langfuse downstream span", error=str(e))
             # 8. Save session memory using thread pool executor
+            # Store what the user actually typed, not resolved_message. History
+            # is the transcript, and GET /sessions/{id}/history serves it back to
+            # the UI; rewriting a user's own words in their conversation would be
+            # wrong to show them. The rewrite is derived per turn from this, so
+            # persisting it would also compound: turn 3 would resolve against an
+            # already-resolved turn 2.
             await save_context(
                 memory,
                 {"input": request.message},

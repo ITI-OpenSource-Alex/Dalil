@@ -7,7 +7,13 @@ langchain-community>=0.0.29,<0.1.0
 langchain-anthropic>=0.1.4,<0.2.0
 redis>=5.0.1
 sse-starlette>=2.0.0
-langfuse>=3.0.0
+# Upper bound is deliberate. This was an unbounded >=3.0.0, which floated to
+# 4.14.1 -- a major the code had never been written against, so every trace call
+# raised AttributeError into an except that logged and continued. The handler now
+# targets the v4 observation API (start_observation / update / end); rag, writing
+# and cv-processor are still on the v2 API at <3.0.0, so the four are not yet
+# consistent. Converging them is worth one deliberate pass.
+langfuse>=4.0.0,<5.0.0
 prometheus-client>=0.20.0
 pydantic>=2.6.4
 pydantic-settings>=2.2.1

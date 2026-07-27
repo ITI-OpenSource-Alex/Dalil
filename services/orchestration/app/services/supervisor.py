@@ -67,12 +67,16 @@ async def classify_intent(message: str, trace_id: str = None, parent_span_id: st
     callbacks = []
     if settings.langfuse_public_key and settings.langfuse_secret_key and trace_id and parent_span_id:
         try:
+            # v4's handler takes credentials from the process-wide client rather
+            # than per-instance kwargs, and nests via trace_context. Passing the
+            # v2 arguments raised "unexpected keyword argument 'secret_key'" into
+            # the except below, so intent classification -- the one LLM call this
+            # service makes directly -- was never traced (BUG-032).
             handler = CallbackHandler(
-                public_key=settings.langfuse_public_key,
-                secret_key=settings.langfuse_secret_key,
-                host=settings.langfuse_host,
-                trace_id=trace_id,
-                parent_observation_id=parent_span_id
+                trace_context={
+                    "trace_id": trace_id,
+                    "parent_span_id": parent_span_id,
+                }
             )
             callbacks.append(handler)
         except Exception as e:

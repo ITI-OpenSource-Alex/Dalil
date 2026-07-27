@@ -29,15 +29,26 @@ async def chat_endpoint(request: ChatRequest, req: Request):
     langfuse_client = req.app.state.langfuse
     if langfuse_client:
         try:
-            trace = langfuse_client.trace(
+            # Langfuse v3 removed client.trace()/trace.span() in favour of
+            # observations. This code was still calling the v2 API against an
+            # unpinned langfuse>=3.0.0 that resolved to 4.x, so every call raised
+            # AttributeError into the except below, logged a warning and carried
+            # on -- startup said "Langfuse client initialized." while not one
+            # trace ever reached Langfuse (BUG-032).
+            trace = langfuse_client.start_observation(
                 name="chat_request",
-                user_id=request.userId,
-                session_id=request.sessionId,
-                metadata={"correlation_id": correlation_id}
+                as_type="span",
+                input={"message": request.message},
+                metadata={
+                    "correlation_id": correlation_id,
+                    "user_id": request.userId,
+                    "session_id": request.sessionId,
+                },
             )
-            supervisor_span = trace.span(
+            supervisor_span = trace.start_observation(
                 name="supervisor_routing",
-                input={"message": request.message}
+                as_type="span",
+                input={"message": request.message},
             )
         except Exception as e:
             logger.warning("Failed to initialize Langfuse trace/span", error=str(e))
@@ -49,7 +60,10 @@ async def chat_endpoint(request: ChatRequest, req: Request):
         status = "success"
         try:
             # 2. Classify intent via structured LLM call
-            trace_id = trace.id if trace else None
+            # v4 splits what v2 called trace.id: .trace_id is the trace, .id is
+            # this observation. classify_intent wants the trace plus the span to
+            # parent its LLM generation under.
+            trace_id = trace.trace_id if trace else None
             parent_span_id = supervisor_span.id if supervisor_span else None
             
             intent_result = await classify_intent(
@@ -62,7 +76,9 @@ async def chat_endpoint(request: ChatRequest, req: Request):
             downstream_service = intent.lower()
             if supervisor_span:
                 try:
-                    supervisor_span.end(output=intent_result.model_dump())
+                    # v4's end() takes only end_time; the output goes via update().
+                    supervisor_span.update(output=intent_result.model_dump())
+                    supervisor_span.end()
                 except Exception as e:
                     logger.warning("Failed to end Langfuse supervisor span", error=str(e))
             # 3. Stream intent classification metadata as the first SSE chunk
@@ -81,9 +97,10 @@ async def chat_endpoint(request: ChatRequest, req: Request):
             downstream_span = None
             if trace:
                 try:
-                    downstream_span = trace.span(
+                    downstream_span = trace.start_observation(
                         name="downstream_call",
-                        input={"intent": intent, "message": request.message}
+                        as_type="span",
+                        input={"intent": intent, "message": request.message},
                     )
                 except Exception as e:
                     logger.warning("Failed to initialize Langfuse downstream span", error=str(e))
@@ -106,7 +123,8 @@ async def chat_endpoint(request: ChatRequest, req: Request):
             # 7. End downstream trace span
             if downstream_span:
                 try:
-                    downstream_span.end(output={"response": full_response})
+                    downstream_span.update(output={"response": full_response})
+                    downstream_span.end()
                 except Exception as e:
                     logger.warning("Failed to end Langfuse downstream span", error=str(e))
             # 8. Save session memory using thread pool executor
@@ -126,7 +144,19 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                 ).model_dump_json()
             )
         finally:
-            # 9. Log request completion as structured JSON renderer
+            # 9. Close the root observation.
+            #
+            # v2 traces needed no closing; a v4 root span does -- an unended span
+            # never exports, so skipping this loses the whole trace rather than
+            # just its end time. It belongs in finally so an aborted stream or a
+            # downstream error still yields a trace.
+            if trace:
+                try:
+                    trace.update(output={"response": full_response, "status": status})
+                    trace.end()
+                except Exception as e:
+                    logger.warning("Failed to end Langfuse root trace", error=str(e))
+            # 10. Log request completion as structured JSON renderer
             total_ms = (time.perf_counter() - start_time) * 1000
             logger.info(
                 "Request completed",

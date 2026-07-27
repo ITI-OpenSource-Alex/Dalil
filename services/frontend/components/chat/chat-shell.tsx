@@ -16,7 +16,11 @@ import { AudioPlayer } from "@/lib/audio-player";
 import EssayComposer from "./essay-composer";
 import WritingEvaluationPanel from "./writing-evaluation-panel";
 
-import { streamWritingEvaluation, WritingEvent } from "@/lib/writing-stream";
+import {
+  streamWritingEvaluation,
+  WritingEvent,
+  CriterionEvaluation,
+} from "@/lib/writing-stream";
 
 export type Opportunity = {
   programName: string;
@@ -92,6 +96,10 @@ export default function ChatShell() {
     >
   >({});
   const [writingOverallBand, setWritingOverallBand] = useState<number>();
+  const [inlineIssues, setInlineIssues] = useState<CriterionEvaluation[]>([]);
+  const [submittedEssay, setSubmittedEssay] = useState<string>("");
+  const [improvedEssay, setImprovedEssay] = useState<string | undefined>();
+  const [isPaidTier] = useState(true); // TODO: hardcoded until tier comes from session/profile
 
   // Load session history on mount
   useEffect(() => {
@@ -314,6 +322,10 @@ export default function ChatShell() {
 
         setWritingOverallBand(event.overall_band);
 
+        setInlineIssues(event.evaluations_full);
+
+        setImprovedEssay(event.improved_essay);
+
         setWritingLoading(false);
 
         break;
@@ -409,6 +421,9 @@ export default function ChatShell() {
   const handleEssaySubmit = async (essay: string) => {
     setWritingEvaluations({});
     setWritingOverallBand(undefined);
+    setInlineIssues([]);
+    setSubmittedEssay(essay);
+    setImprovedEssay(undefined);
 
     await handleSendMessage(essay);
   };
@@ -424,7 +439,6 @@ export default function ChatShell() {
       console.error("Mic permission error:", e);
     }
   };
-
 
   const stopSpeaking = () => {
     recorderRef.current?.stop();
@@ -509,6 +523,10 @@ export default function ChatShell() {
               evaluations={writingEvaluations}
               overallBand={writingOverallBand}
               loading={writingLoading}
+              inlineIssues={inlineIssues}
+              essayText={submittedEssay}
+              improvedEssay={improvedEssay}
+              isPaidTier={isPaidTier}
             />
           </div>
         )}

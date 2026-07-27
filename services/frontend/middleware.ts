@@ -6,7 +6,10 @@ export function middleware(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
-  const isProtectedRoute = pathname.startsWith("/chat") || pathname.startsWith("/profile");
+  const isProtectedRoute =
+    pathname.startsWith("/chat") ||
+    pathname.startsWith("/profile") ||
+    pathname.startsWith("/speaking/history");
 
   const isAuthRoute = pathname.startsWith("/login") || pathname.startsWith("/register");
 
@@ -22,5 +25,11 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/chat/:path*", "/profile/:path*", "/login", "/register"],
+  matcher: [
+    "/chat/:path*",
+    "/profile/:path*",
+    "/speaking/history/:path*",
+    "/login",
+    "/register",
+  ],
 };

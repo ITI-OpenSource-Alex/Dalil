@@ -211,7 +211,46 @@ test.describe("Frontend E2E & Browser Integration Tests (FE-01 to FE-06)", () =>
   test("FE-05: Speaking interface opens, grants mic permission, and displays live transcript panel", async ({
     page,
     context,
+    request,
   }) => {
+    // The Stop button only replaces Start once the speaking WebSocket is
+    // genuinely connected. Reaching that state needs (a) a speaking_url SSE
+    // frame, which Orchestration only emits for SPEAKING-classified messages
+    // — an LLM call that needs an Anthropic key this environment lacks — and
+    // (b) a real Speaking Service to connect to. So stub only the
+    // classification hop, exactly as speaking-system.spec.ts does, and skip
+    // when the Speaking Service itself isn't up.
+    //
+    // This previously asserted Stop was visible immediately on click, which
+    // only held because startSpeaking() used to set state to "listening"
+    // synchronously before any socket existed — the UI claimed to be
+    // recording when it wasn't. That bug is fixed, so the test now waits for
+    // the real connection instead of the false one.
+    const speakingServiceURL =
+      process.env.SPEAKING_SERVICE_URL ?? "http://localhost:8082";
+    const speakingReachable = await request
+      .get(`${speakingServiceURL}/metrics`, { timeout: 2000 })
+      .then((res) => res.ok())
+      .catch(() => false);
+
+    test.skip(
+      !speakingReachable,
+      `Speaking service not reachable at ${speakingServiceURL} — FE-05 needs a live WebSocket handshake.`,
+    );
+
+    await page.route("**/api/chat", async (route) => {
+      const sse =
+        `event: metadata\n` +
+        `data: ${JSON.stringify({ type: "metadata", intent: "SPEAKING", confidence: 0.99 })}\n\n` +
+        `event: speaking_url\n` +
+        `data: ${JSON.stringify({ type: "speaking_url", wsUrl: "ws://localhost:8082/ws" })}\n\n`;
+      await route.fulfill({
+        status: 200,
+        contentType: "text/event-stream",
+        body: sse,
+      });
+    });
+
     // Grant microphone permissions
     await context.grantPermissions(["microphone"]);
 
@@ -231,9 +270,13 @@ test.describe("Frontend E2E & Browser Integration Tests (FE-01 to FE-06)", () =>
     await expect(startBtn).toBeVisible();
     await startBtn.click();
 
-    // Live transcript section updates & stop button becomes available
+    // Transcript panel is present throughout the session.
     await expect(page.getByTestId("live-transcript")).toBeVisible();
-    await expect(page.getByTestId("stop-speaking-button")).toBeVisible();
+
+    // Stop becomes available only once the WebSocket actually connects.
+    await expect(page.getByTestId("stop-speaking-button")).toBeVisible({
+      timeout: 15000,
+    });
   });
 
   /**

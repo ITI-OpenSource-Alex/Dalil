@@ -25,6 +25,22 @@ func (m *mockDBRepo) Create(ctx context.Context, session *db.SpeakingSession) er
 	return nil
 }
 
+func (m *mockDBRepo) ListByUser(ctx context.Context, userID string) ([]*db.SpeakingSessionSummary, error) {
+	return nil, nil
+}
+
+func (m *mockDBRepo) GetByID(ctx context.Context, id string) (*db.SpeakingSession, error) {
+	return nil, db.ErrSessionNotFound
+}
+
+func (m *mockDBRepo) CreateShareToken(ctx context.Context, sessionID string) (string, error) {
+	return "", db.ErrSessionNotFound
+}
+
+func (m *mockDBRepo) GetByShareToken(ctx context.Context, token string) (*db.SpeakingSession, error) {
+	return nil, db.ErrSessionNotFound
+}
+
 // mockLLMClient satisfies agents.LLMClient for testing
 type mockLLMClient struct{}
 

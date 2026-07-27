@@ -262,6 +262,48 @@ async def test_ingestion_is_idempotent_for_same_book_test_and_skill() -> None:
 
 
 def test_internal_stats_endpoint_returns_non_zero_counts() -> None:
+    """A seeded bank reports what it holds.
+
+    This previously built an EMPTY repository and still asserted
+    `academic.reading >= 1`, which the endpoint satisfied by hardcoding a 1
+    whenever the stats query came back empty. The test was the reason the lie
+    existed -- it demanded a non-zero count from a bank containing nothing. Seed
+    a record and the assertion holds for the right reason (BUG-020).
+    """
+    repo = FakeQuestionRepository()
+    repo.records.append(
+        {
+            "book_ref": "IELTS-14",
+            "test_number": 1,
+            "exam_type": "academic",
+            "skill_area": "reading",
+            "questions": [],
+            "answer_key": {},
+        }
+    )
+
+    app = FastAPI()
+    app.include_router(internal_router)
+    app.dependency_overrides[get_question_repository] = lambda: repo
+
+    client = TestClient(app)
+    response = client.get(
+        "/internal/question-bank/stats",
+        headers={"X-Internal-API-Key": "test-internal-key"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["academic"]["reading"] >= 1
+
+
+def test_internal_stats_endpoint_reports_zero_for_an_empty_bank() -> None:
+    """The regression that matters: an empty bank must not claim to hold tests.
+
+    It reported `academic.reading: 1` against a `questions` table with 0 rows, so
+    anyone checking whether the bank had been seeded got a confident yes while
+    /exam/reading/start was answering "No reading tests available" (BUG-020).
+    """
     app = FastAPI()
     app.include_router(internal_router)
     app.dependency_overrides[get_question_repository] = lambda: FakeQuestionRepository()
@@ -274,7 +316,10 @@ def test_internal_stats_endpoint_returns_non_zero_counts() -> None:
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["academic"]["reading"] >= 1
+    assert payload["academic"]["reading"] == 0
+    assert payload["academic"]["listening"] == 0
+    assert payload["general"]["reading"] == 0
+    assert payload["by_book"] == {}
 
 
 @pytest.mark.asyncio

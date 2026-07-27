@@ -1,11 +1,12 @@
 "use client";
 import { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Message, Opportunity, EvaluationResult } from "./chat-shell";
-import { GraduationCap, MapPin, Calendar, Award } from "lucide-react";
+import { Message, Opportunity } from "./chat-shell";
+import { GraduationCap, MapPin, Calendar } from "lucide-react";
 import TypingIndicator from "./typing-indicator";
 import MessageBubble from "./message-bubble";
 import SourcesFootnote from "./sources-footnote";
+import EvaluationBreakdown from "@/components/speaking/evaluation-breakdown";
 
 interface MessageListProps {
   messages: Message[];
@@ -62,7 +63,11 @@ export default function MessageList({ messages, isTyping }: MessageListProps) {
                   }}
                   className="mt-2"
                 >
-                  <EvaluationReport evaluation={msg.evaluation} />
+                  <EvaluationBreakdown
+                    overallBand={msg.evaluation.overallScore}
+                    criteria={msg.evaluation.criteria}
+                    feedback={msg.evaluation.feedback}
+                  />
                 </motion.div>
               )}
             </motion.div>
@@ -134,78 +139,5 @@ function OpportunityCard({
         </div>
       </div>
     </motion.div>
-  );
-}
-
-// Speaking Practice Evaluation UI Component
-function EvaluationReport({ evaluation }: { evaluation: EvaluationResult }) {
-  const criteriaList = [
-    { label: "Fluency & Coherence", score: evaluation.criteria.fluency },
-    { label: "Lexical Resource", score: evaluation.criteria.lexical },
-    { label: "Grammatical Range", score: evaluation.criteria.grammar },
-    {
-      label: "Pronunciation Accuracy",
-      score: evaluation.criteria.pronunciation,
-    },
-  ];
-  return (
-    <div className="bg-white border border-emerald-100 rounded-xl p-4 shadow-sm max-w-md">
-      <div className="flex items-center gap-2 mb-3">
-        <Award className="text-emerald-600" size={18} />
-        <h4 className="font-bold text-sm text-[#0D3820]">
-          IELTS Speaking Band Score
-        </h4>
-      </div>
-      {/* Overall Score Badge */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.3, delay: 0.15 }}
-        className="flex items-center gap-3 bg-emerald-50/50 p-2.5 rounded-lg mb-4"
-      >
-        <div className="w-12 h-12 rounded-full bg-emerald-600 text-white flex items-center justify-center font-extrabold text-lg">
-          {evaluation.overallScore}
-        </div>
-        <div>
-          <p className="text-xs font-semibold text-[#0E3D23]">
-            Estimated Overall Band
-          </p>
-          <p className="text-[10px] text-[#526053]">
-            Based on criterion rubrics
-          </p>
-        </div>
-      </motion.div>
-      {/* Criteria Sliders */}
-      <div className="space-y-2 mb-3">
-        {criteriaList.map((item, idx) => (
-          <div key={idx}>
-            <div className="flex justify-between text-[11px] font-medium text-[#1D291E]">
-              <span>{item.label}</span>
-              <span className="font-bold">Band {item.score}</span>
-            </div>
-            <div className="w-full bg-[#F0F3EF] h-1 rounded-full overflow-hidden mt-1">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${(item.score / 9) * 100}%` }}
-                transition={{
-                  duration: 0.5,
-                  delay: 0.2 + idx * 0.08,
-                  ease: "easeOut",
-                }}
-                className="bg-emerald-500 h-full rounded-full"
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="border-t border-[#EDF1EE] pt-2 mt-2">
-        <p className="text-[11px] font-medium text-[#526053]">
-          Expert Feedback:
-        </p>
-        <p className="text-[11px] text-[#526053] leading-relaxed mt-1 italic">
-          "{evaluation.feedback}"
-        </p>
-      </div>
-    </div>
   );
 }

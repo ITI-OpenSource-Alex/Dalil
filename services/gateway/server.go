@@ -9,6 +9,7 @@ import (
 	"github.com/ITI-OpenSource-Alex/GOA/services/gateway/middleware"
 	"github.com/ITI-OpenSource-Alex/GOA/services/gateway/observability"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 )
@@ -47,6 +48,22 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	writingHandler := handlers.NewWritingHandler(httpClient, cfg.WritingServiceURL)
 	examHandler := handlers.NewExamHandler(httpClient, cfg.ExamServiceURL, cfg.InternalApiKey)
 
+	// CORS. Without this the browser's preflight got 405 and every call from the
+	// frontend failed with net::ERR_FAILED -- login, chat, uploads, exam, all of
+	// it. The gateway had no OPTIONS handler and sent no Access-Control headers,
+	// so the UI could never reach the backend from a browser at all (BUG-043).
+	//
+	// AllowCredentials is required because auth rides on HttpOnly cookies, and the
+	// CORS spec forbids pairing that with a wildcard origin -- hence an explicit
+	// allow-list rather than "*". CORS_ALLOWED_ORIGINS is comma-separated so
+	// staging and production can add their own without a code change.
+	app.Use(cors.New(cors.Config{
+		AllowOrigins:     cfg.CORSAllowedOrigins,
+		AllowMethods:     "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+		AllowHeaders:     "Origin,Content-Type,Accept,Authorization,X-Correlation-ID,X-Internal-Api-Key",
+		ExposeHeaders:    "X-Correlation-ID",
+		AllowCredentials: true,
+	}))
 	app.Use(middleware.RequestID())
 	app.Use(middleware.RequestLogger(logger, metrics))
 	app.Get("/health", handlers.Health(startTime, cfg.Version))

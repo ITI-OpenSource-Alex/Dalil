@@ -10,6 +10,13 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+// UserRevokedBeforeKey is the Redis key holding the unix second at or before
+// which every access token for a user must be treated as revoked. Written by
+// logout-all, read on every authenticated request.
+func UserRevokedBeforeKey(userID string) string {
+	return "user_revoked_before:" + userID
+}
+
 // JWT validates access to
 // and cross-checks the token's jti with the Redis blacklist cache.
 func JWT(secret string, rdb *redis.Client, metricCollectors ...*observability.Metrics) fiber.Handler {
@@ -51,7 +58,31 @@ func JWT(secret string, rdb *redis.Client, metricCollectors ...*observability.Me
 			}
 			return fiber.NewError(fiber.StatusUnauthorized, "token has been invalidated")
 		}
-		
+
+		// Per-user revocation epoch. The jti blacklist above can only cover tokens
+		// whose jti is known, which for logout-all is just the calling session --
+		// every other device's access token stayed valid for up to its full hour
+		// after the user asked to be logged out everywhere (BUG-027). Comparing
+		// iat against a single per-user timestamp revokes them all in O(1),
+		// without the gateway needing to enumerate sessions.
+		//
+		// The comparison is <=, not <, so a token minted in the same second as the
+		// revoke is also rejected. iat has one-second granularity, so the
+		// alternative would leave a one-second window open on a security control.
+		// The cost is that logging back in within the same second yields a token
+		// that 401s once; the next login succeeds.
+		if claims.Subject != "" && claims.IssuedAt != nil {
+			if revokedAt, rerr := rdb.Get(c.Context(), UserRevokedBeforeKey(claims.Subject)).Int64(); rerr == nil {
+				if claims.IssuedAt.Time.Unix() <= revokedAt {
+					if metrics != nil {
+						metrics.RecordAuthFailure()
+					}
+					return fiber.NewError(fiber.StatusUnauthorized, "token has been invalidated")
+				}
+			}
+		}
+
+
 		c.Locals(ContextKeyUserID, claims.Subject)
 		c.Locals("jti", claims.ID)
 		if claims.ExpiresAt != nil {

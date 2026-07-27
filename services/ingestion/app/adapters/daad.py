@@ -5,142 +5,25 @@ from bs4 import BeautifulSoup
 from app.adapters.base_playwright_adapter import BasePlaywrightAdapter
 from app.core.content_hash import compute_content_hash
 
-# Section labels this adapter looks for on a DAAD scholarship detail page, and the
-# text-based extraction approach used to read them. DAAD detail-page markup could
-# not be confirmed live while this was written (www2.daad.de was returning a
-# consistent 403 "Request forbidden by administrative rules" to every request,
-# curl and Playwright alike -- see Task 10's implementation report) -- extraction is
-# therefore built around get_text(separator="\n")'s existing line-per-element
-# convention (already used by every extraction function in this codebase) rather
-# than specific heading tag names, so it stays correct even if the real markup uses
-# <h2>/<h3>, <dt>/<dd>, <strong>, or plain <div> labels for these sections.
-_DEADLINE_LABELS = {"application deadline", "deadline"}
-_VALUE_LABELS = {"scholarship value", "value", "funding", "amount"}
-_ELIGIBILITY_LABELS = {"who can apply?", "who can apply", "target group", "eligibility"}
-# The headings below (overview/objective/what can be funded?/duration of the
-# funding/selection/application requirements/language skills/application
-# procedure) were confirmed on a real live DAAD scholarship page (detail=50026200)
-# during Task 10's implementation -- without them as boundaries, award_amount and
-# eligibility both bled past their intended section into this neighboring content.
-_ALL_SECTION_LABELS = _DEADLINE_LABELS | _VALUE_LABELS | _ELIGIBILITY_LABELS | {
-    "duration", "benefits", "about the daad scholarship", "selection criteria",
-    "overview", "objective", "what can be funded?", "duration of the funding",
-    "selection", "application requirements", "what requirements must be met?",
-    "language skills", "application procedure", "application documents",
-}
-
-_MONTHS = (
-    "January|February|March|April|May|June|July|August|September|October|November|December"
+# Generic extraction (section scanning, deadline/amount/degree parsing) now lives in
+# app/adapters/scholarship_extraction.py so Chevening and Stipendium Hungaricum can
+# reuse the regexes that were tuned against real live pages here (BUG-010b). The
+# behaviour is unchanged -- this module's tests, including the two transcribed from
+# the real detail=50026200 page, are what prove that.
+from app.adapters.scholarship_extraction import (
+    DEADLINE_LABELS,
+    ELIGIBILITY_LABELS,
+    GPA_RE,
+    IELTS_RE,
+    VALUE_LABELS,
+    extract_award_amount,
+    extract_deadline,
+    extract_degree_level,
+    extract_eligibility,
+    extract_numeric_field,
+    lines_from,
+    section_text_after_label,
 )
-_DATE_RE = re.compile(rf"\b(\d{{1,2}})\s+({_MONTHS})\s+(\d{{4}})\b", re.IGNORECASE)
-
-# Matches a EUR amount whether the currency comes before the number ("EUR 10,000",
-# "€850") or after it ("10,000 EUR per request", "992 euros a month") -- real DAAD
-# pages use the latter ordering, which german_embassy_cairo.py's currency-first
-# _AMOUNT_EUR_RE does not match. See Task 10's implementation report for why this
-# is an adapted, not verbatim-copied, version of that adapter's approach.
-_AMOUNT_EUR_RE = re.compile(
-    r"(?:€|EUR|euros?)\s?[\d][\d.,]*|[\d][\d.,]*\s?(?:€|EUR|euros?)\b",
-    re.IGNORECASE,
-)
-
-_DEGREE_LEVEL_PATTERNS = [
-    (re.compile(r"\bresearch\s+grants?\b", re.IGNORECASE), "Research Grant"),
-    (re.compile(r"\bdoctoral\b|\bphd\b|\bph\.d\.\b", re.IGNORECASE), "PhD"),
-    (re.compile(r"\bmaster'?s?\b", re.IGNORECASE), "Master"),
-    (re.compile(r"\bbachelor'?s?\b", re.IGNORECASE), "Bachelor"),
-]
-
-_IELTS_RE = re.compile(r"IELTS[^\d]{0,40}(\d(?:\.\d)?)", re.IGNORECASE)
-_GPA_RE = re.compile(r"GPA[^\d]{0,60}(\d\.\d{1,2})", re.IGNORECASE)
-
-
-def _lines_from(text_content: str) -> list[str]:
-    return [line.strip() for line in text_content.split("\n") if line.strip()]
-
-
-def _section_text_after_label(lines: list[str], label_variants: set[str], max_lines: int = 12) -> str | None:
-    """Finds a standalone line matching one of label_variants and collects the
-    following lines as that section's raw text, stopping at the next recognized
-    section label (or max_lines) rather than a fixed window -- avoids bleeding into
-    a neighboring section's content. Returns None if the label itself isn't found
-    or its section has no content."""
-    for i, line in enumerate(lines):
-        if line.lower() not in label_variants:
-            continue
-        collected = []
-        for candidate in lines[i + 1: i + 1 + max_lines]:
-            if candidate.lower() in _ALL_SECTION_LABELS:
-                break
-            collected.append(candidate)
-        if collected:
-            return "\n".join(collected)
-    return None
-
-
-def _extract_deadline(section_text: str | None):
-    if not section_text:
-        return None
-    match = _DATE_RE.search(section_text)
-    if not match:
-        return None
-    from datetime import datetime
-    day, month_name, year = match.group(1), match.group(2), match.group(3)
-    try:
-        return datetime.strptime(f"{day} {month_name.capitalize()} {year}", "%d %B %Y").date()
-    except ValueError:
-        return None
-
-
-def _extract_award_amount(section_text: str | None) -> str | None:
-    if not section_text or not _AMOUNT_EUR_RE.search(section_text):
-        return None
-    return section_text[:255]
-
-
-def _extract_eligibility(section_text: str | None) -> dict:
-    if not section_text:
-        return {}
-    items = [line for line in section_text.split("\n") if line.strip()]
-    return {"items": items} if items else {}
-
-
-def _extract_degree_level(text_content: str, name: str | None = None) -> str | None:
-    """Checks the scholarship name/title first, since it reliably states the
-    degree actually being AWARDED (e.g. "Study Scholarships - Master Studies for
-    All Academic Disciplines"). The whole-body-text fallback below is a real
-    false-positive risk on live pages: confirmed against a real live DAAD
-    scholarship during Task 10's implementation, where the eligibility section
-    states a PREREQUISITE degree ("you must have completed... Bachelor's or
-    Diplom") earlier in the page than the funding description states the degree
-    actually offered ("...a whole postgraduate or Master's degree programme") --
-    a naive earliest-occurrence scan over the full text incorrectly returned
-    "Bachelor" for a scholarship titled "...Master Studies...". Title-first
-    resolves that without discarding the fallback for scholarships whose title
-    doesn't state a degree word at all."""
-    if name:
-        for pattern, label in _DEGREE_LEVEL_PATTERNS:
-            if pattern.search(name):
-                return label
-
-    best_match = None
-    best_label = None
-    for pattern, label in _DEGREE_LEVEL_PATTERNS:
-        match = pattern.search(text_content)
-        if match and (best_match is None or match.start() < best_match.start()):
-            best_match = match
-            best_label = label
-    return best_label
-
-
-def _extract_numeric_field(text_content: str, pattern: re.Pattern) -> float | None:
-    match = pattern.search(text_content)
-    if not match:
-        return None
-    try:
-        return float(match.group(1))
-    except ValueError:
-        return None
 
 
 class DAADAdapter(BasePlaywrightAdapter):
@@ -211,20 +94,20 @@ class DAADAdapter(BasePlaywrightAdapter):
             # missing the name can't be upserted, so don't emit it.
             return None
 
-        lines = _lines_from(text_content)
+        lines = lines_from(text_content)
 
         record = {
             "name": name,
             "provider": "DAAD",
             "source_url": url,
             "country": self.country,
-            "degree_level": _extract_degree_level(text_content, name),
-            "award_amount": _extract_award_amount(_section_text_after_label(lines, _VALUE_LABELS)),
-            "deadline": _extract_deadline(_section_text_after_label(lines, _DEADLINE_LABELS)),
-            "eligibility": _extract_eligibility(_section_text_after_label(lines, _ELIGIBILITY_LABELS)),
+            "degree_level": extract_degree_level(text_content, name),
+            "award_amount": extract_award_amount(section_text_after_label(lines, VALUE_LABELS)),
+            "deadline": extract_deadline(section_text_after_label(lines, DEADLINE_LABELS)),
+            "eligibility": extract_eligibility(section_text_after_label(lines, ELIGIBILITY_LABELS)),
             "citizenship_eligible": True,
-            "min_gpa": _extract_numeric_field(text_content, _GPA_RE),
-            "min_ielts": _extract_numeric_field(text_content, _IELTS_RE),
+            "min_gpa": extract_numeric_field(text_content, GPA_RE),
+            "min_ielts": extract_numeric_field(text_content, IELTS_RE),
         }
 
         record["content_hash"] = compute_content_hash(record)

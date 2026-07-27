@@ -25,6 +25,7 @@ export function Sidebar() {
     { label: "Opportunities", icon: OpportunitiesIcon, href: "#" },
     { label: "Checklists", icon: ChecklistsIcon, href: "#" },
     { label: "IELTS", icon: IELTSIcon, href: "/exam" },
+    { label: "Speaking History", icon: SpeakingHistoryIcon, href: "/speaking/history" },
     { label: "CV Review", icon: CVReviewIcon, href: "#" },
     { label: "Profile", icon: ProfileIcon, href: "#" },
   ];
@@ -239,6 +240,24 @@ function IELTSIcon({ className }: { className?: string }) {
         strokeLinejoin="round"
         d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
       />
+    </svg>
+  );
+}
+function SpeakingHistoryIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      strokeWidth="2"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 3v3m0 12v3M3 12h3m12 0h3M6.5 6.5l2 2m7 7l2 2m0-11l-2 2m-7 7l-2 2"
+      />
+      <circle cx="12" cy="12" r="3" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

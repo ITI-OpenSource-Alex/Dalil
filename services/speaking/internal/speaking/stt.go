@@ -77,21 +77,26 @@ func (c *Client) transcribeAudio(audio []byte) {
 
 			// Decode response
 			defer resp.Body.Close()
+			// The speech sidecar returns {"transcript": "..."} -- see
+			// services/speech/app/main.py. Decoding `text` yielded an empty string
+			// on every successful call, so the swarm graded an empty transcript
+			// and the client received an empty transcript event (BUG-035).
 			var sttResp struct {
-				Text string `json:"text"`
+				Transcript string `json:"transcript"`
 			}
 			err = json.NewDecoder(resp.Body).Decode(&sttResp)
 			if err != nil {
 				log.Error().Err(err).Str("session_id", c.id).Msg("Failed to decode STT response JSON")
 				c.outcome = "error"
+				c.sendError("Could not read the transcription result.")
 				return
 			}
 
 			// 1. Send text transcript to client
-			c.sendTranscript(sttResp.Text)
+			c.sendTranscript(sttResp.Transcript)
 
 			// 2. Trigger evaluation swarm and TTS voice streaming pipeline
-			c.runEvaluationAndTTS(sttResp.Text, apiDuration.Milliseconds())
+			c.runEvaluationAndTTS(sttResp.Transcript, apiDuration.Milliseconds())
 			return
 		}
 		if resp != nil {
@@ -112,7 +117,33 @@ func (c *Client) transcribeAudio(audio []byte) {
 	if err != nil {
 		log.Error().Err(err).Str("session_id", c.id).Msg("STT HTTP request failed after retries")
 		c.outcome = "error"
+		// Tell the client. Without this the socket stayed open and silent after a
+		// failed transcription -- observed as a 180s hang with zero events, which
+		// a UI can only render as a spinner that never resolves (BUG-036).
+		c.sendError("Transcription is unavailable right now. Please try again.")
 		return
+	}
+}
+
+// sendError delivers a terminal error to the client over the same channel as
+// every other frame. It deliberately does not touch c.conn directly: writePump
+// owns the socket, and this runs on the transcription goroutine, so a direct
+// write would race it.
+func (c *Client) sendError(reason string) {
+	payload, err := json.Marshal(map[string]interface{}{
+		"type":    "error",
+		"message": reason,
+	})
+	if err != nil {
+		return
+	}
+	sendTimer := time.NewTimer(2 * time.Second)
+	defer sendTimer.Stop()
+	select {
+	case <-c.ctx.Done():
+	case c.send <- WSMessage{Type: websocket.TextMessage, Payload: payload}:
+	case <-sendTimer.C:
+		log.Error().Str("session_id", c.id).Msg("Timed out sending error frame to client")
 	}
 }
 

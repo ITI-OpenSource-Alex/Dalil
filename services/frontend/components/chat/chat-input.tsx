@@ -8,12 +8,20 @@ interface ChatInputProps {
   onSendMessage: (text: string) => void;
   onOpenSpeaking: () => void;
   onOpenWriting: () => void;
+  /**
+   * Which practice mode, if any, currently owns the session — the single
+   * source of truth computed in chat-shell.tsx. Whichever mode is active
+   * disables the *other* mode's toolbar button, rather than letting the
+   * click open a second, conflicting session.
+   */
+  activePractice: "speaking" | "writing" | null;
 }
 
 export default function ChatInput({
   onSendMessage,
   onOpenSpeaking,
   onOpenWriting,
+  activePractice,
 }: ChatInputProps) {
   const [inputText, setInputText] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -42,6 +50,9 @@ export default function ChatInput({
     }
   };
 
+  const writingLocked = activePractice === "speaking";
+  const speakingLocked = activePractice === "writing";
+
   return (
     <div className="max-w-4xl mx-auto">
       <motion.div
@@ -61,20 +72,32 @@ export default function ChatInput({
 
         {/* Writing Practice */}
         <motion.button
-          whileTap={{ scale: 0.92 }}
+          whileTap={writingLocked ? undefined : { scale: 0.92 }}
           onClick={onOpenWriting}
-          className="p-2 hover:bg-[#F2F5F1] rounded-lg text-[#526053]"
-          title="Writing Practice"
+          disabled={writingLocked}
+          aria-disabled={writingLocked}
+          className="p-2 hover:bg-[#F2F5F1] rounded-lg text-[#526053] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+          title={
+            writingLocked
+              ? "Finish the current Speaking session before starting Writing Practice."
+              : "Writing Practice"
+          }
         >
           <PenSquare size={19} />
         </motion.button>
 
         {/* Speaking */}
         <motion.button
-          whileTap={{ scale: 0.92 }}
+          whileTap={speakingLocked ? undefined : { scale: 0.92 }}
           onClick={onOpenSpeaking}
-          className="p-2 hover:bg-[#F2F5F1] rounded-lg text-[#526053]"
-          title="Speaking Practice"
+          disabled={speakingLocked}
+          aria-disabled={speakingLocked}
+          className="p-2 hover:bg-[#F2F5F1] rounded-lg text-[#526053] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+          title={
+            speakingLocked
+              ? "Finish the current Writing session before starting Speaking Practice."
+              : "Speaking Practice"
+          }
         >
           <Mic size={19} />
         </motion.button>

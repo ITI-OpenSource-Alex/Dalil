@@ -100,7 +100,12 @@ class StructuredCVExtractor:
             response = self.client.messages.create(
                 model=self.model,
                 max_tokens=1200,
-                temperature=0,
+                # No `temperature`. The gateway fronts Bedrock, which rejects the
+                # parameter outright for claude-opus-4-8:
+                #   ValidationException: `temperature` is deprecated for this model
+                # It surfaces here as a flat 400 on every extraction. The same fix
+                # was already applied to app/agents.py under GOA-028; this call site
+                # was missed because the CV pipeline could not run at all (BUG-018).
                 system=SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": prompt}],
             )

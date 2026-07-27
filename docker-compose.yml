@@ -231,6 +231,13 @@ services:
     depends_on:
       prometheus:
         condition: service_started
+      # The service pings speaking_db during startup and calls log.Fatal on
+      # failure, so a cold `docker compose up` raced Postgres and exited 1
+      # with "the database system is starting up (SQLSTATE 57P03)". air only
+      # rebuilds on file change, so it never retried and the container sat
+      # "Up" with no server listening.
+      postgres:
+        condition: service_healthy
 
   rag:
     build:

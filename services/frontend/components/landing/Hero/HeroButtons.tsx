@@ -5,7 +5,7 @@ export default function HeroButtons() {
   return (
     <div className="mt-10 flex flex-wrap gap-4">
       <Link
-        href="/onboarding "
+        href="/onboarding"
         className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-6 py-3 font-medium text-white transition hover:bg-emerald-800"
       >
         Get Started

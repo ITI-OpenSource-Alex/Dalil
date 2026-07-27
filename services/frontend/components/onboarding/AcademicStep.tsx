@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 interface AcademicData {
   degree: string;
@@ -30,6 +30,7 @@ export default function AcademicStep({
   });
 
   const [errors, setErrors] = useState<Partial<AcademicData>>({});
+  const formRef = useRef<HTMLFormElement>(null);
 
   const validate = (): boolean => {
     const newErrors: Partial<AcademicData> = {};
@@ -50,7 +51,7 @@ export default function AcademicStep({
     if (!formData.gpa.trim()) newErrors.gpa = "GPA is required";
 
     if (!formData.ECTScred) {
-      newErrors.ECTScred = "ECTS credir score is required";
+      newErrors.ECTScred = "ECTS credits are required";
     }
 
     setErrors(newErrors);
@@ -61,7 +62,22 @@ export default function AcademicStep({
     e.preventDefault();
     if (validate()) {
       onNext(formData);
+      return;
     }
+    // Bring the first invalid field into view.
+    //
+    // Without this the step reads as broken. Six fields are required but only
+    // three fit above the fold on a short viewport, so filling the visible ones
+    // and pressing Continue rendered three errors the user could not see and
+    // moved nothing -- indistinguishable from a dead button. It was reported
+    // exactly that way (BUG-048), as "never advances past Step 1, fails
+    // silently". The validation was working the whole time; the feedback was
+    // simply off-screen.
+    requestAnimationFrame(() => {
+      formRef.current
+        ?.querySelector<HTMLElement>("[data-invalid='true']")
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
   };
 
   const handleChange = (
@@ -76,7 +92,7 @@ export default function AcademicStep({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form ref={formRef} onSubmit={handleSubmit} className="space-y-5" noValidate>
       <div className="space-y-1">
         <h2 className="text-xl font-bold text-black">
           Tell us about your education
@@ -88,9 +104,12 @@ export default function AcademicStep({
 
       {/* Degree Select */}
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-semibold text-black">Degree Level</label>
+        <label className="text-sm font-semibold text-black">
+          Degree Level <span className="text-red-500" aria-hidden="true">*</span>
+        </label>
         <select
           name="degree"
+          data-invalid={Boolean(errors.degree)}
           value={formData.degree}
           onChange={handleChange}
           className={`w-full p-2.5 bg-yellow-50 border rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition ${
@@ -112,10 +131,13 @@ export default function AcademicStep({
 
       {/* major of Study */}
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-semibold text-black">Major</label>
+        <label className="text-sm font-semibold text-black">
+          Major <span className="text-red-500" aria-hidden="true">*</span>
+        </label>
         <input
           type="text"
           name="major"
+          data-invalid={Boolean(errors.major)}
           placeholder="e.g. Computer Science, Business Administration"
           value={formData.major}
           onChange={handleChange}
@@ -133,11 +155,12 @@ export default function AcademicStep({
       {/* university Name */}
       <div className="flex flex-col gap-1.5">
         <label className="text-sm font-semibold text-black">
-          Institution / University
+          Institution / University <span className="text-red-500" aria-hidden="true">*</span>
         </label>
         <input
           type="text"
           name="university"
+          data-invalid={Boolean(errors.university)}
           placeholder="e.g. Stanford University"
           value={formData.university}
           onChange={handleChange}
@@ -155,11 +178,12 @@ export default function AcademicStep({
       {/* Graduation Year */}
       <div className="flex flex-col gap-1.5">
         <label className="text-sm font-semibold text-black">
-          Graduation Year (or Expected)
+          Graduation Year (or Expected) <span className="text-red-500" aria-hidden="true">*</span>
         </label>
         <input
           type="number"
           name="gradYear"
+          data-invalid={Boolean(errors.gradYear)}
           placeholder="e.g. 2024"
           value={formData.gradYear}
           onChange={handleChange}
@@ -179,11 +203,12 @@ export default function AcademicStep({
         {/* GPA Input */}
         <div className="flex flex-col gap-1.5">
           <label className="text-sm font-semibold text-black">
-            GPA / Grade
+            GPA / Grade <span className="text-red-500" aria-hidden="true">*</span>
           </label>
           <input
             type="text"
             name="gpa"
+            data-invalid={Boolean(errors.gpa)}
             placeholder="e.g. 3.8/4.0 or Excellent"
             value={formData.gpa}
             onChange={handleChange}
@@ -201,11 +226,12 @@ export default function AcademicStep({
         {/* ECTS Credits Input */}
         <div className="flex flex-col gap-1.5">
           <label className="text-sm font-semibold text-black">
-            ECTS Credits
+            ECTS Credits <span className="text-red-500" aria-hidden="true">*</span>
           </label>
           <input
             type="text"
             name="ECTScred"
+            data-invalid={Boolean(errors.ECTScred)}
             placeholder="e.g. 180"
             value={formData.ECTScred}
             onChange={handleChange}

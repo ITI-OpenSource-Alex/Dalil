@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/url"
@@ -105,4 +106,94 @@ func authenticatedUserID(c *fiber.Ctx) (string, error) {
 		return "", fiber.NewError(fiber.StatusUnauthorized, "unauthorized")
 	}
 	return userID, nil
+}
+
+// The four session routes the frontend previously called directly on :8085,
+// carrying INTERNAL_API_KEY in a NEXT_PUBLIC_ variable — i.e. published to every
+// browser (BUG-046). Behind the gateway the key stays server-side, and these
+// paths pick up JWT auth, rate limiting and correlation IDs like everything else.
+//
+// user_id is taken from the validated JWT rather than the request, so a caller
+// cannot read or submit another candidate's session by editing a payload.
+
+func (h *ExamHandler) CreateSession(c *fiber.Ctx) error {
+	userID, err := authenticatedUserID(c)
+	if err != nil {
+		return err
+	}
+
+	body, err := withUserID(c.Body(), userID)
+	if err != nil {
+		return err
+	}
+
+	return h.forward(
+		c,
+		http.MethodPost,
+		h.examServiceURL+"/sessions",
+		bytes.NewReader(body),
+	)
+}
+
+func (h *ExamHandler) GetSession(c *fiber.Ctx) error {
+	if _, err := authenticatedUserID(c); err != nil {
+		return err
+	}
+	target, err := h.sessionURL(c.Params("sessionId"), "")
+	if err != nil {
+		return err
+	}
+	return h.forward(c, http.MethodGet, target, nil)
+}
+
+func (h *ExamHandler) SubmitSession(c *fiber.Ctx) error {
+	if _, err := authenticatedUserID(c); err != nil {
+		return err
+	}
+	target, err := h.sessionURL(c.Params("sessionId"), "submit")
+	if err != nil {
+		return err
+	}
+	return h.forward(c, http.MethodPut, target, bytes.NewReader(c.Body()))
+}
+
+func (h *ExamHandler) GetSessionResult(c *fiber.Ctx) error {
+	if _, err := authenticatedUserID(c); err != nil {
+		return err
+	}
+	target, err := h.sessionURL(c.Params("sessionId"), "result")
+	if err != nil {
+		return err
+	}
+	return h.forward(c, http.MethodGet, target, nil)
+}
+
+// sessionURL builds /sessions/{id}[/suffix]. url.JoinPath escapes the id, so a
+// path-traversal attempt in the parameter cannot reach a different upstream
+// route.
+func (h *ExamHandler) sessionURL(sessionID string, suffix string) (string, error) {
+	segments := []string{"sessions", sessionID}
+	if suffix != "" {
+		segments = append(segments, suffix)
+	}
+	target, err := url.JoinPath(h.examServiceURL, segments...)
+	if err != nil {
+		return "", fiber.NewError(fiber.StatusBadRequest, "invalid session id")
+	}
+	return target, nil
+}
+
+// withUserID overwrites user_id in a JSON body with the authenticated user's id,
+// adding it when absent. The exam service requires the field; taking it from the
+// token rather than trusting the client is what stops a caller opening a session
+// as somebody else.
+func withUserID(body []byte, userID string) ([]byte, error) {
+	payload := map[string]any{}
+	if len(bytes.TrimSpace(body)) > 0 {
+		if err := json.Unmarshal(body, &payload); err != nil {
+			return nil, fiber.NewError(fiber.StatusBadRequest, "invalid JSON body")
+		}
+	}
+	payload["user_id"] = userID
+	return json.Marshal(payload)
 }

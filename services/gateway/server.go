@@ -47,6 +47,13 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	authHandler := handlers.NewAuthHandler(redisClient, tokenService, metrics, httpClient, cfg.UserServiceURL, cfg.InternalApiKey)
 	writingHandler := handlers.NewWritingHandler(httpClient, cfg.WritingServiceURL)
 	examHandler := handlers.NewExamHandler(httpClient, cfg.ExamServiceURL, cfg.InternalApiKey)
+	// Streaming paths need their own client: the shared one has a 10s timeout,
+	// which would sever a chat or essay-evaluation stream mid-flight. A speaking
+	// evaluation alone has been measured at ~77s.
+	streamClient := &http.Client{Timeout: 5 * time.Minute}
+	streamHandler := handlers.NewStreamHandler(
+		streamClient, cfg.OrchestrationServiceURL, cfg.WritingServiceURL, cfg.InternalApiKey,
+	)
 
 	// CORS. Without this the browser's preflight got 405 and every call from the
 	// frontend failed with net::ERR_FAILED -- login, chat, uploads, exam, all of
@@ -91,6 +98,20 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	api.Post("/writing/cv/upload", writingHandler.UploadCV)
 	api.Get("/exam/listening/start", examHandler.StartListening)
 	api.Put("/exam/listening/:sessionId/submit", examHandler.SubmitListening)
+
+	// Routes the frontend used to reach by other means. Chat posted to a Next.js
+	// BFF route that was never built (BUG-044); exam and writing were called
+	// directly on their service ports with INTERNAL_API_KEY published to the
+	// browser in a NEXT_PUBLIC_ variable (BUG-046). Behind the Gateway the key
+	// stays server-side and these paths gain JWT auth, rate limiting and
+	// correlation IDs (BUG-029).
+	api.Post("/chat", streamHandler.Chat)
+	api.Get("/chat/sessions/:sessionId/history", streamHandler.ChatHistory)
+	api.Post("/exam/sessions", examHandler.CreateSession)
+	api.Get("/exam/sessions/:sessionId", examHandler.GetSession)
+	api.Put("/exam/sessions/:sessionId/submit", examHandler.SubmitSession)
+	api.Get("/exam/sessions/:sessionId/result", examHandler.GetSessionResult)
+	api.Post("/writing/essays/:essayId/evaluate", streamHandler.WritingEvaluate)
 	app.Post(
 		"/cv/upload",
 		middleware.JWT(cfg.JWTSecret, redisClient, metrics),

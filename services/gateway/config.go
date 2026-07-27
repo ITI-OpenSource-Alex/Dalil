@@ -24,8 +24,11 @@ type Config struct {
 	SecureCookies     bool          `envconfig:"SECURE_COOKIES" default:"false"`
 	WritingServiceURL string        `envconfig:"WRITING_SERVICE_URL" required:"true"`
 	ExamServiceURL    string        `envconfig:"EXAM_SERVICE_URL" required:"true"`
-	UserServiceURL    string        `envconfig:"USER_SERVICE_URL" required:"true"`
-	InternalApiKey    string        `envconfig:"INTERNAL_API_KEY" required:"true"`
+	// Chat is proxied rather than called from the browser, so the Gateway needs
+	// to know where Orchestration lives (BUG-029, BUG-044).
+	OrchestrationServiceURL string `envconfig:"ORCHESTRATION_SERVICE_URL" default:"http://orchestration:8083"`
+	UserServiceURL          string `envconfig:"USER_SERVICE_URL" required:"true"`
+	InternalApiKey          string `envconfig:"INTERNAL_API_KEY" required:"true"`
 	// Comma-separated origin allow-list for CORS. Cannot be "*" because auth
 	// rides on HttpOnly cookies and the spec forbids wildcard + credentials.
 	CORSAllowedOrigins  string  `envconfig:"CORS_ALLOWED_ORIGINS" default:"http://localhost:3000"`

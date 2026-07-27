@@ -12,6 +12,8 @@ services:
       - JWT_SECRET=supersecret_dev_key
       - WRITING_SERVICE_URL=http://writing:8000
       - EXAM_SERVICE_URL=http://exam:8085
+      - ORCHESTRATION_SERVICE_URL=http://orchestration:8083
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
     volumes:
       - ./services/gateway:/app
     depends_on:
@@ -323,6 +325,13 @@ services:
       - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
       - LLM_MODEL=${LLM_MODEL:-claude-opus-4-8}
       - INTERNAL_API_KEY=supersecret_internal_key_123
+      # Browser-facing URLs. The *_SERVICE_URL values above are Docker
+      # hostnames for server-to-server calls; handing them to a client gave
+      # ws://speaking:8082 and http://writing:8000, which no browser resolves
+      # (BUG-016). Writing's SSE now goes via the Gateway; Speaking's socket
+      # is still direct until the Gateway has a WS proxy.
+      - PUBLIC_GATEWAY_URL=${PUBLIC_GATEWAY_URL:-http://localhost:8080}
+      - PUBLIC_SPEAKING_WS_URL=${PUBLIC_SPEAKING_WS_URL:-ws://localhost:8082/ws}
       - OTEL_SERVICE_NAME=orchestration
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}

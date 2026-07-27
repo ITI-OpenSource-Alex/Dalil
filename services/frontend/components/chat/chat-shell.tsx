@@ -18,6 +18,14 @@ import WritingEvaluationPanel from "./writing-evaluation-panel";
 
 import { streamWritingEvaluation, WritingEvent } from "@/lib/writing-stream";
 
+// Chat goes through the Gateway. These two calls used relative paths, i.e. to
+// the Next.js server itself, where no route handler was ever written — both
+// 404'd and surfaced as "Service unavailable" (BUG-044). The Gateway proxies
+// them to Orchestration, adding JWT auth, rate limiting and correlation IDs.
+//
+// credentials: "include" is required because auth rides on HttpOnly cookies.
+const CHAT_API_BASE = `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080"}/api`;
+
 export type Opportunity = {
   programName: string;
   university: string;
@@ -97,7 +105,9 @@ export default function ChatShell() {
   useEffect(() => {
     async function loadHistory() {
       try {
-        const res = await fetch(`/api/chat/sessions/${sessionId}/history`);
+        const res = await fetch(`${CHAT_API_BASE}/chat/sessions/${sessionId}/history`, {
+          credentials: "include",
+        });
         if (res.ok) {
           const history = await res.json();
           if (history && history.length > 0) {
@@ -353,8 +363,9 @@ export default function ChatShell() {
     setMessages((prev) => [...prev, assistantMessage]);
 
     try {
-      const response = await fetch("/api/chat", {
+      const response = await fetch(`${CHAT_API_BASE}/chat`, {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
         },

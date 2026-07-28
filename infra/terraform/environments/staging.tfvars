@@ -40,7 +40,15 @@ alb_default_target_group_name  = "gateway"
 
 ecs_image_tag = "latest"
 ecs_desired_counts = {
-  gateway = 1
+  gateway       = 1
+  user          = 1
+  orchestration = 1
+  speaking      = 1
+  writing       = 1
+  rag           = 1
+  exam          = 1
+  notification  = 0
+  ingestion     = 0
 }
 enable_lambda_workers            = false
 enable_rds_proxy                 = false

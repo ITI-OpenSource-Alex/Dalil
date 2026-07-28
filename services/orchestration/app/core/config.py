@@ -21,12 +21,11 @@ class Settings(BaseSettings):
     anthropic_user_agent: str = "Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14"
     llm_model: str = "claude-opus-4-8"
 
-
     # Downstream Service URLs
     rag_service_url: str = "http://rag:8084"
     speaking_service_url: str = "http://speaking:8082"
     writing_service_url: str = "http://writing:8000"
-<<<<<<< Updated upstream
+    exam_service_url: str = "http://exam:8085"
 
     # Browser-facing URLs. The two above are Docker hostnames used for
     # server-to-server calls; handing them to a client produced
@@ -39,13 +38,11 @@ class Settings(BaseSettings):
     # for now and tracked as a follow-up.
     public_gateway_url: str = "http://localhost:8080"
     public_speaking_ws_url: str = "ws://localhost:8082/ws"
-=======
-    exam_service_url: str = "http://exam:8085"
->>>>>>> Stashed changes
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore"
     )
-settings = Settings()
 
+settings = Settings()

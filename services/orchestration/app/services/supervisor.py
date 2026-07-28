@@ -6,7 +6,6 @@ from langchain_anthropic import ChatAnthropic
 from langfuse.langchain import CallbackHandler
 from app.core.config import settings
 
-
 from app.core.metrics import (
     goa_orchestration_intent_classified_total,
     goa_orchestration_classification_latency_ms
@@ -67,7 +66,7 @@ SUPERVISOR_PROMPT = """You are a routing agent. Classify the user message into e
                         RAG       - IELTS info, requirements, visa, scholarships (e.g. "What are the visa requirements?")
                         OPPORTUNITY_SEARCH - searching for study opportunities, scholarships, admissions (e.g. "Find me a scholarship in Germany")
                         CV_REVIEW - CV upload or improvement request (e.g. "Can you review my CV?")
-<<<<<<< Updated upstream
+                        EXAM_PREP - user wants to improve a skill, practice a section, or prepare for IELTS exam (e.g. "improve my reading score", "I want to practice listening", "help me with IELTS preparation")
 
 You are also given the conversation so far. Use it for two things.
 
@@ -91,47 +90,6 @@ master require?" -> "It requires 6.5 overall." Latest: "Is my score high enough
 for it?" -> standalone_question: "Is my IELTS score high enough for the
 University of Potsdam Data Science master, which requires 6.5 overall?"
 """
-
-
-def _history_messages(history: list | None, limit: int = 6) -> list[dict]:
-    """Render stored turns as chat messages for the supervisor.
-
-    Trimmed to the most recent `limit` turns. The whole point is resolving
-    references, which nearly always point at the last turn or two, so sending
-    more would grow the token bill on every request to no benefit.
-    """
-    if not history:
-        return []
-    rendered = []
-    for msg in history[-limit:]:
-        role = "user" if getattr(msg, "type", None) == "human" else "assistant"
-        content = getattr(msg, "content", None)
-        if content:
-            rendered.append({"role": role, "content": str(content)})
-    return rendered
-
-
-async def classify_intent(
-    message: str,
-    trace_id: str = None,
-    parent_span_id: str = None,
-    user_id: str = "anonymous",
-    history: list | None = None,
-) -> IntentResult:
-    """
-    Classifies the user message intent into one of five categories, and rewrites
-    it to stand alone against the conversation history.
-
-    Traces the execution to Langfuse and records classification latency metrics.
-    """
-
-    messages = [
-        {"role": "system", "content": SUPERVISOR_PROMPT},
-        *_history_messages(history),
-        {"role": "user", "content": message},
-=======
-                        EXAM_PREP - user wants to improve a skill, practice a section, or prepare for IELTS exam (e.g. "improve my reading score", "I want to practice listening", "help me with IELTS preparation")"""
-
 
 EXAM_CONTEXT_INJECTION = """
 
@@ -187,26 +145,44 @@ def build_supervisor_prompt(exam_context: dict | None = None) -> str:
     return enriched
 
 
+def _history_messages(history: list | None, limit: int = 6) -> list[dict]:
+    """Render stored turns as chat messages for the supervisor.
+
+    Trimmed to the most recent `limit` turns. The whole point is resolving
+    references, which nearly always point at the last turn or two, so sending
+    more would grow the token bill on every request to no benefit.
+    """
+    if not history:
+        return []
+    rendered = []
+    for msg in history[-limit:]:
+        role = "user" if getattr(msg, "type", None) == "human" else "assistant"
+        content = getattr(msg, "content", None)
+        if content:
+            rendered.append({"role": role, "content": str(content)})
+    return rendered
+
+
 async def classify_intent(
     message: str,
     trace_id: str = None,
     parent_span_id: str = None,
     user_id: str = "anonymous",
+    history: list | None = None,
     exam_context: dict | None = None,
 ) -> IntentResult:
     """
-    Classifies the user message intent into one of six categories.
-    When *exam_context* is supplied the system prompt is enriched with the
-    user's verified IELTS profile so the LLM can make context-aware routing
-    decisions and generate personalised EXAM_PREP guidance.
+    Classifies the user message intent into one of six categories, rewrites
+    it to stand alone against the conversation history, and uses exam context
+    for personalised EXAM_PREP guidance.
     """
 
     system_prompt = build_supervisor_prompt(exam_context)
 
     messages = [
         {"role": "system", "content": system_prompt},
-        {"role": "user", "content": message}
->>>>>>> Stashed changes
+        *_history_messages(history),
+        {"role": "user", "content": message},
     ]
 
     # Setup Langfuse callback handler if trace details are provided

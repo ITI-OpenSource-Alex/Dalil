@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 env:
-  AWS_REGION: us-east-1
+  AWS_REGION: eu-west-1
   # After running `terraform apply`, replace with output value of staging_deploy_role_arn
   ROLE_TO_ASSUME: arn:aws:iam::114403655381:role/goa-staging-deploy
 

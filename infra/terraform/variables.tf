@@ -198,38 +198,8 @@ variable "enable_lambda_workers" {
   default     = false
 }
 
-variable "task_execution_secret_arns" {
-  description = "Secret ARNs the ECS task execution role may read for container startup."
-  type        = list(string)
-  default     = []
-}
-
-variable "task_execution_kms_key_arns" {
-  description = "KMS key ARNs the ECS task execution role may decrypt during container startup."
-  type        = list(string)
-  default     = []
-}
-
-variable "task_secret_arns" {
-  description = "Secret ARNs the ECS task role may read at runtime."
-  type        = list(string)
-  default     = []
-}
-
-variable "task_sqs_queue_arns" {
-  description = "SQS queue ARNs the ECS task role may use at runtime."
-  type        = list(string)
-  default     = []
-}
-
-variable "task_s3_read_object_arns" {
-  description = "S3 object ARN patterns ECS application tasks may read, including any externally managed buckets."
-  type        = list(string)
-  default     = []
-}
-
 variable "task_kms_key_arns" {
-  description = "KMS key ARNs the ECS task role may use at runtime."
+  description = "Optional KMS keys used by per-service ECS roles."
   type        = list(string)
   default     = []
 }

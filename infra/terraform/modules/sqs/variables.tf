@@ -14,12 +14,12 @@ variable "queues" {
   validation {
     condition = (
       length(var.queues) == 3 &&
-      length(setsubtract(
-        toset(["user-events", "notification-queue", "ingestion-queue"]),
-        toset([for queue in values(var.queues) : queue.name])
-      )) == 0
+      toset(keys(var.queues)) == toset(["user_events", "notification", "ingestion"]) &&
+      endswith(var.queues.user_events.name, "user-events") &&
+      endswith(var.queues.notification.name, "notification-queue") &&
+      endswith(var.queues.ingestion.name, "ingestion-queue")
     )
-    error_message = "GOA-070 requires exactly these SQS queues: user-events, notification-queue, ingestion-queue."
+    error_message = "GOA-070 requires exactly the user-events, notification-queue, and ingestion-queue definitions."
   }
 
   validation {

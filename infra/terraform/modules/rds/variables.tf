@@ -9,19 +9,18 @@ variable "environment" {
 }
 
 variable "vpc_id" {
-  description = "VPC ID for the RDS security group."
+  description = "VPC ID used to retain the legacy RDS security group during migration."
+  type        = string
+}
+
+variable "security_group_id" {
+  description = "Security group managed by the shared security-groups module and attached to RDS."
   type        = string
 }
 
 variable "private_subnet_ids" {
   description = "Private data subnet IDs for the DB subnet group."
   type        = list(string)
-}
-
-variable "allowed_security_group_ids" {
-  description = "Security group IDs allowed to connect to PostgreSQL."
-  type        = list(string)
-  default     = []
 }
 
 variable "database_names" {

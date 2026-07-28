@@ -40,12 +40,11 @@ locals {
         WRITING_SERVICE_URL = "http://${local.name_prefix}-writing:8000"
         EXAM_SERVICE_URL    = "http://${local.name_prefix}-exam:8085"
         USER_SERVICE_URL    = "http://${local.name_prefix}-user:8081"
-        INTERNAL_API_KEY    = "terraform-managed-internal"
         SECURE_COOKIES      = "true"
+        } : service == "orchestration" ? {
+        REDIS_URL = "redis://${module.elasticache.primary_endpoint_address}:${module.elasticache.port}/1"
       } : {}
-      secrets = service == "gateway" ? {
-        JWT_SECRET = "${module.secrets.service_secret_arns["gateway"]}:JWT_SECRET::"
-      } : {}
+      secrets = module.secrets.service_secret_value_from_refs[service]
     }
   }
 
@@ -67,19 +66,19 @@ locals {
 
   sqs_queues = {
     user_events = {
-      name                       = "user-events"
+      name                       = "${local.name_prefix}-user-events"
       visibility_timeout_seconds = 30
       max_receive_count          = 3
     }
 
     notification = {
-      name                       = "notification-queue"
+      name                       = "${local.name_prefix}-notification-queue"
       visibility_timeout_seconds = 30
       max_receive_count          = 3
     }
 
     ingestion = {
-      name                       = "ingestion-queue"
+      name                       = "${local.name_prefix}-ingestion-queue"
       visibility_timeout_seconds = 30
       max_receive_count          = 3
     }
@@ -188,18 +187,54 @@ locals {
     service => try([module.secrets.service_secret_arns[service]], [])
   }
 
+  service_s3_read_object_arns = {
+    gateway       = []
+    user          = []
+    orchestration = []
+    speaking      = []
+    writing       = ["${module.writing_files_bucket.bucket_arn}/*"]
+    rag           = []
+    exam          = ["${module.exam_audio_bucket.bucket_arn}/exam-audio/*"]
+    notification  = []
+    ingestion = [
+      "${module.ingestion_reports_bucket.bucket_arn}/*",
+      "${module.eval_reports_bucket.bucket_arn}/*",
+    ]
+  }
+
+  ecs_iam_permissions = merge(
+    {
+      for service in local.service_names : service => {
+        execution_secret_arns = toset(local.service_secret_arns[service])
+        task_secret_arns      = toset(local.service_secret_arns[service])
+        sqs_queue_arns        = toset(local.service_sqs_queue_arns[service])
+        s3_read_object_arns   = toset(local.service_s3_read_object_arns[service])
+        kms_key_arns          = toset(var.task_kms_key_arns)
+      }
+    },
+    {
+      db-bootstrap = {
+        execution_secret_arns = toset([module.secrets.rds_master_secret_arn])
+        task_secret_arns      = toset([])
+        sqs_queue_arns        = toset([])
+        s3_read_object_arns   = toset([])
+        kms_key_arns          = toset(var.task_kms_key_arns)
+      }
+    }
+  )
+
   goa027_alarm_definitions = merge(
     {
       speaking_p95_latency = {
         alarm_name          = "${local.name_prefix}-speaking-p95-latency"
         description         = "Speaking service P95 latency is above the GOA-027 threshold."
         namespace           = "GOA/Services"
-        metric_name         = "LatencyMs"
+        metric_name         = "goa_speaking_e2e_latency_ms"
         dimensions          = { Service = "speaking" }
         comparison_operator = "GreaterThanThreshold"
         threshold           = var.speaking_p95_latency_threshold_ms
-        evaluation_periods  = 2
-        datapoints_to_alarm = 2
+        evaluation_periods  = 5
+        datapoints_to_alarm = 5
         period              = 60
         extended_statistic  = "p95"
         treat_missing_data  = "notBreaching"
@@ -230,8 +265,8 @@ locals {
         dimensions          = { Service = service }
         comparison_operator = "GreaterThanThreshold"
         threshold           = var.service_error_rate_threshold
-        evaluation_periods  = 2
-        datapoints_to_alarm = 2
+        evaluation_periods  = 5
+        datapoints_to_alarm = 5
         period              = 60
         statistic           = "Average"
         treat_missing_data  = "notBreaching"
@@ -263,7 +298,7 @@ locals {
         metric_name         = "RunningTaskCount"
         dimensions          = { ClusterName = local.name_prefix, ServiceName = local.ecs_service_names[service] }
         comparison_operator = "LessThanThreshold"
-        threshold           = var.ecs_running_task_minimum
+        threshold           = lookup(var.ecs_desired_counts, service, 0)
         evaluation_periods  = 2
         datapoints_to_alarm = 2
         period              = 60

@@ -98,14 +98,14 @@ output "alb_https_listener_arn" {
   value       = module.alb.https_listener_arn
 }
 
-output "ecs_task_execution_role_arn" {
-  description = "ARN of the ECS task execution role."
-  value       = module.iam.ecs_task_execution_role_arn
+output "ecs_task_execution_role_arns" {
+  description = "Per-service ECS task execution role ARNs."
+  value       = module.iam.ecs_task_execution_role_arns
 }
 
-output "ecs_task_role_arn" {
-  description = "ARN of the ECS task runtime role."
-  value       = module.iam.ecs_task_role_arn
+output "ecs_task_role_arns" {
+  description = "Per-service ECS task runtime role ARNs."
+  value       = module.iam.ecs_task_role_arns
 }
 
 output "ecs_exec_operator_policy_arn" {
@@ -118,14 +118,14 @@ output "ecs_exec_task_policy_arn" {
   value       = module.iam.ecs_exec_task_policy_arn
 }
 
-output "ecs_task_execution_secrets_policy_arn" {
-  description = "ARN of the optional ECS task execution secrets policy, if created."
-  value       = module.iam.ecs_task_execution_secrets_policy_arn
+output "ecs_task_execution_secrets_policy_arns" {
+  description = "Per-service ECS startup secret policy ARNs."
+  value       = module.iam.ecs_task_execution_secrets_policy_arns
 }
 
-output "ecs_task_app_policy_arn" {
-  description = "ARN of the optional ECS task runtime application policy, if created."
-  value       = module.iam.ecs_task_app_policy_arn
+output "ecs_task_app_policy_arns" {
+  description = "Per-service ECS runtime application policy ARNs."
+  value       = module.iam.ecs_task_app_policy_arns
 }
 
 output "session_manager_log_group_name" {

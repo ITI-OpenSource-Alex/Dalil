@@ -91,12 +91,7 @@ module "iam" {
   source = "./modules/iam"
 
   environment                        = var.environment
-  task_execution_secret_arns         = concat(var.task_execution_secret_arns, values(module.secrets.service_secret_arns))
-  task_execution_kms_key_arns        = var.task_execution_kms_key_arns
-  task_secret_arns                   = concat(var.task_secret_arns, values(module.secrets.service_secret_arns))
-  task_sqs_queue_arns                = concat(var.task_sqs_queue_arns, values(module.sqs.queue_arns))
-  task_s3_read_object_arns           = concat(var.task_s3_read_object_arns, ["${module.exam_audio_bucket.bucket_arn}/exam-audio/*"])
-  task_kms_key_arns                  = var.task_kms_key_arns
+  ecs_service_permissions            = local.ecs_iam_permissions
   ecs_exec_operator_resource_arns    = var.ecs_exec_operator_resource_arns
   session_manager_log_retention_days = var.session_manager_log_retention_days
   session_manager_kms_key_id         = var.session_manager_kms_key_id
@@ -122,8 +117,8 @@ module "ecs_cluster" {
   private_subnet_ids         = module.vpc.private_app_subnet_ids
   gateway_security_group_id  = module.security_groups.gateway_security_group_id
   services_security_group_id = module.security_groups.ecs_services_security_group_id
-  task_execution_role_arn    = module.iam.ecs_task_execution_role_arn
-  task_role_arn              = module.iam.ecs_task_role_arn
+  task_execution_role_arns   = { for service in local.service_names : service => module.iam.ecs_task_execution_role_arns[service] }
+  task_role_arns             = { for service in local.service_names : service => module.iam.ecs_task_role_arns[service] }
   target_group_arns          = module.alb.target_group_arns
   services                   = local.ecs_services
   tags                       = local.common_tags

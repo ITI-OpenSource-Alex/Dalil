@@ -54,8 +54,8 @@ resource "aws_ecs_task_definition" "this" {
   memory                   = tostring(each.value.memory)
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
-  execution_role_arn       = var.task_execution_role_arn
-  task_role_arn            = var.task_role_arn
+  execution_role_arn       = var.task_execution_role_arns[each.key]
+  task_role_arn            = var.task_role_arns[each.key]
 
   runtime_platform {
     operating_system_family = "LINUX"

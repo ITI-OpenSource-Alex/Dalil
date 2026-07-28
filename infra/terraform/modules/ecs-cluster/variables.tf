@@ -28,14 +28,14 @@ variable "services_security_group_id" {
   type        = string
 }
 
-variable "task_execution_role_arn" {
-  description = "IAM role used by ECS to pull images and initialize containers."
-  type        = string
+variable "task_execution_role_arns" {
+  description = "Per-service IAM execution role ARNs."
+  type        = map(string)
 }
 
-variable "task_role_arn" {
-  description = "IAM role assumed by running application containers."
-  type        = string
+variable "task_role_arns" {
+  description = "Per-service IAM runtime role ARNs."
+  type        = map(string)
 }
 
 variable "target_group_arns" {

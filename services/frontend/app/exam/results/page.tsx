@@ -1,20 +1,39 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { SkillArea } from "@/app/types/exam";
 import { getResult, getSession } from "@/lib/exam-api";
 import { Sidebar } from "@/components/ui/sidebar";
 import type { ExamSessionResponse, ExamResultResponse } from "@/lib/exam-api";
+import {
+  loadReadingResult,
+  type StoredReadingResult,
+} from "@/lib/reading-result-storage";
+import ReadingResultsView from "@/components/reading/results/ReadingResultsView";
 
+// useSearchParams() opts the page into client-side rendering during
+// prerendering, which Next.js requires to be wrapped in a Suspense boundary
+// (https://nextjs.org/docs/messages/missing-suspense-with-csr-bailout) —
+// otherwise `next build`'s static export of this route fails.
 export default function ResultsPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ResultsPageContent />
+    </Suspense>
+  );
+}
+
+function ResultsPageContent() {
   const searchParams = useSearchParams();
   const skill = (searchParams.get("skill") || "Reading") as SkillArea;
   const [mounted, setMounted] = useState(false);
   const sessionId = searchParams.get("session") || "";
   const [session, setSession] = useState<ExamSessionResponse | null>(null);
   const [result, setResult] = useState<ExamResultResponse | null>(null);
+  const [readingResult, setReadingResult] =
+    useState<StoredReadingResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,6 +43,38 @@ export default function ResultsPage() {
 
   useEffect(() => {
     if (!sessionId) return;
+
+    // Reading has no GET-result endpoint on the backend (see
+    // lib/reading-result-storage.ts) — its full per-question breakdown was
+    // captured client-side at submit time and only needs to be read back
+    // out of sessionStorage, synchronously, no network round trip.
+    if (skill === "Reading") {
+      const stored = loadReadingResult(sessionId);
+      setReadingResult(stored);
+      setLoading(false);
+
+      if (!stored) {
+        setError("No Reading result found for this session.");
+        return;
+      }
+
+      sessionStorage.removeItem("active_exam_session");
+
+      fetch("/api/profile/update-scores", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          skill,
+          bandScore: stored.result.band_score,
+        }),
+      }).catch(() => {
+        // Non-fatal: profile score sync failing shouldn't block the
+        // results view from rendering, matching the generic path's
+        // existing behavior of not surfacing this as a page-level error.
+      });
+
+      return;
+    }
 
     async function loadResult() {
       try {
@@ -65,6 +116,31 @@ export default function ResultsPage() {
 
   if (error) {
     return <div>{error}</div>;
+  }
+
+  if (skill === "Reading") {
+    if (!readingResult) {
+      return <div>No result found.</div>;
+    }
+
+    return (
+      <div className="flex min-h-screen bg-[#fbfbfa] text-gray-900 font-sans">
+        <Sidebar />
+
+        <main className="flex-1 p-8 md:p-12 max-w-5xl mx-auto">
+          <div
+            className={`transition-all duration-700 ease-out ${
+              mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+            }`}
+          >
+            <ReadingResultsView
+              result={readingResult.result}
+              questions={readingResult.questions}
+            />
+          </div>
+        </main>
+      </div>
+    );
   }
 
   if (!result) {

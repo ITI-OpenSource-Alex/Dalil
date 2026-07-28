@@ -10,10 +10,9 @@ from app.services.supervisor import classify_intent
 from app.services.memory import get_session_memory, load_memory_variables, save_context
 from app.services.client import forward_downstream_stream
 from app.services.exam_context import fetch_exam_context
+
 logger = structlog.get_logger("orchestration.api.chat")
 router = APIRouter()
-
-
 
 @router.post("/chat")
 async def chat_endpoint(request: ChatRequest, req: Request):
@@ -24,6 +23,7 @@ async def chat_endpoint(request: ChatRequest, req: Request):
     """
     start_time = time.perf_counter()
     correlation_id = req.state.correlation_id
+    
     # 1. Initialize Langfuse root trace
     trace = None
     supervisor_span = None
@@ -53,6 +53,7 @@ async def chat_endpoint(request: ChatRequest, req: Request):
             )
         except Exception as e:
             logger.warning("Failed to initialize Langfuse trace/span", error=str(e))
+            
     async def event_generator():
         nonlocal supervisor_span
         full_response = ""
@@ -60,31 +61,15 @@ async def chat_endpoint(request: ChatRequest, req: Request):
         downstream_service = "rag"
         status = "success"
         exam_context = None
+        
         try:
-<<<<<<< Updated upstream
-            # 2. Classify intent via structured LLM call
             # v4 splits what v2 called trace.id: .trace_id is the trace, .id is
             # this observation. classify_intent wants the trace plus the span to
             # parent its LLM generation under.
             trace_id = trace.trace_id if trace else None
             parent_span_id = supervisor_span.id if supervisor_span else None
 
-            # Load history *before* classifying.
-            #
-            # This call used to sit below, after classification, and its return
-            # value was thrown away -- `await load_memory_variables(...)` with no
-            # assignment. save_context wrote turns correctly and
-            # GET /sessions/{id}/history served them perfectly, so the plumbing
-            # looked complete from every angle except the one that mattered:
-            # nothing ever read the history back into a request. Every
-            # conversation was effectively stateless and turn 2 could not resolve
-            # "it" (BUG-017).
-            memory = get_session_memory(request.sessionId)
-            memory_vars = await load_memory_variables(memory, {"input": request.message})
-            history = memory_vars.get("history") or memory_vars.get("chat_history") or []
-
-=======
-            # 2a. Fetch exam context (best-effort enrichment — never blocks the request)
+            # 2a. Fetch Exam Context (best-effort enrichment)
             try:
                 exam_context = await fetch_exam_context(
                     http_client=req.app.state.http_client,
@@ -96,7 +81,7 @@ async def chat_endpoint(request: ChatRequest, req: Request):
 
             exam_context_available = exam_context is not None and exam_context.get("exam_count", 0) > 0
 
-            # 2b. Record exam context availability in Langfuse trace
+            # Record exam context availability in Langfuse trace
             if trace:
                 try:
                     trace.update(metadata={
@@ -106,21 +91,22 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                 except Exception as e:
                     logger.warning("Failed to update Langfuse trace with exam context", error=str(e))
 
-            # 3. Classify intent via structured LLM call
-            trace_id = trace.id if trace else None
-            parent_span_id = supervisor_span.id if supervisor_span else None
+            # 2b. Load History before classifying
+            # This call used to sit below, after classification, and its return
+            # value was thrown away. We now load it here so the supervisor
+            # can use it to resolve pronouns.
+            memory = get_session_memory(request.sessionId)
+            memory_vars = await load_memory_variables(memory, {"input": request.message})
+            history = memory_vars.get("history") or memory_vars.get("chat_history") or []
 
->>>>>>> Stashed changes
+            # 3. Classify intent via structured LLM call
             intent_result = await classify_intent(
                 message=request.message,
                 trace_id=trace_id,
                 parent_span_id=parent_span_id,
                 user_id=request.userId,
-<<<<<<< Updated upstream
                 history=history,
-=======
                 exam_context=exam_context,
->>>>>>> Stashed changes
             )
             intent = intent_result.intent
             downstream_service = intent.lower()
@@ -137,6 +123,7 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                     original=request.message[:80],
                     resolved=resolved_message[:80],
                 )
+                
             if supervisor_span:
                 try:
                     # v4's end() takes only end_time; the output goes via update().
@@ -144,7 +131,8 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                     supervisor_span.end()
                 except Exception as e:
                     logger.warning("Failed to end Langfuse supervisor span", error=str(e))
-            # 3. Stream intent classification metadata as the first SSE chunk
+                    
+            # 4. Stream intent classification metadata as the first SSE chunk
             yield ServerSentEvent(
                 event="metadata",
                 data=ChatStreamEvent(
@@ -153,6 +141,7 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                     confidence=intent_result.confidence
                 ).model_dump_json()
             )
+            
             # 5. Initialize downstream call trace span
             downstream_span = None
             if trace:
@@ -164,6 +153,7 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                     )
                 except Exception as e:
                     logger.warning("Failed to initialize Langfuse downstream span", error=str(e))
+                    
             # 6. Stream content tokens from downstream service
             response_stream = forward_downstream_stream(
                 client=req.app.state.http_client,
@@ -174,6 +164,7 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                 attachments=request.attachments,
                 exam_context=exam_context,
             )
+            
             async for event in response_stream:
                 if event.type == "token" and event.content:
                     full_response += event.content
@@ -181,6 +172,7 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                     event=event.type,
                     data=event.model_dump_json()
                 )
+                
             # 7. End downstream trace span
             if downstream_span:
                 try:
@@ -188,18 +180,18 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                     downstream_span.end()
                 except Exception as e:
                     logger.warning("Failed to end Langfuse downstream span", error=str(e))
-            # 8. Save session memory using thread pool executor
+                    
+            # 8. Save session memory
             # Store what the user actually typed, not resolved_message. History
             # is the transcript, and GET /sessions/{id}/history serves it back to
             # the UI; rewriting a user's own words in their conversation would be
-            # wrong to show them. The rewrite is derived per turn from this, so
-            # persisting it would also compound: turn 3 would resolve against an
-            # already-resolved turn 2.
+            # wrong to show them.
             await save_context(
                 memory,
                 {"input": request.message},
                 {"output": full_response}
             )
+            
         except Exception as e:
             status = "error"
             logger.error("Error in chat event generator", error=str(e))
@@ -212,17 +204,13 @@ async def chat_endpoint(request: ChatRequest, req: Request):
             )
         finally:
             # 9. Close the root observation.
-            #
-            # v2 traces needed no closing; a v4 root span does -- an unended span
-            # never exports, so skipping this loses the whole trace rather than
-            # just its end time. It belongs in finally so an aborted stream or a
-            # downstream error still yields a trace.
             if trace:
                 try:
                     trace.update(output={"response": full_response, "status": status})
                     trace.end()
                 except Exception as e:
                     logger.warning("Failed to end Langfuse root trace", error=str(e))
+                    
             # 10. Log request completion as structured JSON renderer
             total_ms = (time.perf_counter() - start_time) * 1000
             logger.info(
@@ -233,7 +221,9 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                 total_ms=total_ms,
                 status=status
             )
+            
     return EventSourceResponse(event_generator())
+
 @router.get("/sessions/{sessionId}/history", response_model=List[HistoryResponseItem])
 async def session_history_endpoint(sessionId: str):
     """

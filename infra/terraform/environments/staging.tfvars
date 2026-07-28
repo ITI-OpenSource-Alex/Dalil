@@ -55,11 +55,23 @@ enable_rds_proxy                 = false
 rds_backup_retention_days        = 1
 rds_performance_insights_enabled = false
 
-task_execution_secret_arns  = []
+task_execution_secret_arns = [
+  "arn:aws:secretsmanager:eu-west-1:114403655381:secret:goa/staging/internal-api-key-dV72zo",
+  "arn:aws:secretsmanager:eu-west-1:114403655381:secret:goa/staging/jwt-secret-UKVi1Q",
+  "arn:aws:secretsmanager:eu-west-1:114403655381:secret:goa/staging/anthropic-auth-token-CCOQhh",
+  "arn:aws:secretsmanager:eu-west-1:114403655381:secret:goa/staging/langfuse-public-key-2lzJz5",
+  "arn:aws:secretsmanager:eu-west-1:114403655381:secret:goa/staging/langfuse-secret-key-HyJy0I",
+]
 task_execution_kms_key_arns = []
-task_secret_arns            = []
-task_sqs_queue_arns         = []
-task_kms_key_arns           = []
+task_secret_arns = [
+  "arn:aws:secretsmanager:eu-west-1:114403655381:secret:goa/staging/internal-api-key-dV72zo",
+  "arn:aws:secretsmanager:eu-west-1:114403655381:secret:goa/staging/jwt-secret-UKVi1Q",
+  "arn:aws:secretsmanager:eu-west-1:114403655381:secret:goa/staging/anthropic-auth-token-CCOQhh",
+  "arn:aws:secretsmanager:eu-west-1:114403655381:secret:goa/staging/langfuse-public-key-2lzJz5",
+  "arn:aws:secretsmanager:eu-west-1:114403655381:secret:goa/staging/langfuse-secret-key-HyJy0I",
+]
+task_sqs_queue_arns = []
+task_kms_key_arns   = []
 
 ecs_exec_operator_resource_arns    = ["*"]
 session_manager_log_retention_days = 30

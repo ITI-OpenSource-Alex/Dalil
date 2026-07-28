@@ -1,7 +1,7 @@
 import type { ReadingAnswers, ReadingSubmitResponse } from "@/app/types/reading";
 import type { ExamSessionResponse } from "@/lib/exam-api";
 
-// Reading-specific client for the /exam/reading/* endpoints.
+// Reading-specific client for the /exam/reading/* endpoint.
 //
 // Why this exists alongside lib/exam-api.ts rather than extending it: the
 // generic PUT /sessions/:id/submit (services/exam/app/services/
@@ -15,28 +15,31 @@ import type { ExamSessionResponse } from "@/lib/exam-api";
 // fully compatible with this submit call, since both paths write to the
 // same sessions/questions tables and submit_reading_session only needs a
 // valid session_id. Only submission needs this separate client.
-const API_BASE =
-  process.env.NEXT_PUBLIC_EXAM_API_URL ?? "http://localhost:8085";
-
-const INTERNAL_API_KEY = process.env.NEXT_PUBLIC_INTERNAL_API_KEY ?? "";
+//
+// Reached through the Gateway, not directly on :8085 — same reason as
+// exam-api.ts (BUG-046): calling the service directly meant shipping
+// INTERNAL_API_KEY to the browser in a NEXT_PUBLIC_ variable. The Gateway
+// proxies this one Reading-specific route (services/gateway/handlers/
+// exam.go's SubmitReadingSession) the same way it does the generic session
+// routes, holding the key server-side and requiring the same JWT auth.
+const API_BASE = `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080"}/api/exam`;
 
 const headers = {
   "Content-Type": "application/json",
-  "x-internal-api-key": INTERNAL_API_KEY,
 };
+
+const fetchOptions: RequestInit = { credentials: "include" };
 
 export async function submitReadingSession(
   sessionId: string,
   answers: ReadingAnswers,
 ): Promise<ReadingSubmitResponse> {
-  const response = await fetch(
-    `${API_BASE}/exam/reading/${sessionId}/submit`,
-    {
-      method: "PUT",
-      headers,
-      body: JSON.stringify({ answers }),
-    },
-  );
+  const response = await fetch(`${API_BASE}/reading/${sessionId}/submit`, {
+    ...fetchOptions,
+    method: "PUT",
+    headers,
+    body: JSON.stringify({ answers }),
+  });
 
   if (!response.ok) {
     throw new Error(await response.text());

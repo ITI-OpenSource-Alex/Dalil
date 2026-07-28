@@ -187,6 +187,30 @@ func (h *ExamHandler) GetSessionResult(c *fiber.Ctx) error {
 	return h.forward(c, http.MethodGet, target, nil)
 }
 
+// SubmitReadingSession proxies PUT /api/exam/reading/{sessionId}/submit.
+//
+// The generic SubmitSession above hits the exam service's generic
+// PUT /sessions/:id/submit, which only returns {session_id, status,
+// raw_score, band_score} -- no per_question_result, no section_breakdown.
+// GOA-055's results page (per-question review, question-type breakdown,
+// section progress bars) needs that data, which only the Reading-specific
+// PUT /exam/reading/:id/submit endpoint returns. There was previously no
+// gateway route for it at all, so the frontend called the exam service
+// directly on :8085 with INTERNAL_API_KEY published to the browser --
+// exactly the BUG-046 exposure this gateway migration exists to close.
+func (h *ExamHandler) SubmitReadingSession(c *fiber.Ctx) error {
+	if _, err := authenticatedUserID(c); err != nil {
+		return err
+	}
+	target, err := url.JoinPath(
+		h.examServiceURL, "exam", "reading", c.Params("sessionId"), "submit",
+	)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid session id")
+	}
+	return h.forward(c, http.MethodPut, target, bytes.NewReader(c.Body()))
+}
+
 // Heartbeat proxies PATCH /api/exam/sessions/{id}/heartbeat.
 //
 // The exam service has had this endpoint since GOA-092 and nothing has ever

@@ -5,23 +5,27 @@ import {
   buildReadingSubmitResponse,
 } from "./fixtures/reading-questions";
 
-// These tests stub the exam service's REST responses at the network layer
-// (see test/e2e/speaking-history-mocked.spec.ts for the established pattern
-// in this repo), so the full Reading exam-taking -> submit -> results flow
-// can be verified against known, deterministic data without requiring the
-// exam backend to be running. The exam service is a different origin than
-// the frontend (localhost:8085 vs localhost:3000 — lib/exam-api.ts /
-// lib/reading-api.ts), and its requests carry a custom x-internal-api-key
-// header, which makes the browser issue a CORS preflight (OPTIONS) before
-// the real GET/PUT — both must be handled.
-const EXAM_API_BASE = "http://localhost:8085";
+// These tests stub the Gateway's REST responses at the network layer (see
+// test/e2e/speaking-history-mocked.spec.ts for the established pattern in
+// this repo), so the full Reading exam-taking -> submit -> results flow can
+// be verified against known, deterministic data without requiring the
+// Gateway, exam service, or a real logged-in JWT session. Every Reading
+// call now goes through the Gateway (localhost:8080/api/exam/*), not the
+// exam service directly (BUG-046 — see lib/exam-api.ts / lib/reading-api.ts)
+// — a different origin than the frontend (localhost:3000), and the request
+// carries JSON + credentials: "include", which makes the browser issue a
+// CORS preflight (OPTIONS) before the real GET/PUT — both must be handled.
+// credentials: "include" additionally requires an explicit (non-wildcard)
+// Access-Control-Allow-Origin plus Access-Control-Allow-Credentials.
+const GATEWAY_API_BASE = "http://localhost:8080/api/exam";
 const SESSION_ID = "22222222-2222-2222-2222-222222222222";
 
 function corsHeaders() {
   return {
-    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Origin": "http://localhost:3000",
     "Access-Control-Allow-Methods": "GET,POST,PUT,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type,x-internal-api-key",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Credentials": "true",
   };
 }
 
@@ -69,18 +73,19 @@ const SESSION_RESPONSE = {
   ],
 };
 
-/** Mocks GET /sessions/:id and PUT /exam/reading/:id/submit, and exposes
- * a getter for whatever answers payload was actually sent to submit — used
- * to assert highlights never leak into it. */
+/** Mocks the Gateway's GET /api/exam/sessions/:id and
+ * PUT /api/exam/reading/:id/submit, and exposes a getter for whatever
+ * answers payload was actually sent to submit — used to assert highlights
+ * never leak into it. */
 async function mockReadingBackend(page: Page) {
   let submittedAnswers: Record<string, string> | null = null;
 
-  await page.route(`${EXAM_API_BASE}/sessions/${SESSION_ID}`, (route) =>
+  await page.route(`${GATEWAY_API_BASE}/sessions/${SESSION_ID}`, (route) =>
     withPreflight(route, (r) => fulfillJson(r, SESSION_RESPONSE)),
   );
 
   await page.route(
-    `${EXAM_API_BASE}/exam/reading/${SESSION_ID}/submit`,
+    `${GATEWAY_API_BASE}/reading/${SESSION_ID}/submit`,
     (route) =>
       withPreflight(route, (r) => {
         const body = r.request().postDataJSON() as {

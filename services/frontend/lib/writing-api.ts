@@ -1,10 +1,13 @@
-const API_BASE =
-  process.env.NEXT_PUBLIC_WRITING_API_URL ?? "http://localhost:8001";
+// Writing is reached through the Gateway, not directly on :8000 — same reason as
+// exam-api.ts: calling the service directly published INTERNAL_API_KEY to every
+// browser via a NEXT_PUBLIC_ variable (BUG-046).
+const API_BASE = `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080"}/api/writing`;
 
 const headers = {
   "Content-Type": "application/json",
-  "x-internal-api-key": process.env.NEXT_PUBLIC_INTERNAL_API_KEY ?? "",
 };
+
+const fetchOptions: RequestInit = { credentials: "include" };
 
 export interface HighlightedIssue {
   text: string;
@@ -35,7 +38,8 @@ export async function evaluateEssay(
   submissionType: string,
   examType: string,
 ): Promise<EssayEvaluationResponse> {
-  const response = await fetch(`${API_BASE}/writing/evaluate`, {
+  const response = await fetch(`${API_BASE}/evaluate`, {
+    ...fetchOptions,
     method: "POST",
     headers,
     body: JSON.stringify({

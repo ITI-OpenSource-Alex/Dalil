@@ -129,8 +129,13 @@ async def forward_downstream_stream(
     correlation_id_var.set(correlation_id)
     
     if intent == "SPEAKING":
-        ws_url = f"{settings.speaking_service_url.replace('http', 'ws')}/ws"
-        yield ChatStreamEvent(type="speaking_url", wsUrl=ws_url)
+        # A browser-reachable URL, not the Docker hostname. Deriving it from
+        # speaking_service_url produced ws://speaking:8082/ws, which no browser can
+        # resolve, so the SPEAKING intent was dead end to end (BUG-016).
+        #
+        # This one still bypasses the Gateway: there is no WS proxy yet, so it
+        # misses JWT auth and rate limiting. Tracked as a follow-up under GOA-094.
+        yield ChatStreamEvent(type="speaking_url", wsUrl=settings.public_speaking_ws_url)
         return
 
     service_name = ""
@@ -153,7 +158,14 @@ async def forward_downstream_stream(
             # intent fails outright -- see BUG-015: the service answered correctly
             # and the user was still told it was offline.
             essay_id = data.get("id", "unknown")
-            sse_url = f"{settings.writing_service_url}/essays/{essay_id}/evaluate"
+            # Route the client through the Gateway rather than at the Writing
+            # service directly. writing_service_url is a Docker hostname the
+            # browser cannot resolve (BUG-016), and going via the Gateway means
+            # this stream carries JWT auth, rate limiting and a correlation ID
+            # like every other client call.
+            sse_url = (
+                f"{settings.public_gateway_url}/api/writing/essays/{essay_id}/evaluate"
+            )
             yield ChatStreamEvent(type="writing_url", essayId=str(essay_id), sseUrl=sse_url)
 
         elif intent == "RAG":

@@ -40,7 +40,9 @@ func TestUploadCVForwardsAuthenticatedUserAndFileMetadata(t *testing.T) {
 	}))
 	defer upstream.Close()
 
-	handler := NewWritingHandler(upstream.Client(), upstream.URL)
+	// A nil llmClient falls back to httpClient, which is what this upload test
+	// wants — only the CV review route needs the longer-lived client.
+	handler := NewWritingHandler(upstream.Client(), nil, upstream.URL)
 	app := fiber.New()
 	app.Post("/cv/upload", func(c *fiber.Ctx) error {
 		c.Locals(middleware.ContextKeyUserID, "user-123")

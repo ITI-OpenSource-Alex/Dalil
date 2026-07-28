@@ -19,6 +19,19 @@ class IntentResult(BaseModel):
     intent: Literal["SPEAKING", "WRITING", "RAG", "OPPORTUNITY_SEARCH", "CV_REVIEW"]
     confidence: float
     is_fallback: bool = False
+    # The user's message rewritten to stand on its own, with pronouns and
+    # references resolved against the conversation so far.
+    #
+    # This rides along on the classification call rather than taking one of its
+    # own. The remediation plan proposed a second LLM call to do the rewrite,
+    # which would fix the same defect at the cost of another round trip on the
+    # critical path of every chat turn -- and classification already costs 3-8s.
+    # The supervisor is already reading the message and already returning
+    # structured output, so asking it for one more field is free.
+    #
+    # Empty when there is no history to resolve against, and callers fall back
+    # to the raw message.
+    standalone_question: str = ""
 
 # Initialize ChatAnthropic and wrap it with structured output
 llm = ChatAnthropic(
@@ -50,29 +63,84 @@ SUPERVISOR_PROMPT = """You are a routing agent. Classify the user message into e
                         WRITING   - essay submission or writing evaluation (e.g. "Score my essay please")
                         RAG       - IELTS info, requirements, visa, scholarships (e.g. "What are the visa requirements?")
                         OPPORTUNITY_SEARCH - searching for study opportunities, scholarships, admissions (e.g. "Find me a scholarship in Germany")
-                        CV_REVIEW - CV upload or improvement request (e.g. "Can you review my CV?")"""
+                        CV_REVIEW - CV upload or improvement request (e.g. "Can you review my CV?")
 
-async def classify_intent(message: str, trace_id: str = None, parent_span_id: str = None, user_id: str = "anonymous") -> IntentResult:
+You are also given the conversation so far. Use it for two things.
+
+First, classify the LATEST message in the context of that conversation. "Is my
+score high enough?" is RAG when it follows a question about entry requirements.
+
+Second, set standalone_question: the latest message rewritten so it can be
+understood with no conversation history at all. Resolve every pronoun and
+reference ("it", "that one", "there", "the second one") into the thing it
+refers to. Downstream services receive only this string and have no access to
+the history, so anything you leave unresolved is lost.
+
+Rules for standalone_question:
+- Preserve the user's intent and specificity exactly. Do not answer, expand,
+  correct, or add information that is not in the conversation.
+- If the message already stands alone, copy it through unchanged.
+- If there is no history, copy it through unchanged.
+
+Example. History: "What IELTS band does the University of Potsdam Data Science
+master require?" -> "It requires 6.5 overall." Latest: "Is my score high enough
+for it?" -> standalone_question: "Is my IELTS score high enough for the
+University of Potsdam Data Science master, which requires 6.5 overall?"
+"""
+
+
+def _history_messages(history: list | None, limit: int = 6) -> list[dict]:
+    """Render stored turns as chat messages for the supervisor.
+
+    Trimmed to the most recent `limit` turns. The whole point is resolving
+    references, which nearly always point at the last turn or two, so sending
+    more would grow the token bill on every request to no benefit.
     """
-    Classifies the user message intent into one of five categories.
+    if not history:
+        return []
+    rendered = []
+    for msg in history[-limit:]:
+        role = "user" if getattr(msg, "type", None) == "human" else "assistant"
+        content = getattr(msg, "content", None)
+        if content:
+            rendered.append({"role": role, "content": str(content)})
+    return rendered
+
+
+async def classify_intent(
+    message: str,
+    trace_id: str = None,
+    parent_span_id: str = None,
+    user_id: str = "anonymous",
+    history: list | None = None,
+) -> IntentResult:
+    """
+    Classifies the user message intent into one of five categories, and rewrites
+    it to stand alone against the conversation history.
+
     Traces the execution to Langfuse and records classification latency metrics.
     """
-     
+
     messages = [
         {"role": "system", "content": SUPERVISOR_PROMPT},
-        {"role": "user", "content": message}
+        *_history_messages(history),
+        {"role": "user", "content": message},
     ]
 
     # Setup Langfuse callback handler if trace details are provided
     callbacks = []
     if settings.langfuse_public_key and settings.langfuse_secret_key and trace_id and parent_span_id:
         try:
+            # v4's handler takes credentials from the process-wide client rather
+            # than per-instance kwargs, and nests via trace_context. Passing the
+            # v2 arguments raised "unexpected keyword argument 'secret_key'" into
+            # the except below, so intent classification -- the one LLM call this
+            # service makes directly -- was never traced (BUG-032).
             handler = CallbackHandler(
-                public_key=settings.langfuse_public_key,
-                secret_key=settings.langfuse_secret_key,
-                host=settings.langfuse_host,
-                trace_id=trace_id,
-                parent_observation_id=parent_span_id
+                trace_context={
+                    "trace_id": trace_id,
+                    "parent_span_id": parent_span_id,
+                }
             )
             callbacks.append(handler)
         except Exception as e:

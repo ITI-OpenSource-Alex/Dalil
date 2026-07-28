@@ -51,18 +51,47 @@ func evaluateCriterion(ctx context.Context, client LLMClient, criterion, systemP
 	}
 	// Scrub potential markdown wrappers
 	cleanedText := cleanJSONResponse(res.Text)
-	// Parse JSON output
+	// Parse JSON output.
+	//
+	// Band is a *pointer* so that an absent key is distinguishable from a genuine
+	// score of zero. With a plain float64, json.Unmarshal SUCCEEDS when "band" is
+	// missing and leaves the Go zero value behind — so a response the model never
+	// scored was reported as band 0.0 with TimedOut false, i.e. as a completed
+	// evaluation. Observed live: articulate native English scored Lexical Resource
+	// 0.0 while Fluency and Grammar returned 4 and 5, dragging the overall band from
+	// ~4.5 down to 3.5 (BUG-055).
+	//
+	// band_score is accepted as an alias because that is the key the writing
+	// service's agents use, and the model drifts toward it. Accepting the alias is
+	// robustness; accepting *neither* silently is the bug.
 	var parsed struct {
-		Band     float64  `json:"band"`
-		Feedback string   `json:"feedback"`
-		Examples []string `json:"examples"`
+		Band      *float64 `json:"band"`
+		BandScore *float64 `json:"band_score"`
+		Feedback  string   `json:"feedback"`
+		Examples  []string `json:"examples"`
 	}
 	err = json.Unmarshal([]byte(cleanedText), &parsed)
 	if err != nil {
 		return AgentResult{}, fmt.Errorf("failed to parse JSON from LLM: %w (raw response: %s)", err, res.Text)
 	}
+
+	scored := parsed.Band
+	if scored == nil {
+		scored = parsed.BandScore
+	}
+	if scored == nil {
+		// Returning an error is what makes this safe: the swarm marks the criterion
+		// unavailable and EXCLUDES it from the overall average, exactly as it does
+		// for a timeout. Defaulting to 0.0 would instead average a fabricated score
+		// into the candidate's band.
+		return AgentResult{}, fmt.Errorf(
+			"LLM response for %q contained no band score (looked for \"band\" and \"band_score\"); raw response: %s",
+			criterion, res.Text,
+		)
+	}
+
 	// Bound safety: ensure band is within 0.0 - 9.0
-	band := parsed.Band
+	band := *scored
 	if band < 0.0 {
 		band = 0.0
 	} else if band > 9.0 {

@@ -1,3 +1,7 @@
+import { HighlightedIssue, CriterionEvaluation } from "@/lib/writing-api";
+
+export type { HighlightedIssue, CriterionEvaluation };
+
 export type WritingCriterionEvent = {
   type: "criterion";
   criterion: string;
@@ -16,6 +20,8 @@ export type WritingCompleteEvent = {
       feedback: string;
     }
   >;
+  evaluations_full: CriterionEvaluation[];
+  improved_essay?: string;
 };
 
 export type WritingErrorEvent = {

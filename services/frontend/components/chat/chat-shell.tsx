@@ -17,6 +17,10 @@ import EssayComposer from "./essay-composer";
 import WritingEvaluationPanel from "./writing-evaluation-panel";
 
 import { streamWritingEvaluation, WritingEvent } from "@/lib/writing-stream";
+// Used by the inlineIssues state below. The type was referenced without being
+// imported, so the frontend did not compile; that arrived on dev with the
+// inline-feedback work and is not something this branch introduced.
+import type { CriterionEvaluation } from "@/lib/writing-api";
 import { SpeakingEvaluationResult } from "@/app/types/speaking";
 import { extractCriteriaScores } from "@/lib/speaking-format";
 import { CURRENT_USER_ID } from "@/lib/current-user";
@@ -30,6 +34,14 @@ const SPEAKING_WS_URL =
     /^http/,
     "ws",
   ) + "/ws";
+
+// Chat goes through the Gateway. These two calls used relative paths, i.e. to
+// the Next.js server itself, where no route handler was ever written — both
+// 404'd and surfaced as "Service unavailable" (BUG-044). The Gateway proxies
+// them to Orchestration, adding JWT auth, rate limiting and correlation IDs.
+//
+// credentials: "include" is required because auth rides on HttpOnly cookies.
+const CHAT_API_BASE = `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080"}/api`;
 
 export type Opportunity = {
   programName: string;
@@ -106,6 +118,10 @@ export default function ChatShell() {
     >
   >({});
   const [writingOverallBand, setWritingOverallBand] = useState<number>();
+  const [inlineIssues, setInlineIssues] = useState<CriterionEvaluation[]>([]);
+  const [submittedEssay, setSubmittedEssay] = useState<string>("");
+  const [improvedEssay, setImprovedEssay] = useState<string | undefined>();
+  const [isPaidTier] = useState(true); // TODO: hardcoded until tier comes from session/profile
 
   // Single source of truth for the session lock: which practice mode, if
   // any, currently owns the input area. Derived — not a separate flag — from
@@ -122,7 +138,9 @@ export default function ChatShell() {
   useEffect(() => {
     async function loadHistory() {
       try {
-        const res = await fetch(`/api/chat/sessions/${sessionId}/history`);
+        const res = await fetch(`${CHAT_API_BASE}/chat/sessions/${sessionId}/history`, {
+          credentials: "include",
+        });
         if (res.ok) {
           const history = await res.json();
           if (history && history.length > 0) {
@@ -400,6 +418,10 @@ export default function ChatShell() {
 
         setWritingOverallBand(event.overall_band);
 
+        setInlineIssues(event.evaluations_full);
+
+        setImprovedEssay(event.improved_essay);
+
         setWritingLoading(false);
 
         break;
@@ -439,8 +461,9 @@ export default function ChatShell() {
     setMessages((prev) => [...prev, assistantMessage]);
 
     try {
-      const response = await fetch("/api/chat", {
+      const response = await fetch(`${CHAT_API_BASE}/chat`, {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
         },
@@ -504,6 +527,9 @@ export default function ChatShell() {
   const handleEssaySubmit = async (essay: string) => {
     setWritingEvaluations({});
     setWritingOverallBand(undefined);
+    setInlineIssues([]);
+    setSubmittedEssay(essay);
+    setImprovedEssay(undefined);
 
     await handleSendMessage(essay);
   };
@@ -553,7 +579,6 @@ export default function ChatShell() {
     setSpeakingState("connecting");
     openSpeakingSocket(SPEAKING_WS_URL);
   };
-
 
   const stopSpeaking = () => {
     recorderRef.current?.stop();
@@ -651,6 +676,10 @@ export default function ChatShell() {
               evaluations={writingEvaluations}
               overallBand={writingOverallBand}
               loading={writingLoading}
+              inlineIssues={inlineIssues}
+              essayText={submittedEssay}
+              improvedEssay={improvedEssay}
+              isPaidTier={isPaidTier}
             />
           </div>
         )}

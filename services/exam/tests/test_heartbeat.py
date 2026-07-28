@@ -1,7 +1,16 @@
 """Tests for the session heartbeat endpoint and abandoned-session sweep.
 
-Uses an in-memory FakeHeartbeatRepository injected via FastAPI dependency
-overrides — no Postgres connection required.
+Two layers, and the split is deliberate.
+
+Most tests use an in-memory FakeHeartbeatRepository injected via FastAPI
+dependency overrides, which needs no Postgres and covers the endpoint contract.
+That layer alone passed in full while the sweep could not write a single row:
+the fake reimplements the sweep in Python and therefore has no CHECK constraint
+to violate (BUG-053).
+
+The two tests at the bottom go through the real repository against real
+Postgres, and skip when no database is reachable. They are the ones that
+actually pin the constraint and the threshold.
 """
 from __future__ import annotations
 
@@ -38,6 +47,7 @@ class FakeHeartbeatRepository:
         exam_type: str = "academic",
         started_at: datetime | None = None,
         last_heartbeat_at: datetime | None = None,
+        time_limit_seconds: int = 3600,
     ) -> dict[str, Any]:
         session = {
             "id": session_id,
@@ -47,6 +57,9 @@ class FakeHeartbeatRepository:
             "exam_type": exam_type,
             "started_at": started_at or datetime.now(timezone.utc),
             "last_heartbeat_at": last_heartbeat_at,
+            # Reading is 3600s. The sweep now reads this instead of applying a
+            # flat 10 minutes to every exam, so the fake has to carry it.
+            "time_limit_seconds": time_limit_seconds,
         }
         self.sessions[session_id] = session
         return session
@@ -65,10 +78,10 @@ class FakeHeartbeatRepository:
             session["last_heartbeat_at"] = datetime.now(timezone.utc)
 
     async def sweep_abandoned(
-        self, threshold_minutes: int = 10
+        self, grace_minutes: int = 10
     ) -> tuple[int, list[dict[str, Any]]]:
         now = datetime.now(timezone.utc)
-        threshold = now - timedelta(minutes=threshold_minutes)
+        threshold = now - timedelta(minutes=grace_minutes)
 
         in_progress = [
             s for s in self.sessions.values() if s["status"] == "in_progress"
@@ -81,8 +94,16 @@ class FakeHeartbeatRepository:
             stale = False
             if hb is not None:
                 stale = hb < threshold
-            elif s["started_at"] < threshold:
-                stale = True
+            else:
+                # Never heartbeated: allow the session's own time limit before
+                # the grace window starts, so a client that does not heartbeat
+                # still gets its full exam rather than 10 minutes of it.
+                deadline = (
+                    s["started_at"]
+                    + timedelta(seconds=s.get("time_limit_seconds", 3600))
+                    + timedelta(minutes=grace_minutes)
+                )
+                stale = deadline < now
 
             if stale:
                 s["status"] = "abandoned"
@@ -260,3 +281,181 @@ async def test_integration_heartbeat_then_sweep_with_clock_advance():
         ._value.get()
     )
     assert after == before + 1
+
+
+# ---------------------------------------------------------------------------
+# Real-Postgres tests.
+#
+# Everything above this line runs against FakeHeartbeatRepository, which
+# reimplements the sweep in Python. That is why 262 lines of passing tests sat
+# on top of a sweep that could not write a single row: migration 006 added
+# last_heartbeat_at but never extended the status CHECK constraint, so
+# `SET status = 'abandoned'` raised CheckViolationError on every run, was caught
+# by run_sweep_loop's `except Exception`, logged as sweep_error and retried
+# every 300 seconds forever (BUG-053). A fake cannot have a CHECK constraint.
+#
+# These two go through the real repository against real Postgres. They are the
+# tests that would have caught BUG-053 and BUG-054 respectively.
+# ---------------------------------------------------------------------------
+
+
+async def _private_pool():
+    """A pool owned by the calling test.
+
+    The global `db` pool is created once and bound to whichever event loop first
+    touched it. pytest-asyncio gives each test its own loop, so sharing it makes
+    the second test fail with asyncpg InterfaceError -- passing alone, failing in
+    a suite, which reads like flakiness rather than the setup problem it is.
+    """
+    import asyncpg
+    from app.core.config import settings
+    from app.core.database import db
+
+    try:
+        pool = await asyncpg.create_pool(dsn=settings.database_url, min_size=1, max_size=2)
+    except Exception:
+        pytest.skip("Database not available for integration test")
+
+    async with pool.acquire() as conn:
+        has_schema = await conn.fetchval(
+            "SELECT to_regclass('public.questions') IS NOT NULL"
+        )
+
+    if not has_schema:
+        # A reachable database is not the same as a migrated one.
+        #
+        # Locally the service container has already migrated exam_db, so creating
+        # a raw pool was enough. CI stands up an empty exam_test and only the
+        # service's own startup path applies migrations -- which this pool
+        # deliberately bypasses to avoid the shared-event-loop problem. The first
+        # CI run failed with UndefinedTableError: relation "questions" does not
+        # exist, on a test that passed locally.
+        #
+        # db.connect() runs the migrations, then its pool is closed again so this
+        # test keeps its own loop-local one.
+        try:
+            await db.connect()
+        except Exception:
+            await pool.close()
+            pytest.skip("Database schema unavailable for integration test")
+        finally:
+            await db.disconnect()
+
+    return pool
+
+
+async def _seed_session(conn, *, session_id, user_id, started_at, time_limit_seconds,
+                        last_heartbeat_at=None, skill_area="reading"):
+    question_id = uuid4()
+    # questions has a unique (book_ref, test_number, skill_area). A fixed
+    # book_ref would collide between these two tests and, worse, leave a row
+    # behind whenever seeding failed part-way, so the next run failed for a
+    # reason that had nothing to do with the code under test.
+    book_ref = f"hb_test_{question_id.hex[:12]}"
+    await conn.execute(
+        """
+        INSERT INTO questions (id, book_ref, test_number, exam_type, skill_area,
+                               passage_text, audio_s3_key, answer_key, questions)
+        VALUES ($1, $2, 1, 'academic', $3, '', '', '{}', '[]')
+        """,
+        question_id,
+        book_ref,
+        skill_area,
+    )
+    await conn.execute(
+        """
+        INSERT INTO exam_sessions (id, user_id, question_id, exam_type, skill_area,
+                                   status, started_at, time_limit_seconds,
+                                   last_heartbeat_at)
+        VALUES ($1, $2, $3, 'academic', $4, 'in_progress', $5, $6, $7)
+        """,
+        session_id, user_id, question_id, skill_area,
+        started_at, time_limit_seconds, last_heartbeat_at,
+    )
+    return question_id
+
+
+@pytest.mark.asyncio
+async def test_real_sweep_can_write_abandoned_status():
+    """BUG-053: the CHECK constraint must permit 'abandoned'.
+
+    Before migration 007 this raised
+    asyncpg.exceptions.CheckViolationError and the sweep silently no-opped.
+    """
+    from app.repositories.heartbeat_repository import HeartbeatRepository
+
+    pool = await _private_pool()
+
+    session_id, user_id = uuid4(), uuid4()
+    now = datetime.now(timezone.utc)
+
+    async with pool.acquire() as conn:
+        question_id = await _seed_session(
+            conn, session_id=session_id, user_id=user_id,
+            started_at=now - timedelta(minutes=90),
+            time_limit_seconds=3600,
+            last_heartbeat_at=now - timedelta(minutes=30),
+        )
+
+    try:
+        _, abandoned = await HeartbeatRepository(pool).sweep_abandoned()
+        assert any(r["id"] == session_id for r in abandoned), (
+            "the sweep did not abandon a session that has been silent for 30 "
+            "minutes -- if this raises CheckViolationError instead, migration "
+            "007 is missing"
+        )
+        async with pool.acquire() as conn:
+            status = await conn.fetchval(
+                "SELECT status FROM exam_sessions WHERE id = $1", session_id
+            )
+        assert status == "abandoned"
+    finally:
+        async with pool.acquire() as conn:
+            await conn.execute("DELETE FROM exam_sessions WHERE id = $1", session_id)
+            await conn.execute("DELETE FROM questions WHERE id = $1", question_id)
+        await pool.close()
+
+
+@pytest.mark.asyncio
+async def test_real_sweep_spares_a_60_minute_exam_that_never_heartbeats():
+    """BUG-054: a candidate must not lose an exam to a client that stays quiet.
+
+    The original sweep abandoned any session started more than 10 minutes ago
+    when last_heartbeat_at was NULL. Reading is 60 minutes and no client sent
+    heartbeats, so with the constraint fixed every candidate would have been
+    abandoned at minute 10 and met a 403 on submit.
+    """
+    from app.repositories.heartbeat_repository import HeartbeatRepository
+
+    pool = await _private_pool()
+
+    session_id, user_id = uuid4(), uuid4()
+    now = datetime.now(timezone.utc)
+
+    async with pool.acquire() as conn:
+        question_id = await _seed_session(
+            conn, session_id=session_id, user_id=user_id,
+            # 20 minutes into a 60-minute exam, never heartbeated. Well past the
+            # old flat 10-minute threshold.
+            started_at=now - timedelta(minutes=20),
+            time_limit_seconds=3600,
+            last_heartbeat_at=None,
+        )
+
+    try:
+        _, abandoned = await HeartbeatRepository(pool).sweep_abandoned()
+        assert not any(r["id"] == session_id for r in abandoned), (
+            "a candidate 20 minutes into a 60-minute exam was marked abandoned; "
+            "the sweep is using a flat threshold instead of the session's own "
+            "time_limit_seconds"
+        )
+        async with pool.acquire() as conn:
+            status = await conn.fetchval(
+                "SELECT status FROM exam_sessions WHERE id = $1", session_id
+            )
+        assert status == "in_progress"
+    finally:
+        async with pool.acquire() as conn:
+            await conn.execute("DELETE FROM exam_sessions WHERE id = $1", session_id)
+            await conn.execute("DELETE FROM questions WHERE id = $1", question_id)
+        await pool.close()

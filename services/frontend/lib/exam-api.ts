@@ -1,14 +1,21 @@
 import { ExamType, SkillArea } from "@/app/types/exam";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_EXAM_API_URL ?? "http://localhost:8085";
-
-const INTERNAL_API_KEY = process.env.NEXT_PUBLIC_INTERNAL_API_KEY ?? "";
+// Exam is reached through the Gateway, not directly on :8085.
+//
+// Calling the service directly meant shipping INTERNAL_API_KEY to the browser in
+// a NEXT_PUBLIC_ variable — inlined into the client bundle and served to every
+// visitor, which dissolved the boundary those internal endpoints exist to
+// enforce (BUG-046). The Gateway holds that key server-side and adds JWT auth,
+// rate limiting and correlation IDs on the way through.
+//
+// credentials: "include" is required: auth rides on HttpOnly cookies.
+const API_BASE = `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080"}/api/exam`;
 
 const headers = {
   "Content-Type": "application/json",
-  "x-internal-api-key": INTERNAL_API_KEY,
 };
+
+const fetchOptions: RequestInit = { credentials: "include" };
 
 function mapExamType(type: ExamType): "academic" | "general" {
   return type === "Academic" ? "academic" : "general";
@@ -76,6 +83,7 @@ export async function createSession(
   skillArea: SkillArea,
 ): Promise<CreateSessionResponse> {
   const response = await fetch(`${API_BASE}/sessions`, {
+    ...fetchOptions,
     method: "POST",
     headers,
     body: JSON.stringify({
@@ -96,6 +104,7 @@ export async function getSession(
   sessionId: string,
 ): Promise<ExamSessionResponse> {
   const response = await fetch(`${API_BASE}/sessions/${sessionId}`, {
+    ...fetchOptions,
     headers,
     cache: "no-store",
   });
@@ -112,6 +121,7 @@ export async function submitSession(
   answers: Record<string, unknown>,
 ) {
   const response = await fetch(`${API_BASE}/sessions/${sessionId}/submit`, {
+    ...fetchOptions,
     method: "PUT",
     headers,
     body: JSON.stringify({
@@ -126,10 +136,35 @@ export async function submitSession(
   return response.json();
 }
 
+/**
+ * Tell the backend this session is still being sat.
+ *
+ * The exam service sweeps in-progress sessions that stop reporting and marks
+ * them abandoned, after which submit returns 403 and the attempt is lost. The
+ * endpoint shipped with GOA-092 and nothing ever called it, so the sweep's only
+ * input was silence (BUG-054).
+ *
+ * Deliberately never throws. A dropped heartbeat is not worth surfacing to a
+ * candidate mid-exam, and the grace window covers several consecutive misses;
+ * throwing here would put a network blip in front of someone sitting a test.
+ */
+export async function sendHeartbeat(sessionId: string): Promise<boolean> {
+  try {
+    const response = await fetch(
+      `${API_BASE}/sessions/${sessionId}/heartbeat`,
+      { ...fetchOptions, method: "PATCH", headers },
+    );
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function getResult(
   sessionId: string,
 ): Promise<ExamResultResponse> {
   const response = await fetch(`${API_BASE}/sessions/${sessionId}/result`, {
+    ...fetchOptions,
     headers,
     cache: "no-store",
   });

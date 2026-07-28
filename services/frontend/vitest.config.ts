@@ -1,18 +1,21 @@
 import { defineConfig } from "vitest/config";
+import react from "@vitejs/plugin-react";
 import path from "path";
 
-// Minimal config: GOA-055's Definition of Done requires unit tests for pure
-// logic (fill-blank comparison, breakdown percentage calculation) — no unit
-// test runner existed in this repo before this ticket. Scoped to just what
-// those tests need (plain TS, no DOM/jsdom, no component rendering).
 export default defineConfig({
+  plugins: [react()],
   test: {
-    environment: "node",
-    include: ["**/*.test.ts"],
+    environment: "jsdom",
+    globals: true,
+    setupFiles: ["./vitest.setup.ts"],
+    // Keep Playwright's own spec files out of Vitest's discovery — both
+    // tools default to picking up *.test.ts/*.spec.ts otherwise.
+    exclude: ["**/node_modules/**", "**/e2e/**", "**/*.spec.ts"],
   },
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "."),
+      // Matches tsconfig.json: "@/*": ["./*"]
+      "@": path.resolve(__dirname, "./"),
     },
   },
 });

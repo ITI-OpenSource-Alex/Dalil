@@ -123,3 +123,67 @@ func TestEvaluateCriterion_APIError(t *testing.T) {
 		t.Fatal("expected error on stream API failure, got nil")
 	}
 }
+
+// BUG-055: a missing band key must be an error, never a silent 0.0.
+//
+// With `Band float64`, json.Unmarshal SUCCEEDS on a response that omits "band"
+// and leaves Go's zero value behind, so an unscored criterion was reported as
+// band 0.0 with TimedOut false — a completed evaluation carrying a fabricated
+// score. Observed live: articulate native English scored Lexical Resource 0.0
+// alongside Fluency 4 and Grammar 5, pulling the overall band down to 3.5.
+//
+// An error is the safe outcome because the swarm excludes errored criteria from
+// the overall average, exactly as it excludes timeouts.
+func TestEvaluateCriterion_MissingBandIsAnErrorNotZero(t *testing.T) {
+	mockClient := &MockLLMClient{
+		Result: llm.CompletionResult{
+			// Valid JSON, plausible feedback, no band anywhere.
+			Text: `{"feedback": "Good range of vocabulary.", "examples": ["nevertheless"]}`,
+		},
+	}
+
+	res, err := EvaluateLexical(context.Background(), mockClient, "Describe a hobby.", "IELTS Part 2", "I enjoy tennis...")
+	if err == nil {
+		t.Fatalf("expected an error for a response with no band, got band %v", res.Band)
+	}
+	if res.Band != 0 || res.TimedOut {
+		t.Errorf("a failed parse must not return a usable result, got %+v", res)
+	}
+}
+
+// A real zero must still be honoured — the point is distinguishing absent from
+// zero, not refusing zero.
+func TestEvaluateCriterion_ExplicitZeroBandIsAccepted(t *testing.T) {
+	mockClient := &MockLLMClient{
+		Result: llm.CompletionResult{
+			Text: `{"band": 0.0, "feedback": "No intelligible response.", "examples": []}`,
+		},
+	}
+
+	res, err := EvaluateLexical(context.Background(), mockClient, "Describe a hobby.", "IELTS Part 2", "...")
+	if err != nil {
+		t.Fatalf("an explicit band of 0 is a legitimate score, got error %v", err)
+	}
+	if res.Band != 0.0 {
+		t.Errorf("expected band 0.0, got %v", res.Band)
+	}
+}
+
+// band_score is the key the writing service's agents use; the model drifts
+// toward it. Accepting the alias is robustness — accepting neither silently was
+// the bug.
+func TestEvaluateCriterion_AcceptsBandScoreAlias(t *testing.T) {
+	mockClient := &MockLLMClient{
+		Result: llm.CompletionResult{
+			Text: `{"band_score": 6.5, "feedback": "Adequate range.", "examples": []}`,
+		},
+	}
+
+	res, err := EvaluateLexical(context.Background(), mockClient, "Describe a hobby.", "IELTS Part 2", "I enjoy tennis...")
+	if err != nil {
+		t.Fatalf("expected band_score to be accepted, got error %v", err)
+	}
+	if res.Band != 6.5 {
+		t.Errorf("expected band 6.5 from band_score alias, got %v", res.Band)
+	}
+}

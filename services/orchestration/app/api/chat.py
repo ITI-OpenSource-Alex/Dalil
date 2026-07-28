@@ -9,6 +9,7 @@ from app.schemas.chat import ChatRequest, HistoryResponseItem, ChatStreamEvent
 from app.services.supervisor import classify_intent
 from app.services.memory import get_session_memory, load_memory_variables, save_context
 from app.services.client import forward_downstream_stream
+from app.services.exam_context import fetch_exam_context
 logger = structlog.get_logger("orchestration.api.chat")
 router = APIRouter()
 
@@ -58,7 +59,9 @@ async def chat_endpoint(request: ChatRequest, req: Request):
         intent = "RAG"
         downstream_service = "rag"
         status = "success"
+        exam_context = None
         try:
+<<<<<<< Updated upstream
             # 2. Classify intent via structured LLM call
             # v4 splits what v2 called trace.id: .trace_id is the trace, .id is
             # this observation. classify_intent wants the trace plus the span to
@@ -80,12 +83,44 @@ async def chat_endpoint(request: ChatRequest, req: Request):
             memory_vars = await load_memory_variables(memory, {"input": request.message})
             history = memory_vars.get("history") or memory_vars.get("chat_history") or []
 
+=======
+            # 2a. Fetch exam context (best-effort enrichment — never blocks the request)
+            try:
+                exam_context = await fetch_exam_context(
+                    http_client=req.app.state.http_client,
+                    user_id=request.userId,
+                )
+            except Exception as e:
+                logger.warning("Exam context fetch failed, proceeding without", error=str(e))
+                exam_context = None
+
+            exam_context_available = exam_context is not None and exam_context.get("exam_count", 0) > 0
+
+            # 2b. Record exam context availability in Langfuse trace
+            if trace:
+                try:
+                    trace.update(metadata={
+                        "correlation_id": correlation_id,
+                        "exam_context_available": exam_context_available,
+                    })
+                except Exception as e:
+                    logger.warning("Failed to update Langfuse trace with exam context", error=str(e))
+
+            # 3. Classify intent via structured LLM call
+            trace_id = trace.id if trace else None
+            parent_span_id = supervisor_span.id if supervisor_span else None
+
+>>>>>>> Stashed changes
             intent_result = await classify_intent(
                 message=request.message,
                 trace_id=trace_id,
                 parent_span_id=parent_span_id,
                 user_id=request.userId,
+<<<<<<< Updated upstream
                 history=history,
+=======
+                exam_context=exam_context,
+>>>>>>> Stashed changes
             )
             intent = intent_result.intent
             downstream_service = intent.lower()
@@ -136,7 +171,8 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                 message=resolved_message,
                 user_id=request.userId,
                 correlation_id=correlation_id,
-                attachments=request.attachments
+                attachments=request.attachments,
+                exam_context=exam_context,
             )
             async for event in response_stream:
                 if event.type == "token" and event.content:

@@ -1,10 +1,11 @@
 import time
 import datetime
+import asyncio
 import httpx
 import structlog
 import pybreaker
 import contextvars
-from typing import AsyncGenerator, List, Optional
+from typing import AsyncGenerator, Dict, List, Optional
 
 correlation_id_var = contextvars.ContextVar("correlation_id", default="unknown")
 from app.core.config import settings
@@ -107,13 +108,74 @@ async def call_writing(client: httpx.AsyncClient, url: str, payload: dict, heade
     return response.json()
 
 
+def _build_exam_prep_response(message: str, exam_context: Optional[Dict] = None) -> str:
+    """
+    Build a personalised EXAM_PREP response grounded in the user's exam data.
+
+    Ticket GOA-060 mandates: no generic advice.  Every response MUST
+    reference the user's specific weak criterion, suggest a Cambridge test,
+    and provide a link to ``/exam``.
+    """
+    if not exam_context or exam_context.get("exam_count", 0) == 0:
+        return (
+            "I don't have any exam history for you yet. "
+            "Take a practice exam at /exam so I can give you targeted advice "
+            "based on your actual performance."
+        )
+
+    latest_bands = exam_context.get("latest_bands") or {}
+    weak_areas = exam_context.get("weak_areas") or {}
+
+    # Identify the weakest skill by lowest band score
+    weakest_skill = None
+    weakest_band = None
+    for skill in ("reading", "listening", "writing", "speaking"):
+        band = latest_bands.get(skill)
+        if band is not None and (weakest_band is None or band < weakest_band):
+            weakest_band = band
+            weakest_skill = skill
+
+    parts: list[str] = []
+
+    # Reference specific weak criterion
+    if weak_areas:
+        for skill, criterion in weak_areas.items():
+            band = latest_bands.get(skill, "N/A")
+            parts.append(
+                f"Your latest {skill.title()} band is {band}, "
+                f"and the specific area to improve is **{criterion}**."
+            )
+    elif weakest_skill:
+        parts.append(
+            f"Your weakest skill is {weakest_skill.title()} "
+            f"at band {weakest_band}."
+        )
+
+    # Suggest a specific Cambridge test
+    skill_for_test = list(weak_areas.keys())[0] if weak_areas else (weakest_skill or "reading")
+    cambridge_suggestions = {
+        "reading": "Cambridge IELTS 18, Test 2, Reading Passage 3",
+        "listening": "Cambridge IELTS 17, Test 1, Section 4",
+        "writing": "Cambridge IELTS 18, Test 3, Writing Task 2",
+        "speaking": "Cambridge IELTS 17, Test 2, Speaking Part 2",
+    }
+    suggestion = cambridge_suggestions.get(skill_for_test, "Cambridge IELTS 18, Test 1")
+    parts.append(f"I recommend practising with **{suggestion}** to target this weakness.")
+
+    # Link to /exam
+    parts.append("Start a focused practice session now at **/exam**.")
+
+    return " ".join(parts)
+
+
 async def forward_downstream_stream(
         client: httpx.AsyncClient,
         intent: str,
         message: str,
         user_id: str,
         correlation_id: str,
-        attachments: Optional[List[str]] = None
+        attachments: Optional[List[str]] = None,
+        exam_context: Optional[Dict] = None,
 ) -> AsyncGenerator[ChatStreamEvent, None]:
     """
     Routes the request to the target microservice based on intent classification.
@@ -127,7 +189,7 @@ async def forward_downstream_stream(
 
     intent = intent.upper()
     correlation_id_var.set(correlation_id)
-    
+
     if intent == "SPEAKING":
         # A browser-reachable URL, not the Docker hostname. Deriving it from
         # speaking_service_url produced ws://speaking:8082/ws, which no browser can
@@ -136,6 +198,15 @@ async def forward_downstream_stream(
         # This one still bypasses the Gateway: there is no WS proxy yet, so it
         # misses JWT auth and rate limiting. Tracked as a follow-up under GOA-094.
         yield ChatStreamEvent(type="speaking_url", wsUrl=settings.public_speaking_ws_url)
+        return
+
+    if intent == "EXAM_PREP":
+        answer = _build_exam_prep_response(message, exam_context)
+        chunk_size = 5
+        for i in range(0, len(answer), chunk_size):
+            await asyncio.sleep(0.02)
+            yield ChatStreamEvent(type="token", content=answer[i:i + chunk_size])
+        yield ChatStreamEvent(type="exam_prep", content="/exam")
         return
 
     service_name = ""
@@ -179,7 +250,6 @@ async def forward_downstream_stream(
             goa_orchestration_downstream_latency_ms.labels(service=service_name).observe(duration_ms)
             
             answer = data.get("answer", "No answer received.")
-            import asyncio
             chunk_size = 5
             for i in range(0, len(answer), chunk_size):
                 await asyncio.sleep(0.02)
@@ -226,7 +296,6 @@ async def forward_downstream_stream(
 
             answer = data.get("answer", "No answer received.")
             chunk_size = 5
-            import asyncio
             for i in range(0, len(answer), chunk_size):
                 await asyncio.sleep(0.02)
                 yield ChatStreamEvent(type="token", content=answer[i:i + chunk_size])

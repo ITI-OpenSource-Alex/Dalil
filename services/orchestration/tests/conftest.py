@@ -6,6 +6,7 @@ os.environ.setdefault("DATABASE_URL", "postgresql://user:pass@localhost:5432/tes
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("ANTHROPIC_API_KEY", "sk-ant-test-key-123")
 os.environ.setdefault("INTERNAL_API_KEY", "test-internal-key")
+os.environ.setdefault("EXAM_SERVICE_URL", "http://exam-test:8085")
 # Ensure the orchestration root is in the Python search path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 # Enable global async test support

@@ -30,12 +30,6 @@ async def chat_endpoint(request: ChatRequest, req: Request):
     langfuse_client = req.app.state.langfuse
     if langfuse_client:
         try:
-            # Langfuse v3 removed client.trace()/trace.span() in favour of
-            # observations. This code was still calling the v2 API against an
-            # unpinned langfuse>=3.0.0 that resolved to 4.x, so every call raised
-            # AttributeError into the except below, logged a warning and carried
-            # on -- startup said "Langfuse client initialized." while not one
-            # trace ever reached Langfuse (BUG-032).
             trace = langfuse_client.start_observation(
                 name="chat_request",
                 as_type="span",
@@ -63,9 +57,6 @@ async def chat_endpoint(request: ChatRequest, req: Request):
         exam_context = None
         
         try:
-            # v4 splits what v2 called trace.id: .trace_id is the trace, .id is
-            # this observation. classify_intent wants the trace plus the span to
-            # parent its LLM generation under.
             trace_id = trace.trace_id if trace else None
             parent_span_id = supervisor_span.id if supervisor_span else None
 
@@ -81,7 +72,6 @@ async def chat_endpoint(request: ChatRequest, req: Request):
 
             exam_context_available = exam_context is not None and exam_context.get("exam_count", 0) > 0
 
-            # Record exam context availability in Langfuse trace
             if trace:
                 try:
                     trace.update(metadata={
@@ -91,13 +81,15 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                 except Exception as e:
                     logger.warning("Failed to update Langfuse trace with exam context", error=str(e))
 
-            # 2b. Load History before classifying
-            # This call used to sit below, after classification, and its return
-            # value was thrown away. We now load it here so the supervisor
-            # can use it to resolve pronouns.
-            memory = get_session_memory(request.sessionId)
-            memory_vars = await load_memory_variables(memory, {"input": request.message})
-            history = memory_vars.get("history") or memory_vars.get("chat_history") or []
+            # 2b. Load History before classifying (best-effort)
+            history = []
+            memory = None
+            try:
+                memory = get_session_memory(request.sessionId)
+                memory_vars = await load_memory_variables(memory, {"input": request.message})
+                history = memory_vars.get("history") or memory_vars.get("chat_history") or []
+            except Exception as e:
+                logger.warning("Failed to load session memory, proceeding statelessly", error=str(e))
 
             # 3. Classify intent via structured LLM call
             intent_result = await classify_intent(
@@ -111,11 +103,6 @@ async def chat_endpoint(request: ChatRequest, req: Request):
             intent = intent_result.intent
             downstream_service = intent.lower()
 
-            # What actually gets sent downstream. RAG and the other services
-            # receive this string and nothing else -- they have no access to the
-            # session -- so an unresolved pronoun here is unrecoverable further
-            # down. Falls back to the raw message when there is no history or the
-            # classifier failed into its fallback.
             resolved_message = intent_result.standalone_question or request.message
             if resolved_message != request.message:
                 logger.info(
@@ -126,7 +113,6 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                 
             if supervisor_span:
                 try:
-                    # v4's end() takes only end_time; the output goes via update().
                     supervisor_span.update(output=intent_result.model_dump())
                     supervisor_span.end()
                 except Exception as e:
@@ -181,16 +167,16 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                 except Exception as e:
                     logger.warning("Failed to end Langfuse downstream span", error=str(e))
                     
-            # 8. Save session memory
-            # Store what the user actually typed, not resolved_message. History
-            # is the transcript, and GET /sessions/{id}/history serves it back to
-            # the UI; rewriting a user's own words in their conversation would be
-            # wrong to show them.
-            await save_context(
-                memory,
-                {"input": request.message},
-                {"output": full_response}
-            )
+            # 8. Save session memory (best-effort)
+            if memory:
+                try:
+                    await save_context(
+                        memory,
+                        {"input": request.message},
+                        {"output": full_response}
+                    )
+                except Exception as e:
+                    logger.warning("Failed to save session memory", error=str(e))
             
         except Exception as e:
             status = "error"
@@ -211,7 +197,7 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                 except Exception as e:
                     logger.warning("Failed to end Langfuse root trace", error=str(e))
                     
-            # 10. Log request completion as structured JSON renderer
+            # 10. Log request completion
             total_ms = (time.perf_counter() - start_time) * 1000
             logger.info(
                 "Request completed",

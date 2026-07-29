@@ -50,7 +50,7 @@ ecs_desired_counts = {
   rag           = 1
   exam          = 1
 }
-enable_lambda_workers            = false
+enable_lambda_workers            = true
 enable_rds_proxy                 = false # RDS Proxy is unavailable on AWS free-plan accounts.
 rds_backup_retention_days        = 1     # AWS free-plan maximum; production remains 7 days.
 rds_performance_insights_enabled = false

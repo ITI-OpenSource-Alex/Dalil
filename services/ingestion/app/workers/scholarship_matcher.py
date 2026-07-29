@@ -26,6 +26,7 @@ import json
 import os
 
 import structlog
+from contracts.events import DeadlineReminderNotification, ScholarshipMatchedNotification
 
 from client import get_headers
 from config import settings
@@ -279,17 +280,29 @@ def run_matcher(since_hours: int = 24, ledger: NotificationLedger | None = None,
                 if ledger.already_sent(user_id, program_id, cycle_date, event_type):
                     counts["skipped_duplicates"] += 1
                     continue
-                events.append({
-                    "eventType": event_type,
-                    "userId": user_id,
-                    "programId": program_id,
-                    "programName": scholarship.get("name"),
-                    "provider": scholarship.get("provider"),
-                    "country": country,
-                    "deadline": deadline,
-                    "score": round(score, 2),
-                    "cycleDate": cycle_date,
-                })
+                if event_type == "ScholarshipMatched":
+                    evt = ScholarshipMatchedNotification(
+                        userId=user_id,
+                        programId=program_id,
+                        programName=scholarship.get("name"),
+                        provider=scholarship.get("provider"),
+                        country=country,
+                        deadline=deadline,
+                        score=round(score, 2),
+                        cycleDate=cycle_date,
+                    )
+                else:
+                    evt = DeadlineReminderNotification(
+                        userId=user_id,
+                        programId=program_id,
+                        programName=scholarship.get("name"),
+                        provider=scholarship.get("provider"),
+                        country=country,
+                        deadline=deadline,
+                        score=round(score, 2),
+                        cycleDate=cycle_date,
+                    )
+                events.append(evt.model_dump())
                 ledger.record(user_id, program_id, cycle_date, event_type)
                 counts["matches" if event_type == "ScholarshipMatched" else "reminders"] += 1
 

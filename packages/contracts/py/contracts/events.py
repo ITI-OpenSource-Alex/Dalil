@@ -63,6 +63,30 @@ class IngestionCompleted(BaseEvent):
     type: Literal["ingestion.completed"] = "ingestion.completed"
     payload: IngestionCompletedPayload
 
+class ScholarshipMatchedNotification(BaseModel):
+    eventType: Literal["ScholarshipMatched"] = "ScholarshipMatched"
+    userId: str
+    programId: str
+    programName: str | None = None
+    provider: str | None = None
+    country: str | None = None
+    deadline: str | None = None
+    score: float
+    cycleDate: str
+
+
+class DeadlineReminderNotification(BaseModel):
+    eventType: Literal["DEADLINE_REMINDER"] = "DEADLINE_REMINDER"
+    userId: str
+    programId: str
+    programName: str | None = None
+    provider: str | None = None
+    country: str | None = None
+    deadline: str | None = None
+    score: float
+    cycleDate: str
+
+
 # A Union type representing any valid domain event
 DomainEvent = Union[
     UserUpdated,

@@ -15,6 +15,10 @@ terraform workspace new production
 
 The bootstrap creates one versioned, encrypted, private S3 state bucket and one DynamoDB lock table. Workspace state is stored below `environments/<workspace>/`.
 
+Production edge deployment, DNS delegation, frontend publication, and WAF
+acceptance checks are documented in
+[GOA-073-DEPLOYMENT.md](GOA-073-DEPLOYMENT.md).
+
 ## Validate and plan
 
 ```bash

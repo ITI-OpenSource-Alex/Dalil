@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UsersService } from './users.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { User } from './entities/user.entity';
 import { UserProfile } from '../profile/entities/profile.entity';
 import { ResetToken } from './entities/reset-tokens.entity';
@@ -98,6 +98,30 @@ describe('UsersService', () => {
       ).resolves.not.toThrow();
       expect(mockResetTokenRepository.create).not.toHaveBeenCalled();
       expect(mockResetTokenRepository.save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('findSubscription', () => {
+    it('returns only the subscription tier for a known user', async () => {
+      mockUserRepository.findOne.mockResolvedValue({
+        subscriptionTier: 'paid',
+      });
+
+      await expect(service.findSubscription('user-123')).resolves.toEqual({
+        subscriptionTier: 'paid',
+      });
+      expect(mockUserRepository.findOne).toHaveBeenCalledWith({
+        where: { id: 'user-123' },
+        select: { subscriptionTier: true },
+      });
+    });
+
+    it('throws NotFoundException for an unknown user', async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.findSubscription('missing-user')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 

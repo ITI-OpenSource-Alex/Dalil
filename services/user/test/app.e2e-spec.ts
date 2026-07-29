@@ -128,6 +128,28 @@ describe('User Flow Integration (e2e)', () => {
     expect(response.body).toHaveProperty('profile');
   });
 
+  it('/users/:id/subscription (GET) - returns the tier with internal credentials', async () => {
+    const response = await request(app.getHttpServer())
+      .get(`/users/${createdUserId}/subscription`)
+      .set('x-internal-api-key', internalApiKey)
+      .expect(HttpStatus.OK);
+
+    expect(response.body).toEqual({ subscriptionTier: 'free' });
+  });
+
+  it('/users/:id/subscription (GET) - rejects a missing internal API key', async () => {
+    await request(app.getHttpServer())
+      .get(`/users/${createdUserId}/subscription`)
+      .expect(HttpStatus.UNAUTHORIZED);
+  });
+
+  it('/users/:id/subscription (GET) - returns 404 for an unknown user', async () => {
+    await request(app.getHttpServer())
+      .get('/users/00000000-0000-0000-0000-000000000000/subscription')
+      .set('x-internal-api-key', internalApiKey)
+      .expect(HttpStatus.NOT_FOUND);
+  });
+
   // 4. Input Constraints Guard Path
   it('/users/:id/profile (PUT) - should emit 422 payload rejection errors for invalid negative GPA constraints', async () => {
     const response = await request(app.getHttpServer())

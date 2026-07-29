@@ -68,7 +68,14 @@ func (h *StreamHandler) Chat(c *fiber.Ctx) error {
 		return err
 	}
 
-	return h.stream(c, http.MethodPost, h.orchestrationBaseURL+"/chat", bytes.NewReader(body), "orchestration")
+	return h.stream(
+		c,
+		http.MethodPost,
+		h.orchestrationBaseURL+"/chat",
+		bytes.NewReader(body),
+		"orchestration",
+		true,
+	)
 }
 
 // ChatHistory proxies GET /api/chat/sessions/{sessionId}/history. Not a stream,
@@ -81,7 +88,7 @@ func (h *StreamHandler) ChatHistory(c *fiber.Ctx) error {
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid session id")
 	}
-	return h.stream(c, http.MethodGet, target, nil, "orchestration")
+	return h.stream(c, http.MethodGet, target, nil, "orchestration", false)
 }
 
 // WritingEvaluate proxies POST /api/writing/essays/{essayId}/evaluate, the
@@ -98,7 +105,7 @@ func (h *StreamHandler) WritingEvaluate(c *fiber.Ctx) error {
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "invalid essay id")
 	}
-	return h.stream(c, http.MethodPost, target, bytes.NewReader(c.Body()), "writing")
+	return h.stream(c, http.MethodPost, target, bytes.NewReader(c.Body()), "writing", false)
 }
 
 // stream copies an upstream response to the client incrementally.
@@ -114,12 +121,20 @@ func (h *StreamHandler) stream(
 	target string,
 	body io.Reader,
 	upstreamName string,
+	forwardSubscriptionTier bool,
 ) error {
 	req, err := downstream.NewRequest(c, method, target, body)
 	if err != nil {
 		return err
 	}
 	req.Header.Set("X-Internal-API-Key", h.internalAPIKey)
+	if forwardSubscriptionTier {
+		tier, _ := c.Locals(middleware.ContextKeySubscriptionTier).(string)
+		if tier == "" {
+			tier = string(middleware.SubscriptionTierFree)
+		}
+		req.Header.Set(middleware.HeaderSubscriptionTier, tier)
+	}
 	if contentType := c.Get(fiber.HeaderContentType); contentType != "" {
 		req.Header.Set(fiber.HeaderContentType, contentType)
 	}

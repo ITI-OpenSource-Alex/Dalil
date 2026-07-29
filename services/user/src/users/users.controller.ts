@@ -40,6 +40,12 @@ export class UsersController {
     return this.usersService.findOneWithProfile(id);
   }
 
+  @Get(':id/subscription')
+  @UseGuards(InternalAuthGuard)
+  findSubscription(@Param('id') id: string) {
+    return this.usersService.findSubscription(id);
+  }
+
   @Put(':id/profile')
   updateProfile(@Param('id') id: string, @Body() dto: UpdateProfileDto) {
     return this.usersService.updateProfile(id, dto);

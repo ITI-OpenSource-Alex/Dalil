@@ -143,6 +143,23 @@ export class UsersService {
     return userWithoutPassword as User;
   }
 
+  async findSubscription(
+    id: string,
+  ): Promise<{ subscriptionTier: 'free' | 'paid' }> {
+    const user = await this.userRepository.findOne({
+      where: { id },
+      select: {
+        subscriptionTier: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+
+    return { subscriptionTier: user.subscriptionTier };
+  }
+
   async updateProfile(id: string, dto: UpdateProfileDto): Promise<UserProfile> {
     const profile = await this.profileRepository.findOne({
       where: { userId: id },

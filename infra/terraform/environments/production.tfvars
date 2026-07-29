@@ -40,6 +40,12 @@ enable_cloudfront                  = true
 ecs_desired_counts                 = {}
 enable_lambda_workers              = false
 
+# GOA-022 (B5/N9): staging owns the account-global GitHub OIDC provider.
+# This workspace only creates its own goa-production-deploy role, which
+# references the provider by constructed ARN, so tearing down staging can no
+# longer destroy production's ability to deploy.
+manage_github_oidc_provider = false
+
 task_kms_key_arns = []
 
 ecs_exec_operator_resource_arns    = ["*"]

@@ -141,4 +141,20 @@ resource "aws_ecs_service" "this" {
   depends_on = [aws_ecs_cluster_capacity_providers.this]
 
   tags = merge(local.common_tags, { Service = each.key })
+
+  # GOA-022 (B1): the deploy pipeline is the writer for these two fields.
+  #
+  # CI registers a new task-definition revision per commit and points the
+  # service at it, and an autoscaler (or an operator draining the service)
+  # owns desired_count. Without this block Terraform sees the live service as
+  # drifted on every plan and the next apply -- for any unrelated change --
+  # silently rolls the service back to aws_ecs_task_definition.this[*].arn,
+  # which is built from var.ecs_image_tag. That undid every deployment.
+  #
+  # Terraform still owns the shape of the service (networking, load balancer,
+  # circuit breaker, capacity provider) and still creates the initial
+  # revision; it just stops fighting CI over which image is running.
+  lifecycle {
+    ignore_changes = [task_definition, desired_count]
+  }
 }

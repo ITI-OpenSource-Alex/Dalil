@@ -38,7 +38,10 @@ enable_cloudfront                  = false
 alb_enable_deletion_protection = false
 alb_default_target_group_name  = "gateway"
 
-ecs_image_tag = "latest"
+# GOA-022 (N7): ecs_image_tag is deliberately NOT set here. ECR is IMMUTABLE,
+# so "latest" cannot be re-pushed; the variable defaults to the "bootstrap"
+# placeholder and CI owns the real tag (the commit SHA) from the first deploy
+# onward. See variables.tf.
 ecs_desired_counts = {
   gateway       = 1
   user          = 1

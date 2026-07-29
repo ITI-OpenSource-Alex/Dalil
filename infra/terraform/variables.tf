@@ -181,9 +181,14 @@ variable "alb_target_groups" {
 }
 
 variable "ecs_image_tag" {
-  description = "Image tag used by ECS task definitions."
+  description = "Placeholder image tag for the task definition Terraform creates. CI owns the real tag (the commit SHA) from the first deploy onward."
   type        = string
-  default     = "latest"
+  default     = "bootstrap"
+
+  validation {
+    condition     = var.ecs_image_tag != "latest"
+    error_message = "ecs_image_tag must not be 'latest': ECR repositories are IMMUTABLE (GOA-022 N7), so a floating tag cannot be re-pushed and would pin every service to one set of bytes forever."
+  }
 }
 
 variable "ecs_desired_counts" {
@@ -295,6 +300,17 @@ variable "github_repo" {
   description = "GitHub repository name (without the org prefix)."
   type        = string
   default     = "GOA"
+}
+
+variable "manage_github_oidc_provider" {
+  description = <<-EOT
+    Whether this workspace creates the account-global GitHub OIDC identity
+    provider. Exactly one workspace in the account may set this to true
+    (staging, by default) -- IAM OIDC providers are global, so a second apply
+    would fail with EntityAlreadyExists. Set false in production.tfvars.
+  EOT
+  type        = bool
+  default     = true
 }
 
 # NOTE: GitHub provider requires a paid org plan for branch protection.

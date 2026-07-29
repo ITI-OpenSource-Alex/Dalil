@@ -204,14 +204,16 @@ async def test_speaking_flow_integration() -> None:
     session_id = str(uuid4())
     user_id = str(uuid4())
     question_id = str(uuid4())
+    book_ref = f"test_book_{question_id}"
 
     async with db.pool.acquire() as conn:
         await conn.execute(
             """
             INSERT INTO questions (id, book_ref, test_number, exam_type, skill_area, passage_text, audio_s3_key, answer_key, questions)
-            VALUES ($1, 'test_book', 1, 'academic', 'speaking', '', '', '{}', '[]')
+            VALUES ($1, $2, 1, 'academic', 'speaking', '', '', '{}', '[]')
             """,
             UUID(question_id),
+            book_ref,
         )
         await conn.execute(
             """

@@ -47,8 +47,6 @@ ecs_desired_counts = {
   writing       = 1
   rag           = 1
   exam          = 1
-  notification  = 0
-  ingestion     = 0
 }
 enable_lambda_workers            = false
 enable_rds_proxy                 = false # RDS Proxy is unavailable on AWS free-plan accounts.

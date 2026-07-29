@@ -11,11 +11,12 @@ class Settings(BaseSettings):
     langfuse_secret_key: Optional[str] = ""
     langfuse_host: str = "https://cloud.langfuse.com"
     internal_api_key: str = "supersecret_internal_key_123"
-    # AWS / SQS Config AKA LocalStack
-    AWS_REGION: str = "us-east-1"
-    AWS_ENDPOINT_URL: str = "http://localstack:4566"
-    AWS_ACCESS_KEY_ID: str = "test"
-    AWS_SECRET_ACCESS_KEY: str = "test"
+    # Local development may set an endpoint and static credentials. In AWS,
+    # leaving these unset makes the SDK use the ECS task role.
+    AWS_REGION: str = "eu-west-1"
+    AWS_ENDPOINT_URL: Optional[str] = None
+    AWS_ACCESS_KEY_ID: Optional[str] = None
+    AWS_SECRET_ACCESS_KEY: Optional[str] = None
     SQS_QUEUE_NAME: str = "user-events"
 
 

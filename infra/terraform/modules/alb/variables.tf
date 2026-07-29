@@ -78,6 +78,24 @@ variable "target_groups" {
   }
 }
 
+variable "listener_rules" {
+  description = "HTTPS path-based listener rules keyed by logical route."
+  type = map(object({
+    priority          = number
+    path_patterns     = list(string)
+    target_group_name = string
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for rule in values(var.listener_rules) :
+      rule.priority > 0 && length(rule.path_patterns) > 0 && contains(keys(var.target_groups), rule.target_group_name)
+    ])
+    error_message = "Each listener rule needs a positive priority, a path pattern, and an existing target group."
+  }
+}
+
 variable "ssl_policy" {
   description = "TLS security policy for the HTTPS listener."
   type        = string

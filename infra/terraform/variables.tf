@@ -165,18 +165,6 @@ variable "alb_target_groups" {
       health_check_path    = "/health"
       deregistration_delay = 30
     }
-    notification = {
-      port                 = 8087
-      protocol             = "HTTP"
-      health_check_path    = "/health"
-      deregistration_delay = 30
-    }
-    ingestion = {
-      port                 = 8088
-      protocol             = "HTTP"
-      health_check_path    = "/health"
-      deregistration_delay = 30
-    }
   }
 }
 
@@ -187,9 +175,14 @@ variable "ecs_image_tag" {
 }
 
 variable "ecs_desired_counts" {
-  description = "Desired task count overrides keyed by service. Defaults to zero for safe initial provisioning."
+  description = "Desired task count overrides keyed by ECS service. Each deployed service defaults to one."
   type        = map(number)
   default     = {}
+
+  validation {
+    condition     = alltrue([for count in values(var.ecs_desired_counts) : count >= 1])
+    error_message = "ECS desired counts must be at least one."
+  }
 }
 
 variable "enable_lambda_workers" {
@@ -243,25 +236,6 @@ variable "image_tag" {
   type        = string
   default     = "latest"
 }
-
-variable "ecr_cv_processor_repo_url" {
-  description = "ECR repository URL for the cv-processor image (without tag)."
-  type        = string
-  default     = ""
-}
-
-variable "ecr_scholarship_matcher_repo_url" {
-  description = "ECR repository URL for the scholarship-matcher image (without tag)."
-  type        = string
-  default     = ""
-}
-
-variable "ecr_notification_sender_repo_url" {
-  description = "ECR repository URL for the notification-sender image (without tag)."
-  type        = string
-  default     = ""
-}
-
 
 variable "lambda_secret_arns" {
   description = "Secret ARNs Lambda workers may read. Empty until modules/secrets exists."

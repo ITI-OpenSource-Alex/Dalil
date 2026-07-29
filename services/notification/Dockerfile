@@ -38,6 +38,27 @@ RUN cd services/notification && npm run build
 # Runtime dependencies only, for the image below.
 RUN cd services/notification && npm prune --omit=dev
 
+# --- local development ------------------------------------------------------
+# Used by docker compose only. Runs src/local-server.ts, which provides the two
+# things AWS provides and compose does not: an HTTP listener for the Gateway,
+# and a poller standing in for the SQS event source mapping. See that file.
+FROM node:20-slim AS dev
+
+WORKDIR /repo/services/notification
+
+COPY services/notification/package*.json ./
+RUN npm ci
+
+COPY packages/contracts/ts/index.ts /repo/packages/contracts/ts/index.ts
+COPY services/notification/tsconfig.json ./
+COPY services/notification/src/ ./src/
+COPY services/notification/templates/ ./templates/
+
+RUN npm run build
+
+EXPOSE 8087
+CMD [ "node", "dist/services/notification/src/local-server.js" ]
+
 # --- runtime ----------------------------------------------------------------
 FROM public.ecr.aws/lambda/nodejs:20
 

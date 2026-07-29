@@ -3,7 +3,7 @@ from typing import Literal
 from uuid import UUID
 
 import httpx
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -24,15 +24,43 @@ class ExamTaskEvaluationRequest(BaseModel):
     taskPrompt: str | None = Field(default=None, max_length=2000)
 
 
-class HighlightedIssue(BaseModel):
+class InlineIssue(BaseModel):
+    """
+    One underlined span in the candidate's response.
+
+    The field names here are the Writing service's own
+    (services/writing/app/schemas.py InlineIssue). They used to be modelled as
+    `issue`/`start`/`end`, which no Writing service response has ever contained:
+    the model emits `issue_type`/`start_char`/`end_char`. AliasChoices keeps the
+    older spelling accepted so any caller or fixture still sending it validates,
+    while serialisation is canonical on the names the service actually uses.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
     text: str
-    issue: str
+    issue_type: str = Field(validation_alias=AliasChoices("issue_type", "issue"))
     suggestion: str
-    start: int = Field(ge=0)
-    end: int = Field(ge=0)
+    start_char: int = Field(
+        ge=0, validation_alias=AliasChoices("start_char", "start")
+    )
+    end_char: int = Field(ge=0, validation_alias=AliasChoices("end_char", "end"))
 
 
 class CriterionEvaluation(BaseModel):
+    """
+    One criterion's mark.
+
+    `inline_issues` previously had no default and was spelled
+    `highlighted_issues`, so validating a genuine Writing service response
+    raised ValidationError — which `evaluate_exam_essay` does not catch, so it
+    surfaced as an unhandled 500 on every writing submit rather than as a
+    WritingServiceError. Defaulting to an empty list additionally means a
+    criterion that produced no underlines can never fail the whole submit.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
     criterion: Literal[
         "task_response",
         "cohesion",
@@ -41,7 +69,14 @@ class CriterionEvaluation(BaseModel):
     ]
     band_score: float = Field(ge=0.0, le=9.0)
     feedback: str
-    highlighted_issues: list[HighlightedIssue]
+    # Present on the Writing service's payload; carried through so the exam
+    # result can show it without a second call.
+    improvement_tip: str | None = None
+    word_count: int | None = None
+    inline_issues: list[InlineIssue] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices("inline_issues", "highlighted_issues"),
+    )
 
 
 class ExamTaskEvaluationResponse(BaseModel):
@@ -106,7 +141,19 @@ class WritingClient:
                         json=request_payload.model_dump(),
                     )
                 response.raise_for_status()
-                return ExamTaskEvaluationResponse.model_validate(response.json())
+                try:
+                    return ExamTaskEvaluationResponse.model_validate(
+                        response.json()
+                    )
+                except ValidationError as exc:
+                    # A 2xx whose body this client cannot read is an upstream
+                    # contract problem, not a transient one, so it is not
+                    # retried. It is raised as WritingServiceError so the caller
+                    # turns it into a 502 (an upstream failure) instead of
+                    # letting a raw ValidationError escape as an unhandled 500.
+                    raise WritingServiceError(
+                        f"Writing service returned an unreadable evaluation: {exc}"
+                    ) from exc
 
             except httpx.HTTPStatusError as exc:
                 if exc.response.status_code == 502:

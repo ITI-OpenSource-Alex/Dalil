@@ -199,9 +199,22 @@ class EvaluationCoordinator:
         on_partial: PartialCallback | None = None,
     ) -> EvaluationSummary:
         is_academic_task1 = exam_type.lower() == "academic" and task_number == 1
-        if is_academic_task1 and not stimulus_s3_key:
-            raise EvaluationFailed("Academic Task 1 requires a stimulus image.")
 
+        # TODO(GOA-058 follow-up): when the stimulus-image pipeline lands
+        # (ingestion -> S3 -> pre-signing -> exposed on the session API),
+        # restore the hard requirement that Academic Task 1 carries an image:
+        #     if is_academic_task1 and not stimulus_s3_key:
+        #         raise EvaluationFailed("Academic Task 1 requires a stimulus image.")
+        #
+        # It is removed for now because image-based evaluation is postponed: no
+        # ingested question carries an image key, so the guard rejected *every*
+        # real Academic Task 1 submission with a 502 — it made the most common
+        # writing exam impossible to sit. Evaluating without chart context is a
+        # known, accepted limitation until that work lands (Task Response
+        # scoring for Academic Task 1 is necessarily weaker without the chart).
+        #
+        # The optional plumbing below is deliberately kept so re-enabling this
+        # needs no structural change: pass a key and chart context flows again.
         chart_context: str | None = None
         if is_academic_task1 and stimulus_s3_key:
             chart_context = await extract_chart_context(stimulus_s3_key)

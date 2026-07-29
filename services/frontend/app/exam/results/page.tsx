@@ -4,9 +4,14 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { SkillArea } from "@/app/types/exam";
-import { getResult, getSession } from "@/lib/exam-api";
+import { getResult, getSession, getWritingResult } from "@/lib/exam-api";
 import { Sidebar } from "@/components/ui/sidebar";
-import type { ExamSessionResponse, ExamResultResponse } from "@/lib/exam-api";
+import type {
+  ExamSessionResponse,
+  ExamResultResponse,
+  WritingResultResponse,
+} from "@/lib/exam-api";
+import CombinedWritingResults from "@/components/writing/CombinedWritingResults";
 import {
   loadReadingResult,
   type StoredReadingResult,
@@ -34,6 +39,8 @@ function ResultsPageContent() {
   const [result, setResult] = useState<ExamResultResponse | null>(null);
   const [readingResult, setReadingResult] =
     useState<StoredReadingResult | null>(null);
+  const [writingResult, setWritingResult] =
+    useState<WritingResultResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,6 +66,40 @@ function ResultsPageContent() {
       }
 
       sessionStorage.removeItem("active_exam_session");
+
+      return;
+    }
+
+    // Writing does have a GET-result endpoint, but its payload is not
+    // ExamResultResponse: the exam service branches to _get_writing_result and
+    // returns a weighted `overall_band` plus both task records instead of
+    // raw_score/band_score. Reading it through the generic path produced an
+    // empty banner and posted `bandScore: undefined` to the profile.
+    if (skill === "Writing") {
+      (async () => {
+        try {
+          setLoading(true);
+          const writing = await getWritingResult(sessionId);
+          setWritingResult(writing);
+
+          sessionStorage.removeItem("active_exam_session");
+
+          fetch("/api/profile/update-scores", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ skill, bandScore: writing.overall_band }),
+          }).catch(() => {
+            // Non-fatal, matching the Reading path: a profile sync failure
+            // must not stop a candidate seeing their result.
+          });
+        } catch (err) {
+          setError(
+            err instanceof Error ? err.message : "Failed to load result",
+          );
+        } finally {
+          setLoading(false);
+        }
+      })();
 
       return;
     }
@@ -120,6 +161,28 @@ function ResultsPageContent() {
     );
   }
 
+  if (skill === "Writing") {
+    if (!writingResult) {
+      return <div>No result found.</div>;
+    }
+
+    return (
+      <div className="flex min-h-screen bg-[#fbfbfa] text-gray-900 font-sans">
+        <Sidebar />
+
+        <main className="flex-1 p-8 md:p-12 max-w-5xl mx-auto">
+          <div
+            className={`transition-all duration-700 ease-out ${
+              mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+            }`}
+          >
+            <CombinedWritingResults result={writingResult} />
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   if (!result) {
     return <div>No result found.</div>;
   }
@@ -161,7 +224,12 @@ function ResultsPageContent() {
             </div>
           </div>
 
-          {/* Feedback Feed */}
+          {/* Diagnostic feed for the generic result shape. Reading and Writing
+              never reach this point -- both return from their own branches
+              above (ReadingResultsView / CombinedWritingResults), so nothing
+              here can contradict the exam service's real Writing evaluations.
+              The hardcoded bands and invented feedback prose that once sat here
+              were already replaced with real section_scores on dev. */}
           <section className="mb-8">
             <h3 className="text-sm font-bold uppercase tracking-wide text-gray-400 mb-4">
               Diagnostic Feed

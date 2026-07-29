@@ -24,7 +24,17 @@ type MarkSegment = {
 
 type Segment = PlainSegment | MarkSegment;
 
-const CRITERION_COLOURS: Record<
+/**
+ * The one criterion → colour mapping in the app: grammar red, cohesion orange,
+ * vocabulary blue, task response purple.
+ *
+ * Exported (GOA-058) so the Writing exam UI can colour its band bars and
+ * criterion chips from the same source the inline highlights use. A second
+ * copy of these values would drift, and the whole point of the colour coding is
+ * that a student learns one vocabulary and it means the same thing everywhere.
+ * Export only — the values and the chat behaviour are unchanged.
+ */
+export const CRITERION_COLOURS: Record<
   string,
   { bg: string; border: string; text: string; className: string }
 > = {
@@ -54,7 +64,7 @@ const CRITERION_COLOURS: Record<
   },
 };
 
-const DEFAULT_COLOUR = {
+export const DEFAULT_CRITERION_COLOUR = {
   bg: "rgba(107, 114, 128, 0.16)",
   border: "rgba(107, 114, 128, 0.45)",
   text: "#374151",
@@ -127,7 +137,8 @@ function buildSegments(text: string, issues: EssayIssue[]): Segment[] {
 }
 
 function HighlightMark({ segment }: { segment: MarkSegment }) {
-  const colours = CRITERION_COLOURS[segment.issue.criterion] ?? DEFAULT_COLOUR;
+  const colours =
+    CRITERION_COLOURS[segment.issue.criterion] ?? DEFAULT_CRITERION_COLOUR;
 
   return (
     <Tooltip.Root delayDuration={150}>

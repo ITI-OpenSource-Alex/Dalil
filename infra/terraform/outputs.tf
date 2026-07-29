@@ -194,3 +194,48 @@ output "cloudfront_domain_name" {
   description = "CloudFront domain, or null when disabled."
   value       = module.cloudfront.domain_name
 }
+
+output "frontend_assets_bucket_name" {
+  description = "Private S3 bucket that receives the exported Next.js frontend."
+  value       = try(module.frontend_assets[0].bucket_name, null)
+}
+
+output "production_hosted_zone_id" {
+  description = "Production Route 53 hosted zone ID."
+  value       = try(module.production_dns_zone[0].zone_id, null)
+}
+
+output "production_name_servers" {
+  description = "Name servers that must be configured at the goa.app registrar."
+  value       = try(module.production_dns_zone[0].name_servers, [])
+}
+
+output "production_alb_certificate_arn" {
+  description = "Regional ACM certificate used by the production ALB."
+  value       = try(module.production_alb_certificate[0].certificate_arn, null)
+}
+
+output "production_cloudfront_certificate_arn" {
+  description = "us-east-1 ACM certificate used by CloudFront."
+  value       = try(module.production_cloudfront_certificate[0].certificate_arn, null)
+}
+
+output "cloudfront_waf_web_acl_arn" {
+  description = "CloudFront WAF Web ACL ARN."
+  value       = try(module.cloudfront_waf[0].web_acl_arn, null)
+}
+
+output "cloudfront_waf_log_group_name" {
+  description = "CloudWatch log group receiving CloudFront WAF logs."
+  value       = try(module.cloudfront_waf[0].log_group_name, null)
+}
+
+output "alb_waf_web_acl_arn" {
+  description = "Regional WAF Web ACL ARN associated with the production ALB."
+  value       = try(module.alb_waf[0].web_acl_arn, null)
+}
+
+output "alb_waf_log_group_name" {
+  description = "CloudWatch log group receiving ALB WAF logs."
+  value       = try(module.alb_waf[0].log_group_name, null)
+}

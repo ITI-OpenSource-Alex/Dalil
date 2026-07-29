@@ -61,8 +61,53 @@ module "nonproduction_alb_certificate" {
   tags        = local.common_tags
 }
 
+module "production_dns_zone" {
+  count  = var.enable_public_dns ? 1 : 0
+  source = "./modules/route53"
+
+  enabled          = true
+  zone_name        = var.domain_name
+  create_zone      = var.create_public_hosted_zone
+  existing_zone_id = var.hosted_zone_id
+  tags             = local.common_tags
+}
+
+module "production_alb_certificate" {
+  count  = var.enable_public_dns ? 1 : 0
+  source = "./modules/acm"
+
+  name_prefix               = local.name_prefix
+  certificate_type          = "public_dns"
+  domain_name               = var.domain_name
+  subject_alternative_names = ["*.${var.domain_name}"]
+  route53_zone_id           = module.production_dns_zone[0].zone_id
+  tags                      = local.common_tags
+}
+
+module "production_cloudfront_certificate" {
+  count  = var.enable_public_dns ? 1 : 0
+  source = "./modules/acm"
+
+  providers = {
+    aws = aws.us_east_1
+  }
+
+  name_prefix               = local.name_prefix
+  certificate_type          = "public_dns"
+  domain_name               = var.domain_name
+  subject_alternative_names = ["*.${var.domain_name}"]
+  route53_zone_id           = module.production_dns_zone[0].zone_id
+  tags                      = local.common_tags
+}
+
 locals {
-  effective_alb_certificate_arn = var.create_self_signed_alb_certificate ? module.nonproduction_alb_certificate[0].certificate_arn : var.alb_certificate_arn
+  effective_alb_certificate_arn = (
+    var.create_self_signed_alb_certificate
+    ? module.nonproduction_alb_certificate[0].certificate_arn
+    : var.enable_public_dns
+    ? module.production_alb_certificate[0].certificate_arn
+    : var.alb_certificate_arn
+  )
 }
 
 module "alb" {
@@ -96,15 +141,92 @@ module "alb" {
   tags = var.tags
 }
 
+module "production_api_dns" {
+  count  = var.enable_public_dns ? 1 : 0
+  source = "./modules/route53"
+
+  enabled            = true
+  zone_name          = var.domain_name
+  create_zone        = false
+  existing_zone_id   = module.production_dns_zone[0].zone_id
+  create_api_alias   = true
+  api_alias_dns_name = module.alb.alb_dns_name
+  api_alias_zone_id  = module.alb.alb_zone_id
+  tags               = local.common_tags
+}
+
+module "alb_waf" {
+  count  = var.enable_public_dns ? 1 : 0
+  source = "./modules/waf"
+
+  name_prefix              = local.name_prefix
+  scope                    = "REGIONAL"
+  association_resource_arn = module.alb.alb_arn
+  log_group_name           = "aws-waf-logs-goa-alb"
+  rate_limit               = var.waf_rate_limit
+  log_retention_days       = 30
+  tags                     = local.common_tags
+}
+
+module "frontend_assets" {
+  count  = var.enable_cloudfront ? 1 : 0
+  source = "./modules/s3"
+
+  bucket_name = coalesce(
+    var.frontend_bucket_name,
+    "${var.project_name}-${var.aws_account_id}-${var.environment}-frontend-assets"
+  )
+  force_destroy = false
+  tags          = merge(local.common_tags, { Purpose = "frontend-assets" })
+}
+
+module "cloudfront_waf" {
+  count  = var.enable_cloudfront ? 1 : 0
+  source = "./modules/waf"
+
+  providers = {
+    aws = aws.us_east_1
+  }
+
+  name_prefix        = local.name_prefix
+  scope              = "CLOUDFRONT"
+  log_group_name     = "aws-waf-logs-goa-cloudfront"
+  rate_limit         = var.waf_rate_limit
+  log_retention_days = 30
+  tags               = local.common_tags
+}
+
 module "cloudfront" {
   source = "./modules/cloudfront"
 
-  enabled                = var.enable_cloudfront
-  name_prefix            = local.name_prefix
-  alb_dns_name           = module.alb.alb_dns_name
-  origin_protocol_policy = "https-only"
-  price_class            = var.cloudfront_price_class
-  tags                   = local.common_tags
+  enabled                 = var.enable_cloudfront
+  name_prefix             = local.name_prefix
+  s3_bucket_name          = try(module.frontend_assets[0].bucket_name, null)
+  s3_bucket_arn           = try(module.frontend_assets[0].bucket_arn, null)
+  s3_regional_domain_name = try(module.frontend_assets[0].bucket_regional_domain_name, null)
+  alb_origin_domain_name  = var.enable_public_dns ? "api.${var.domain_name}" : module.alb.alb_dns_name
+  origin_protocol_policy  = "https-only"
+  aliases                 = var.enable_public_dns ? [var.domain_name] : []
+  acm_certificate_arn     = try(module.production_cloudfront_certificate[0].certificate_arn, null)
+  web_acl_arn             = try(module.cloudfront_waf[0].web_acl_arn, null)
+  price_class             = var.cloudfront_price_class
+  tags                    = local.common_tags
+
+  depends_on = [module.production_api_dns]
+}
+
+module "production_frontend_dns" {
+  count  = var.enable_public_dns && var.enable_cloudfront ? 1 : 0
+  source = "./modules/route53"
+
+  enabled             = true
+  zone_name           = var.domain_name
+  create_zone         = false
+  existing_zone_id    = module.production_dns_zone[0].zone_id
+  create_root_alias   = true
+  root_alias_dns_name = module.cloudfront.domain_name
+  root_alias_zone_id  = module.cloudfront.hosted_zone_id
+  tags                = local.common_tags
 }
 
 module "iam" {

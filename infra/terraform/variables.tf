@@ -97,9 +97,40 @@ variable "domain_name" {
 }
 
 variable "hosted_zone_id" {
-  description = "Route 53 hosted zone ID for the public domain. Used by future DNS wiring."
+  description = "Existing Route 53 hosted zone ID. Leave null when Terraform creates the production zone."
   type        = string
   default     = null
+  nullable    = true
+}
+
+variable "enable_public_dns" {
+  description = "Provision public Route 53, ACM, WAF, CloudFront, and DNS resources."
+  type        = bool
+  default     = false
+}
+
+variable "create_public_hosted_zone" {
+  description = "Create the public Route 53 hosted zone. Set false and provide hosted_zone_id to use an existing zone."
+  type        = bool
+  default     = false
+
+  validation {
+    condition     = !var.enable_public_dns || var.create_public_hosted_zone || var.hosted_zone_id != null
+    error_message = "Public DNS requires create_public_hosted_zone=true or an existing hosted_zone_id."
+  }
+}
+
+variable "frontend_bucket_name" {
+  description = "Optional globally unique name for the private frontend asset bucket."
+  type        = string
+  default     = null
+  nullable    = true
+}
+
+variable "waf_rate_limit" {
+  description = "Maximum requests per IP during WAF's five-minute evaluation window."
+  type        = number
+  default     = 1000
 }
 
 variable "alb_enable_deletion_protection" {

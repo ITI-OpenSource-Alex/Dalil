@@ -31,6 +31,8 @@ private_data_subnet_cidrs = [
 
 domain_name                        = "staging.goa.internal"
 hosted_zone_id                     = null
+enable_public_dns                  = false
+create_public_hosted_zone          = false
 alb_certificate_arn                = null
 create_self_signed_alb_certificate = true
 enable_cloudfront                  = false

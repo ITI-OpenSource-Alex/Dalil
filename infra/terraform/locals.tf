@@ -27,11 +27,14 @@ locals {
 
   ecs_services = {
     for service in local.service_names : service => {
-      image                             = "${module.ecr.repository_urls[service]}:${var.ecs_image_tag}"
-      container_port                    = local.service_ports[service]
-      cpu                               = 256
-      memory                            = 512
-      desired_count                     = lookup(var.ecs_desired_counts, service, 0)
+      image          = "${module.ecr.repository_urls[service]}:${var.ecs_image_tag}"
+      container_port = local.service_ports[service]
+      cpu            = 256
+      memory         = 512
+      # notification is a Lambda (GOA-023), not an ECS service. This entry exists only
+      # because service_names also drives postgres_databases, which the Lambda needs.
+      # It must stay at desired_count 0 — there is no container image for it.
+      desired_count                     = service == "notification" ? 0 : lookup(var.ecs_desired_counts, service, 0)
       attach_to_load_balancer           = service == "gateway"
       health_check_grace_period_seconds = service == "gateway" ? 60 : 0
       environment = service == "gateway" ? {

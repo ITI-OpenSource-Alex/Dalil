@@ -357,9 +357,32 @@ resource "aws_s3_bucket_notification" "writing_files" {
 # Skipped entirely until modules/sqs exists and sqs_notification_queue_arn
 # is set — this whole resource is conditionally created via count.
 resource "aws_lambda_event_source_mapping" "sqs_to_notification_sender" {
-  count = var.enable_lambda_workers && var.sqs_notification_queue_arn != null ? 1 : 0
+  count = var.enable_lambda_workers ? 1 : 0
 
   event_source_arn                   = module.sqs.queue_arns["notification"]
+  function_name                      = module.notification_sender_lambda[0].function_name
+  batch_size                         = 10
+  maximum_batching_window_in_seconds = 5
+  function_response_types            = ["ReportBatchItemFailures"]
+}
+
+# CVProcessed is published by the Writing service to its own queue, not to
+# notification-queue, so the notification Lambda needs a second source. Without
+# this mapping the CV_PROCESSED notification type can never fire, and
+# goa-cv-processed stays the write-only queue recorded in BUG-025.
+#
+# The ARN is aws_sqs_queue.cv_processed (declared above at ~line 151), NOT a
+# module.sqs.queue_arns[...] lookup. module.sqs only holds user_events,
+# notification and ingestion; the CV queues are declared directly in this file.
+# An earlier version of this block used module.sqs.queue_arns["user_events"],
+# which subscribed the Lambda to user-events instead: CV notifications still
+# never fired, and every UserUpdated event became an unparseable message that
+# retried three times and landed in user-events-dlq — poisoning the queue that
+# feeds RAG's profile snapshot.
+resource "aws_lambda_event_source_mapping" "cv_processed_to_notification_sender" {
+  count = var.enable_lambda_workers ? 1 : 0
+
+  event_source_arn                   = aws_sqs_queue.cv_processed.arn
   function_name                      = module.notification_sender_lambda[0].function_name
   batch_size                         = 10
   maximum_batching_window_in_seconds = 5

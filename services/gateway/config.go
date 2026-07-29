@@ -22,8 +22,9 @@ type Config struct {
 	WriteTimeout      time.Duration `envconfig:"WRITE_TIMEOUT" default:"10s"`
 	ShutdownTimeout   time.Duration `envconfig:"SHUTDOWN_TIMEOUT" default:"10s"`
 	SecureCookies     bool          `envconfig:"SECURE_COOKIES" default:"false"`
-	WritingServiceURL string        `envconfig:"WRITING_SERVICE_URL" required:"true"`
-	ExamServiceURL    string        `envconfig:"EXAM_SERVICE_URL" required:"true"`
+	WritingServiceURL      string `envconfig:"WRITING_SERVICE_URL" required:"true"`
+	ExamServiceURL         string `envconfig:"EXAM_SERVICE_URL" required:"true"`
+	NotificationServiceURL string `envconfig:"NOTIFICATION_SERVICE_URL" default:"http://notification:8087"`
 	// Chat is proxied rather than called from the browser, so the Gateway needs
 	// to know where Orchestration lives (BUG-029, BUG-044).
 	OrchestrationServiceURL string `envconfig:"ORCHESTRATION_SERVICE_URL" default:"http://orchestration:8083"`

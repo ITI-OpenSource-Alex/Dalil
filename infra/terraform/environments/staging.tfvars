@@ -50,7 +50,8 @@ ecs_desired_counts = {
   notification  = 0
   ingestion     = 0
 }
-enable_lambda_workers            = false
+enable_lambda_workers            = true
+ecr_notification_sender_repo_url = "114403655381.dkr.ecr.eu-west-1.amazonaws.com/goa-staging-notification"
 enable_rds_proxy                 = false
 rds_backup_retention_days        = 1
 rds_performance_insights_enabled = false

@@ -13,6 +13,24 @@ locals {
     "ingestion",
   ]
 
+  ecs_deployed_service_names = [
+    "gateway",
+    "user",
+    "orchestration",
+    "speaking",
+    "writing",
+    "rag",
+    "exam",
+  ]
+
+  lambda_worker_names = [
+    "cv-processor",
+    "scholarship-matcher",
+    "notification-sender",
+  ]
+
+  ecr_repository_names = concat(local.ecs_deployed_service_names, local.lambda_worker_names)
+
   service_ports = {
     gateway       = 8080
     user          = 8081
@@ -21,29 +39,58 @@ locals {
     writing       = 8000
     rag           = 8084
     exam          = 8085
-    notification  = 8087
-    ingestion     = 8088
+  }
+
+  service_task_sizes = {
+    gateway       = { cpu = 256, memory = 512 }
+    user          = { cpu = 256, memory = 512 }
+    orchestration = { cpu = 512, memory = 1024 }
+    speaking      = { cpu = 512, memory = 1024 }
+    writing       = { cpu = 512, memory = 1024 }
+    rag           = { cpu = 512, memory = 1024 }
+    exam          = { cpu = 256, memory = 512 }
   }
 
   ecs_services = {
-    for service in local.service_names : service => {
+    for service in local.ecs_deployed_service_names : service => {
       image                             = "${module.ecr.repository_urls[service]}:${var.ecs_image_tag}"
       container_port                    = local.service_ports[service]
-      cpu                               = 256
-      memory                            = 512
-      desired_count                     = lookup(var.ecs_desired_counts, service, 0)
-      attach_to_load_balancer           = service == "gateway"
-      health_check_grace_period_seconds = service == "gateway" ? 60 : 0
-      environment = service == "gateway" ? {
-        PORT                = "8080"
-        REDIS_URL           = "redis://${module.elasticache.primary_endpoint_address}:${module.elasticache.port}/0"
-        WRITING_SERVICE_URL = "http://${local.name_prefix}-writing:8000"
-        EXAM_SERVICE_URL    = "http://${local.name_prefix}-exam:8085"
-        USER_SERVICE_URL    = "http://${local.name_prefix}-user:8081"
-        SECURE_COOKIES      = "true"
+      cpu                               = local.service_task_sizes[service].cpu
+      memory                            = local.service_task_sizes[service].memory
+      desired_count                     = lookup(var.ecs_desired_counts, service, 1)
+      health_check_grace_period_seconds = 120
+      environment = merge({
+        ENVIRONMENT = var.environment
+        PORT        = tostring(local.service_ports[service])
+        AWS_REGION  = var.aws_region
+        }, service == "gateway" ? {
+        PORT                      = "8080"
+        REDIS_URL                 = "redis://${module.elasticache.primary_endpoint_address}:${module.elasticache.port}/0"
+        WRITING_SERVICE_URL       = "http://${local.name_prefix}-writing:8000"
+        EXAM_SERVICE_URL          = "http://${local.name_prefix}-exam:8085"
+        USER_SERVICE_URL          = "http://${local.name_prefix}-user:8081"
+        ORCHESTRATION_SERVICE_URL = "http://${local.name_prefix}-orchestration:8083"
+        SECURE_COOKIES            = "true"
+        } : service == "user" ? {
+        REDIS_HOST    = module.elasticache.primary_endpoint_address
+        REDIS_PORT    = tostring(module.elasticache.port)
+        SQS_QUEUE_URL = module.sqs.queue_urls["user_events"]
         } : service == "orchestration" ? {
-        REDIS_URL = "redis://${module.elasticache.primary_endpoint_address}:${module.elasticache.port}/1"
-      } : {}
+        REDIS_URL            = "redis://${module.elasticache.primary_endpoint_address}:${module.elasticache.port}/1"
+        RAG_SERVICE_URL      = "http://${local.name_prefix}-rag:8084"
+        SPEAKING_SERVICE_URL = "http://${local.name_prefix}-speaking:8082"
+        WRITING_SERVICE_URL  = "http://${local.name_prefix}-writing:8000"
+        } : service == "writing" ? {
+        S3_BUCKET              = module.writing_files_bucket.bucket_name
+        CV_PROCESSED_QUEUE_URL = aws_sqs_queue.cv_processed.url
+        } : service == "rag" ? {
+        REDIS_URL      = "redis://${module.elasticache.primary_endpoint_address}:${module.elasticache.port}/1"
+        SQS_QUEUE_NAME = module.sqs.queue_names["user_events"]
+        } : service == "exam" ? {
+        SPEAKING_SERVICE_URL = "http://${local.name_prefix}-speaking:8082"
+        WRITING_SERVICE_URL  = "http://${local.name_prefix}-writing:8000"
+        S3_BUCKET            = module.exam_audio_bucket.bucket_name
+      } : {})
       secrets = module.secrets.service_secret_value_from_refs[service]
     }
   }
@@ -87,6 +134,7 @@ locals {
   service_secret_keys = {
     gateway = [
       "JWT_SECRET",
+      "INTERNAL_API_KEY",
     ]
 
     user = [
@@ -155,13 +203,17 @@ locals {
   redis_node_type    = lookup(local.redis_node_types, var.environment, "cache.t3.micro")
   rds_multi_az       = var.environment == "production"
 
-  ecs_service_names = {
-    for service in local.service_names :
+  ecs_service_resource_names = {
+    for service in local.ecs_deployed_service_names :
     service => lookup(var.goa069_ecs_service_names, service, "${local.name_prefix}-${service}")
   }
 
   service_sqs_queue_keys = {
     user = [
+      "user_events",
+    ]
+
+    rag = [
       "user_events",
     ]
 
@@ -290,13 +342,13 @@ locals {
       }
     },
     {
-      for service in local.service_names :
+      for service in local.ecs_deployed_service_names :
       "ecs_running_task_count_${service}" => {
         alarm_name          = "${local.name_prefix}-${service}-ecs-running-tasks"
         description         = "${service} ECS service running task count is below the GOA-027 threshold."
         namespace           = "ECS/ContainerInsights"
         metric_name         = "RunningTaskCount"
-        dimensions          = { ClusterName = local.name_prefix, ServiceName = local.ecs_service_names[service] }
+        dimensions          = { ClusterName = local.name_prefix, ServiceName = local.ecs_service_resource_names[service] }
         comparison_operator = "LessThanThreshold"
         threshold           = lookup(var.ecs_desired_counts, service, 0)
         evaluation_periods  = 2

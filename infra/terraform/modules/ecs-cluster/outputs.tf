@@ -13,12 +13,12 @@ output "cluster_name" {
   value       = aws_ecs_cluster.this.name
 }
 
-output "service_names" {
-  description = "ECS service names keyed by logical service."
-  value       = { for name, service in aws_ecs_service.this : name => service.name }
+output "service_connect_namespace_arn" {
+  description = "Cloud Map HTTP namespace ARN used by ECS Service Connect."
+  value       = aws_service_discovery_http_namespace.this.arn
 }
 
-output "task_definition_arns" {
-  description = "Task definition ARNs keyed by logical service."
-  value       = { for name, task in aws_ecs_task_definition.this : name => task.arn }
+output "service_connect_namespace_name" {
+  description = "ECS Service Connect namespace name."
+  value       = aws_service_discovery_http_namespace.this.name
 }

@@ -31,6 +31,8 @@ private_data_subnet_cidrs = [
 
 domain_name                        = "staging.goa.internal"
 hosted_zone_id                     = null
+enable_public_dns                  = false
+create_public_hosted_zone          = false
 alb_certificate_arn                = null
 create_self_signed_alb_certificate = true
 enable_cloudfront                  = false
@@ -50,10 +52,8 @@ ecs_desired_counts = {
   writing       = 1
   rag           = 1
   exam          = 1
-  notification  = 0
-  ingestion     = 0
 }
-enable_lambda_workers            = false
+enable_lambda_workers            = true
 enable_rds_proxy                 = false # RDS Proxy is unavailable on AWS free-plan accounts.
 rds_backup_retention_days        = 1     # AWS free-plan maximum; production remains 7 days.
 rds_performance_insights_enabled = false

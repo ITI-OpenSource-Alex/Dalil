@@ -18,13 +18,15 @@ async def consume_sqs_messages():
     """
 
     session = get_session()
-    async with session.create_client(
-        "sqs",
-        region_name=settings.AWS_REGION,
-        endpoint_url=settings.AWS_ENDPOINT_URL,
-        aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-    ) as sqs_client:
+    client_options = {
+        "region_name": settings.AWS_REGION,
+        "endpoint_url": settings.AWS_ENDPOINT_URL,
+    }
+    if settings.AWS_ACCESS_KEY_ID and settings.AWS_SECRET_ACCESS_KEY:
+        client_options["aws_access_key_id"] = settings.AWS_ACCESS_KEY_ID
+        client_options["aws_secret_access_key"] = settings.AWS_SECRET_ACCESS_KEY
+
+    async with session.create_client("sqs", **client_options) as sqs_client:
         try:
             # Get the queue URL. We assume the queue name is configured in settings
             response = await sqs_client.get_queue_url(QueueName=settings.SQS_QUEUE_NAME)

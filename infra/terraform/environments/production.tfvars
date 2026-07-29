@@ -29,14 +29,19 @@ private_data_subnet_cidrs = [
   "10.0.21.0/24",
 ]
 
-domain_name         = "goa.example.com"
-hosted_zone_id      = "REPLACE_WITH_PRODUCTION_HOSTED_ZONE_ID"
-alb_certificate_arn = "arn:aws:acm:eu-west-1:444455556666:certificate/replace-with-production-certificate-id"
+domain_name               = "goa.app"
+hosted_zone_id            = null
+enable_public_dns         = true
+create_public_hosted_zone = true
+alb_certificate_arn       = null
 
 alb_enable_deletion_protection     = true
 alb_default_target_group_name      = "gateway"
 create_self_signed_alb_certificate = false
 enable_cloudfront                  = true
+frontend_bucket_name               = "goa-114403655381-production-frontend-assets"
+cloudfront_price_class             = "PriceClass_100"
+waf_rate_limit                     = 1000
 ecs_desired_counts                 = {}
 enable_lambda_workers              = false
 

@@ -46,6 +46,7 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	httpClient := &http.Client{Timeout: 10 * time.Second}
 	authHandler := handlers.NewAuthHandler(redisClient, tokenService, metrics, httpClient, cfg.UserServiceURL, cfg.InternalApiKey)
 	examHandler := handlers.NewExamHandler(httpClient, cfg.ExamServiceURL, cfg.InternalApiKey)
+	notificationHandler := handlers.NewNotificationHandler(httpClient, cfg.NotificationServiceURL, cfg.InternalApiKey)
 	// Streaming paths need their own client: the shared one has a 10s timeout,
 	// which would sever a chat or essay-evaluation stream mid-flight. A speaking
 	// evaluation alone has been measured at ~77s.
@@ -119,6 +120,7 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	// section_breakdown that the generic submit above doesn't return.
 	api.Put("/exam/reading/:sessionId/submit", examHandler.SubmitReadingSession)
 	api.Post("/writing/essays/:essayId/evaluate", streamHandler.WritingEvaluate)
+	api.Get("/notifications", notificationHandler.List)
 	app.Post(
 		"/cv/upload",
 		middleware.JWT(cfg.JWTSecret, redisClient, metrics),

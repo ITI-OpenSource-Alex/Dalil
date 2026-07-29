@@ -97,9 +97,40 @@ variable "domain_name" {
 }
 
 variable "hosted_zone_id" {
-  description = "Route 53 hosted zone ID for the public domain. Used by future DNS wiring."
+  description = "Existing Route 53 hosted zone ID. Leave null when Terraform creates the production zone."
   type        = string
   default     = null
+  nullable    = true
+}
+
+variable "enable_public_dns" {
+  description = "Provision public Route 53, ACM, WAF, CloudFront, and DNS resources."
+  type        = bool
+  default     = false
+}
+
+variable "create_public_hosted_zone" {
+  description = "Create the public Route 53 hosted zone. Set false and provide hosted_zone_id to use an existing zone."
+  type        = bool
+  default     = false
+
+  validation {
+    condition     = !var.enable_public_dns || var.create_public_hosted_zone || var.hosted_zone_id != null
+    error_message = "Public DNS requires create_public_hosted_zone=true or an existing hosted_zone_id."
+  }
+}
+
+variable "frontend_bucket_name" {
+  description = "Optional globally unique name for the private frontend asset bucket."
+  type        = string
+  default     = null
+  nullable    = true
+}
+
+variable "waf_rate_limit" {
+  description = "Maximum requests per IP during WAF's five-minute evaluation window."
+  type        = number
+  default     = 1000
 }
 
 variable "alb_enable_deletion_protection" {
@@ -165,18 +196,6 @@ variable "alb_target_groups" {
       health_check_path    = "/health"
       deregistration_delay = 30
     }
-    notification = {
-      port                 = 8087
-      protocol             = "HTTP"
-      health_check_path    = "/health"
-      deregistration_delay = 30
-    }
-    ingestion = {
-      port                 = 8088
-      protocol             = "HTTP"
-      health_check_path    = "/health"
-      deregistration_delay = 30
-    }
   }
 }
 
@@ -192,9 +211,14 @@ variable "ecs_image_tag" {
 }
 
 variable "ecs_desired_counts" {
-  description = "Desired task count overrides keyed by service. Defaults to zero for safe initial provisioning."
+  description = "Desired task count overrides keyed by ECS service. Each deployed service defaults to one."
   type        = map(number)
   default     = {}
+
+  validation {
+    condition     = alltrue([for count in values(var.ecs_desired_counts) : count >= 1])
+    error_message = "ECS desired counts must be at least one."
+  }
 }
 
 variable "enable_lambda_workers" {
@@ -248,25 +272,6 @@ variable "image_tag" {
   type        = string
   default     = "latest"
 }
-
-variable "ecr_cv_processor_repo_url" {
-  description = "ECR repository URL for the cv-processor image (without tag)."
-  type        = string
-  default     = ""
-}
-
-variable "ecr_scholarship_matcher_repo_url" {
-  description = "ECR repository URL for the scholarship-matcher image (without tag)."
-  type        = string
-  default     = ""
-}
-
-variable "ecr_notification_sender_repo_url" {
-  description = "ECR repository URL for the notification-sender image (without tag)."
-  type        = string
-  default     = ""
-}
-
 
 variable "lambda_secret_arns" {
   description = "Secret ARNs Lambda workers may read. Empty until modules/secrets exists."

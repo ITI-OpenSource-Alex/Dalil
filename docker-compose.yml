@@ -12,6 +12,7 @@ services:
       - JWT_SECRET=supersecret_dev_key
       - WRITING_SERVICE_URL=http://writing:8000
       - EXAM_SERVICE_URL=http://exam:8085
+      - NOTIFICATION_SERVICE_URL=http://notification:8087
       - ORCHESTRATION_SERVICE_URL=http://orchestration:8083
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
     volumes:
@@ -149,6 +150,41 @@ services:
       localstack:
         condition: service_healthy
 
+  notification:
+    build:
+      context: .
+      dockerfile: services/notification/Dockerfile
+      target: dev
+    ports:
+      - "8087:8087"
+    environment:
+      - PORT=8087
+      - DATABASE_URL=postgresql://goa:goa_pass@postgres:5432/notification_db
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - LOCALSTACK_ENDPOINT=http://localstack:4566
+      # Both queues the Lambda is subscribed to in AWS. notification-queue
+      # carries ScholarshipMatched and DEADLINE_REMINDER from the scholarship
+      # matcher; goa-cv-processed carries CVProcessed from the Writing service.
+      # In AWS these are two event source mappings; locally the poller in
+      # src/local-server.ts watches both.
+      - NOTIFICATION_QUEUE_URLS=http://localstack:4566/000000000000/notification-queue,http://localstack:4566/000000000000/goa-cv-processed
+      # Events carry no email address, so the recipient is resolved from the
+      # User service. Without these the handler cannot send anything, which is
+      # deliberate -- see src/users.ts.
+      - USER_SERVICE_URL=http://user-service:8081
+      - INTERNAL_API_KEY=supersecret_internal_key_123
+      # LocalStack's SES accepts and stores without delivering, so any address
+      # works locally. In AWS this must be an identity verified in SES.
+      - SES_SENDER_ADDRESS=${SES_SENDER_ADDRESS:-notifications@localhost.test}
+      - OTEL_SERVICE_NAME=notification
+    depends_on:
+      postgres:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+
   postgres:
     image: pgvector/pgvector:pg15
     environment:
@@ -181,7 +217,10 @@ services:
       context: ./infra/localstack
     image: goa-localstack:3.4.0
     environment:
-      - SERVICES=sqs,s3
+      # ses added for GOA-023: the notification service sends email through it.
+      # LocalStack accepts and stores messages without delivering, which is what
+      # makes the notification E2E runnable locally at zero cost.
+      - SERVICES=sqs,s3,ses
       - AWS_DEFAULT_REGION=us-east-1
     ports:
       - "4566:4566"

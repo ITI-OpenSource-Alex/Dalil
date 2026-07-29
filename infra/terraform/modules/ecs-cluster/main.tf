@@ -152,7 +152,7 @@ resource "aws_ecs_service" "this" {
 
   tags = merge(local.common_tags, { Service = each.key })
 
-  # GOA-022 (B1): the deploy pipeline is the writer for these two fields.
+  # GOA-022 : the deploy pipeline is the writer for these two fields.
   lifecycle {
     ignore_changes = [task_definition, desired_count]
   }

@@ -31,6 +31,9 @@ module "security_groups" {
   ecs_service_ports = [
     for service, port in local.service_ports : port if service != "gateway"
   ]
+  alb_direct_service_ports = [
+    for service, port in local.service_ports : port if service != "gateway"
+  ]
   tags = var.tags
 }
 
@@ -58,8 +61,53 @@ module "nonproduction_alb_certificate" {
   tags        = local.common_tags
 }
 
+module "production_dns_zone" {
+  count  = var.enable_public_dns ? 1 : 0
+  source = "./modules/route53"
+
+  enabled          = true
+  zone_name        = var.domain_name
+  create_zone      = var.create_public_hosted_zone
+  existing_zone_id = var.hosted_zone_id
+  tags             = local.common_tags
+}
+
+module "production_alb_certificate" {
+  count  = var.enable_public_dns ? 1 : 0
+  source = "./modules/acm"
+
+  name_prefix               = local.name_prefix
+  certificate_type          = "public_dns"
+  domain_name               = var.domain_name
+  subject_alternative_names = ["*.${var.domain_name}"]
+  route53_zone_id           = module.production_dns_zone[0].zone_id
+  tags                      = local.common_tags
+}
+
+module "production_cloudfront_certificate" {
+  count  = var.enable_public_dns ? 1 : 0
+  source = "./modules/acm"
+
+  providers = {
+    aws = aws.us_east_1
+  }
+
+  name_prefix               = local.name_prefix
+  certificate_type          = "public_dns"
+  domain_name               = var.domain_name
+  subject_alternative_names = ["*.${var.domain_name}"]
+  route53_zone_id           = module.production_dns_zone[0].zone_id
+  tags                      = local.common_tags
+}
+
 locals {
-  effective_alb_certificate_arn = var.create_self_signed_alb_certificate ? module.nonproduction_alb_certificate[0].certificate_arn : var.alb_certificate_arn
+  effective_alb_certificate_arn = (
+    var.create_self_signed_alb_certificate
+    ? module.nonproduction_alb_certificate[0].certificate_arn
+    : var.enable_public_dns
+    ? module.production_alb_certificate[0].certificate_arn
+    : var.alb_certificate_arn
+  )
 }
 
 module "alb" {
@@ -73,18 +121,112 @@ module "alb" {
   enable_deletion_protection = var.alb_enable_deletion_protection
   default_target_group_name  = var.alb_default_target_group_name
   target_groups              = var.alb_target_groups
-  tags                       = var.tags
+  listener_rules = {
+    speaking_websocket = {
+      priority          = 10
+      path_patterns     = ["/api/speaking/ws", "/api/speaking/ws/*"]
+      target_group_name = "speaking"
+    }
+    exam = {
+      priority          = 20
+      path_patterns     = ["/api/exam/*"]
+      target_group_name = "exam"
+    }
+    gateway_api = {
+      priority          = 100
+      path_patterns     = ["/api/*"]
+      target_group_name = "gateway"
+    }
+  }
+  tags = var.tags
+}
+
+module "production_api_dns" {
+  count  = var.enable_public_dns ? 1 : 0
+  source = "./modules/route53"
+
+  enabled            = true
+  zone_name          = var.domain_name
+  create_zone        = false
+  existing_zone_id   = module.production_dns_zone[0].zone_id
+  create_api_alias   = true
+  api_alias_dns_name = module.alb.alb_dns_name
+  api_alias_zone_id  = module.alb.alb_zone_id
+  tags               = local.common_tags
+}
+
+module "alb_waf" {
+  count  = var.enable_public_dns ? 1 : 0
+  source = "./modules/waf"
+
+  name_prefix              = local.name_prefix
+  scope                    = "REGIONAL"
+  association_resource_arn = module.alb.alb_arn
+  log_group_name           = "aws-waf-logs-goa-alb"
+  rate_limit               = var.waf_rate_limit
+  log_retention_days       = 30
+  tags                     = local.common_tags
+}
+
+module "frontend_assets" {
+  count  = var.enable_cloudfront ? 1 : 0
+  source = "./modules/s3"
+
+  bucket_name = coalesce(
+    var.frontend_bucket_name,
+    "${var.project_name}-${var.aws_account_id}-${var.environment}-frontend-assets"
+  )
+  force_destroy = false
+  tags          = merge(local.common_tags, { Purpose = "frontend-assets" })
+}
+
+module "cloudfront_waf" {
+  count  = var.enable_cloudfront ? 1 : 0
+  source = "./modules/waf"
+
+  providers = {
+    aws = aws.us_east_1
+  }
+
+  name_prefix        = local.name_prefix
+  scope              = "CLOUDFRONT"
+  log_group_name     = "aws-waf-logs-goa-cloudfront"
+  rate_limit         = var.waf_rate_limit
+  log_retention_days = 30
+  tags               = local.common_tags
 }
 
 module "cloudfront" {
   source = "./modules/cloudfront"
 
-  enabled                = var.enable_cloudfront
-  name_prefix            = local.name_prefix
-  alb_dns_name           = module.alb.alb_dns_name
-  origin_protocol_policy = "https-only"
-  price_class            = var.cloudfront_price_class
-  tags                   = local.common_tags
+  enabled                 = var.enable_cloudfront
+  name_prefix             = local.name_prefix
+  s3_bucket_name          = try(module.frontend_assets[0].bucket_name, null)
+  s3_bucket_arn           = try(module.frontend_assets[0].bucket_arn, null)
+  s3_regional_domain_name = try(module.frontend_assets[0].bucket_regional_domain_name, null)
+  alb_origin_domain_name  = var.enable_public_dns ? "api.${var.domain_name}" : module.alb.alb_dns_name
+  origin_protocol_policy  = "https-only"
+  aliases                 = var.enable_public_dns ? [var.domain_name] : []
+  acm_certificate_arn     = try(module.production_cloudfront_certificate[0].certificate_arn, null)
+  web_acl_arn             = try(module.cloudfront_waf[0].web_acl_arn, null)
+  price_class             = var.cloudfront_price_class
+  tags                    = local.common_tags
+
+  depends_on = [module.production_api_dns]
+}
+
+module "production_frontend_dns" {
+  count  = var.enable_public_dns && var.enable_cloudfront ? 1 : 0
+  source = "./modules/route53"
+
+  enabled             = true
+  zone_name           = var.domain_name
+  create_zone         = false
+  existing_zone_id    = module.production_dns_zone[0].zone_id
+  create_root_alias   = true
+  root_alias_dns_name = module.cloudfront.domain_name
+  root_alias_zone_id  = module.cloudfront.hosted_zone_id
+  tags                = local.common_tags
 }
 
 module "iam" {
@@ -104,24 +246,47 @@ module "iam" {
 module "ecr" {
   source = "./modules/ecr"
 
-  name_prefix  = local.name_prefix
-  repositories = toset(local.service_names)
-  tags         = local.common_tags
+  name_prefix           = local.name_prefix
+  repositories          = toset(local.ecr_repository_names)
+  image_retention_count = 10
+  tags                  = local.common_tags
 }
 
 module "ecs_cluster" {
   source = "./modules/ecs-cluster"
 
-  environment                = var.environment
-  name_prefix                = local.name_prefix
-  private_subnet_ids         = module.vpc.private_app_subnet_ids
-  gateway_security_group_id  = module.security_groups.gateway_security_group_id
-  services_security_group_id = module.security_groups.ecs_services_security_group_id
-  task_execution_role_arns   = { for service in local.service_names : service => module.iam.ecs_task_execution_role_arns[service] }
-  task_role_arns             = { for service in local.service_names : service => module.iam.ecs_task_role_arns[service] }
-  target_group_arns          = module.alb.target_group_arns
-  services                   = local.ecs_services
-  tags                       = local.common_tags
+  environment = var.environment
+  name_prefix = local.name_prefix
+  tags        = local.common_tags
+}
+
+module "ecs_service" {
+  for_each = local.ecs_services
+  source   = "./modules/ecs-service"
+
+  environment                       = var.environment
+  name_prefix                       = local.name_prefix
+  cluster_id                        = module.ecs_cluster.cluster_id
+  cluster_name                      = module.ecs_cluster.cluster_name
+  service_connect_namespace_arn     = module.ecs_cluster.service_connect_namespace_arn
+  service_name                      = each.key
+  image_uri                         = each.value.image
+  cpu                               = each.value.cpu
+  memory                            = each.value.memory
+  desired_count                     = each.value.desired_count
+  container_port                    = each.value.container_port
+  environment_variables             = each.value.environment
+  secrets                           = each.value.secrets
+  private_subnet_ids                = module.vpc.private_app_subnet_ids
+  security_group_ids                = [each.key == "gateway" ? module.security_groups.gateway_security_group_id : module.security_groups.ecs_services_security_group_id]
+  task_execution_role_arn           = module.iam.ecs_task_execution_role_arns[each.key]
+  task_role_arn                     = module.iam.ecs_task_role_arns[each.key]
+  target_group_arn                  = module.alb.target_group_arns[each.key]
+  health_check_grace_period_seconds = each.value.health_check_grace_period_seconds
+  log_group_name                    = module.observability.log_group_names[each.key]
+  autoscaling_min_capacity          = 1
+  autoscaling_max_capacity          = var.environment == "production" ? 10 : 4
+  tags                              = local.common_tags
 }
 
 data "aws_region" "current" {}
@@ -198,7 +363,7 @@ module "cv_processor_lambda" {
   source            = "./modules/lambda"
   function_name     = "goa-cv-processor-${var.environment}"
   package_type      = "Image"
-  image_uri         = "${var.ecr_cv_processor_repo_url}:${var.image_tag}"
+  image_uri         = "${module.ecr.repository_urls["cv-processor"]}:${var.image_tag}"
   image_entry_point = ["python", "-m", "awslambdaric"]
   image_command     = ["cv_processor.handler.lambda_handler"]
 
@@ -249,7 +414,7 @@ module "scholarship_matcher_lambda" {
   source        = "./modules/lambda"
   function_name = "goa-scholarship-matcher-${var.environment}"
   package_type  = "Image"
-  image_uri     = "${var.ecr_scholarship_matcher_repo_url}:${var.image_tag}"
+  image_uri     = "${module.ecr.repository_urls["scholarship-matcher"]}:${var.image_tag}"
 
   role_arn                       = module.iam.lambda_execution_role_arn
   vpc_subnet_ids                 = module.vpc.private_app_subnet_ids
@@ -272,7 +437,7 @@ module "notification_sender_lambda" {
   source        = "./modules/lambda"
   function_name = "goa-notification-sender-${var.environment}"
   package_type  = "Image"
-  image_uri     = "${var.ecr_notification_sender_repo_url}:${var.image_tag}"
+  image_uri     = "${module.ecr.repository_urls["notification-sender"]}:${var.image_tag}"
 
   role_arn                       = module.iam.lambda_execution_role_arn
   vpc_subnet_ids                 = module.vpc.private_app_subnet_ids
@@ -352,9 +517,32 @@ resource "aws_s3_bucket_notification" "writing_files" {
 # Skipped entirely until modules/sqs exists and sqs_notification_queue_arn
 # is set — this whole resource is conditionally created via count.
 resource "aws_lambda_event_source_mapping" "sqs_to_notification_sender" {
-  count = var.enable_lambda_workers && var.sqs_notification_queue_arn != null ? 1 : 0
+  count = var.enable_lambda_workers ? 1 : 0
 
   event_source_arn                   = module.sqs.queue_arns["notification"]
+  function_name                      = module.notification_sender_lambda[0].function_name
+  batch_size                         = 10
+  maximum_batching_window_in_seconds = 5
+  function_response_types            = ["ReportBatchItemFailures"]
+}
+
+# CVProcessed is published by the Writing service to its own queue, not to
+# notification-queue, so the notification Lambda needs a second source. Without
+# this mapping the CV_PROCESSED notification type can never fire, and
+# goa-cv-processed stays the write-only queue recorded in BUG-025.
+#
+# The ARN is aws_sqs_queue.cv_processed (declared above at ~line 151), NOT a
+# module.sqs.queue_arns[...] lookup. module.sqs only holds user_events,
+# notification and ingestion; the CV queues are declared directly in this file.
+# An earlier version of this block used module.sqs.queue_arns["user_events"],
+# which subscribed the Lambda to user-events instead: CV notifications still
+# never fired, and every UserUpdated event became an unparseable message that
+# retried three times and landed in user-events-dlq — poisoning the queue that
+# feeds RAG's profile snapshot.
+resource "aws_lambda_event_source_mapping" "cv_processed_to_notification_sender" {
+  count = var.enable_lambda_workers ? 1 : 0
+
+  event_source_arn                   = aws_sqs_queue.cv_processed.arn
   function_name                      = module.notification_sender_lambda[0].function_name
   batch_size                         = 10
   maximum_batching_window_in_seconds = 5

@@ -9,9 +9,9 @@ variable "repositories" {
 }
 
 variable "image_retention_count" {
-  description = "Maximum number of tagged images retained per repository."
+  description = "Maximum number of images retained per repository."
   type        = number
-  default     = 30
+  default     = 10
 }
 
 variable "tags" {

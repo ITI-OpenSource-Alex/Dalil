@@ -31,6 +31,9 @@ module "security_groups" {
   ecs_service_ports = [
     for service, port in local.service_ports : port if service != "gateway"
   ]
+  alb_direct_service_ports = [
+    for service, port in local.service_ports : port if service != "gateway"
+  ]
   tags = var.tags
 }
 
@@ -73,7 +76,24 @@ module "alb" {
   enable_deletion_protection = var.alb_enable_deletion_protection
   default_target_group_name  = var.alb_default_target_group_name
   target_groups              = var.alb_target_groups
-  tags                       = var.tags
+  listener_rules = {
+    speaking_websocket = {
+      priority          = 10
+      path_patterns     = ["/api/speaking/ws", "/api/speaking/ws/*"]
+      target_group_name = "speaking"
+    }
+    exam = {
+      priority          = 20
+      path_patterns     = ["/api/exam/*"]
+      target_group_name = "exam"
+    }
+    gateway_api = {
+      priority          = 100
+      path_patterns     = ["/api/*"]
+      target_group_name = "gateway"
+    }
+  }
+  tags = var.tags
 }
 
 module "cloudfront" {
@@ -104,24 +124,47 @@ module "iam" {
 module "ecr" {
   source = "./modules/ecr"
 
-  name_prefix  = local.name_prefix
-  repositories = toset(local.service_names)
-  tags         = local.common_tags
+  name_prefix           = local.name_prefix
+  repositories          = toset(local.ecr_repository_names)
+  image_retention_count = 10
+  tags                  = local.common_tags
 }
 
 module "ecs_cluster" {
   source = "./modules/ecs-cluster"
 
-  environment                = var.environment
-  name_prefix                = local.name_prefix
-  private_subnet_ids         = module.vpc.private_app_subnet_ids
-  gateway_security_group_id  = module.security_groups.gateway_security_group_id
-  services_security_group_id = module.security_groups.ecs_services_security_group_id
-  task_execution_role_arns   = { for service in local.service_names : service => module.iam.ecs_task_execution_role_arns[service] }
-  task_role_arns             = { for service in local.service_names : service => module.iam.ecs_task_role_arns[service] }
-  target_group_arns          = module.alb.target_group_arns
-  services                   = local.ecs_services
-  tags                       = local.common_tags
+  environment = var.environment
+  name_prefix = local.name_prefix
+  tags        = local.common_tags
+}
+
+module "ecs_service" {
+  for_each = local.ecs_services
+  source   = "./modules/ecs-service"
+
+  environment                       = var.environment
+  name_prefix                       = local.name_prefix
+  cluster_id                        = module.ecs_cluster.cluster_id
+  cluster_name                      = module.ecs_cluster.cluster_name
+  service_connect_namespace_arn     = module.ecs_cluster.service_connect_namespace_arn
+  service_name                      = each.key
+  image_uri                         = each.value.image
+  cpu                               = each.value.cpu
+  memory                            = each.value.memory
+  desired_count                     = each.value.desired_count
+  container_port                    = each.value.container_port
+  environment_variables             = each.value.environment
+  secrets                           = each.value.secrets
+  private_subnet_ids                = module.vpc.private_app_subnet_ids
+  security_group_ids                = [each.key == "gateway" ? module.security_groups.gateway_security_group_id : module.security_groups.ecs_services_security_group_id]
+  task_execution_role_arn           = module.iam.ecs_task_execution_role_arns[each.key]
+  task_role_arn                     = module.iam.ecs_task_role_arns[each.key]
+  target_group_arn                  = module.alb.target_group_arns[each.key]
+  health_check_grace_period_seconds = each.value.health_check_grace_period_seconds
+  log_group_name                    = module.observability.log_group_names[each.key]
+  autoscaling_min_capacity          = 1
+  autoscaling_max_capacity          = var.environment == "production" ? 10 : 4
+  tags                              = local.common_tags
 }
 
 data "aws_region" "current" {}
@@ -198,7 +241,7 @@ module "cv_processor_lambda" {
   source            = "./modules/lambda"
   function_name     = "goa-cv-processor-${var.environment}"
   package_type      = "Image"
-  image_uri         = "${var.ecr_cv_processor_repo_url}:${var.image_tag}"
+  image_uri         = "${module.ecr.repository_urls["cv-processor"]}:${var.image_tag}"
   image_entry_point = ["python", "-m", "awslambdaric"]
   image_command     = ["cv_processor.handler.lambda_handler"]
 
@@ -249,7 +292,7 @@ module "scholarship_matcher_lambda" {
   source        = "./modules/lambda"
   function_name = "goa-scholarship-matcher-${var.environment}"
   package_type  = "Image"
-  image_uri     = "${var.ecr_scholarship_matcher_repo_url}:${var.image_tag}"
+  image_uri     = "${module.ecr.repository_urls["scholarship-matcher"]}:${var.image_tag}"
 
   role_arn                       = module.iam.lambda_execution_role_arn
   vpc_subnet_ids                 = module.vpc.private_app_subnet_ids
@@ -272,7 +315,7 @@ module "notification_sender_lambda" {
   source        = "./modules/lambda"
   function_name = "goa-notification-sender-${var.environment}"
   package_type  = "Image"
-  image_uri     = "${var.ecr_notification_sender_repo_url}:${var.image_tag}"
+  image_uri     = "${module.ecr.repository_urls["notification-sender"]}:${var.image_tag}"
 
   role_arn                       = module.iam.lambda_execution_role_arn
   vpc_subnet_ids                 = module.vpc.private_app_subnet_ids

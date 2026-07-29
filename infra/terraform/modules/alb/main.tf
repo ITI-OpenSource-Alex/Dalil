@@ -90,3 +90,25 @@ resource "aws_lb_listener" "https" {
     target_group_arn = aws_lb_target_group.this[var.default_target_group_name].arn
   }
 }
+
+resource "aws_lb_listener_rule" "path_routes" {
+  for_each = var.listener_rules
+
+  listener_arn = aws_lb_listener.https.arn
+  priority     = each.value.priority
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.this[each.value.target_group_name].arn
+  }
+
+  condition {
+    path_pattern {
+      values = each.value.path_patterns
+    }
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "${local.name_prefix}-${each.key}"
+  })
+}

@@ -161,7 +161,7 @@ output "notification_sender_function_name" {
 }
 
 output "ecr_repository_urls" {
-  description = "ECR repository URLs keyed by ECS service."
+  description = "ECR repository URLs keyed by ECS service or Lambda worker."
   value       = module.ecr.repository_urls
 }
 
@@ -172,7 +172,17 @@ output "ecs_cluster_name" {
 
 output "ecs_service_names" {
   description = "ECS service names keyed by service."
-  value       = module.ecs_cluster.service_names
+  value       = { for service, service_module in module.ecs_service : service => service_module.service_name }
+}
+
+output "ecs_task_definition_arns" {
+  description = "Task definition ARNs keyed by ECS service."
+  value       = { for service, service_module in module.ecs_service : service => service_module.task_definition_arn }
+}
+
+output "ecs_autoscaling_resource_ids" {
+  description = "Application Auto Scaling resource IDs keyed by ECS service."
+  value       = { for service, service_module in module.ecs_service : service => service_module.autoscaling_resource_id }
 }
 
 output "cloudfront_distribution_id" {

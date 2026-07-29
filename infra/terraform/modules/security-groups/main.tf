@@ -14,6 +14,10 @@ locals {
   ecs_service_ports = {
     for port in var.ecs_service_ports : tostring(port) => port
   }
+
+  alb_direct_service_ports = {
+    for port in var.alb_direct_service_ports : tostring(port) => port
+  }
 }
 
 resource "aws_security_group" "alb" {
@@ -128,6 +132,28 @@ resource "aws_vpc_security_group_ingress_rule" "gateway_from_alb" {
   from_port                    = var.gateway_port
   ip_protocol                  = "tcp"
   to_port                      = var.gateway_port
+}
+
+resource "aws_vpc_security_group_egress_rule" "alb_to_ecs_services" {
+  for_each = local.alb_direct_service_ports
+
+  security_group_id            = aws_security_group.alb.id
+  description                  = "Allow ALB routing and health checks to ECS services."
+  referenced_security_group_id = aws_security_group.ecs_services.id
+  from_port                    = each.value
+  ip_protocol                  = "tcp"
+  to_port                      = each.value
+}
+
+resource "aws_vpc_security_group_ingress_rule" "ecs_services_from_alb" {
+  for_each = local.alb_direct_service_ports
+
+  security_group_id            = aws_security_group.ecs_services.id
+  description                  = "Allow ALB routing and health checks to ECS services."
+  referenced_security_group_id = aws_security_group.alb.id
+  from_port                    = each.value
+  ip_protocol                  = "tcp"
+  to_port                      = each.value
 }
 
 resource "aws_vpc_security_group_egress_rule" "gateway_to_ecs_services" {

@@ -7,7 +7,7 @@ locals {
   github_deploy_ecr_repository_arns = {
     for environment in ["staging", "production"] :
     environment => [
-      for service in local.service_names :
+      for service in local.ecr_repository_names :
       "arn:aws:ecr:${var.aws_region}:${var.aws_account_id}:repository/goa-${environment}-${service}"
     ]
   }
@@ -15,7 +15,7 @@ locals {
   github_deploy_ecs_service_arns = {
     for environment in ["staging", "production"] :
     environment => [
-      for service in local.service_names :
+      for service in local.ecs_deployed_service_names :
       "arn:aws:ecs:${var.aws_region}:${var.aws_account_id}:service/goa-${environment}/goa-${environment}-${service}"
     ]
   }
@@ -23,7 +23,7 @@ locals {
   github_deploy_pass_role_arns = {
     for environment in ["staging", "production"] :
     environment => flatten([
-      for service in local.service_names : [
+      for service in local.ecs_deployed_service_names : [
         service == "gateway" ? "arn:aws:iam::${var.aws_account_id}:role/goa-${environment}-ecs-task-execution-role" : "arn:aws:iam::${var.aws_account_id}:role/goa-${environment}-${service}-task-execution",
         service == "gateway" ? "arn:aws:iam::${var.aws_account_id}:role/goa-${environment}-ecs-task-role" : "arn:aws:iam::${var.aws_account_id}:role/goa-${environment}-${service}-task",
       ]

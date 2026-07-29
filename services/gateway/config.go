@@ -12,24 +12,26 @@ import (
 )
 
 type Config struct {
-	Port              string        `envconfig:"PORT" default:"8080"`
-	JWTSecret         string        `envconfig:"JWT_SECRET" required:"true"`
-	RedisURL          string        `envconfig:"REDIS_URL" required:"true"`
-	Version           string        `envconfig:"VERSION" default:"0.1.0"`
-	AccessTokenTTL    time.Duration `envconfig:"ACCESS_TOKEN_TTL" default:"1h"`
-	RefreshTokenTTL   time.Duration `envconfig:"REFRESH_TOKEN_TTL" default:"720h"`
-	ReadTimeout       time.Duration `envconfig:"READ_TIMEOUT" default:"5s"`
-	WriteTimeout      time.Duration `envconfig:"WRITE_TIMEOUT" default:"10s"`
-	ShutdownTimeout   time.Duration `envconfig:"SHUTDOWN_TIMEOUT" default:"10s"`
-	SecureCookies     bool          `envconfig:"SECURE_COOKIES" default:"false"`
-	WritingServiceURL      string `envconfig:"WRITING_SERVICE_URL" required:"true"`
-	ExamServiceURL         string `envconfig:"EXAM_SERVICE_URL" required:"true"`
-	NotificationServiceURL string `envconfig:"NOTIFICATION_SERVICE_URL" default:"http://notification:8087"`
+	Port                   string        `envconfig:"PORT" default:"8080"`
+	JWTSecret              string        `envconfig:"JWT_SECRET" required:"true"`
+	RedisURL               string        `envconfig:"REDIS_URL" required:"true"`
+	Version                string        `envconfig:"VERSION" default:"0.1.0"`
+	AccessTokenTTL         time.Duration `envconfig:"ACCESS_TOKEN_TTL" default:"1h"`
+	RefreshTokenTTL        time.Duration `envconfig:"REFRESH_TOKEN_TTL" default:"720h"`
+	ReadTimeout            time.Duration `envconfig:"READ_TIMEOUT" default:"5s"`
+	WriteTimeout           time.Duration `envconfig:"WRITE_TIMEOUT" default:"10s"`
+	ShutdownTimeout        time.Duration `envconfig:"SHUTDOWN_TIMEOUT" default:"10s"`
+	SecureCookies          bool          `envconfig:"SECURE_COOKIES" default:"false"`
+	WritingServiceURL      string        `envconfig:"WRITING_SERVICE_URL" required:"true"`
+	ExamServiceURL         string        `envconfig:"EXAM_SERVICE_URL" required:"true"`
+	NotificationServiceURL string        `envconfig:"NOTIFICATION_SERVICE_URL" default:"http://notification:8087"`
 	// Chat is proxied rather than called from the browser, so the Gateway needs
 	// to know where Orchestration lives (BUG-029, BUG-044).
-	OrchestrationServiceURL string `envconfig:"ORCHESTRATION_SERVICE_URL" default:"http://orchestration:8083"`
-	UserServiceURL          string `envconfig:"USER_SERVICE_URL" required:"true"`
-	InternalApiKey          string `envconfig:"INTERNAL_API_KEY" required:"true"`
+	OrchestrationServiceURL string        `envconfig:"ORCHESTRATION_SERVICE_URL" default:"http://orchestration:8083"`
+	UserServiceURL          string        `envconfig:"USER_SERVICE_URL" required:"true"`
+	InternalApiKey          string        `envconfig:"INTERNAL_API_KEY" required:"true"`
+	SubscriptionUpgradeURL  string        `envconfig:"SUBSCRIPTION_UPGRADE_URL" default:"/upgrade"`
+	SubscriptionCacheTTL    time.Duration `envconfig:"SUBSCRIPTION_CACHE_TTL" default:"5m"`
 	// Comma-separated origin allow-list for CORS. Cannot be "*" because auth
 	// rides on HttpOnly cookies and the spec forbids wildcard + credentials.
 	CORSAllowedOrigins  string  `envconfig:"CORS_ALLOWED_ORIGINS" default:"http://localhost:3000"`

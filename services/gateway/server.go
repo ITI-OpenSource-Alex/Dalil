@@ -47,6 +47,15 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	authHandler := handlers.NewAuthHandler(redisClient, tokenService, metrics, httpClient, cfg.UserServiceURL, cfg.InternalApiKey)
 	examHandler := handlers.NewExamHandler(httpClient, cfg.ExamServiceURL, cfg.InternalApiKey)
 	notificationHandler := handlers.NewNotificationHandler(httpClient, cfg.NotificationServiceURL, cfg.InternalApiKey)
+	subscriptionMiddleware := middleware.NewSubscriptionMiddleware(
+		redisClient,
+		httpClient,
+		cfg.UserServiceURL,
+		cfg.InternalApiKey,
+		cfg.SubscriptionUpgradeURL,
+		cfg.SubscriptionCacheTTL,
+		logger,
+	)
 	// Streaming paths need their own client: the shared one has a 10s timeout,
 	// which would sever a chat or essay-evaluation stream mid-flight. A speaking
 	// evaluation alone has been measured at ~77s.
@@ -92,14 +101,18 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	app.Post("/auth/logout-all", middleware.JWT(cfg.JWTSecret, redisClient, metrics), authHandler.LogoutAll)
 	api := app.Group("/api", middleware.JWT(cfg.JWTSecret, redisClient, metrics))
 	api.Use(middleware.RateLimiter(redisClient, 60, metrics))
+	api.Use(subscriptionMiddleware.ResolveSubscription)
 	api.Get("/ping", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"status": "ok"})
 	})
 
 	app.Get("/admin/costs", handlers.AdminCosts(redisClient, cfg.BudgetUSD, cfg.CostPromptPer1M, cfg.CostCompletionPer1M))
-	api.Post("/writing/essays/upload", middleware.ValidateEssayTextLength(5000), writingHandler.UploadEssay)
-	api.Post("/writing/cv/upload", writingHandler.UploadCV)
-	api.Post("/writing/cv/review", writingHandler.ReviewCV)
+	// Subscription policy is default-allow: only the Writing and CV routes named
+	// as paid features attach RequirePaid. Chat, chat history, notifications,
+	// exams and any future unnamed route remain free unless explicitly changed.
+	api.Post("/writing/essays/upload", subscriptionMiddleware.RequirePaid, middleware.ValidateEssayTextLength(5000), writingHandler.UploadEssay)
+	api.Post("/writing/cv/upload", subscriptionMiddleware.RequirePaid, writingHandler.UploadCV)
+	api.Post("/writing/cv/review", subscriptionMiddleware.RequirePaid, writingHandler.ReviewCV)
 	api.Get("/exam/listening/start", examHandler.StartListening)
 	api.Put("/exam/listening/:sessionId/submit", examHandler.SubmitListening)
 
@@ -119,12 +132,14 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	// GOA-055: Reading-specific submit, needed for per_question_result and
 	// section_breakdown that the generic submit above doesn't return.
 	api.Put("/exam/reading/:sessionId/submit", examHandler.SubmitReadingSession)
-	api.Post("/writing/essays/:essayId/evaluate", streamHandler.WritingEvaluate)
+	api.Post("/writing/essays/:essayId/evaluate", subscriptionMiddleware.RequirePaid, streamHandler.WritingEvaluate)
 	api.Get("/notifications", notificationHandler.List)
 	app.Post(
 		"/cv/upload",
 		middleware.JWT(cfg.JWTSecret, redisClient, metrics),
 		middleware.RateLimiter(redisClient, 60, metrics),
+		subscriptionMiddleware.ResolveSubscription,
+		subscriptionMiddleware.RequirePaid,
 		writingHandler.UploadCV,
 	)
 

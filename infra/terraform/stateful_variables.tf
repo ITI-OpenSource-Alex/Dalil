@@ -93,13 +93,13 @@ variable "redis_auth_token" {
 variable "speaking_p95_latency_threshold_ms" {
   description = "Speaking P95 latency alarm threshold in milliseconds."
   type        = number
-  default     = 2000
+  default     = 4000
 }
 
 variable "service_error_rate_threshold" {
   description = "Service error-rate alarm threshold."
   type        = number
-  default     = 5
+  default     = 2
 }
 
 variable "dlq_visible_messages_threshold" {

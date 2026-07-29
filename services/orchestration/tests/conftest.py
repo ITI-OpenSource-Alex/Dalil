@@ -6,10 +6,20 @@ os.environ.setdefault("DATABASE_URL", "postgresql://user:pass@localhost:5432/tes
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("ANTHROPIC_API_KEY", "sk-ant-test-key-123")
 os.environ.setdefault("INTERNAL_API_KEY", "test-internal-key")
+os.environ.setdefault("EXAM_SERVICE_URL", "http://exam-test:8085")
 # Ensure the orchestration root is in the Python search path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 # Enable global async test support
 pytest_plugins = ["pytest_asyncio"]
+
+# Import the app before any test module runs. test_exam_context.py registers
+# stub modules (sse_starlette, langchain.memory, prometheus_client, ...) at
+# import time so it can run without the real dependencies installed, and
+# _stub_module() is a no-op when the module is already in sys.modules. Loading
+# the real ones here means those stubs never replace a real module, so
+# test_integration.py gets a working EventSourceResponse regardless of
+# collection order.
+import app.main  # noqa: E402,F401
 
 
 @pytest.fixture(scope="module")

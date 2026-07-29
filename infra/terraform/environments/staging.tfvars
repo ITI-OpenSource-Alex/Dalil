@@ -31,6 +31,8 @@ private_data_subnet_cidrs = [
 
 domain_name                        = "staging.goa.internal"
 hosted_zone_id                     = null
+enable_public_dns                  = false
+create_public_hosted_zone          = false
 alb_certificate_arn                = null
 create_self_signed_alb_certificate = true
 enable_cloudfront                  = false
@@ -47,32 +49,13 @@ ecs_desired_counts = {
   writing       = 1
   rag           = 1
   exam          = 1
-  notification  = 0
-  ingestion     = 0
 }
 enable_lambda_workers            = true
-ecr_notification_sender_repo_url = "114403655381.dkr.ecr.eu-west-1.amazonaws.com/goa-staging-notification"
-enable_rds_proxy                 = false
-rds_backup_retention_days        = 1
+enable_rds_proxy                 = false # RDS Proxy is unavailable on AWS free-plan accounts.
+rds_backup_retention_days        = 1     # AWS free-plan maximum; production remains 7 days.
 rds_performance_insights_enabled = false
 
-task_execution_secret_arns = [
-  "arn:aws:secretsmanager:eu-west-1:114403655381:secret:goa/staging/internal-api-key-dV72zo",
-  "arn:aws:secretsmanager:eu-west-1:114403655381:secret:goa/staging/jwt-secret-UKVi1Q",
-  "arn:aws:secretsmanager:eu-west-1:114403655381:secret:goa/staging/anthropic-auth-token-CCOQhh",
-  "arn:aws:secretsmanager:eu-west-1:114403655381:secret:goa/staging/langfuse-public-key-2lzJz5",
-  "arn:aws:secretsmanager:eu-west-1:114403655381:secret:goa/staging/langfuse-secret-key-HyJy0I",
-]
-task_execution_kms_key_arns = []
-task_secret_arns = [
-  "arn:aws:secretsmanager:eu-west-1:114403655381:secret:goa/staging/internal-api-key-dV72zo",
-  "arn:aws:secretsmanager:eu-west-1:114403655381:secret:goa/staging/jwt-secret-UKVi1Q",
-  "arn:aws:secretsmanager:eu-west-1:114403655381:secret:goa/staging/anthropic-auth-token-CCOQhh",
-  "arn:aws:secretsmanager:eu-west-1:114403655381:secret:goa/staging/langfuse-public-key-2lzJz5",
-  "arn:aws:secretsmanager:eu-west-1:114403655381:secret:goa/staging/langfuse-secret-key-HyJy0I",
-]
-task_sqs_queue_arns = []
-task_kms_key_arns   = []
+task_kms_key_arns = []
 
 ecs_exec_operator_resource_arns    = ["*"]
 session_manager_log_retention_days = 30

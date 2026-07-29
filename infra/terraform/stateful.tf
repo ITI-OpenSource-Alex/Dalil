@@ -86,14 +86,11 @@ resource "aws_iam_role_policy" "rds_proxy_secret" {
 module "rds" {
   source = "./modules/rds"
 
-  name_prefix        = local.name_prefix
-  environment        = var.environment
-  vpc_id             = module.vpc.vpc_id
-  private_subnet_ids = module.vpc.private_data_subnet_ids
-  allowed_security_group_ids = var.enable_rds_proxy ? [aws_security_group.rds_proxy.id] : [
-    module.security_groups.ecs_services_security_group_id,
-    module.security_groups.lambda_security_group_id,
-  ]
+  name_prefix                  = local.name_prefix
+  environment                  = var.environment
+  vpc_id                       = module.vpc.vpc_id
+  security_group_id            = module.security_groups.rds_security_group_id
+  private_subnet_ids           = module.vpc.private_data_subnet_ids
   database_names               = local.postgres_databases
   instance_class               = local.rds_instance_class
   multi_az                     = local.rds_multi_az
@@ -126,6 +123,16 @@ module "rds_proxy" {
   depends_on = [aws_iam_role_policy.rds_proxy_secret]
 }
 
+resource "aws_vpc_security_group_ingress_rule" "rds_from_proxy" {
+  count                        = var.enable_rds_proxy ? 1 : 0
+  security_group_id            = module.security_groups.rds_security_group_id
+  referenced_security_group_id = aws_security_group.rds_proxy.id
+  ip_protocol                  = "tcp"
+  from_port                    = 5432
+  to_port                      = 5432
+  description                  = "Allow the RDS Proxy to reach PostgreSQL."
+}
+
 moved {
   from = aws_security_group.rds_proxy[0]
   to   = aws_security_group.rds_proxy
@@ -156,7 +163,7 @@ module "observability" {
   name_prefix           = local.name_prefix
   service_names         = local.service_names
   log_retention_days    = 30
-  sns_topic_name        = "goa-alerts"
+  sns_topic_name        = "${local.name_prefix}-alerts"
   alert_email_addresses = var.alert_email_addresses
   sqs_queue_names       = values(module.sqs.dlq_names)
   ecs_cluster_name      = var.ecs_cluster_name

@@ -23,9 +23,17 @@ class InMemoryHistory(BaseChatMessageHistory):
         self._stores[self.session_id] = []
 
 @pytest.fixture(autouse=True)
-def mock_redis_history(mocker):
+def mock_redis_deps(mocker):
     mocker.patch("app.services.memory.RedisChatMessageHistory", InMemoryHistory)
     InMemoryHistory._stores.clear()
+    # Prevent AsyncRedis connection attempts for exam context caching
+    mocker.patch("app.api.chat.fetch_exam_context", return_value=None)
+    # Return empty history directly — test_exam_context.py stubs
+    # langchain.memory in sys.modules (for isolated runs), which replaces
+    # ConversationBufferWindowMemory with a MagicMock when the full suite
+    # runs; mocking here keeps the integration tests independent of
+    # collection order.
+    mocker.patch("app.api.chat.load_memory_variables", return_value={"history": []})
 
 async def test_chat_roundtrip_and_sse_intent(mocker):
     """DoD 3 & 5: evaluate my essay -> Writing service, latency metric recorded"""
@@ -57,7 +65,7 @@ async def test_chat_roundtrip_and_sse_intent(mocker):
         
         response = await client.post("/chat", json=payload)
         assert response.status_code == 200
-        
+
         # Verify Writing Service was called
         mock_downstream_client.post.assert_called_once()
         url = mock_downstream_client.post.call_args[0][0]

@@ -3,6 +3,7 @@ import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from prometheus_client import make_asgi_app
 import structlog
 
@@ -47,6 +48,21 @@ app = FastAPI(
     description="Python-based Exam Service scaffold for GOA",
     version="1.0.0",
     lifespan=lifespan,
+)
+
+# Local development calls this service directly from the browser on
+# localhost:8085, bypassing the gateway (see docs/local-dev-setup.md's
+# "Gateway vs. Direct Calls" section) - the same pattern already handled for
+# the Speaking service in services/speaking/internal/speaking/cors.go.
+# Without this, the browser's CORS preflight (OPTIONS) for any request
+# carrying the x-internal-api-key header or a JSON body gets a 405 with no
+# Access-Control-* headers, and the browser blocks the real request before
+# it's ever sent - the server itself never sees anything wrong.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_methods=["GET", "POST", "PUT", "OPTIONS"],
+    allow_headers=["Content-Type", "X-Internal-API-Key"],
 )
 
 

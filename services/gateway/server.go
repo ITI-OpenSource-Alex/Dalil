@@ -116,6 +116,9 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	api.Put("/exam/sessions/:sessionId/submit", examHandler.SubmitSession)
 	api.Get("/exam/sessions/:sessionId/result", examHandler.GetSessionResult)
 	api.Patch("/exam/sessions/:sessionId/heartbeat", examHandler.Heartbeat)
+	// GOA-055: Reading-specific submit, needed for per_question_result and
+	// section_breakdown that the generic submit above doesn't return.
+	api.Put("/exam/reading/:sessionId/submit", examHandler.SubmitReadingSession)
 	api.Post("/writing/essays/:essayId/evaluate", streamHandler.WritingEvaluate)
 	api.Get("/notifications", notificationHandler.List)
 	app.Post(

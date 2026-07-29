@@ -20,7 +20,7 @@ output "instance_port" {
 
 output "security_group_id" {
   description = "RDS security group ID."
-  value       = aws_security_group.this.id
+  value       = var.security_group_id
 }
 
 output "master_secret_arn" {

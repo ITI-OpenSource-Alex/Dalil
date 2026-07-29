@@ -57,8 +57,8 @@ resource "aws_ecs_task_definition" "db_bootstrap" {
   memory                   = "512"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
-  execution_role_arn       = module.iam.ecs_task_execution_role_arn
-  task_role_arn            = module.iam.ecs_task_role_arn
+  execution_role_arn       = module.iam.ecs_task_execution_role_arns["db-bootstrap"]
+  task_role_arn            = module.iam.ecs_task_role_arns["db-bootstrap"]
 
   runtime_platform {
     operating_system_family = "LINUX"
@@ -71,13 +71,14 @@ resource "aws_ecs_task_definition" "db_bootstrap" {
     essential = true
 
     environment = [
-      { name = "PGHOST", value = module.rds.instance_address },
+      { name = "PGHOST", value = var.enable_rds_proxy ? module.rds_proxy[0].proxy_endpoint : module.rds.instance_address },
       { name = "PGPORT", value = tostring(module.rds.instance_port) },
       { name = "PGUSER", value = module.secrets.rds_master_username },
       # Connect to the default maintenance database; CREATE DATABASE cannot run
       # from inside the database being created.
       { name = "PGDATABASE", value = "postgres" },
       { name = "BOOTSTRAP_SQL", value = module.rds.database_bootstrap_sql },
+      { name = "EXPECTED_DATABASES", value = join(" ", sort(values(local.postgres_databases))) },
     ]
 
     # ECS pulls the password out of the JSON secret and injects it as PGPASSWORD,
@@ -92,7 +93,7 @@ resource "aws_ecs_task_definition" "db_bootstrap" {
     # POSIX echo is permitted to interpret them, which would corrupt the script.
     command = [
       "sh", "-c",
-      "set -e; printf '%s' \"$BOOTSTRAP_SQL\" | psql --no-psqlrc; echo 'db-bootstrap: databases ensured'; psql --no-psqlrc -Atc 'SELECT datname FROM pg_database WHERE datistemplate = false ORDER BY datname'"
+      "set -e; printf '%s' \"$BOOTSTRAP_SQL\" | psql --no-psqlrc; echo 'db-bootstrap: databases ensured'; for database in $EXPECTED_DATABASES; do test \"$(psql --no-psqlrc --dbname=\"$database\" -Atc 'SELECT current_database()')\" = \"$database\"; echo \"reachable: $database\"; done"
     ]
 
     logConfiguration = {

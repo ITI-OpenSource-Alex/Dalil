@@ -6,7 +6,6 @@ from langchain_anthropic import ChatAnthropic
 from langfuse.langchain import CallbackHandler
 from app.core.config import settings
 
-
 from app.core.metrics import (
     goa_orchestration_intent_classified_total,
     goa_orchestration_classification_latency_ms
@@ -16,7 +15,10 @@ logger = structlog.get_logger("orchestration.supervisor")
 
 
 class IntentResult(BaseModel):
-    intent: Literal["SPEAKING", "WRITING", "RAG", "OPPORTUNITY_SEARCH", "CV_REVIEW"]
+    intent: Literal[
+        "SPEAKING", "WRITING", "RAG",
+        "OPPORTUNITY_SEARCH", "CV_REVIEW", "EXAM_PREP",
+    ]
     confidence: float
     is_fallback: bool = False
     # The user's message rewritten to stand on its own, with pronouns and
@@ -64,6 +66,7 @@ SUPERVISOR_PROMPT = """You are a routing agent. Classify the user message into e
                         RAG       - IELTS info, requirements, visa, scholarships (e.g. "What are the visa requirements?")
                         OPPORTUNITY_SEARCH - searching for study opportunities, scholarships, admissions (e.g. "Find me a scholarship in Germany")
                         CV_REVIEW - CV upload or improvement request (e.g. "Can you review my CV?")
+                        EXAM_PREP - user wants to improve a skill, practice a section, or prepare for IELTS exam (e.g. "improve my reading score", "I want to practice listening", "help me with IELTS preparation")
 
 You are also given the conversation so far. Use it for two things.
 
@@ -87,6 +90,59 @@ master require?" -> "It requires 6.5 overall." Latest: "Is my score high enough
 for it?" -> standalone_question: "Is my IELTS score high enough for the
 University of Potsdam Data Science master, which requires 6.5 overall?"
 """
+
+EXAM_CONTEXT_INJECTION = """
+
+--- USER EXAM PROFILE ---
+The following IELTS exam data is verified from recent exam attempts:
+- Reading Band: {ielts_reading_band}
+- Listening Band: {ielts_listening_band}
+- Writing Band: {ielts_writing_band}
+- Speaking Band: {ielts_speaking_band}
+- Identified Weak Area(s): {weak_areas}
+- Last Exam Date: {last_exam_date}
+
+PROACTIVE CONTEXT INSTRUCTIONS:
+If the user's last exam revealed a specific weak area, you MUST proactively mention it and offer targeted practice tips — even when the user asks a general question. For example, if their weak area is "Speaking: Pronunciation", acknowledge this and suggest relevant practice.
+
+EXAM_PREP RESPONSE RULES:
+When the classified intent is EXAM_PREP, you MUST:
+1. Reference the user's specific weak criterion from the profile above.
+2. Suggest a specific Cambridge IELTS practice test (e.g. "Cambridge IELTS 18, Test 3, Reading Passage 2").
+3. Provide a link to /exam for them to start a practice session.
+4. Generic advice is FORBIDDEN — every response must be grounded in the user's actual exam data.
+--- END EXAM PROFILE ---"""
+
+
+def build_supervisor_prompt(exam_context: dict | None = None) -> str:
+    """
+    Constructs the full system prompt for the Supervisor Agent.
+
+    When a valid exam profile is available (exam_count > 0), the prompt is
+    enriched with the user's real IELTS data and additional behavioural
+    instructions for proactive coaching and EXAM_PREP responses.
+    """
+    base = SUPERVISOR_PROMPT
+
+    if not exam_context or exam_context.get("exam_count", 0) == 0:
+        return base
+
+    latest_bands = exam_context.get("latest_bands") or {}
+    weak_areas_raw = exam_context.get("weak_areas") or {}
+
+    weak_areas_str = ", ".join(
+        f"{skill.title()}: {criterion}" for skill, criterion in weak_areas_raw.items()
+    ) if weak_areas_raw else "None identified"
+
+    enriched = base + EXAM_CONTEXT_INJECTION.format(
+        ielts_reading_band=latest_bands.get("reading", "N/A"),
+        ielts_listening_band=latest_bands.get("listening", "N/A"),
+        ielts_writing_band=latest_bands.get("writing", "N/A"),
+        ielts_speaking_band=latest_bands.get("speaking", "N/A"),
+        weak_areas=weak_areas_str,
+        last_exam_date=exam_context.get("last_exam_date", "N/A"),
+    )
+    return enriched
 
 
 def _history_messages(history: list | None, limit: int = 6) -> list[dict]:
@@ -113,16 +169,18 @@ async def classify_intent(
     parent_span_id: str = None,
     user_id: str = "anonymous",
     history: list | None = None,
+    exam_context: dict | None = None,
 ) -> IntentResult:
     """
-    Classifies the user message intent into one of five categories, and rewrites
-    it to stand alone against the conversation history.
-
-    Traces the execution to Langfuse and records classification latency metrics.
+    Classifies the user message intent into one of six categories, rewrites
+    it to stand alone against the conversation history, and uses exam context
+    for personalised EXAM_PREP guidance.
     """
 
+    system_prompt = build_supervisor_prompt(exam_context)
+
     messages = [
-        {"role": "system", "content": SUPERVISOR_PROMPT},
+        {"role": "system", "content": system_prompt},
         *_history_messages(history),
         {"role": "user", "content": message},
     ]

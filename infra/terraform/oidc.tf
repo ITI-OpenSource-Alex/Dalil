@@ -3,6 +3,34 @@
 # -----------------------------------------------------------------------------
 
 # Fetch the TLS certificate for GitHub's OIDC endpoint (auto-rotating thumbprint)
+locals {
+  github_deploy_ecr_repository_arns = {
+    for environment in ["staging", "production"] :
+    environment => [
+      for service in local.ecr_repository_names :
+      "arn:aws:ecr:${var.aws_region}:${var.aws_account_id}:repository/goa-${environment}-${service}"
+    ]
+  }
+
+  github_deploy_ecs_service_arns = {
+    for environment in ["staging", "production"] :
+    environment => [
+      for service in local.ecs_deployed_service_names :
+      "arn:aws:ecs:${var.aws_region}:${var.aws_account_id}:service/goa-${environment}/goa-${environment}-${service}"
+    ]
+  }
+
+  github_deploy_pass_role_arns = {
+    for environment in ["staging", "production"] :
+    environment => flatten([
+      for service in local.ecs_deployed_service_names : [
+        service == "gateway" ? "arn:aws:iam::${var.aws_account_id}:role/goa-${environment}-ecs-task-execution-role" : "arn:aws:iam::${var.aws_account_id}:role/goa-${environment}-${service}-task-execution",
+        service == "gateway" ? "arn:aws:iam::${var.aws_account_id}:role/goa-${environment}-ecs-task-role" : "arn:aws:iam::${var.aws_account_id}:role/goa-${environment}-${service}-task",
+      ]
+    ])
+  }
+}
+
 data "tls_certificate" "github_actions" {
   count = var.environment == "staging" ? 1 : 0
   url   = "https://token.actions.githubusercontent.com/.well-known/openid-configuration"
@@ -71,6 +99,8 @@ resource "aws_iam_role_policy" "staging_deploy" {
     Version = "2012-10-17"
     Statement = [
       {
+        # GetAuthorizationToken is one of the AWS APIs that does not support
+        # resource-level permissions.
         Sid      = "ECRAuth"
         Effect   = "Allow"
         Action   = ["ecr:GetAuthorizationToken"]
@@ -88,26 +118,26 @@ resource "aws_iam_role_policy" "staging_deploy" {
           "ecr:UploadLayerPart",
           "ecr:CompleteLayerUpload",
         ]
-        Resource = "arn:aws:ecr:${var.aws_region}:${var.aws_account_id}:repository/goa-*"
+        Resource = local.github_deploy_ecr_repository_arns["staging"]
       },
       {
-        Sid    = "ECSDeployServices"
-        Effect = "Allow"
-        Action = [
-          "ecs:UpdateService",
-          "ecs:DescribeServices",
-          "ecs:DescribeTaskDefinition",
-          "ecs:RegisterTaskDefinition",
-          "ecs:ListTasks",
-          "ecs:DescribeTasks",
-        ]
+        Sid      = "UpdateStagingServices"
+        Effect   = "Allow"
+        Action   = ["ecs:UpdateService", "ecs:DescribeServices"]
+        Resource = local.github_deploy_ecs_service_arns["staging"]
+      },
+      {
+        # RegisterTaskDefinition does not support resource-level permissions.
+        Sid      = "RegisterTaskDefinition"
+        Effect   = "Allow"
+        Action   = ["ecs:RegisterTaskDefinition"]
         Resource = "*"
       },
       {
         Sid      = "PassRoleToECS"
         Effect   = "Allow"
         Action   = ["iam:PassRole"]
-        Resource = "*"
+        Resource = local.github_deploy_pass_role_arns["staging"]
         Condition = {
           StringEquals = {
             "iam:PassedToService" = "ecs-tasks.amazonaws.com"
@@ -186,26 +216,26 @@ resource "aws_iam_role_policy" "production_deploy" {
           "ecr:UploadLayerPart",
           "ecr:CompleteLayerUpload",
         ]
-        Resource = "arn:aws:ecr:${var.aws_region}:${var.aws_account_id}:repository/goa-*"
+        Resource = local.github_deploy_ecr_repository_arns["production"]
       },
       {
-        Sid    = "ECSDeployServices"
-        Effect = "Allow"
-        Action = [
-          "ecs:UpdateService",
-          "ecs:DescribeServices",
-          "ecs:DescribeTaskDefinition",
-          "ecs:RegisterTaskDefinition",
-          "ecs:ListTasks",
-          "ecs:DescribeTasks",
-        ]
+        Sid      = "UpdateProductionServices"
+        Effect   = "Allow"
+        Action   = ["ecs:UpdateService", "ecs:DescribeServices"]
+        Resource = local.github_deploy_ecs_service_arns["production"]
+      },
+      {
+        # RegisterTaskDefinition does not support resource-level permissions.
+        Sid      = "RegisterTaskDefinition"
+        Effect   = "Allow"
+        Action   = ["ecs:RegisterTaskDefinition"]
         Resource = "*"
       },
       {
         Sid      = "PassRoleToECS"
         Effect   = "Allow"
         Action   = ["iam:PassRole"]
-        Resource = "*"
+        Resource = local.github_deploy_pass_role_arns["production"]
         Condition = {
           StringEquals = {
             "iam:PassedToService" = "ecs-tasks.amazonaws.com"

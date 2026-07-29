@@ -12,7 +12,7 @@ output "service_secret_value_from_refs" {
     for service, keys in var.service_secret_keys :
     service => {
       for key in keys :
-      key => "${aws_secretsmanager_secret.service[service].arn}:${key}::"
+      key => try("${aws_secretsmanager_secret.service[service].arn}:${key}::", "")
     }
   }
 }

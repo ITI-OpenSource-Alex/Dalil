@@ -98,14 +98,14 @@ output "alb_https_listener_arn" {
   value       = module.alb.https_listener_arn
 }
 
-output "ecs_task_execution_role_arn" {
-  description = "ARN of the ECS task execution role."
-  value       = module.iam.ecs_task_execution_role_arn
+output "ecs_task_execution_role_arns" {
+  description = "Per-service ECS task execution role ARNs."
+  value       = module.iam.ecs_task_execution_role_arns
 }
 
-output "ecs_task_role_arn" {
-  description = "ARN of the ECS task runtime role."
-  value       = module.iam.ecs_task_role_arn
+output "ecs_task_role_arns" {
+  description = "Per-service ECS task runtime role ARNs."
+  value       = module.iam.ecs_task_role_arns
 }
 
 output "ecs_exec_operator_policy_arn" {
@@ -118,14 +118,14 @@ output "ecs_exec_task_policy_arn" {
   value       = module.iam.ecs_exec_task_policy_arn
 }
 
-output "ecs_task_execution_secrets_policy_arn" {
-  description = "ARN of the optional ECS task execution secrets policy, if created."
-  value       = module.iam.ecs_task_execution_secrets_policy_arn
+output "ecs_task_execution_secrets_policy_arns" {
+  description = "Per-service ECS startup secret policy ARNs."
+  value       = module.iam.ecs_task_execution_secrets_policy_arns
 }
 
-output "ecs_task_app_policy_arn" {
-  description = "ARN of the optional ECS task runtime application policy, if created."
-  value       = module.iam.ecs_task_app_policy_arn
+output "ecs_task_app_policy_arns" {
+  description = "Per-service ECS runtime application policy ARNs."
+  value       = module.iam.ecs_task_app_policy_arns
 }
 
 output "session_manager_log_group_name" {
@@ -161,7 +161,7 @@ output "notification_sender_function_name" {
 }
 
 output "ecr_repository_urls" {
-  description = "ECR repository URLs keyed by ECS service."
+  description = "ECR repository URLs keyed by ECS service or Lambda worker."
   value       = module.ecr.repository_urls
 }
 
@@ -172,7 +172,17 @@ output "ecs_cluster_name" {
 
 output "ecs_service_names" {
   description = "ECS service names keyed by service."
-  value       = module.ecs_cluster.service_names
+  value       = { for service, service_module in module.ecs_service : service => service_module.service_name }
+}
+
+output "ecs_task_definition_arns" {
+  description = "Task definition ARNs keyed by ECS service."
+  value       = { for service, service_module in module.ecs_service : service => service_module.task_definition_arn }
+}
+
+output "ecs_autoscaling_resource_ids" {
+  description = "Application Auto Scaling resource IDs keyed by ECS service."
+  value       = { for service, service_module in module.ecs_service : service => service_module.autoscaling_resource_id }
 }
 
 output "cloudfront_distribution_id" {
@@ -183,4 +193,49 @@ output "cloudfront_distribution_id" {
 output "cloudfront_domain_name" {
   description = "CloudFront domain, or null when disabled."
   value       = module.cloudfront.domain_name
+}
+
+output "frontend_assets_bucket_name" {
+  description = "Private S3 bucket that receives the exported Next.js frontend."
+  value       = try(module.frontend_assets[0].bucket_name, null)
+}
+
+output "production_hosted_zone_id" {
+  description = "Production Route 53 hosted zone ID."
+  value       = try(module.production_dns_zone[0].zone_id, null)
+}
+
+output "production_name_servers" {
+  description = "Name servers that must be configured at the goa.app registrar."
+  value       = try(module.production_dns_zone[0].name_servers, [])
+}
+
+output "production_alb_certificate_arn" {
+  description = "Regional ACM certificate used by the production ALB."
+  value       = try(module.production_alb_certificate[0].certificate_arn, null)
+}
+
+output "production_cloudfront_certificate_arn" {
+  description = "us-east-1 ACM certificate used by CloudFront."
+  value       = try(module.production_cloudfront_certificate[0].certificate_arn, null)
+}
+
+output "cloudfront_waf_web_acl_arn" {
+  description = "CloudFront WAF Web ACL ARN."
+  value       = try(module.cloudfront_waf[0].web_acl_arn, null)
+}
+
+output "cloudfront_waf_log_group_name" {
+  description = "CloudWatch log group receiving CloudFront WAF logs."
+  value       = try(module.cloudfront_waf[0].log_group_name, null)
+}
+
+output "alb_waf_web_acl_arn" {
+  description = "Regional WAF Web ACL ARN associated with the production ALB."
+  value       = try(module.alb_waf[0].web_acl_arn, null)
+}
+
+output "alb_waf_log_group_name" {
+  description = "CloudWatch log group receiving ALB WAF logs."
+  value       = try(module.alb_waf[0].log_group_name, null)
 }

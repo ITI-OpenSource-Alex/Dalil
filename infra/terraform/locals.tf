@@ -13,6 +13,24 @@ locals {
     "ingestion",
   ]
 
+  ecs_deployed_service_names = [
+    "gateway",
+    "user",
+    "orchestration",
+    "speaking",
+    "writing",
+    "rag",
+    "exam",
+  ]
+
+  lambda_worker_names = [
+    "cv-processor",
+    "scholarship-matcher",
+    "notification-sender",
+  ]
+
+  ecr_repository_names = concat(local.ecs_deployed_service_names, local.lambda_worker_names)
+
   service_ports = {
     gateway       = 8080
     user          = 8081
@@ -21,34 +39,59 @@ locals {
     writing       = 8000
     rag           = 8084
     exam          = 8085
-    notification  = 8087
-    ingestion     = 8088
+  }
+
+  service_task_sizes = {
+    gateway       = { cpu = 256, memory = 512 }
+    user          = { cpu = 256, memory = 512 }
+    orchestration = { cpu = 512, memory = 1024 }
+    speaking      = { cpu = 512, memory = 1024 }
+    writing       = { cpu = 512, memory = 1024 }
+    rag           = { cpu = 512, memory = 1024 }
+    exam          = { cpu = 256, memory = 512 }
   }
 
   ecs_services = {
-    for service in local.service_names : service => {
-      image          = "${module.ecr.repository_urls[service]}:${var.ecs_image_tag}"
-      container_port = local.service_ports[service]
-      cpu            = 256
-      memory         = 512
-      # notification is a Lambda (GOA-023), not an ECS service. This entry exists only
-      # because service_names also drives postgres_databases, which the Lambda needs.
-      # It must stay at desired_count 0 — there is no container image for it.
-      desired_count                     = service == "notification" ? 0 : lookup(var.ecs_desired_counts, service, 0)
-      attach_to_load_balancer           = service == "gateway"
-      health_check_grace_period_seconds = service == "gateway" ? 60 : 0
-      environment = service == "gateway" ? {
-        PORT                = "8080"
-        REDIS_URL           = "redis://${module.elasticache.primary_endpoint_address}:${module.elasticache.port}/0"
-        WRITING_SERVICE_URL = "http://${local.name_prefix}-writing:8000"
-        EXAM_SERVICE_URL    = "http://${local.name_prefix}-exam:8085"
-        USER_SERVICE_URL    = "http://${local.name_prefix}-user:8081"
-        INTERNAL_API_KEY    = "terraform-managed-internal"
-        SECURE_COOKIES      = "true"
-      } : {}
-      secrets = service == "gateway" ? {
-        JWT_SECRET = "${module.secrets.service_secret_arns["gateway"]}:JWT_SECRET::"
-      } : {}
+    for service in local.ecs_deployed_service_names : service => {
+      image                             = "${module.ecr.repository_urls[service]}:${var.ecs_image_tag}"
+      container_port                    = local.service_ports[service]
+      cpu                               = local.service_task_sizes[service].cpu
+      memory                            = local.service_task_sizes[service].memory
+      desired_count                     = lookup(var.ecs_desired_counts, service, 1)
+      health_check_grace_period_seconds = 120
+      environment = merge({
+        ENVIRONMENT = var.environment
+        PORT        = tostring(local.service_ports[service])
+        AWS_REGION  = var.aws_region
+        }, service == "gateway" ? {
+        PORT                      = "8080"
+        REDIS_URL                 = "redis://${module.elasticache.primary_endpoint_address}:${module.elasticache.port}/0"
+        WRITING_SERVICE_URL       = "http://${local.name_prefix}-writing:8000"
+        EXAM_SERVICE_URL          = "http://${local.name_prefix}-exam:8085"
+        USER_SERVICE_URL          = "http://${local.name_prefix}-user:8081"
+        ORCHESTRATION_SERVICE_URL = "http://${local.name_prefix}-orchestration:8083"
+        SECURE_COOKIES            = "true"
+        } : service == "user" ? {
+        REDIS_HOST    = module.elasticache.primary_endpoint_address
+        REDIS_PORT    = tostring(module.elasticache.port)
+        SQS_QUEUE_URL = module.sqs.queue_urls["user_events"]
+        } : service == "orchestration" ? {
+        REDIS_URL            = "redis://${module.elasticache.primary_endpoint_address}:${module.elasticache.port}/1"
+        RAG_SERVICE_URL      = "http://${local.name_prefix}-rag:8084"
+        SPEAKING_SERVICE_URL = "http://${local.name_prefix}-speaking:8082"
+        WRITING_SERVICE_URL  = "http://${local.name_prefix}-writing:8000"
+        } : service == "writing" ? {
+        S3_BUCKET              = module.writing_files_bucket.bucket_name
+        CV_PROCESSED_QUEUE_URL = aws_sqs_queue.cv_processed.url
+        } : service == "rag" ? {
+        REDIS_URL      = "redis://${module.elasticache.primary_endpoint_address}:${module.elasticache.port}/1"
+        SQS_QUEUE_NAME = module.sqs.queue_names["user_events"]
+        } : service == "exam" ? {
+        SPEAKING_SERVICE_URL = "http://${local.name_prefix}-speaking:8082"
+        WRITING_SERVICE_URL  = "http://${local.name_prefix}-writing:8000"
+        S3_BUCKET            = module.exam_audio_bucket.bucket_name
+      } : {})
+      secrets = module.secrets.service_secret_value_from_refs[service]
     }
   }
 
@@ -70,19 +113,19 @@ locals {
 
   sqs_queues = {
     user_events = {
-      name                       = "user-events"
+      name                       = "${local.name_prefix}-user-events"
       visibility_timeout_seconds = 30
       max_receive_count          = 3
     }
 
     notification = {
-      name                       = "notification-queue"
+      name                       = "${local.name_prefix}-notification-queue"
       visibility_timeout_seconds = 30
       max_receive_count          = 3
     }
 
     ingestion = {
-      name                       = "ingestion-queue"
+      name                       = "${local.name_prefix}-ingestion-queue"
       visibility_timeout_seconds = 30
       max_receive_count          = 3
     }
@@ -91,6 +134,7 @@ locals {
   service_secret_keys = {
     gateway = [
       "JWT_SECRET",
+      "INTERNAL_API_KEY",
     ]
 
     user = [
@@ -159,13 +203,17 @@ locals {
   redis_node_type    = lookup(local.redis_node_types, var.environment, "cache.t3.micro")
   rds_multi_az       = var.environment == "production"
 
-  ecs_service_names = {
-    for service in local.service_names :
+  ecs_service_resource_names = {
+    for service in local.ecs_deployed_service_names :
     service => lookup(var.goa069_ecs_service_names, service, "${local.name_prefix}-${service}")
   }
 
   service_sqs_queue_keys = {
     user = [
+      "user_events",
+    ]
+
+    rag = [
       "user_events",
     ]
 
@@ -191,18 +239,54 @@ locals {
     service => try([module.secrets.service_secret_arns[service]], [])
   }
 
+  service_s3_read_object_arns = {
+    gateway       = []
+    user          = []
+    orchestration = []
+    speaking      = []
+    writing       = ["${module.writing_files_bucket.bucket_arn}/*"]
+    rag           = []
+    exam          = ["${module.exam_audio_bucket.bucket_arn}/exam-audio/*"]
+    notification  = []
+    ingestion = [
+      "${module.ingestion_reports_bucket.bucket_arn}/*",
+      "${module.eval_reports_bucket.bucket_arn}/*",
+    ]
+  }
+
+  ecs_iam_permissions = merge(
+    {
+      for service in local.service_names : service => {
+        execution_secret_arns = toset(local.service_secret_arns[service])
+        task_secret_arns      = toset(local.service_secret_arns[service])
+        sqs_queue_arns        = toset(local.service_sqs_queue_arns[service])
+        s3_read_object_arns   = toset(local.service_s3_read_object_arns[service])
+        kms_key_arns          = toset(var.task_kms_key_arns)
+      }
+    },
+    {
+      db-bootstrap = {
+        execution_secret_arns = toset([module.secrets.rds_master_secret_arn])
+        task_secret_arns      = toset([])
+        sqs_queue_arns        = toset([])
+        s3_read_object_arns   = toset([])
+        kms_key_arns          = toset(var.task_kms_key_arns)
+      }
+    }
+  )
+
   goa027_alarm_definitions = merge(
     {
       speaking_p95_latency = {
         alarm_name          = "${local.name_prefix}-speaking-p95-latency"
         description         = "Speaking service P95 latency is above the GOA-027 threshold."
         namespace           = "GOA/Services"
-        metric_name         = "LatencyMs"
+        metric_name         = "goa_speaking_e2e_latency_ms"
         dimensions          = { Service = "speaking" }
         comparison_operator = "GreaterThanThreshold"
         threshold           = var.speaking_p95_latency_threshold_ms
-        evaluation_periods  = 2
-        datapoints_to_alarm = 2
+        evaluation_periods  = 5
+        datapoints_to_alarm = 5
         period              = 60
         extended_statistic  = "p95"
         treat_missing_data  = "notBreaching"
@@ -233,8 +317,8 @@ locals {
         dimensions          = { Service = service }
         comparison_operator = "GreaterThanThreshold"
         threshold           = var.service_error_rate_threshold
-        evaluation_periods  = 2
-        datapoints_to_alarm = 2
+        evaluation_periods  = 5
+        datapoints_to_alarm = 5
         period              = 60
         statistic           = "Average"
         treat_missing_data  = "notBreaching"
@@ -258,15 +342,15 @@ locals {
       }
     },
     {
-      for service in local.service_names :
+      for service in local.ecs_deployed_service_names :
       "ecs_running_task_count_${service}" => {
         alarm_name          = "${local.name_prefix}-${service}-ecs-running-tasks"
         description         = "${service} ECS service running task count is below the GOA-027 threshold."
         namespace           = "ECS/ContainerInsights"
         metric_name         = "RunningTaskCount"
-        dimensions          = { ClusterName = local.name_prefix, ServiceName = local.ecs_service_names[service] }
+        dimensions          = { ClusterName = local.name_prefix, ServiceName = local.ecs_service_resource_names[service] }
         comparison_operator = "LessThanThreshold"
-        threshold           = var.ecs_running_task_minimum
+        threshold           = lookup(var.ecs_desired_counts, service, 0)
         evaluation_periods  = 2
         datapoints_to_alarm = 2
         period              = 60

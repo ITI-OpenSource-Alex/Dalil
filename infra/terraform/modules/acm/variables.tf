@@ -4,8 +4,32 @@ variable "name_prefix" {
 }
 
 variable "domain_name" {
-  description = "Common name used by the non-production self-signed certificate."
+  description = "Primary certificate domain name."
   type        = string
+}
+
+variable "certificate_type" {
+  description = "Whether to import a generated self-signed certificate or request a public DNS-validated certificate."
+  type        = string
+  default     = "self_signed"
+
+  validation {
+    condition     = contains(["self_signed", "public_dns"], var.certificate_type)
+    error_message = "certificate_type must be self_signed or public_dns."
+  }
+}
+
+variable "subject_alternative_names" {
+  description = "Additional names included in a public certificate."
+  type        = list(string)
+  default     = []
+}
+
+variable "route53_zone_id" {
+  description = "Route 53 hosted zone used for public certificate DNS validation."
+  type        = string
+  default     = null
+  nullable    = true
 }
 
 variable "tags" {

@@ -19,6 +19,9 @@ locals {
   SQL
 }
 
+# Retained during the GOA-070 migration so Terraform never attempts to detach
+# an RDS-managed ENI. It has no ingress rules and is no longer used after the
+# DB instance switches to the shared security-groups module.
 resource "aws_security_group" "this" {
   name        = "${local.identifier}-sg"
   description = "PostgreSQL access for GOA services."
@@ -26,24 +29,6 @@ resource "aws_security_group" "this" {
 
   tags = merge(var.tags, {
     Name = "${local.identifier}-sg"
-  })
-}
-
-resource "aws_vpc_security_group_ingress_rule" "postgres_from_service" {
-  for_each = {
-    for index, security_group_id in var.allowed_security_group_ids :
-    index => security_group_id
-  }
-
-  security_group_id            = aws_security_group.this.id
-  referenced_security_group_id = each.value
-  ip_protocol                  = "tcp"
-  from_port                    = 5432
-  to_port                      = 5432
-  description                  = "Allow PostgreSQL from approved GOA workload security group."
-
-  tags = merge(var.tags, {
-    Name = "${local.identifier}-postgres-from-service"
   })
 }
 
@@ -91,7 +76,7 @@ resource "aws_db_instance" "this" {
   port     = 5432
 
   db_subnet_group_name   = aws_db_subnet_group.this.name
-  vpc_security_group_ids = [aws_security_group.this.id]
+  vpc_security_group_ids = [var.security_group_id]
   parameter_group_name   = aws_db_parameter_group.this.name
   publicly_accessible    = false
   multi_az               = var.multi_az

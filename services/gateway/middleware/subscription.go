@@ -195,6 +195,9 @@ func (m *SubscriptionMiddleware) fetchTier(
 	if requestID, _ := fiberCtx.Locals(ContextKeyRequestID).(string); requestID != "" {
 		req.Header.Set(HeaderCorrelationID, requestID)
 	}
+	if chain := ForwardedForChain(fiberCtx); chain != "" {
+		req.Header.Set(HeaderForwardedFor, chain)
+	}
 
 	resp, err := m.httpClient.Do(req)
 	if err != nil {

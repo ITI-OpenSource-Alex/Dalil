@@ -12,6 +12,7 @@ import (
 func RequestLogger(logger zerolog.Logger, metrics *observability.Metrics) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		start := time.Now()
+		forwardedFor := ForwardedForChain(c)
 		err := c.Next()
 		if err != nil {
 			if fiberError, ok := err.(*fiber.Error); ok {
@@ -60,6 +61,7 @@ func RequestLogger(logger zerolog.Logger, metrics *observability.Metrics) fiber.
 			Int("status", status).
 			Int64("latency_ms", latency.Milliseconds()).
 			Str("upstream_service", upstreamService).
+			Str("x_forwarded_for", forwardedFor).
 			Msg("request handled")
 
 		return err

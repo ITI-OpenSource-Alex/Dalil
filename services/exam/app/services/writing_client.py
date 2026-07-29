@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Literal
 from uuid import UUID
 
@@ -96,12 +97,33 @@ class WritingClient:
     def __init__(
         self,
         base_url: str,
-        timeout_s: float = 30.0,
-        max_retries: int = 1,
+        timeout_s: float | None = None,
+        max_retries: int | None = None,
     ):
         self.base_url = base_url.rstrip("/")
-        self.timeout_s = timeout_s
-        self.max_retries = max_retries
+        # A single exam task runs four criterion agents against the LLM. Measured
+        # against AgentRouter that takes ~50s end to end, so the previous 30s
+        # default timed out every real evaluation and the call failed as
+        # "Failed to reach Writing service after 2 attempt(s)" — an upstream
+        # timeout wearing a connectivity error's costume.
+        # Measured worst case against AgentRouter with claude-opus-4-8: ~200s for
+        # one task (four criterion agents, extended thinking, one re-ask when an
+        # agent answers unparseably). 300s leaves headroom without letting a
+        # genuinely wedged call hang forever.
+        self.timeout_s = (
+            timeout_s
+            if timeout_s is not None
+            else float(os.getenv("WRITING_CLIENT_TIMEOUT_SECONDS", "300"))
+        )
+        # Retries are off by default. Retrying a timed-out evaluation does not
+        # help: the first attempt is usually still running upstream, so a retry
+        # doubles LLM cost and load while the caller waits twice as long for the
+        # same outcome. Genuine connection errors fail fast and are surfaced.
+        self.max_retries = (
+            max_retries
+            if max_retries is not None
+            else int(os.getenv("WRITING_CLIENT_MAX_RETRIES", "0"))
+        )
 
     async def evaluate_exam_essay(
         self,

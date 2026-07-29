@@ -2,4 +2,8 @@ httpx
 pydantic
 anthropic
 boto3
+jinja2
 pytest
+pytest-asyncio
+pytest-mock
+websockets

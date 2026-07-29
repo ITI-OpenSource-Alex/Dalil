@@ -57,8 +57,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: |
-          pip install httpx pydantic anthropic boto3 pytest
+        run: pip install -r evals/requirements.txt
 
       - name: Run Tests
         run: |

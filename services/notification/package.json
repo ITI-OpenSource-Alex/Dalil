@@ -6,6 +6,7 @@
   "scripts": {
     "build": "tsc && cp -r templates dist/",
     "test": "jest",
+    "test:cov": "jest --coverage",
     "dev": "tsc && node dist/services/notification/src/local-server.js"
   },
   "dependencies": {

@@ -13,6 +13,7 @@ bin/
 # Test coverage artifacts
 .coverage
 coverage.xml
+coverage/
 
 # Env files (never commit secrets)
 .env

@@ -4,8 +4,10 @@ import * as request from 'supertest';
 import { AppModule } from './../src/app.module';
 import {
   SQSClient,
+  CreateQueueCommand,
   ReceiveMessageCommand,
   DeleteMessageCommand,
+  DeleteQueueCommand,
   GetQueueAttributesCommand,
 } from '@aws-sdk/client-sqs';
 
@@ -57,10 +59,40 @@ async function pollForMessage(
 describe('User Flow Integration (e2e)', () => {
   let app: INestApplication | undefined;
   let createdUserId: string;
+  let sqsClient: SQSClient;
+  let queueUrl: string;
+  let localstackReachable = false;
+  let isolatedQueueCreated = false;
   const internalApiKey =
     process.env.INTERNAL_API_KEY || 'supersecret_internal_key_123';
 
   beforeAll(async () => {
+    const endpoint = process.env.AWS_ENDPOINT || 'http://localhost:4566';
+    const queueName = `user-events-e2e-${process.pid}-${Date.now()}`;
+    queueUrl = `${endpoint}/000000000000/${queueName}`;
+    sqsClient = new SQSClient({
+      region: process.env.AWS_REGION || 'us-east-1',
+      endpoint,
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID || 'test',
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || 'test',
+      },
+    });
+
+    // The running RAG service consumes the shared user-events queue. An E2E
+    // assertion against that queue races the real consumer and fails whenever
+    // RAG receives the event first. Give this application instance a private
+    // queue so the test observes its own publish deterministically.
+    try {
+      await sqsClient.send(new CreateQueueCommand({ QueueName: queueName }));
+      process.env.SQS_QUEUE_URL = queueUrl;
+      localstackReachable = true;
+      isolatedQueueCreated = true;
+    } catch {
+      queueUrl =
+        process.env.SQS_QUEUE_URL || `${endpoint}/000000000000/user-events`;
+    }
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -93,6 +125,10 @@ describe('User Flow Integration (e2e)', () => {
     // This does NOT change production fire-and-forget semantics in any way.
     await new Promise<void>((resolve) => setTimeout(resolve, 1000));
     await app?.close();
+    if (isolatedQueueCreated) {
+      await sqsClient.send(new DeleteQueueCommand({ QueueUrl: queueUrl }));
+    }
+    sqsClient?.destroy();
   });
 
   // 1. Happy Path: Registration
@@ -223,45 +259,29 @@ describe('User Flow Integration (e2e)', () => {
   // ---------------------------------------------------------------------------
 
   describe('GOA-016: Profile Update → SQS Event (Integration)', () => {
-    /**
-     * SQS client configured identically to the application's SqsModule so we
-     * can independently verify messages from outside the Nest process.
-     */
-    let sqsClient: SQSClient;
-    let queueUrl: string;
-    let localstackReachable: boolean;
-
     beforeAll(async () => {
-      const endpoint = process.env.AWS_ENDPOINT || 'http://localhost:4566';
-      queueUrl =
-        process.env.SQS_QUEUE_URL || `${endpoint}/000000000000/user-events`;
-
-      sqsClient = new SQSClient({
-        region: process.env.AWS_REGION || 'us-east-1',
-        endpoint,
-        credentials: {
-          accessKeyId: process.env.AWS_ACCESS_KEY_ID || 'test',
-          secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || 'test',
-        },
-      });
-
-      // Probe LocalStack: if it's unreachable we skip the SQS-dependent tests
-      // rather than fail CI that runs without Docker.
-      try {
+      if (!localstackReachable) {
+        // Probe the configured shared queue only to decide whether the HTTP-only
+        // fallback is needed when Docker is unavailable.
+        try {
+          await sqsClient.send(
+            new GetQueueAttributesCommand({
+              QueueUrl: queueUrl,
+              AttributeNames: ['ApproximateNumberOfMessages'],
+            }),
+          );
+          localstackReachable = true;
+        } catch {
+          localstackReachable = false;
+        }
+      } else {
         await sqsClient.send(
           new GetQueueAttributesCommand({
             QueueUrl: queueUrl,
             AttributeNames: ['ApproximateNumberOfMessages'],
           }),
         );
-        localstackReachable = true;
-      } catch {
-        localstackReachable = false;
       }
-    });
-
-    afterAll(() => {
-      sqsClient?.destroy();
     });
 
     afterEach(async () => {
@@ -291,7 +311,7 @@ describe('User Flow Integration (e2e)', () => {
         return;
       }
 
-      // ── Step 1: trigger the profile update ─────────────────────────────
+      // ── Step 1: trigger the profile update ───────────────────────────
       const profileResponse = await request(app.getHttpServer())
         .put(`/users/${createdUserId}/profile`)
         .set('x-internal-api-key', internalApiKey)
@@ -303,7 +323,7 @@ describe('User Flow Integration (e2e)', () => {
         degreeLevel: 'PhD',
       });
 
-      // ── Step 2: poll SQS until the matching event appears ──────────────
+      // ── Step 2: poll SQS until the matching event appears ────────────
       const received = await pollForMessage(
         sqsClient,
         queueUrl,
@@ -315,7 +335,7 @@ describe('User Flow Integration (e2e)', () => {
 
       expect(received).not.toBeNull();
 
-      // ── Step 3: assert the full event envelope ─────────────────────────
+      // ── Step 3: assert the full event envelope ───────────────────────
       const { body: event, receiptHandle } = received;
 
       expect(event).toMatchObject({
@@ -338,14 +358,14 @@ describe('User Flow Integration (e2e)', () => {
         /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
       );
 
-      // ── Step 4: delete the message to clean up the queue ──────────────
+      // ── Step 4: delete the message to clean up the queue ─────────────
       await sqsClient.send(
         new DeleteMessageCommand({
           QueueUrl: queueUrl,
           ReceiptHandle: receiptHandle,
         }),
       );
-    });
+    }, 20_000);
 
     it('/users/:id/profile (PUT) - GOA-016: should return HTTP 200 even when SQS is unreachable (fire-and-forget)', async () => {
       // This test is meaningful regardless of LocalStack availability.

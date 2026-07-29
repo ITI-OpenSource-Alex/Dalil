@@ -1,6 +1,4 @@
 import time
-import json
-import asyncio
 import structlog
 from typing import List
 from fastapi import APIRouter, Request, HTTPException
@@ -13,6 +11,7 @@ from app.services.exam_context import fetch_exam_context
 
 logger = structlog.get_logger("orchestration.api.chat")
 router = APIRouter()
+PAID_ONLY_INTENTS = frozenset({"SPEAKING", "WRITING", "CV_REVIEW"})
 
 @router.post("/chat")
 async def chat_endpoint(request: ChatRequest, req: Request):
@@ -23,6 +22,14 @@ async def chat_endpoint(request: ChatRequest, req: Request):
     """
     start_time = time.perf_counter()
     correlation_id = req.state.correlation_id
+    raw_subscription_tier = req.headers.get("X-Subscription-Tier", "free").strip().lower()
+    subscription_tier = raw_subscription_tier if raw_subscription_tier in {"free", "paid"} else "free"
+    if subscription_tier != raw_subscription_tier:
+        logger.warning(
+            "Invalid subscription tier header; defaulting to free",
+            received_tier=raw_subscription_tier,
+            correlation_id=correlation_id,
+        )
     
     # 1. Initialize Langfuse root trace
     trace = None
@@ -38,6 +45,7 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                     "correlation_id": correlation_id,
                     "user_id": request.userId,
                     "session_id": request.sessionId,
+                    "subscription_tier": subscription_tier,
                 },
             )
             supervisor_span = trace.start_observation(
@@ -117,6 +125,24 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                     supervisor_span.end()
                 except Exception as e:
                     logger.warning("Failed to end Langfuse supervisor span", error=str(e))
+
+            logger.info(
+                "Subscription tier evaluated",
+                subscription_tier=subscription_tier,
+                intent=intent,
+                user_id=request.userId,
+                correlation_id=correlation_id,
+            )
+            if subscription_tier != "paid" and intent in PAID_ONLY_INTENTS:
+                status = "subscription_required"
+                yield ServerSentEvent(
+                    event="error",
+                    data=ChatStreamEvent(
+                        type="error",
+                        error="subscription_required",
+                    ).model_dump_json(),
+                )
+                return
                     
             # 4. Stream intent classification metadata as the first SSE chunk
             yield ServerSentEvent(

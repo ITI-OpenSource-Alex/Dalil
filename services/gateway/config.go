@@ -30,6 +30,7 @@ type Config struct {
 	OrchestrationServiceURL string        `envconfig:"ORCHESTRATION_SERVICE_URL" default:"http://orchestration:8083"`
 	UserServiceURL          string        `envconfig:"USER_SERVICE_URL" required:"true"`
 	InternalApiKey          string        `envconfig:"INTERNAL_API_KEY" required:"true"`
+	AdminAPIKey             string        `envconfig:"ADMIN_API_KEY"`
 	SubscriptionUpgradeURL  string        `envconfig:"SUBSCRIPTION_UPGRADE_URL" default:"/upgrade"`
 	SubscriptionCacheTTL    time.Duration `envconfig:"SUBSCRIPTION_CACHE_TTL" default:"5m"`
 	// Comma-separated origin allow-list for CORS. Cannot be "*" because auth

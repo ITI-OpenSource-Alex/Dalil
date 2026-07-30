@@ -8,6 +8,7 @@ services:
     environment:
       - USER_SERVICE_URL=http://user-service:8081
       - INTERNAL_API_KEY=supersecret_internal_key_123
+      - ADMIN_API_KEY=${ADMIN_API_KEY:-local_admin_key_123}
       - REDIS_URL=redis://redis-gateway:6379/0
       - JWT_SECRET=supersecret_dev_key
       - WRITING_SERVICE_URL=http://writing:8000

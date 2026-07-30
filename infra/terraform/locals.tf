@@ -135,6 +135,7 @@ locals {
     gateway = [
       "JWT_SECRET",
       "INTERNAL_API_KEY",
+      "ADMIN_API_KEY",
     ]
 
     user = [

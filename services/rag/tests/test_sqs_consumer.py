@@ -2,6 +2,7 @@ import pytest
 import asyncio
 from unittest.mock import AsyncMock, patch, MagicMock
 import json
+from botocore.exceptions import NoCredentialsError
 from app.services.sqs_consumer import consume_sqs_messages
 
 
@@ -119,3 +120,21 @@ async def test_sqs_consumer_upsert_failure_nacks(monkeypatch):
 
     mock_upsert.assert_called_once()
     mock_sqs_client.delete_message.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_sqs_consumer_stops_cleanly_without_aws_credentials():
+    mock_sqs_client = AsyncMock()
+    mock_sqs_client.get_queue_url.side_effect = NoCredentialsError()
+
+    with patch("app.services.sqs_consumer.get_session") as mock_get_session:
+        mock_session = MagicMock()
+        mock_client_ctx = MagicMock()
+        mock_client_ctx.__aenter__ = AsyncMock(return_value=mock_sqs_client)
+        mock_client_ctx.__aexit__ = AsyncMock()
+        mock_session.create_client.return_value = mock_client_ctx
+        mock_get_session.return_value = mock_session
+
+        await consume_sqs_messages()
+
+    mock_sqs_client.receive_message.assert_not_called()

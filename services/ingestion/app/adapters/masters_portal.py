@@ -30,7 +30,8 @@ from bs4 import BeautifulSoup
 
 from app.adapters.base_playwright_adapter import BasePlaywrightAdapter
 from app.core.content_hash import compute_content_hash
-from app.core.crawl_state import crawl_state
+from app.core.batch import BatchBudget
+from app.core.crawl_state import CrawlStateManager, crawl_state
 from app.core.rate_limiter import polite_delay
 from app.core.robots import robot_checker
 from app.core.url_normalizer import normalize_url
@@ -155,7 +156,11 @@ def _card_field(card: dict, *path, default=None):
 
 
 class MastersPortalAdapter(BasePlaywrightAdapter):
-    def __init__(self):
+    def __init__(
+        self,
+        crawl_state_manager: CrawlStateManager | None = None,
+        budget: BatchBudget | None = None,
+    ):
         super().__init__(
             base_url="https://www.mastersportal.com",
             target_url="https://www.mastersportal.com/search/master/engineering-and-technology/europe",
@@ -164,6 +169,14 @@ class MastersPortalAdapter(BasePlaywrightAdapter):
             country="Europe",
             wait_selector="body",
         )
+        self._crawl_state_manager = crawl_state_manager
+        self.budget = budget
+
+    @property
+    def crawl_state(self) -> CrawlStateManager:
+        # Resolve the legacy singleton lazily so existing direct-adapter tests can
+        # replace it, while the canonical runner injects an invocation-scoped manager.
+        return self._crawl_state_manager or crawl_state
 
     # ------------------------------------------------------------------ discovery
 
@@ -414,7 +427,13 @@ class MastersPortalAdapter(BasePlaywrightAdapter):
 
         for discipline, discipline_id in DISCIPLINE_IDS.items():
             counts = {"discovered": 0, "skipped": 0, "extracted": 0, "failed": 0, "remaining": 0}
-            cursor = crawl_state.get_cursor(self.source_name, discipline)
+            if self.budget and self.budget.exhausted:
+                counts["remaining"] = self.crawl_state.count_remaining(
+                    self.source_name, tier=1, discipline=discipline
+                ) or 1
+                telemetry[discipline] = counts
+                continue
+            cursor = self.crawl_state.get_cursor(self.source_name, discipline)
             if cursor["exhausted"]:
                 telemetry[discipline] = counts
                 continue
@@ -424,20 +443,35 @@ class MastersPortalAdapter(BasePlaywrightAdapter):
             produced = 0
 
             while produced < per_run_cap_per_discipline:
+                if self.budget and self.budget.exhausted:
+                    break
                 await polite_delay(self.min_delay, self.max_delay)
                 try:
                     cards, hits_total = await self.discover_page(discipline_id, offset)
                 except Exception as e:
                     logger.error("tier1_discovery_failed", discipline=discipline,
                                  offset=offset, error=str(e))
+                    counts["failed"] += 1
+                    self.crawl_state.mark_cursor_failure(
+                        self.source_name, discipline, str(e)
+                    )
                     break
                 if not cards:
-                    crawl_state.update_cursor(self.source_name, discipline,
-                                              offset // PAGE_SIZE + 1,
-                                              scroll_offset=offset, exhausted=True)
+                    self.crawl_state.update_cursor(
+                        self.source_name,
+                        discipline,
+                        offset // PAGE_SIZE + 1,
+                        scroll_offset=offset,
+                        exhausted=True,
+                        total_items=hits_total,
+                    )
                     break
 
+                page_produced = 0
+                page_failed = False
                 for card in cards:
+                    if self.budget and self.budget.exhausted:
+                        break
                     url = self.card_to_url(card)
                     if not url:
                         continue
@@ -445,32 +479,64 @@ class MastersPortalAdapter(BasePlaywrightAdapter):
                         counts["skipped"] += 1
                         continue
                     counts["discovered"] += 1
-                    if crawl_state.is_url_scraped(url):
+                    if self.crawl_state.is_url_scraped(url):
                         counts["skipped"] += 1
                         continue
+                    if self.budget and not self.budget.consume():
+                        break
                     doc = self._card_to_document(card, url, discipline)
                     if doc is None:
                         counts["failed"] += 1
-                        crawl_state.mark_url_status(self.source_name, discipline, url,
-                                                    "failed", "card_missing_identity")
+                        page_failed = True
+                        self.crawl_state.mark_url_status(
+                            self.source_name,
+                            discipline,
+                            url,
+                            "failed",
+                            "card_missing_identity",
+                        )
                         continue
                     documents.append(doc)
                     produced += 1
+                    page_produced += 1
                     counts["extracted"] += 1
-                    crawl_state.mark_url_status(self.source_name, discipline, url, "extracted")
+                    self.crawl_state.mark_url_status(
+                        self.source_name, discipline, url, "extracted"
+                    )
                     if produced >= per_run_cap_per_discipline:
                         break
 
-                offset += PAGE_SIZE
+                # Do not advance past work that has only been extracted. The handler
+                # promotes those URLs to scraped after the RAG HTTP write succeeds.
+                # A killed task therefore revisits this page, skips acknowledged rows,
+                # and retries the unacknowledged ones instead of losing them.
+                if page_produced or page_failed:
+                    self.crawl_state.update_cursor(
+                        self.source_name,
+                        discipline,
+                        offset // PAGE_SIZE + 1,
+                        scroll_offset=offset,
+                        exhausted=False,
+                        total_items=hits_total,
+                    )
+                    break
+
+                offset += len(cards)
                 exhausted = hits_total is not None and offset >= hits_total
-                crawl_state.update_cursor(self.source_name, discipline,
-                                          offset // PAGE_SIZE + 1,
-                                          scroll_offset=offset, exhausted=exhausted)
+                self.crawl_state.update_cursor(
+                    self.source_name,
+                    discipline,
+                    offset // PAGE_SIZE + 1,
+                    scroll_offset=offset,
+                    exhausted=exhausted,
+                    total_items=hits_total,
+                )
                 if exhausted:
                     break
 
-            if hits_total is not None:
-                counts["remaining"] = max(0, hits_total - offset)
+            counts["remaining"] = self.crawl_state.count_remaining(
+                self.source_name, tier=1, discipline=discipline
+            )
             telemetry[discipline] = counts
             logger.info("masters_portal_tier1_batch", discipline=discipline, **counts)
 
@@ -497,28 +563,50 @@ class MastersPortalAdapter(BasePlaywrightAdapter):
 
         for discipline, discipline_id in DISCIPLINE_IDS.items():
             counts = {"discovered": 0, "skipped": 0, "extracted": 0, "failed": 0, "remaining": 0}
-            cursor = crawl_state.get_cursor(self.source_name, discipline)
+            if self.budget and self.budget.exhausted:
+                counts["remaining"] = self.crawl_state.count_remaining(
+                    self.source_name, tier=2, discipline=discipline
+                ) or 1
+                telemetry[discipline] = counts
+                continue
+            cursor = self.crawl_state.get_cursor(self.source_name, discipline)
             if cursor["exhausted"]:
                 telemetry[discipline] = counts
                 continue
 
             offset = cursor["scroll_offset"]
             hits_total = None
-            to_fetch: list[tuple[str, dict]] = []
+            produced = 0
 
-            while len(to_fetch) < per_run_cap_per_discipline:
+            while produced < per_run_cap_per_discipline:
+                if self.budget and self.budget.exhausted:
+                    break
                 await polite_delay(self.min_delay, self.max_delay)
                 try:
                     cards, hits_total = await self.discover_page(discipline_id, offset)
                 except Exception as e:
                     logger.error("discovery_page_failed", discipline=discipline, offset=offset, error=str(e))
+                    counts["failed"] += 1
+                    self.crawl_state.mark_cursor_failure(
+                        self.source_name, discipline, str(e)
+                    )
                     break
                 if not cards:
-                    crawl_state.update_cursor(self.source_name, discipline, offset // PAGE_SIZE + 1,
-                                              scroll_offset=offset, exhausted=True)
+                    self.crawl_state.update_cursor(
+                        self.source_name,
+                        discipline,
+                        offset // PAGE_SIZE + 1,
+                        scroll_offset=offset,
+                        exhausted=True,
+                        total_items=hits_total,
+                    )
                     break
 
+                page_produced = 0
+                page_failed = False
                 for card in cards:
+                    if self.budget and self.budget.exhausted:
+                        break
                     p_url = self.card_to_url(card)
                     if not p_url:
                         continue
@@ -529,50 +617,84 @@ class MastersPortalAdapter(BasePlaywrightAdapter):
                     # Tier 2 checks the PAGE axis: Tier 1 already marked these URLs
                     # scraped for the structured row, so reusing that flag here would
                     # skip every program and the document corpus would never grow.
-                    if crawl_state.is_page_fetched(p_url):
+                    if self.crawl_state.is_page_fetched(p_url):
                         counts["skipped"] += 1
                         continue
-                    to_fetch.append((p_url, card))
-                    if len(to_fetch) >= per_run_cap_per_discipline:
+                    if self.budget and not self.budget.consume():
                         break
+                    if not robot_checker.is_allowed(p_url):
+                        counts["skipped"] += 1
+                        continue
+                    await polite_delay(self.min_delay, self.max_delay)
+                    try:
+                        programme_html = await self.fetch_page(p_url)
+                        extracted = self.extract_documents(
+                            programme_html, p_url, card=card, discipline=discipline
+                        )
+                        has_record = any(
+                            d.get("program_requirements") for d in extracted
+                        )
+                        if has_record:
+                            documents.extend(extracted)
+                            produced += 1
+                            page_produced += 1
+                            counts["extracted"] += 1
+                            self.crawl_state.mark_url_status(
+                                self.source_name, discipline, p_url, "extracted"
+                            )
+                            self.crawl_state.mark_page_status(p_url, "extracted")
+                        else:
+                            counts["failed"] += 1
+                            page_failed = True
+                            self.crawl_state.mark_url_status(
+                                self.source_name,
+                                discipline,
+                                p_url,
+                                "failed",
+                                "no_record_extracted",
+                            )
+                    except Exception as e:
+                        counts["failed"] += 1
+                        page_failed = True
+                        logger.error(
+                            "programme_fetch_failed", url=p_url, error=str(e)
+                        )
+                        self.crawl_state.mark_url_status(
+                            self.source_name, discipline, p_url, "failed", str(e)
+                        )
 
-                offset += PAGE_SIZE
-                crawl_state.update_cursor(self.source_name, discipline, offset // PAGE_SIZE + 1,
-                                          scroll_offset=offset,
-                                          exhausted=(hits_total is not None and offset >= hits_total))
-                if hits_total is not None and offset >= hits_total:
+                if page_produced or page_failed:
+                    self.crawl_state.update_cursor(
+                        self.source_name,
+                        discipline,
+                        offset // PAGE_SIZE + 1,
+                        scroll_offset=offset,
+                        exhausted=False,
+                        total_items=hits_total,
+                    )
                     break
 
-            for p_url, card in to_fetch:
-                if not robot_checker.is_allowed(p_url):
-                    counts["skipped"] += 1
-                    continue
-                await polite_delay(self.min_delay, self.max_delay)
-                try:
-                    programme_html = await self.fetch_page(p_url)
-                    extracted = self.extract_documents(programme_html, p_url, card=card,
-                                                       discipline=discipline)
-                    has_record = any(d.get("program_requirements") for d in extracted)
-                    if has_record:
-                        documents.extend(extracted)
-                        counts["extracted"] += 1
-                        crawl_state.mark_url_status(self.source_name, discipline, p_url, "extracted")
-                        crawl_state.mark_page_status(p_url, "fetched")
-                    else:
-                        counts["failed"] += 1
-                        crawl_state.mark_url_status(self.source_name, discipline, p_url,
-                                                    "failed", "no_record_extracted")
-                except Exception as e:
-                    counts["failed"] += 1
-                    logger.error("programme_fetch_failed", url=p_url, error=str(e))
-                    crawl_state.mark_url_status(self.source_name, discipline, p_url, "failed", str(e))
+                offset += len(cards)
+                exhausted = hits_total is not None and offset >= hits_total
+                self.crawl_state.update_cursor(
+                    self.source_name,
+                    discipline,
+                    offset // PAGE_SIZE + 1,
+                    scroll_offset=offset,
+                    exhausted=exhausted,
+                    total_items=hits_total,
+                )
+                if exhausted:
+                    break
 
-            if hits_total is not None:
-                counts["remaining"] = max(0, hits_total - offset)
+            counts["remaining"] = self.crawl_state.count_remaining(
+                self.source_name, tier=2, discipline=discipline
+            )
             telemetry[discipline] = counts
             logger.info("masters_portal_batch_complete", discipline=discipline, **counts)
 
         logger.info("masters_portal_run_telemetry", telemetry=telemetry)
+        self.last_run_telemetry = telemetry
         return documents
 
     async def scrape_structured(self) -> list[dict]:

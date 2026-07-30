@@ -1,4 +1,3 @@
-import re
 from pathlib import Path
 import pytest
 from app.adapters.masters_portal import MastersPortalAdapter

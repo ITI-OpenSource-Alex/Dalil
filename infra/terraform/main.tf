@@ -29,10 +29,12 @@ module "security_groups" {
   vpc_id       = module.vpc.vpc_id
   gateway_port = local.service_ports.gateway
   ecs_service_ports = [
-    for service, port in local.service_ports : port if service != "gateway"
+    for service, port in local.service_ports : port
+    if service != "gateway" && port > 0
   ]
   alb_direct_service_ports = [
-    for service, port in local.service_ports : port if service != "gateway"
+    for service, port in local.service_ports : port
+    if service != "gateway" && port > 0
   ]
   tags = var.tags
 }
@@ -281,11 +283,15 @@ module "ecs_service" {
   security_group_ids                = [each.key == "gateway" ? module.security_groups.gateway_security_group_id : module.security_groups.ecs_services_security_group_id]
   task_execution_role_arn           = module.iam.ecs_task_execution_role_arns[each.key]
   task_role_arn                     = module.iam.ecs_task_role_arns[each.key]
-  target_group_arn                  = module.alb.target_group_arns[each.key]
-  health_check_grace_period_seconds = each.value.health_check_grace_period_seconds
+  target_group_arn                  = try(module.alb.target_group_arns[each.key], null)
+  enable_load_balancer              = each.key != "ingestion"
+  enable_service_connect            = true
+  advertise_service                 = each.key != "ingestion"
+  health_check_grace_period_seconds = each.key == "ingestion" ? 0 : each.value.health_check_grace_period_seconds
   log_group_name                    = module.observability.log_group_names[each.key]
-  autoscaling_min_capacity          = 1
+  autoscaling_min_capacity          = each.key == "ingestion" ? 0 : 1
   autoscaling_max_capacity          = var.environment == "production" ? 10 : 4
+  enable_utilization_autoscaling    = each.key != "ingestion"
   tags                              = local.common_tags
 }
 
@@ -462,18 +468,96 @@ module "notification_sender_lambda" {
 # EventBridge cron rules
 # ---------------------------------------------------------------------------
 
-# NOTE: no "ingestion Lambda" exists in this ticket's scope — pointed at
-# scholarship-matcher as a PLACEHOLDER so plan/apply succeeds. Swap for the
-# real ingestion function once it exists, or drop this block if out of scope.
-module "weekly_ingestion_rule" {
-  count                = var.enable_lambda_workers ? 1 : 0
-  source               = "./modules/eventbridge"
-  rule_name            = "goa-weekly-ingestion-${var.environment}"
-  description          = "Weekly ingestion run — Sunday 02:00 UTC"
-  schedule_expression  = "cron(0 2 ? * SUN *)"
-  target_function_name = module.scholarship_matcher_lambda[0].function_name # PLACEHOLDER
-  target_function_arn  = module.scholarship_matcher_lambda[0].function_arn  # PLACEHOLDER
-  tags                 = local.goa071_tags
+module "weekly_program_ingestion_rule" {
+  source              = "./modules/eventbridge"
+  rule_name           = "goa-weekly-program-ingestion-${var.environment}"
+  description         = "Queue a bounded weekly Tier 1 MastersPortal catalog sweep"
+  schedule_expression = var.weekly_program_ingestion_schedule
+  target_type         = "sqs"
+  target_function_arn = module.sqs.queue_arns["ingestion"]
+  input = jsonencode({
+    tier        = 1
+    adapters    = ["masters_portal"]
+    max_items   = 500
+    max_seconds = 3600
+  })
+  maximum_retry_attempts       = 2
+  maximum_event_age_in_seconds = 7200
+  dlq_arn                      = module.sqs.dlq_arns["ingestion"]
+  tags                         = local.goa071_tags
+}
+
+module "monthly_visa_ingestion_rule" {
+  source              = "./modules/eventbridge"
+  rule_name           = "goa-monthly-visa-verification-${var.environment}"
+  description         = "Queue monthly content-hash verification for configured visa sources"
+  schedule_expression = var.monthly_visa_ingestion_schedule
+  target_type         = "sqs"
+  target_function_arn = module.sqs.queue_arns["ingestion"]
+  input = jsonencode({
+    tier        = 2
+    adapters    = ["visa_adapter"]
+    max_items   = 100
+    max_seconds = 3600
+  })
+  maximum_retry_attempts       = 2
+  maximum_event_age_in_seconds = 7200
+  dlq_arn                      = module.sqs.dlq_arns["ingestion"]
+  tags                         = local.goa071_tags
+}
+
+data "aws_iam_policy_document" "eventbridge_ingestion_queue" {
+  statement {
+    sid       = "AllowScheduledIngestion"
+    actions   = ["sqs:SendMessage"]
+    resources = [module.sqs.queue_arns["ingestion"]]
+
+    principals {
+      type        = "Service"
+      identifiers = ["events.amazonaws.com"]
+    }
+
+    condition {
+      test     = "ArnEquals"
+      variable = "aws:SourceArn"
+      values = [
+        module.weekly_program_ingestion_rule.rule_arn,
+        module.monthly_visa_ingestion_rule.rule_arn,
+      ]
+    }
+  }
+}
+
+resource "aws_sqs_queue_policy" "eventbridge_ingestion" {
+  queue_url = module.sqs.queue_urls["ingestion"]
+  policy    = data.aws_iam_policy_document.eventbridge_ingestion_queue.json
+}
+
+data "aws_iam_policy_document" "eventbridge_ingestion_dlq" {
+  statement {
+    sid       = "AllowFailedScheduledIngestion"
+    actions   = ["sqs:SendMessage"]
+    resources = [module.sqs.dlq_arns["ingestion"]]
+
+    principals {
+      type        = "Service"
+      identifiers = ["events.amazonaws.com"]
+    }
+
+    condition {
+      test     = "ArnEquals"
+      variable = "aws:SourceArn"
+      values = [
+        module.weekly_program_ingestion_rule.rule_arn,
+        module.monthly_visa_ingestion_rule.rule_arn,
+      ]
+    }
+  }
+}
+
+resource "aws_sqs_queue_policy" "eventbridge_ingestion_dlq" {
+  queue_url = module.sqs.dlq_urls["ingestion"]
+  policy    = data.aws_iam_policy_document.eventbridge_ingestion_dlq.json
 }
 
 module "daily_scholarship_match_rule" {
@@ -485,6 +569,95 @@ module "daily_scholarship_match_rule" {
   target_function_name = module.scholarship_matcher_lambda[0].function_name
   target_function_arn  = module.scholarship_matcher_lambda[0].function_arn
   tags                 = local.goa071_tags
+}
+
+resource "aws_appautoscaling_policy" "ingestion_queue_scale_out" {
+  name               = "${local.name_prefix}-ingestion-queue-scale-out"
+  policy_type        = "StepScaling"
+  resource_id        = module.ecs_service["ingestion"].autoscaling_resource_id
+  scalable_dimension = "ecs:service:DesiredCount"
+  service_namespace  = "ecs"
+
+  step_scaling_policy_configuration {
+    adjustment_type = "ChangeInCapacity"
+    cooldown        = 30
+    step_adjustment {
+      metric_interval_lower_bound = 0
+      scaling_adjustment          = 1
+    }
+  }
+}
+
+resource "aws_appautoscaling_policy" "ingestion_queue_scale_in" {
+  name               = "${local.name_prefix}-ingestion-queue-scale-in"
+  policy_type        = "StepScaling"
+  resource_id        = module.ecs_service["ingestion"].autoscaling_resource_id
+  scalable_dimension = "ecs:service:DesiredCount"
+  service_namespace  = "ecs"
+
+  step_scaling_policy_configuration {
+    adjustment_type = "ChangeInCapacity"
+    cooldown        = 300
+    step_adjustment {
+      metric_interval_upper_bound = 1
+      scaling_adjustment          = -1
+    }
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "ingestion_queue_has_work" {
+  alarm_name          = "${local.name_prefix}-ingestion-queue-has-work"
+  namespace           = "AWS/SQS"
+  metric_name         = "ApproximateNumberOfMessagesVisible"
+  dimensions          = { QueueName = module.sqs.queue_names["ingestion"] }
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  threshold           = 1
+  evaluation_periods  = 1
+  period              = 60
+  statistic           = "Maximum"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [aws_appautoscaling_policy.ingestion_queue_scale_out.arn]
+}
+
+resource "aws_cloudwatch_metric_alarm" "ingestion_queue_empty" {
+  alarm_name          = "${local.name_prefix}-ingestion-queue-empty"
+  comparison_operator = "LessThanThreshold"
+  threshold           = 1
+  evaluation_periods  = 5
+  datapoints_to_alarm = 5
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [aws_appautoscaling_policy.ingestion_queue_scale_in.arn]
+
+  metric_query {
+    id          = "backlog"
+    expression  = "visible + inflight"
+    label       = "Visible and in-flight ingestion jobs"
+    return_data = true
+  }
+
+  metric_query {
+    id          = "visible"
+    return_data = false
+    metric {
+      namespace   = "AWS/SQS"
+      metric_name = "ApproximateNumberOfMessagesVisible"
+      dimensions  = { QueueName = module.sqs.queue_names["ingestion"] }
+      period      = 60
+      stat        = "Maximum"
+    }
+  }
+
+  metric_query {
+    id          = "inflight"
+    return_data = false
+    metric {
+      namespace   = "AWS/SQS"
+      metric_name = "ApproximateNumberOfMessagesNotVisible"
+      dimensions  = { QueueName = module.sqs.queue_names["ingestion"] }
+      period      = 60
+      stat        = "Maximum"
+    }
+  }
 }
 
 # ---------------------------------------------------------------------------

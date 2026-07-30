@@ -29,13 +29,13 @@ resource "aws_ecs_task_definition" "this" {
     name      = var.service_name
     image     = var.image_uri
     essential = true
-    portMappings = [{
+    portMappings = var.enable_load_balancer ? [{
       name          = var.service_name
       containerPort = var.container_port
       hostPort      = var.container_port
       protocol      = "tcp"
       appProtocol   = "http"
-    }]
+    }] : []
     environment = [
       for name, value in var.environment_variables : {
         name  = name
@@ -85,25 +85,34 @@ resource "aws_ecs_service" "this" {
     security_groups  = var.security_group_ids
   }
 
-  service_connect_configuration {
-    enabled   = true
-    namespace = var.service_connect_namespace_arn
+  dynamic "service_connect_configuration" {
+    for_each = var.enable_service_connect ? [1] : []
+    content {
+      enabled   = true
+      namespace = var.service_connect_namespace_arn
 
-    service {
-      port_name      = var.service_name
-      discovery_name = var.service_name
+      dynamic "service" {
+        for_each = var.advertise_service ? [1] : []
+        content {
+          port_name      = var.service_name
+          discovery_name = var.service_name
 
-      client_alias {
-        dns_name = local.service_resource_name
-        port     = var.container_port
+          client_alias {
+            dns_name = local.service_resource_name
+            port     = var.container_port
+          }
+        }
       }
     }
   }
 
-  load_balancer {
-    target_group_arn = var.target_group_arn
-    container_name   = var.service_name
-    container_port   = var.container_port
+  dynamic "load_balancer" {
+    for_each = var.enable_load_balancer ? [1] : []
+    content {
+      target_group_arn = var.target_group_arn
+      container_name   = var.service_name
+      container_port   = var.container_port
+    }
   }
 
   lifecycle {
@@ -160,6 +169,7 @@ resource "aws_appautoscaling_policy" "scale_in" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "cpu_high" {
+  actions_enabled     = var.enable_utilization_autoscaling
   alarm_name          = "${local.service_resource_name}-cpu-high"
   alarm_description   = "Scale out when ECS CPU utilization reaches 70 percent."
   namespace           = "AWS/ECS"
@@ -177,6 +187,7 @@ resource "aws_cloudwatch_metric_alarm" "cpu_high" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "memory_high" {
+  actions_enabled     = var.enable_utilization_autoscaling
   alarm_name          = "${local.service_resource_name}-memory-high"
   alarm_description   = "Scale out when ECS memory utilization reaches 80 percent."
   namespace           = "AWS/ECS"
@@ -194,6 +205,7 @@ resource "aws_cloudwatch_metric_alarm" "memory_high" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "capacity_low" {
+  actions_enabled     = var.enable_utilization_autoscaling
   alarm_name          = "${local.service_resource_name}-capacity-low"
   alarm_description   = "Scale in when both ECS CPU and memory remain below 30 percent for 10 minutes."
   comparison_operator = "LessThanThreshold"

@@ -1,5 +1,4 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import Optional
 
 class Settings(BaseSettings):
     rag_service_url: str = 'http://rag:8084'

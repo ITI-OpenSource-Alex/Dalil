@@ -396,3 +396,78 @@ def test_faq_seed_count(live_client):
     
     count = _run(get_count())
     assert count >= 30
+
+
+def test_visa_sources_with_shared_identity_keep_their_own_hashes(live_client):
+    source_one_id = uuid.uuid4()
+    source_two_id = uuid.uuid4()
+    requirement_one_id = uuid.uuid4()
+    requirement_two_id = uuid.uuid4()
+    source_one = "https://example.test/visa/source-one"
+    source_two = "https://example.test/visa/source-two"
+
+    async def seed():
+        conn = await asyncpg.connect(dsn=settings.database_url)
+        try:
+            await conn.execute(
+                """
+                INSERT INTO visa_sources (
+                    id, country, visa_type, issuing_body, source_url, fetch_method, active
+                ) VALUES
+                    ($1, 'Testland', 'Student', 'Test Ministry', $2, 'httpx', TRUE),
+                    ($3, 'Testland', 'Student', 'Test Ministry', $4, 'httpx', TRUE)
+                """,
+                source_one_id,
+                source_one,
+                source_two_id,
+                source_two,
+            )
+            await conn.execute(
+                """
+                INSERT INTO visa_requirements (
+                    id, country, visa_type, issuing_body, requirements,
+                    source_url, content_hash, egyptian_specific
+                ) VALUES
+                    ($1, 'Testland', 'Student', 'Test Ministry', '{}'::jsonb,
+                     $2, 'hash-one', FALSE),
+                    ($3, 'Testland', 'Student', 'Test Ministry', '{}'::jsonb,
+                     $4, 'hash-two', FALSE)
+                """,
+                requirement_one_id,
+                source_one,
+                requirement_two_id,
+                source_two,
+            )
+        finally:
+            await conn.close()
+
+    async def cleanup():
+        conn = await asyncpg.connect(dsn=settings.database_url)
+        try:
+            await conn.execute(
+                "DELETE FROM visa_requirements WHERE id = ANY($1::uuid[])",
+                [requirement_one_id, requirement_two_id],
+            )
+            await conn.execute(
+                "DELETE FROM visa_sources WHERE id = ANY($1::uuid[])",
+                [source_one_id, source_two_id],
+            )
+        finally:
+            await conn.close()
+
+    try:
+        _run(seed())
+        response = live_client.get(
+            "/internal/visa-sources",
+            headers={"X-Internal-Api-Key": settings.internal_api_key},
+        )
+        assert response.status_code == 200
+        by_id = {
+            source["id"]: source
+            for source in response.json()["sources"]
+            if source["id"] in {str(source_one_id), str(source_two_id)}
+        }
+        assert by_id[str(source_one_id)]["content_hash"] == "hash-one"
+        assert by_id[str(source_two_id)]["content_hash"] == "hash-two"
+    finally:
+        _run(cleanup())

@@ -10,6 +10,7 @@ variable "ecs_service_permissions" {
     task_secret_arns      = set(string)
     sqs_queue_arns        = set(string)
     s3_read_object_arns   = set(string)
+    s3_write_object_arns  = set(string)
     kms_key_arns          = set(string)
   }))
 }

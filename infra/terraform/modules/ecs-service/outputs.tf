@@ -13,6 +13,11 @@ output "task_definition_arn" {
   value       = aws_ecs_task_definition.this.arn
 }
 
+output "task_definition_family" {
+  description = "Task definition family, resolved by ECS to the latest ACTIVE revision."
+  value       = aws_ecs_task_definition.this.family
+}
+
 output "autoscaling_resource_id" {
   description = "Application Auto Scaling resource ID."
   value       = aws_appautoscaling_target.this.resource_id

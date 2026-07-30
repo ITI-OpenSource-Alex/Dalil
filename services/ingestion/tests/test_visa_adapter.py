@@ -1,4 +1,3 @@
-import json
 import uuid
 
 import pytest
@@ -222,7 +221,7 @@ async def test_one_source_failure_doesnt_kill_run(mocker, dummy_source):
 
 @pytest.mark.asyncio
 async def test_scrape_reads_sources_and_returns_orchestrator_shape(mocker, dummy_source):
-    """scrape() is what run_orchestrator actually calls. It must load the config table
+    """scrape() is what the canonical runner calls. It must load the config table
     and return dicts carrying `content` + `visa_requirements` — the dual-write shape."""
     adapter = VisaSourceAdapter()
     mocker.patch(

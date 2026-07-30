@@ -1,13 +1,12 @@
 import pytest
 from unittest.mock import MagicMock
-from app.core.crawl_state import CrawlStateManager
+from app.core.crawl_state import CrawlStateManager, CrawlStateUnavailable
 
-def test_crawl_state_defaults_when_empty(mocker):
+def test_crawl_state_unavailability_aborts_instead_of_recrawling(mocker):
     manager = CrawlStateManager(db_url="postgresql://mock:mock@localhost:5432/mock_db")
     mocker.patch.object(manager, "_get_conn", side_effect=Exception("DB down"))
-    cursor = manager.get_cursor("masters_portal", "engineering")
-    assert cursor == {"last_page": 1, "scroll_offset": 0, "exhausted": False}
-    assert manager.is_url_scraped("https://www.mastersportal.com/studies/123/test.html") is False
+    with pytest.raises(CrawlStateUnavailable):
+        manager.get_cursor("masters_portal", "engineering")
 
 def test_crawl_state_update_cursor_queries(mocker):
     manager = CrawlStateManager(db_url="postgresql://mock:mock@localhost:5432/mock_db")

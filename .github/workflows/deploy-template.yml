@@ -32,6 +32,16 @@ on:
         description: ECS container name to update
         required: true
         type: string
+      build_context:
+        description: >
+          Docker build context, when it is not the service directory. Leave unset
+          for services whose Dockerfile only references paths inside their own
+          folder. Set to "." for services whose Dockerfile copies from the
+          repository root: writing and ingestion both need packages/contracts,
+          which a context of services/<name> cannot see.
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read
@@ -152,7 +162,11 @@ jobs:
         if: steps.existing.outputs.exists != 'true'
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
-          context: ${{ inputs.service_path }}
+          # Defaults to the service directory; callers whose Dockerfile copies
+          # from the repository root pass build_context: "." instead. `file` is
+          # always the service's own Dockerfile, so a wider context does not
+          # change which Dockerfile is used -- only what it can see.
+          context: ${{ inputs.build_context || inputs.service_path }}
           file: ${{ inputs.service_path }}/Dockerfile
           push: true
           tags: ${{ steps.image.outputs.image }}

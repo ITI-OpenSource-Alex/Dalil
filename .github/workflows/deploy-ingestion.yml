@@ -48,6 +48,11 @@ jobs:
     uses: ./.github/workflows/deploy-template.yml
     with:
       service_path: services/ingestion
+      # Repo-root context. The Dockerfile copies packages/contracts/py, which
+      # app/workers/scholarship_matcher.py imports. Built from
+      # services/ingestion the package is outside the context and the worker
+      # fails at runtime with ModuleNotFoundError: No module named 'contracts'.
+      build_context: .
       ecr_repository: goa-staging-ingestion
       ecs_service: goa-staging-ingestion
       container_name: ingestion

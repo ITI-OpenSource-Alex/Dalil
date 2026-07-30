@@ -48,6 +48,13 @@ jobs:
     uses: ./.github/workflows/deploy-template.yml
     with:
       service_path: services/writing
+      # Repo-root context. services/writing/Dockerfile uses repository-relative
+      # paths (COPY services/writing/requirements.txt, COPY packages/contracts/py),
+      # which is why docker-compose builds it with `context: .`. With a context of
+      # services/writing the very first COPY resolves to
+      # services/writing/services/writing/requirements.txt and the build fails on
+      # instruction one.
+      build_context: .
       ecr_repository: goa-staging-writing
       ecs_service: goa-staging-writing
       container_name: writing

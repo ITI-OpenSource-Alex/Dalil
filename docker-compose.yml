@@ -30,6 +30,8 @@ services:
       - OPPORTUNITY_SEARCHES_PER_HOUR=${OPPORTUNITY_SEARCHES_PER_HOUR:-20}
       - SUBSCRIPTION_UPGRADE_URL=${SUBSCRIPTION_UPGRADE_URL:-http://localhost:3000/upgrade}
       - SUBSCRIPTION_CACHE_TTL=5m
+      - EXAM_START_LIMIT_PER_HOUR=3
+      - EXAM_OWNERSHIP_CACHE_TTL=5m
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
     volumes:
       - ./services/gateway:/app

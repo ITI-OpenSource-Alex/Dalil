@@ -59,6 +59,14 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	examClient := &http.Client{Timeout: 6 * time.Minute}
 	examHandler := handlers.NewExamHandler(examClient, cfg.ExamServiceURL, cfg.InternalApiKey)
 	notificationHandler := handlers.NewNotificationHandler(httpClient, cfg.NotificationServiceURL, cfg.InternalApiKey)
+	examOwnership := middleware.NewExamSessionOwnership(
+		redisClient,
+		httpClient,
+		cfg.ExamServiceURL,
+		cfg.InternalApiKey,
+		cfg.ExamOwnershipCacheTTL,
+		logger,
+	)
 	subscriptionMiddleware := middleware.NewSubscriptionMiddleware(
 		redisClient,
 		httpClient,
@@ -158,17 +166,20 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 		cfg.CostPromptPer1M,
 		cfg.CostCompletionPer1M,
 	))
-	// Subscription policy is default-allow: only the Writing and CV routes named
-	// as paid features attach RequirePaid. Chat, chat history, notifications,
-	// exams and any future unnamed route remain free unless explicitly changed.
+	// Subscription policy is default-allow: only the Writing, CV and exam prep
+	// routes named as paid features attach RequirePaid. Chat, chat history,
+	// notifications and any future unnamed route remain free unless explicitly
+	// changed. Exam prep moved to the paid side in GOA-059, where the whole
+	// /api/exam group carries the gate rather than each route repeating it.
 	api.Post("/writing/essays/upload", subscriptionMiddleware.RequirePaid, middleware.ValidateEssayTextLength(5000), writingHandler.UploadEssay)
 	api.Post("/writing/cv/upload", subscriptionMiddleware.RequirePaid, writingHandler.UploadCV)
 	api.Post("/writing/cv/review",
 		subscriptionMiddleware.RequirePaid,
 		middleware.AIRateLimiter(redisClient, "cv_review", cfg.CVReviewsPerHour, time.Hour, logger, metrics),
 		writingHandler.ReviewCV)
-	api.Get("/exam/listening/start", examHandler.StartListening)
-	api.Put("/exam/listening/:sessionId/submit", examHandler.SubmitListening)
+	// The two flat /exam/listening routes that stood here are not dropped: GOA-059
+	// re-registers them inside the exam group below, where they pick up the shared
+	// paid gate, the start limiter and ownership validation.
 
 	// Routes the frontend used to reach by other means. Chat posted to a Next.js
 	// BFF route that was never built (BUG-044); exam and writing were called
@@ -187,15 +198,50 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	// distinct paths that do not shadow each other, but worth GOA-132 knowing
 	// about when it inventories routes.
 	api.Delete("/sessions/memory", streamHandler.ChatMemory)
-	api.Post("/exam/sessions", examHandler.CreateSession)
-	api.Get("/exam/sessions/:sessionId", examHandler.GetSession)
-	api.Put("/exam/sessions/:sessionId/submit", examHandler.SubmitSession)
-	api.Get("/exam/sessions/:sessionId/result", examHandler.GetSessionResult)
-	api.Patch("/exam/sessions/:sessionId/heartbeat", examHandler.Heartbeat)
-	api.Get("/exam/progress", examHandler.GetProgress)
+
+	// Exam prep route group (GOA-059). Every route below is paid-tier only and
+	// inherits the /api chain above it: JWT, the 60/min request limiter and
+	// subscription resolution.
+	//
+	// The paths are unchanged from when these routes were registered individually
+	// -- the group only hoists the shared prefix and the shared gate, so no client
+	// needs to change.
+	exam := api.Group("/exam", subscriptionMiddleware.RequirePaid)
+	examStartLimiter := middleware.ExamStartRateLimiter(redisClient, cfg.ExamStartLimitPerHour, metrics)
+
+	// Session-opening routes share one hourly counter, so the ceiling is three
+	// sessions per candidate per hour across every skill rather than three each.
+	exam.Post("/sessions", examStartLimiter, examHandler.CreateSession)
+	exam.Get("/listening/start", examStartLimiter, examHandler.StartListening)
+
+	// Ownership is checked on the routes that read or mutate a named session's
+	// outcome. GetSession and Heartbeat are left off deliberately: the Exam
+	// service already scopes the heartbeat to X-User-Id and returns 403 itself,
+	// and GetSession exposes no scores. Adding the middleware there would spend an
+	// upstream round trip per poll for a check the upstream already performs.
+	exam.Put("/sessions/:sessionId/submit", examOwnership.Validate, examHandler.SubmitSession)
+	exam.Get("/sessions/:sessionId/result", examOwnership.Validate, examHandler.GetSessionResult)
+	exam.Put("/listening/:sessionId/submit", examOwnership.Validate, examHandler.SubmitListening)
 	// GOA-055: Reading-specific submit, needed for per_question_result and
 	// section_breakdown that the generic submit above doesn't return.
-	api.Put("/exam/reading/:sessionId/submit", examHandler.SubmitReadingSession)
+	exam.Put("/reading/:sessionId/submit", examOwnership.Validate, examHandler.SubmitReadingSession)
+	exam.Get("/sessions/:sessionId", examHandler.GetSession)
+	exam.Patch("/sessions/:sessionId/heartbeat", examHandler.Heartbeat)
+	// GOA-060. Registered flat as /api/exam/progress before GOA-059; it keeps the
+	// same path inside the group. Ownership validation does not apply -- the route
+	// takes no session id and the Exam service scopes the summary to X-User-Id.
+	exam.Get("/progress", examHandler.GetProgress)
+
+	// TODO(GOA-059): GET /api/exam/audio/:sessionId/:section is not implemented.
+	// It would validate ownership (examOwnership.Validate) and then hand back the
+	// section's S3 pre-signed URL, but the Exam service exposes no endpoint that
+	// returns one: presigned URLs are minted inside create_listening_session and
+	// returned only in the GET /exam/listening/start body, never persisted, and
+	// GET /sessions/:id does not include them. The Gateway cannot presign on its
+	// own -- it holds no S3 credentials, bucket name or audio_s3_key. Blocked on
+	// an Exam service endpoint (owned by the exam team) along the lines of
+	// GET /internal/sessions/{id}/audio/{section}; wire it here once that lands.
+
 	api.Post("/writing/essays/:essayId/evaluate",
 		subscriptionMiddleware.RequirePaid,
 		middleware.AIRateLimiter(redisClient, "essay_evaluation", cfg.EssayEvalsPerHour, time.Hour, logger, metrics),

@@ -1,8 +1,7 @@
 import pytest
 import logging
-from handler import handle_ingestion
+from handler import IngestionRunFailed, handle_ingestion
 from chunker import chunk_documents
-from adapters import TestFixtureAdapter
 
 def test_dry_run_logging_only(mocker):
     """
@@ -17,7 +16,7 @@ def test_dry_run_logging_only(mocker):
     # Mock the adapters fetch to just return the 10 fixture documents (no visa records)
     from langchain_core.documents import Document
     fixture_docs = [Document(page_content=f"Doc {i}", metadata={"id": f"id_{i}"}) for i in range(10)]
-    async def mock_fetch(only=None, tier=2): return fixture_docs, []
+    async def mock_fetch(only=None, tier=2, **_kwargs): return fixture_docs, []
     mocker.patch("handler.fetch_all_adapters", side_effect=mock_fetch)
 
     # Spy on the handler logger
@@ -57,17 +56,19 @@ def test_idempotency_skips_embedding_api_calls(mocker):
     # Mock RAG upsert and OpenAI embedding generator (returning mock 1536-dim vectors)
     mock_embed = mocker.patch("handler.generate_embeddings", return_value=[[0.0]*1536]*10)
     mock_upsert = mocker.patch("handler.upsert_chunks", return_value=True)
+    mocker.patch("handler.delete_documents_by_source_url")
+    mocker.patch("handler.write_completion_report", return_value="reports/test.json")
     
     # Mock the adapters fetch (no visa records)
     from langchain_core.documents import Document
     fixture_docs = [Document(page_content=f"Doc {i}", metadata={"id": f"id_{i}", "source_url": "test"}) for i in range(10)]
-    async def mock_fetch(only=None, tier=2): return fixture_docs, []
+    async def mock_fetch(only=None, tier=2, **_kwargs): return fixture_docs, []
     mocker.patch("handler.fetch_all_adapters", side_effect=mock_fetch)
     
     # FIRST RUN: Mock check-existing to indicate no chunks exist in DB (first time run)
     mocker.patch("handler.check_existing_chunks", return_value=[])
     
-    event = {"dry_run": False}
+    event = {"dry_run": False, "tier": 1}
     result_first = handle_ingestion(event)
     
     # Verify first run processed and upserted all 10 chunks
@@ -108,6 +109,8 @@ def test_visa_requirements_upserted_independently_of_document_pipeline(mocker):
     mocker.patch("handler.generate_embeddings", return_value=[[0.0] * 1536] * 2)
     mock_upsert_chunks = mocker.patch("handler.upsert_chunks", return_value=True)
     mock_upsert_visa = mocker.patch("handler.upsert_visa_requirement", return_value=True)
+    mocker.patch("handler.delete_documents_by_source_url")
+    mocker.patch("handler.write_completion_report", return_value="reports/test.json")
     mocker.patch("handler.check_existing_chunks", return_value=[])
 
     from langchain_core.documents import Document
@@ -116,7 +119,7 @@ def test_visa_requirements_upserted_independently_of_document_pipeline(mocker):
         {"country": "Germany", "visa_type": "Student Visa", "issuing_body": "German Embassy Cairo"},
         {"country": "France", "visa_type": "Student Visa", "issuing_body": "Campus France Egypt"},
     ]
-    async def mock_fetch(only=None, tier=2): return fixture_docs, visa_records
+    async def mock_fetch(only=None, tier=2, **_kwargs): return fixture_docs, visa_records
     mocker.patch("handler.fetch_all_adapters", side_effect=mock_fetch)
 
     event = {"dry_run": False}
@@ -141,6 +144,8 @@ def test_visa_requirement_failure_does_not_block_others_or_document_pipeline(moc
     mocker.patch("handler.generate_embeddings", return_value=[[0.0] * 1536] * 2)
     mock_upsert_chunks = mocker.patch("handler.upsert_chunks", return_value=True)
     mocker.patch("handler.check_existing_chunks", return_value=[])
+    mocker.patch("handler.delete_documents_by_source_url")
+    mocker.patch("handler.write_completion_report", return_value="reports/test.json")
 
     visa_records = [
         {"country": "Germany", "visa_type": "Student Visa", "issuing_body": "German Embassy Cairo"},
@@ -153,11 +158,13 @@ def test_visa_requirement_failure_does_not_block_others_or_document_pipeline(moc
 
     from langchain_core.documents import Document
     fixture_docs = [Document(page_content=f"Doc {i}", metadata={"id": f"id_{i}", "source_url": "test"}) for i in range(2)]
-    async def mock_fetch(only=None, tier=2): return fixture_docs, visa_records
+    async def mock_fetch(only=None, tier=2, **_kwargs): return fixture_docs, visa_records
     mocker.patch("handler.fetch_all_adapters", side_effect=mock_fetch)
 
     event = {"dry_run": False}
-    result = handle_ingestion(event)
+    with pytest.raises(IngestionRunFailed) as exc_info:
+        handle_ingestion(event)
+    result = exc_info.value.summary
 
     assert mock_upsert_visa.call_count == 2
     assert result["visa_requirements_upserted"] == 1
@@ -180,7 +187,7 @@ def test_dry_run_logs_visa_requirements_without_upserting(mocker):
     ]
     from langchain_core.documents import Document
     fixture_docs = [Document(page_content="Doc 0", metadata={"id": "id_0"})]
-    async def mock_fetch(only=None, tier=2): return fixture_docs, visa_records
+    async def mock_fetch(only=None, tier=2, **_kwargs): return fixture_docs, visa_records
     mocker.patch("handler.fetch_all_adapters", side_effect=mock_fetch)
 
     spy_logger = mocker.spy(logging.getLogger("ingestion_worker.handler"), "info")
@@ -197,3 +204,113 @@ def test_dry_run_logs_visa_requirements_without_upserting(mocker):
         if "Would upsert visa requirement" in call[0][0]
     ]
     assert len(would_upsert_visa_logs) == 1
+
+
+def test_document_http_failure_is_reported_then_raised(mocker):
+    from langchain_core.documents import Document
+
+    fixture_docs = [
+        Document(
+            page_content="program",
+            metadata={
+                "id": "id_0",
+                "source_url": "https://example.test/program",
+                "source_name": "masters_portal",
+            },
+        )
+    ]
+
+    async def mock_fetch(only=None, tier=2, **_kwargs):
+        return (
+            fixture_docs,
+            [],
+            [],
+            [],
+            {"masters_portal": {"failed": 0, "remaining": 1}},
+            {},
+        )
+
+    state = mocker.Mock()
+    state.get_last_success_at.return_value = None
+    mocker.patch("handler.fetch_all_adapters", side_effect=mock_fetch)
+    mocker.patch(
+        "handler.check_existing_chunks",
+        side_effect=RuntimeError("RAG unavailable"),
+    )
+    report = mocker.patch(
+        "handler.write_completion_report", return_value="reports/failure.json"
+    )
+
+    with pytest.raises(IngestionRunFailed) as exc_info:
+        handle_ingestion(
+            {"tier": 1, "adapters": ["masters_portal"]},
+            state_manager=state,
+        )
+
+    summary = exc_info.value.summary
+    assert summary["counts"]["failed"] == 1
+    assert summary["completed"] is False
+    assert summary["status"] == "degraded"
+    report.assert_called_once()
+    state.finish_run.assert_called_once()
+
+
+def test_visa_hash_is_not_committed_when_document_pipeline_fails(mocker):
+    from langchain_core.documents import Document
+
+    source_url = "https://example.test/visa"
+    visa_record = {
+        "country": "Germany",
+        "visa_type": "Student",
+        "issuing_body": "Embassy",
+        "source_url": source_url,
+        "_ingestion_source": "visa_adapter",
+        "_ingestion_source_key": "source-1",
+    }
+    fixture_docs = [
+        Document(
+            page_content="visa facts",
+            metadata={
+                "id": "visa-1",
+                "source_url": source_url,
+                "source_name": "visa_adapter",
+            },
+        )
+    ]
+
+    async def mock_fetch(only=None, tier=2, **_kwargs):
+        return (
+            fixture_docs,
+            [visa_record],
+            [],
+            [],
+            {"visa_adapter": {"failed": 0, "remaining": 0}},
+            {},
+        )
+
+    state = mocker.Mock()
+    state.get_last_success_at.return_value = None
+    mocker.patch("handler.fetch_all_adapters", side_effect=mock_fetch)
+    mocker.patch(
+        "handler.generate_embeddings",
+        side_effect=RuntimeError("embedding endpoint unavailable"),
+    )
+    upsert_visa = mocker.patch("handler.upsert_visa_requirement")
+    mocker.patch(
+        "handler.write_completion_report", return_value="reports/failure.json"
+    )
+
+    with pytest.raises(IngestionRunFailed):
+        handle_ingestion(
+            {"tier": 2, "adapters": ["visa_adapter"]},
+            state_manager=state,
+        )
+
+    upsert_visa.assert_not_called()
+    state.mark_source_attempt.assert_called_once_with(
+        "visa_adapter",
+        "source-1",
+        source_url,
+        succeeded=False,
+        error_message="document_pipeline_failed",
+    )

@@ -1,7 +1,7 @@
 """ING-04 (BUG-009): the completion report is the run's observable outcome.
 
 The original criterion asserted on a Prometheus counter. That was unmeetable
-twice over: the counter is only touched in run_orchestrator.py, which nothing but
+twice over: the counter is only touched by the canonical runner, which nothing but
 its own unit test calls, and ingestion is a run-to-completion container with no
 HTTP server, so an in-process counter can never be scraped. The completion report
 carries strictly more than the counter would, so it is what ING-04 now asserts on.
@@ -108,9 +108,8 @@ def test_dry_run_writes_no_report(fake_s3):
     assert fake_s3.puts == []
 
 
-def test_reporting_failure_never_fails_the_run(monkeypatch):
-    """The data is the product; the report is bookkeeping. An S3 outage must not
-    discard a good ingestion pass."""
+def test_reporting_failure_is_visible_to_the_platform(monkeypatch):
+    """The report is the durable scheduled-run artifact, so losing it is a failure."""
     import boto3
 
     def explode(*a, **k):
@@ -118,4 +117,5 @@ def test_reporting_failure_never_fails_the_run(monkeypatch):
 
     monkeypatch.setattr(boto3, "client", explode)
 
-    assert handler.write_completion_report({"dry_run": False, "status": "success"}) is None
+    with pytest.raises(handler.CompletionReportError):
+        handler.write_completion_report({"dry_run": False, "status": "success"})

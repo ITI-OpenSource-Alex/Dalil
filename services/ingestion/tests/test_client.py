@@ -50,11 +50,12 @@ SAMPLE_SCHOLARSHIP_PROGRAM_RECORD = {
 def test_upsert_visa_requirement_sends_correct_request(mocker):
     mock_response = mocker.MagicMock()
     mock_response.status_code = 200
+    mock_response.json.return_value = {"status": "success", "action": "inserted"}
     mock_post = mocker.patch("client.requests.post", return_value=mock_response)
 
     result = upsert_visa_requirement(SAMPLE_RECORD)
 
-    assert result is True
+    assert result["action"] == "inserted"
     mock_post.assert_called_once()
     call_args, call_kwargs = mock_post.call_args
     assert call_args[0] == f"{settings.rag_service_url}/internal/visa-requirements"
@@ -66,9 +67,10 @@ def test_upsert_visa_requirement_sends_correct_request(mocker):
 def test_upsert_visa_requirement_returns_true_on_200(mocker):
     mock_response = mocker.MagicMock()
     mock_response.status_code = 200
+    mock_response.json.return_value = {"status": "success", "action": "updated"}
     mocker.patch("client.requests.post", return_value=mock_response)
 
-    assert upsert_visa_requirement(SAMPLE_RECORD) is True
+    assert upsert_visa_requirement(SAMPLE_RECORD)["action"] == "updated"
 
 
 def test_upsert_visa_requirement_raises_on_401(mocker):
@@ -109,11 +111,12 @@ def test_upsert_visa_requirement_reraises_connection_errors(mocker):
 def test_upsert_program_requirement_sends_correct_request(mocker):
     mock_response = mocker.MagicMock()
     mock_response.status_code = 200
+    mock_response.json.return_value = {"status": "success", "action": "inserted"}
     mock_post = mocker.patch("client.requests.post", return_value=mock_response)
 
     result = upsert_program_requirement(SAMPLE_PROGRAM_REQUIREMENT_RECORD)
 
-    assert result is True
+    assert result["action"] == "inserted"
     mock_post.assert_called_once()
     call_args, call_kwargs = mock_post.call_args
     assert call_args[0] == f"{settings.rag_service_url}/internal/program-requirements"
@@ -125,9 +128,10 @@ def test_upsert_program_requirement_sends_correct_request(mocker):
 def test_upsert_program_requirement_returns_true_on_200(mocker):
     mock_response = mocker.MagicMock()
     mock_response.status_code = 200
+    mock_response.json.return_value = {"status": "success", "action": "updated"}
     mocker.patch("client.requests.post", return_value=mock_response)
 
-    assert upsert_program_requirement(SAMPLE_PROGRAM_REQUIREMENT_RECORD) is True
+    assert upsert_program_requirement(SAMPLE_PROGRAM_REQUIREMENT_RECORD)["action"] == "updated"
 
 
 def test_upsert_program_requirement_raises_on_500(mocker):
@@ -155,11 +159,12 @@ def test_upsert_program_requirement_reraises_connection_errors(mocker):
 def test_upsert_scholarship_program_sends_correct_request(mocker):
     mock_response = mocker.MagicMock()
     mock_response.status_code = 200
+    mock_response.json.return_value = {"status": "success", "action": "inserted"}
     mock_post = mocker.patch("client.requests.post", return_value=mock_response)
 
     result = upsert_scholarship_program(SAMPLE_SCHOLARSHIP_PROGRAM_RECORD)
 
-    assert result is True
+    assert result["action"] == "inserted"
     mock_post.assert_called_once()
     call_args, call_kwargs = mock_post.call_args
     assert call_args[0] == f"{settings.rag_service_url}/internal/scholarship-programs"
@@ -171,9 +176,10 @@ def test_upsert_scholarship_program_sends_correct_request(mocker):
 def test_upsert_scholarship_program_returns_true_on_200(mocker):
     mock_response = mocker.MagicMock()
     mock_response.status_code = 200
+    mock_response.json.return_value = {"status": "success", "action": "updated"}
     mocker.patch("client.requests.post", return_value=mock_response)
 
-    assert upsert_scholarship_program(SAMPLE_SCHOLARSHIP_PROGRAM_RECORD) is True
+    assert upsert_scholarship_program(SAMPLE_SCHOLARSHIP_PROGRAM_RECORD)["action"] == "updated"
 
 
 def test_upsert_scholarship_program_raises_on_500(mocker):

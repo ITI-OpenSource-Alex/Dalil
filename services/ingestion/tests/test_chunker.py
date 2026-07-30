@@ -1,4 +1,3 @@
-import pytest
 import tiktoken
 from langchain_core.documents import Document
 from chunker import chunk_documents, generate_chunk_id

@@ -33,4 +33,4 @@ COPY packages/contracts/py/contracts ./contracts
 
 # We'll override this CMD in docker-compose or during manual runs, 
 # but this is a good default entrypoint for a python service.
-CMD ["python", "handler.py"]
+CMD ["python", "handler.py", "--consume-queue"]

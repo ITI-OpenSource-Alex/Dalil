@@ -406,8 +406,11 @@ services:
   ingestion:
     profiles: ["ingestion"]
     build:
-      context: ./services/ingestion
-      dockerfile: Dockerfile
+      # Repo-root context: the Dockerfile copies packages/contracts/py, which the
+      # scholarship matcher imports. A context of ./services/ingestion cannot see
+      # it, and the worker fails with ModuleNotFoundError inside the image.
+      context: .
+      dockerfile: services/ingestion/Dockerfile
     environment:
       - RAG_SERVICE_URL=http://rag:8084
       - INTERNAL_API_KEY=supersecret_internal_key_123

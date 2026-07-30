@@ -28,14 +28,24 @@ type Config struct {
 	// Chat is proxied rather than called from the browser, so the Gateway needs
 	// to know where Orchestration lives (BUG-029, BUG-044).
 	OrchestrationServiceURL string        `envconfig:"ORCHESTRATION_SERVICE_URL" default:"http://orchestration:8083"`
-	UserServiceURL          string        `envconfig:"USER_SERVICE_URL" required:"true"`
-	InternalApiKey          string        `envconfig:"INTERNAL_API_KEY" required:"true"`
+	// The Speaking exam WebSocket is proxied through the Gateway so the upgrade
+	// picks up JWT auth, the paid-tier gate and exam session ownership, none of
+	// which the browser's direct connection to :8082 ever had (GOA-059).
+	SpeakingServiceURL string        `envconfig:"SPEAKING_SERVICE_URL" default:"http://speaking:8082"`
+	UserServiceURL     string        `envconfig:"USER_SERVICE_URL" required:"true"`
+	InternalApiKey     string        `envconfig:"INTERNAL_API_KEY" required:"true"`
 	AdminAPIKey             string        `envconfig:"ADMIN_API_KEY"`
 	AWSRegion               string        `envconfig:"AWS_REGION" default:"us-east-1"`
 	AWSEndpointURL          string        `envconfig:"AWS_ENDPOINT_URL"`
 	IngestionQueueURL       string        `envconfig:"INGESTION_QUEUE_URL"`
 	SubscriptionUpgradeURL  string        `envconfig:"SUBSCRIPTION_UPGRADE_URL" default:"/upgrade"`
 	SubscriptionCacheTTL    time.Duration `envconfig:"SUBSCRIPTION_CACHE_TTL" default:"5m"`
+	// Exam sessions a single candidate may open per hour. Sitting a full exam
+	// takes far longer than 20 minutes, so a legitimate candidate never reaches
+	// three; the ceiling exists to stop a loop from draining the question bank's
+	// unseen-question pool and burning grading spend (GOA-059).
+	ExamStartLimitPerHour int           `envconfig:"EXAM_START_LIMIT_PER_HOUR" default:"3"`
+	ExamOwnershipCacheTTL time.Duration `envconfig:"EXAM_OWNERSHIP_CACHE_TTL" default:"5m"`
 	// Comma-separated origin allow-list for CORS. Cannot be "*" because auth
 	// rides on HttpOnly cookies and the spec forbids wildcard + credentials.
 	CORSAllowedOrigins  string  `envconfig:"CORS_ALLOWED_ORIGINS" default:"http://localhost:3000"`

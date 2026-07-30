@@ -59,6 +59,8 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	examClient := &http.Client{Timeout: 6 * time.Minute}
 	examHandler := handlers.NewExamHandler(examClient, cfg.ExamServiceURL, cfg.InternalApiKey)
 	notificationHandler := handlers.NewNotificationHandler(httpClient, cfg.NotificationServiceURL, cfg.InternalApiKey)
+	checklistHandler := handlers.NewChecklistHandler(httpClient, cfg.RAGServiceURL)
+	profileHandler := handlers.NewProfileHandler(httpClient, cfg.UserServiceURL, cfg.InternalApiKey)
 	examOwnership := middleware.NewExamSessionOwnership(
 		redisClient,
 		httpClient,
@@ -273,6 +275,11 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	api.Post("/opportunities/query",
 		middleware.AIRateLimiter(redisClient, "opportunity_search", cfg.OpportunitySearchesPerHour, time.Hour, logger, metrics),
 		opportunitiesHandler.Query)
+
+	// GOA-084: checklist persistence (RAG service). Free-tier, like notifications
+	// above -- not one of the paid features named in the comment above this group.
+	api.Get("/checklists/:programId", checklistHandler.GetChecklist)
+	api.Put("/checklists/:programId/items/:itemId", checklistHandler.UpdateChecklistItem)
 	app.Post(
 		"/cv/upload",
 		middleware.JWT(cfg.JWTSecret, redisClient, metrics),

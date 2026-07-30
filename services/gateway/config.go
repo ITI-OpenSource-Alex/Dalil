@@ -35,6 +35,11 @@ type Config struct {
 	// The WebSocket proxy also picks up JWT auth, the paid-tier gate and exam
 	// session ownership, none of which the browser's direct connection to
 	// :8082 ever had (GOA-059).
+	//
+	// GOA-084 also uses this for checklist persistence. Its /checklists routes
+	// take no internal API key -- ownership is scoped by X-User-ID alone (see
+	// ChecklistHandler) -- so unlike ExamServiceURL/WritingServiceURL this is
+	// not paired with InternalApiKey.
 	SpeakingServiceURL      string        `envconfig:"SPEAKING_SERVICE_URL" default:"http://speaking:8082"`
 	RAGServiceURL           string        `envconfig:"RAG_SERVICE_URL" default:"http://rag:8084"`
 	UserServiceURL          string        `envconfig:"USER_SERVICE_URL" required:"true"`

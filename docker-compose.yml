@@ -46,6 +46,8 @@ services:
         condition: service_healthy
       exam:
         condition: service_started
+      rag:
+        condition: service_started
 
   user-service:
     build:

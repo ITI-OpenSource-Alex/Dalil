@@ -48,8 +48,8 @@ variable "desired_count" {
   type        = number
 
   validation {
-    condition     = var.desired_count >= 0
-    error_message = "GOA ECS desired counts cannot be negative."
+    condition     = var.desired_count >= 1
+    error_message = "GOA ECS services must start with at least one task."
   }
 }
 
@@ -93,26 +93,6 @@ variable "task_role_arn" {
 variable "target_group_arn" {
   description = "ALB target group ARN."
   type        = string
-  default     = null
-  nullable    = true
-}
-
-variable "enable_load_balancer" {
-  description = "Attach the service to an ALB target group."
-  type        = bool
-  default     = true
-}
-
-variable "enable_service_connect" {
-  description = "Publish the service through ECS Service Connect."
-  type        = bool
-  default     = true
-}
-
-variable "advertise_service" {
-  description = "Advertise this task through Service Connect. Client-only workers set false."
-  type        = bool
-  default     = true
 }
 
 variable "health_check_grace_period_seconds" {
@@ -135,12 +115,6 @@ variable "autoscaling_min_capacity" {
 variable "autoscaling_max_capacity" {
   description = "Maximum ECS task count."
   type        = number
-}
-
-variable "enable_utilization_autoscaling" {
-  description = "Allow CPU/memory alarms to change desired count. Queue-driven workers disable this."
-  type        = bool
-  default     = true
 }
 
 variable "tags" {

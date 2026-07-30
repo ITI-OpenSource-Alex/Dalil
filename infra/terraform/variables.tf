@@ -216,21 +216,9 @@ variable "ecs_desired_counts" {
   default     = {}
 
   validation {
-    condition     = alltrue([for count in values(var.ecs_desired_counts) : count >= 0])
-    error_message = "ECS desired counts cannot be negative."
+    condition     = alltrue([for count in values(var.ecs_desired_counts) : count >= 1])
+    error_message = "ECS desired counts must be at least one."
   }
-}
-
-variable "weekly_program_ingestion_schedule" {
-  description = "EventBridge schedule for the Tier 1 MastersPortal catalog sweep."
-  type        = string
-  default     = "cron(0 2 ? * SUN *)"
-}
-
-variable "monthly_visa_ingestion_schedule" {
-  description = "EventBridge schedule for source-hash visa verification."
-  type        = string
-  default     = "cron(0 3 1 * ? *)"
 }
 
 variable "enable_lambda_workers" {

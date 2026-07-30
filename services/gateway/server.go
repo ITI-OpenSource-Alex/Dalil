@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"net/http"
 	"time"
 
@@ -9,9 +8,6 @@ import (
 	"github.com/ITI-OpenSource-Alex/GOA/services/gateway/handlers"
 	"github.com/ITI-OpenSource-Alex/GOA/services/gateway/middleware"
 	"github.com/ITI-OpenSource-Alex/GOA/services/gateway/observability"
-	"github.com/aws/aws-sdk-go-v2/aws"
-	awsconfig "github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/redis/go-redis/v9"
@@ -70,18 +66,6 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	streamHandler := handlers.NewStreamHandler(
 		streamClient, cfg.OrchestrationServiceURL, cfg.WritingServiceURL, cfg.InternalApiKey,
 	)
-	awsOptions := []func(*awsconfig.LoadOptions) error{
-		awsconfig.WithRegion(cfg.AWSRegion),
-	}
-	awsCfg, err := awsconfig.LoadDefaultConfig(context.Background(), awsOptions...)
-	if err != nil {
-		return nil, err
-	}
-	ingestionSQS := sqs.NewFromConfig(awsCfg, func(options *sqs.Options) {
-		if cfg.AWSEndpointURL != "" {
-			options.BaseEndpoint = aws.String(cfg.AWSEndpointURL)
-		}
-	})
 
 	// CORS. Without this the browser's preflight got 405 and every call from the
 	// frontend failed with net::ERR_FAILED -- login, chat, uploads, exam, all of
@@ -95,7 +79,7 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	app.Use(cors.New(cors.Config{
 		AllowOrigins:     cfg.CORSAllowedOrigins,
 		AllowMethods:     "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-		AllowHeaders:     "Origin,Content-Type,Accept,Authorization,X-Correlation-ID,X-Internal-Api-Key,X-Admin-Key",
+		AllowHeaders:     "Origin,Content-Type,Accept,Authorization,X-Correlation-ID,X-Internal-Api-Key",
 		ExposeHeaders:    "X-Correlation-ID",
 		AllowCredentials: true,
 	}))
@@ -115,14 +99,6 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	// Protected auth endpoints (gated by JWT middleware containing the Redis blacklist check)
 	app.Post("/auth/logout", middleware.JWT(cfg.JWTSecret, redisClient, metrics), authHandler.Logout)
 	app.Post("/auth/logout-all", middleware.JWT(cfg.JWTSecret, redisClient, metrics), authHandler.LogoutAll)
-	// Register the API admin route before the broad /api JWT middleware. This
-	// endpoint is machine-administered with X-Admin-Key and must not also require
-	// a user session.
-	apiAdmin := app.Group("/api/admin", middleware.AdminKey(cfg.AdminAPIKey))
-	apiAdmin.Post(
-		"/ingestion/run",
-		handlers.AdminIngestionRun(ingestionSQS, cfg.IngestionQueueURL),
-	)
 	api := app.Group("/api", middleware.JWT(cfg.JWTSecret, redisClient, metrics))
 	api.Use(middleware.RateLimiter(redisClient, 60, metrics))
 	api.Use(subscriptionMiddleware.ResolveSubscription)

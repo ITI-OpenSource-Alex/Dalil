@@ -182,16 +182,6 @@ data "aws_iam_policy_document" "ecs_task_app" {
   }
 
   dynamic "statement" {
-    for_each = length(each.value.s3_write_object_arns) > 0 ? [1] : []
-
-    content {
-      sid       = "WriteAssignedObjects"
-      actions   = ["s3:PutObject"]
-      resources = each.value.s3_write_object_arns
-    }
-  }
-
-  dynamic "statement" {
     for_each = length(each.value.kms_key_arns) > 0 ? [1] : []
 
     content {

@@ -1,4 +1,5 @@
 import pytest
+import os
 from pathlib import Path
 import asyncpg
 from app.core.config import settings

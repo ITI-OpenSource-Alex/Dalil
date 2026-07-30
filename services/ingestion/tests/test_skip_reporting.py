@@ -24,7 +24,7 @@ def test_summary_reports_source_level_skips(monkeypatch):
         }
     }
 
-    async def fake_fetch(only=None, tier=2, **_kwargs):
+    async def fake_fetch(only=None, tier=2):
         return [], [], [], [], telemetry
 
     monkeypatch.setattr(handler, "fetch_all_adapters", fake_fetch)
@@ -44,7 +44,7 @@ def test_dry_run_also_reports_source_skips(monkeypatch):
     """A dry run is the cheapest way to ask 'what would this do' — it has to answer."""
     telemetry = {"masters_portal": {"engineering": {"skipped": 12}}}
 
-    async def fake_fetch(only=None, tier=2, **_kwargs):
+    async def fake_fetch(only=None, tier=2):
         return [], [], [], [], telemetry
 
     monkeypatch.setattr(handler, "fetch_all_adapters", fake_fetch)
@@ -56,7 +56,7 @@ def test_dry_run_also_reports_source_skips(monkeypatch):
 
 def test_missing_telemetry_is_zero_not_a_crash(monkeypatch):
     """Adapters without Tier 1 telemetry (visa, ielts_org) must not break the summary."""
-    async def fake_fetch(only=None, tier=2, **_kwargs):
+    async def fake_fetch(only=None, tier=2):
         return [], [], [], [], {"visa_adapter": {}}
 
     monkeypatch.setattr(handler, "fetch_all_adapters", fake_fetch)

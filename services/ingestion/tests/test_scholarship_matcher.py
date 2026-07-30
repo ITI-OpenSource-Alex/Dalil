@@ -9,6 +9,7 @@ made /match unusable at catalog scale, and this worker runs in a 5-minute Lambda
 
 import datetime
 
+import pytest
 
 from app.workers.scholarship_matcher import (
     DEADLINE_REMINDER_DAYS,

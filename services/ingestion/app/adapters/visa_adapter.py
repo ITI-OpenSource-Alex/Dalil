@@ -22,10 +22,9 @@ from bs4 import BeautifulSoup
 from pydantic import BaseModel
 from app.schemas.visa_schema import ProofOfFunds, funding_schema_prompt_block
 import hashlib
+import httpx
 
 from client import fetch_visa_sources, touch_visa_requirement
-from app.core.batch import BatchBudget
-from app.core.crawl_state import CrawlStateManager, crawl_state
 
 logger = structlog.get_logger("ingestion_worker.visa_adapter")
 
@@ -138,28 +137,8 @@ def _strip_markdown_fence(raw: str) -> str:
 
 
 class VisaSourceAdapter:
-    def __init__(
-        self,
-        anthropic_client=None,
-        *,
-        crawl_state_manager: CrawlStateManager | None = None,
-        budget: BatchBudget | None = None,
-        dry_run: bool = False,
-    ):
+    def __init__(self, anthropic_client=None):
         self.source_name = "visa_adapter"
-        self._crawl_state_manager = crawl_state_manager
-        self.budget = budget
-        self.dry_run = dry_run
-        self.last_run_telemetry = {
-            "calls": 0,
-            "input_tokens": 0,
-            "output_tokens": 0,
-            "remaining": 0,
-            "skipped": 0,
-            "failed": 0,
-            "extracted": 0,
-        }
-
         self.client = httpx.AsyncClient(
             timeout=30.0,
             follow_redirects=True,
@@ -181,14 +160,10 @@ class VisaSourceAdapter:
             
         self.anthropic = anthropic_client or AsyncAnthropic(**client_kwargs)
 
-    @property
-    def crawl_state(self) -> CrawlStateManager:
-        return self._crawl_state_manager or crawl_state
-
     async def scrape(self) -> list[dict]:
         """Orchestrator entry point.
 
-        Returns the canonical runner's document shape: each dict carries
+        Returns the list-of-dicts shape run_orchestrator expects: each dict carries
         `content` (chunked into a Document by the caller) plus a `visa_requirements`
         list the caller upserts independently — the same dual-write pattern every
         GOA-086 adapter used.
@@ -243,9 +218,6 @@ class VisaSourceAdapter:
             "content_hash": getattr(outcome, "content_hash", None),
             "extraction_evidence": outcome.extraction_evidence,
             "egyptian_specific": True,
-            # Internal runner metadata; handler.py strips it before the RAG HTTP
-            # request and only then commits source freshness state.
-            "_ingestion_source_key": str(outcome.source_id),
         }
 
         return {
@@ -376,38 +348,16 @@ class VisaSourceAdapter:
     async def run(self, sources: list[VisaSource]) -> list[ExtractionOutcome]:
         outcomes: list[ExtractionOutcome] = []
 
-        for index, source in enumerate(sources):
-            if self.budget and self.budget.exhausted:
-                self.last_run_telemetry["remaining"] = len(sources) - index
-                break
-            if self.budget and not self.budget.consume():
-                self.last_run_telemetry["remaining"] = len(sources) - index
-                break
+        for source in sources:
             try:
                 text = await self._fetch_text(source)
             except Exception as e:
                 # One dead embassy page must never kill the other eight.
                 outcomes.append(self._invalid(source, f"fetch_failed: {e}"))
-                self.last_run_telemetry["failed"] += 1
-                self.crawl_state.mark_source_attempt(
-                    self.source_name,
-                    str(source.id),
-                    source.source_url,
-                    succeeded=False,
-                    error_message=f"fetch_failed: {e}",
-                )
                 continue
 
             if not text.strip():
                 outcomes.append(self._invalid(source, "empty_page_text"))
-                self.last_run_telemetry["failed"] += 1
-                self.crawl_state.mark_source_attempt(
-                    self.source_name,
-                    str(source.id),
-                    source.source_url,
-                    succeeded=False,
-                    error_message="empty_page_text",
-                )
                 continue
 
 
@@ -417,53 +367,21 @@ class VisaSourceAdapter:
 
             if source.content_hash and source.content_hash == fetched_hash:
                 logger.info("visa_source_unchanged", source=source.id)
-                if not self.dry_run:
-                    try:
-                        touched = touch_visa_requirement(
-                            [{"source_url": source.source_url}]
-                        )
-                        if not touched:
-                            raise RuntimeError("RAG freshness touch returned false")
-                    except Exception as e:
-                        logger.warning(
-                            "failed_to_touch_visa_source",
-                            source=source.id,
-                            error=str(e),
-                        )
-                        self.last_run_telemetry["failed"] += 1
-                        self.crawl_state.mark_source_attempt(
-                            self.source_name,
-                            str(source.id),
-                            source.source_url,
-                            succeeded=False,
-                            error_message=f"freshness_touch_failed: {e}",
-                        )
-                        continue
-                self.last_run_telemetry["skipped"] += 1
-                self.crawl_state.mark_source_attempt(
-                    self.source_name,
-                    str(source.id),
-                    source.source_url,
-                    succeeded=True,
-                )
+                try:
+                    touch_visa_requirement([{
+                        "country": source.country, 
+                        "visa_type": source.visa_type, 
+                        "issuing_body": source.issuing_body
+                    }])
+                except Exception as e:
+                    logger.warning("failed_to_touch_visa_source", source=source.id, error=str(e))
                 # Skip the LLM and go to the next source!
-                continue
-            if self.dry_run:
-                # A dry run reports changed work but never spends model quota.
-                self.last_run_telemetry["remaining"] += 1
                 continue
             max_attempts = 2
             prompt_text = text
             for attempt in range(max_attempts):
                 try:
                     raw_data, telemetry = await self._call_llm(prompt_text, source)
-                    self.last_run_telemetry["calls"] += 1
-                    self.last_run_telemetry["input_tokens"] += (
-                        telemetry.get("input_tokens") or 0
-                    )
-                    self.last_run_telemetry["output_tokens"] += (
-                        telemetry.get("output_tokens") or 0
-                    )
 
                     raw_data.setdefault("extraction_valid", True)
                     raw_data["source_id"] = source.id
@@ -482,14 +400,6 @@ class VisaSourceAdapter:
                     if not outcome.extraction_valid:
                         outcomes.append(
                             self._invalid(source, "model_reported_content_mismatch")
-                        )
-                        self.last_run_telemetry["failed"] += 1
-                        self.crawl_state.mark_source_attempt(
-                            self.source_name,
-                            str(source.id),
-                            source.source_url,
-                            succeeded=False,
-                            error_message="model_reported_content_mismatch",
                         )
                         break
 
@@ -532,20 +442,11 @@ class VisaSourceAdapter:
                         **telemetry,
                     )
                     outcomes.append(outcome)
-                    self.last_run_telemetry["extracted"] += 1
                     break
 
                 except (pydantic.ValidationError, ValueError, json.JSONDecodeError) as e:
                     if attempt == max_attempts - 1:
                         outcomes.append(self._invalid(source, f"schema_invalid: {e}"))
-                        self.last_run_telemetry["failed"] += 1
-                        self.crawl_state.mark_source_attempt(
-                            self.source_name,
-                            str(source.id),
-                            source.source_url,
-                            succeeded=False,
-                            error_message=f"schema_invalid: {e}",
-                        )
                     else:
                         # Retry exactly once, with the validation error appended so the
                         # model can correct its own output.
@@ -555,14 +456,6 @@ class VisaSourceAdapter:
                         )
                 except Exception as e:
                     outcomes.append(self._invalid(source, f"extraction_failed: {e}"))
-                    self.last_run_telemetry["failed"] += 1
-                    self.crawl_state.mark_source_attempt(
-                        self.source_name,
-                        str(source.id),
-                        source.source_url,
-                        succeeded=False,
-                        error_message=f"extraction_failed: {e}",
-                    )
                     break
 
         return outcomes

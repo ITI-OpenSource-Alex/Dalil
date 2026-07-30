@@ -1,6 +1,7 @@
 import pytest
 import uuid
 import hashlib
+from config import settings
 from app.adapters.visa_adapter import VisaSourceAdapter, VisaSource
 
 @pytest.fixture
@@ -33,9 +34,11 @@ async def test_matching_hash_skips_llm_and_calls_touch_client(mocker, dummy_sour
     result = await adapter.run([dummy_source])
     
     assert not mock_call_llm.called
-    mock_touch.assert_called_once_with(
-        [{"source_url": dummy_source.source_url}]
-    )
+    mock_touch.assert_called_once_with([{
+        "country": dummy_source.country,
+        "visa_type": dummy_source.visa_type,
+        "issuing_body": dummy_source.issuing_body
+    }])
     assert len(result) == 0
 
 @pytest.mark.asyncio
@@ -52,8 +55,8 @@ async def test_hash_normalization_crlf_and_whitespace_stability():
     assert hash1 == hash2
 
 @pytest.mark.asyncio
-async def test_touch_call_failure_is_counted_and_does_not_mark_success(mocker, dummy_source):
-    """The real client returns False on an HTTP failure; it must not look successful."""
+async def test_touch_call_failure_logs_and_continues(mocker, dummy_source):
+    """If touch endpoint fails/raises an exception, run() logs a warning and does not crash."""
     adapter = VisaSourceAdapter()
     raw_text = "Unchanged page."
     mocker.patch.object(adapter, "_fetch_text", return_value=raw_text)
@@ -61,15 +64,10 @@ async def test_touch_call_failure_is_counted_and_does_not_mark_success(mocker, d
     from app.adapters.visa_adapter import normalize_text_for_hash
     dummy_source.content_hash = hashlib.sha256(normalize_text_for_hash(raw_text).encode("utf-8")).hexdigest()
     
-    mocker.patch(
-        "app.adapters.visa_adapter.touch_visa_requirement",
-        return_value=False,
-    )
+    mocker.patch("app.adapters.visa_adapter.touch_visa_requirement", side_effect=Exception("Connection timed out"))
     mock_call_llm = mocker.patch.object(adapter, "_call_llm")
     
     # Should complete without raising exception
     result = await adapter.run([dummy_source])
     assert not mock_call_llm.called
     assert len(result) == 0
-    assert adapter.last_run_telemetry["failed"] == 1
-    assert adapter.last_run_telemetry["skipped"] == 0

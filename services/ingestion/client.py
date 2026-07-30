@@ -66,7 +66,7 @@ def check_existing_chunks(ids: list[str]) -> list[str]:
         logger.error("Failed to connect to RAG check-existing endpoint: %s", str(e))
         raise e
     
-def upsert_visa_requirement(record: dict) -> dict:
+def upsert_visa_requirement(record: dict) -> bool:
     """
     Calls the RAG service's internal visa-requirements endpoint to upsert a single
     structured visa requirements record. `record` is a dict matching the
@@ -82,7 +82,7 @@ def upsert_visa_requirement(record: dict) -> dict:
 
         if response.status_code == 200:
             logger.info("Successfully upserted visa requirement to RAG database")
-            return response.json()
+            return True
         else:
             logger.error("RAG visa-requirements endpoint failed with status %d: %s", response.status_code, response.text)
             response.raise_for_status()
@@ -90,7 +90,7 @@ def upsert_visa_requirement(record: dict) -> dict:
         logger.error("Failed to connect to RAG visa-requirements endpoint: %s", str(e))
         raise e
 
-def upsert_program_requirement(record: dict) -> dict:
+def upsert_program_requirement(record: dict) -> bool:
     """
     Calls the RAG service's internal program-requirements endpoint to upsert a single
     structured program requirements record. `record` is a dict matching the
@@ -106,7 +106,7 @@ def upsert_program_requirement(record: dict) -> dict:
 
         if response.status_code == 200:
             logger.info("Successfully upserted program requirement to RAG database")
-            return response.json()
+            return True
         else:
             logger.error("RAG program-requirements endpoint failed with status %d: %s", response.status_code, response.text)
             response.raise_for_status()
@@ -114,7 +114,7 @@ def upsert_program_requirement(record: dict) -> dict:
         logger.error("Failed to connect to RAG program-requirements endpoint: %s", str(e))
         raise e
 
-def upsert_scholarship_program(record: dict) -> dict:
+def upsert_scholarship_program(record: dict) -> bool:
     """
     Calls the RAG service's internal scholarship-programs endpoint to upsert a single
     structured scholarship program record. `record` is a dict matching the
@@ -130,7 +130,7 @@ def upsert_scholarship_program(record: dict) -> dict:
 
         if response.status_code == 200:
             logger.info("Successfully upserted scholarship program to RAG database")
-            return response.json()
+            return True
         else:
             logger.error("RAG scholarship-programs endpoint failed with status %d: %s", response.status_code, response.text)
             response.raise_for_status()
@@ -138,7 +138,7 @@ def upsert_scholarship_program(record: dict) -> dict:
         logger.error("Failed to connect to RAG scholarship-programs endpoint: %s", str(e))
         raise e
 
-def upsert_chunks(chunks: list[dict]) -> dict:
+def upsert_chunks(chunks: list[dict]) -> bool:
     """
     Calls the RAG service's internal documents endpoint to bulk upsert chunks.
     `chunks` is a list of dictionaries matching the DocumentUpsertItem schema.
@@ -146,7 +146,7 @@ def upsert_chunks(chunks: list[dict]) -> dict:
     """
 
     if not chunks:
-        return {"status": "success", "count": 0, "added": 0, "updated": 0}
+        return True
     
     url = f"{settings.rag_service_url}/internal/documents"
     headers = get_headers()
@@ -158,7 +158,7 @@ def upsert_chunks(chunks: list[dict]) -> dict:
         
         if response.status_code == 200:
             logger.info("Successfully upserted %d chunks to RAG database", len(chunks))
-            return response.json()
+            return True
         else:
             logger.error("RAG documents upsert endpoint failed with status %d: %s", response.status_code, response.text)
             response.raise_for_status()
@@ -191,20 +191,3 @@ def touch_visa_requirement(sources: list[dict]) -> bool:
     except Exception as e:
         logger.warning("Failed to connect to RAG touch endpoint: %s", str(e))
         return False
-
-
-def delete_documents_by_source_url(source_url: str) -> int:
-    """Remove lower-tier chunks so a richer Tier 2 document replaces them."""
-    url = f"{settings.rag_service_url}/internal/documents"
-    try:
-        response = requests.delete(
-            url,
-            params={"source_url": source_url},
-            headers=get_headers(),
-            timeout=15,
-        )
-        response.raise_for_status()
-        return int(response.json().get("deleted", 0))
-    except Exception as e:
-        logger.error("Failed to delete existing chunks for %s: %s", source_url, e)
-        raise

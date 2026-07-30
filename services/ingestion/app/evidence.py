@@ -1,4 +1,3 @@
-import unicodedata
 from typing import Any
 from pydantic import BaseModel
 
@@ -6,6 +5,8 @@ IDENTITY_FIELDS = {
     "source_id", "country", "visa_type", "issuing_body",
     "source_url", "extraction_valid", "content_hash", "extraction_evidence"
 }
+
+import unicodedata
 
 def normalize_whitespace(text: str) -> str:
     """Collapses NFKC unicode variations, normalizes curly quotes/apostrophes, and collapses whitespace into a single space."""

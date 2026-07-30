@@ -3,7 +3,6 @@ import asyncpg
 import json
 import uuid
 from app.core.config import settings
-from app.main import app
 
 @pytest.mark.asyncio
 async def test_migration_019_idempotent():
@@ -57,8 +56,8 @@ async def test_legacy_proof_of_funds_nulled():
         await conn.execute("""
             INSERT INTO visa_requirements (id, country, visa_type, issuing_body, proof_of_funds, source_url, requirements)
             VALUES 
-            ($1, 'Germany', 'Student', 'TEST_LEGACY', $2::jsonb, 'http://legacy', '{}'::jsonb),
-            ($3, 'UK', 'Student', 'TEST_VALID', $4::jsonb, 'http://valid', '{}'::jsonb)
+            ($1, 'Germany', 'Student', 'TEST_LEGACY', $2::jsonb, 'http', '{}'::jsonb),
+            ($3, 'UK', 'Student', 'TEST_VALID', $4::jsonb, 'http', '{}'::jsonb)
         """, uuid.uuid4(), legacy_pof, uuid.uuid4(), valid_pof)
         
         # Run migration
@@ -111,6 +110,9 @@ async def test_upsert_persists_evidence_hash_and_verified_at(monkeypatch):
         await conn.execute("DELETE FROM visa_requirements WHERE country = 'TestCountry'")
         await conn.close()
 
+from fastapi.testclient import TestClient
+from app.main import app
+
 @pytest.mark.asyncio
 async def test_touch_updates_only_named_rows():
     from app.core.database import db
@@ -123,13 +125,13 @@ async def test_touch_updates_only_named_rows():
         await conn.execute("""
             INSERT INTO visa_requirements (id, country, visa_type, issuing_body, source_url, requirements)
             VALUES 
-            ($1, 'Country1', 'Type1', 'TOUCH1', 'http://touch1', '{}'::jsonb),
-            ($2, 'Country2', 'Type2', 'TOUCH2', 'http://touch2', '{}'::jsonb)
+            ($1, 'Country1', 'Type1', 'TOUCH1', 'http', '{}'::jsonb),
+            ($2, 'Country2', 'Type2', 'TOUCH2', 'http', '{}'::jsonb)
         """, uuid.uuid4(), uuid.uuid4())
         
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             resp = await client.post("/internal/visa-requirements/touch", json=[
-                {"source_url": "http://touch1"}
+                {"country": "Country1", "visa_type": "Type1", "issuing_body": "TOUCH1"}
             ], headers={"X-Internal-Api-Key": settings.internal_api_key})
             assert resp.status_code == 200
         

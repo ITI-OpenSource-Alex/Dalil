@@ -1,5 +1,4 @@
 from fastapi import APIRouter, HTTPException, Security
-from pydantic import BaseModel
 import structlog
 
 from app.core.database import db
@@ -21,7 +20,7 @@ async def list_visa_sources(_=Security(verify_api_key)):
     query = """
         SELECT s.id, s.country, s.visa_type, s.issuing_body, s.source_url, s.fetch_method, r.content_hash
         FROM visa_sources s
-        LEFT JOIN visa_requirements r ON s.source_url = r.source_url
+        LEFT JOIN visa_requirements r ON s.country = r.country AND s.visa_type = r.visa_type AND s.issuing_body = r.issuing_body
         WHERE s.active IS TRUE
         ORDER BY s.country, s.issuing_body
     """
@@ -60,11 +59,16 @@ async def handle_visa_requirements(request: VisaRequirementsRequest, _ = Securit
         raise HTTPException(status_code=500, detail="Internal Processing Error")
 
 
+from pydantic import BaseModel
+from typing import List
+
 class TouchRequest(BaseModel):
-    source_url: str
+    country: str
+    visa_type: str
+    issuing_body: str
 
 @router.post("/internal/visa-requirements/touch")
-async def touch_visa_requirements(requests: list[TouchRequest], _ = Security(verify_api_key)):
+async def touch_visa_requirements(requests: List[TouchRequest], _ = Security(verify_api_key)):
     try:
         async with db.pool.acquire() as conn:
             for req in requests:
@@ -72,9 +76,9 @@ async def touch_visa_requirements(requests: list[TouchRequest], _ = Security(ver
                     """
                     UPDATE visa_requirements 
                     SET last_verified_at = NOW() 
-                    WHERE source_url = $1
+                    WHERE country = $1 AND visa_type = $2 AND issuing_body = $3
                     """,
-                    req.source_url,
+                    req.country, req.visa_type, req.issuing_body
                 )
         return {"status": "ok"}
     except Exception as e:

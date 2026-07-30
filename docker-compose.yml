@@ -9,11 +9,6 @@ services:
       - USER_SERVICE_URL=http://user-service:8081
       - INTERNAL_API_KEY=supersecret_internal_key_123
       - ADMIN_API_KEY=${ADMIN_API_KEY:-local_admin_key_123}
-      - AWS_REGION=us-east-1
-      - AWS_ACCESS_KEY_ID=test
-      - AWS_SECRET_ACCESS_KEY=test
-      - AWS_ENDPOINT_URL=http://localstack:4566
-      - INGESTION_QUEUE_URL=http://localstack:4566/000000000000/ingestion-queue
       - BUDGET_USD=${BUDGET_USD:-150}
       - LLM_PRICING_JSON=${LLM_PRICING_JSON:-{"claude-opus-4-8":{"prompt_per_1m":2,"completion_per_1m":10},"glm-5.2":{"prompt_per_1m":6,"completion_per_1m":9},"gpt-5.5":{"prompt_per_1m":7,"completion_per_1m":14},"claude-opus-4-6":{"prompt_per_1m":8,"completion_per_1m":40},"claude-opus-4-7":{"prompt_per_1m":8,"completion_per_1m":40}}}
       - REDIS_URL=redis://redis-gateway:6379/0
@@ -31,8 +26,6 @@ services:
       postgres:
         condition: service_healthy
       redis-gateway:
-        condition: service_healthy
-      localstack:
         condition: service_healthy
       writing:
         condition: service_healthy
@@ -442,21 +435,13 @@ services:
       - AWS_SECRET_ACCESS_KEY=test
       - AWS_DEFAULT_REGION=us-east-1
       - INGESTION_REPORTS_BUCKET=goa-ingestion-reports
-      - INGESTION_QUEUE_URL=http://localstack:4566/000000000000/ingestion-queue
-      - INGESTION_VISIBILITY_TIMEOUT=4320
     volumes:
       - ./services/ingestion:/app
-      - ./packages/contracts/py/contracts:/app/contracts:ro
-      # The schema-parity test compares the independently deployed ingestion and
-      # RAG models. Mount RAG read-only so that check also runs in the service image.
-      - ./services/rag:/rag:ro
     depends_on:
       postgres:
         condition: service_healthy
       rag:
         condition: service_started
-      localstack:
-        condition: service_healthy
 
 volumes:
   pgdata:

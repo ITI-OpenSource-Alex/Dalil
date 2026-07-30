@@ -9,8 +9,8 @@ locals {
     "writing",
     "rag",
     "exam",
-    "ingestion",
     "notification",
+    "ingestion",
   ]
 
   ecs_deployed_service_names = [
@@ -21,7 +21,6 @@ locals {
     "writing",
     "rag",
     "exam",
-    "ingestion",
   ]
 
   lambda_worker_names = [
@@ -40,7 +39,6 @@ locals {
     writing       = 8000
     rag           = 8084
     exam          = 8085
-    ingestion     = 0
   }
 
   service_task_sizes = {
@@ -51,7 +49,6 @@ locals {
     writing       = { cpu = 512, memory = 1024 }
     rag           = { cpu = 512, memory = 1024 }
     exam          = { cpu = 256, memory = 512 }
-    ingestion     = { cpu = 1024, memory = 2048 }
   }
 
   ecs_services = {
@@ -60,7 +57,7 @@ locals {
       container_port                    = local.service_ports[service]
       cpu                               = local.service_task_sizes[service].cpu
       memory                            = local.service_task_sizes[service].memory
-      desired_count                     = lookup(var.ecs_desired_counts, service, service == "ingestion" ? 0 : 1)
+      desired_count                     = lookup(var.ecs_desired_counts, service, 1)
       health_check_grace_period_seconds = 120
       environment = merge({
         ENVIRONMENT = var.environment
@@ -75,7 +72,6 @@ locals {
         EXAM_SERVICE_URL          = "http://${local.name_prefix}-exam:8085"
         USER_SERVICE_URL          = "http://${local.name_prefix}-user:8081"
         ORCHESTRATION_SERVICE_URL = "http://${local.name_prefix}-orchestration:8083"
-        INGESTION_QUEUE_URL       = module.sqs.queue_urls["ingestion"]
         SECURE_COOKIES            = "true"
         } : service == "user" ? {
         REDIS_HOST    = module.elasticache.primary_endpoint_address
@@ -96,13 +92,6 @@ locals {
         SPEAKING_SERVICE_URL = "http://${local.name_prefix}-speaking:8082"
         WRITING_SERVICE_URL  = "http://${local.name_prefix}-writing:8000"
         S3_BUCKET            = module.exam_audio_bucket.bucket_name
-        } : service == "ingestion" ? {
-        RAG_SERVICE_URL                     = "http://${local.name_prefix}-rag:8084"
-        INGESTION_QUEUE_URL                 = module.sqs.queue_urls["ingestion"]
-        INGESTION_REPORTS_BUCKET            = module.ingestion_reports_bucket.bucket_name
-        INGESTION_WALL_CLOCK_BUDGET_SECONDS = "3600"
-        INGESTION_SAFETY_MARGIN_SECONDS     = "120"
-        INGESTION_VISIBILITY_TIMEOUT        = "4320"
       } : {})
       secrets = module.secrets.service_secret_value_from_refs[service]
     }
@@ -139,7 +128,7 @@ locals {
 
     ingestion = {
       name                       = "${local.name_prefix}-ingestion-queue"
-      visibility_timeout_seconds = 4320
+      visibility_timeout_seconds = 30
       max_receive_count          = 3
     }
   }
@@ -199,7 +188,6 @@ locals {
 
     ingestion = [
       "DATABASE_URL",
-      "ANTHROPIC_API_KEY",
       "INTERNAL_API_KEY",
     ]
   }
@@ -224,10 +212,6 @@ locals {
   }
 
   service_sqs_queue_keys = {
-    gateway = [
-      "ingestion",
-    ]
-
     user = [
       "user_events",
     ]
@@ -273,13 +257,6 @@ locals {
     ]
   }
 
-  service_s3_write_object_arns = {
-    for service in local.service_names :
-    service => service == "ingestion" ? [
-      "${module.ingestion_reports_bucket.bucket_arn}/*",
-    ] : []
-  }
-
   ecs_iam_permissions = merge(
     {
       for service in local.service_names : service => {
@@ -287,7 +264,6 @@ locals {
         task_secret_arns      = toset(local.service_secret_arns[service])
         sqs_queue_arns        = toset(local.service_sqs_queue_arns[service])
         s3_read_object_arns   = toset(local.service_s3_read_object_arns[service])
-        s3_write_object_arns  = toset(local.service_s3_write_object_arns[service])
         kms_key_arns          = toset(var.task_kms_key_arns)
       }
     },
@@ -297,7 +273,6 @@ locals {
         task_secret_arns      = toset([])
         sqs_queue_arns        = toset([])
         s3_read_object_arns   = toset([])
-        s3_write_object_arns  = toset([])
         kms_key_arns          = toset(var.task_kms_key_arns)
       }
     }
@@ -384,67 +359,6 @@ locals {
         period              = 60
         statistic           = "Minimum"
         treat_missing_data  = "breaching"
-      }
-    },
-    {
-      ingestion_failure_ratio = {
-        alarm_name          = "${local.name_prefix}-ingestion-failure-ratio"
-        description         = "More than ten percent of the bounded ingestion batch failed."
-        namespace           = "GOA/Ingestion"
-        metric_name         = "FailureRate"
-        dimensions          = { Environment = var.environment }
-        comparison_operator = "GreaterThanThreshold"
-        threshold           = 10
-        evaluation_periods  = 1
-        datapoints_to_alarm = 1
-        period              = 60
-        statistic           = "Maximum"
-        treat_missing_data  = "notBreaching"
-      }
-
-      ingestion_stale_sources = {
-        alarm_name          = "${local.name_prefix}-ingestion-stale-sources"
-        description         = "No successful ingestion freshness heartbeat was emitted for a week."
-        namespace           = "GOA/Ingestion"
-        metric_name         = "FreshnessHeartbeat"
-        dimensions          = { Environment = var.environment }
-        comparison_operator = "LessThanThreshold"
-        threshold           = 1
-        evaluation_periods  = 1
-        datapoints_to_alarm = 1
-        period              = 604800
-        statistic           = "Maximum"
-        treat_missing_data  = "breaching"
-      }
-
-      weekly_ingestion_failed_schedule = {
-        alarm_name          = "${local.name_prefix}-weekly-ingestion-failed-schedule"
-        description         = "The weekly program ingestion EventBridge target failed."
-        namespace           = "AWS/Events"
-        metric_name         = "FailedInvocations"
-        dimensions          = { RuleName = "goa-weekly-program-ingestion-${var.environment}" }
-        comparison_operator = "GreaterThanOrEqualToThreshold"
-        threshold           = 1
-        evaluation_periods  = 1
-        datapoints_to_alarm = 1
-        period              = 60
-        statistic           = "Sum"
-        treat_missing_data  = "notBreaching"
-      }
-
-      monthly_visa_failed_schedule = {
-        alarm_name          = "${local.name_prefix}-monthly-visa-failed-schedule"
-        description         = "The monthly visa verification EventBridge target failed."
-        namespace           = "AWS/Events"
-        metric_name         = "FailedInvocations"
-        dimensions          = { RuleName = "goa-monthly-visa-verification-${var.environment}" }
-        comparison_operator = "GreaterThanOrEqualToThreshold"
-        threshold           = 1
-        evaluation_periods  = 1
-        datapoints_to_alarm = 1
-        period              = 60
-        statistic           = "Sum"
-        treat_missing_data  = "notBreaching"
       }
     }
   )

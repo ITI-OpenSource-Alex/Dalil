@@ -6,7 +6,7 @@ from app.core.database import db
 
 
 async def upsert_visa_requirements(data: Dict[str, Any]) -> Dict[str, Any]:
-    """Upsert a structured visa requirements record, keyed by source_url.
+    """Upsert a structured visa requirements record, keyed by (country, visa_type, issuing_body).
 
     Uses a single atomic INSERT ... ON CONFLICT DO UPDATE statement so concurrent
     upserts for the same key can never race (a prior SELECT-then-branch implementation
@@ -19,7 +19,6 @@ async def upsert_visa_requirements(data: Dict[str, Any]) -> Dict[str, Any]:
     country = data["country"]
     visa_type = data["visa_type"]
     issuing_body = data["issuing_body"]
-    source_url = data["source_url"]
     incoming_content_hash = data.get("content_hash")
 
     requirements_json = json.dumps(data.get("requirements") or {})
@@ -39,10 +38,8 @@ async def upsert_visa_requirements(data: Dict[str, Any]) -> Dict[str, Any]:
                     notes, content_hash, extraction_evidence, last_scraped_at, last_verified_at
                 )
                 VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9, $10, $11, $12::jsonb, NOW(), NOW())
-                ON CONFLICT (source_url) DO UPDATE
-                SET country = EXCLUDED.country,
-                    visa_type = EXCLUDED.visa_type,
-                    issuing_body = EXCLUDED.issuing_body,
+                ON CONFLICT (country, visa_type, issuing_body) DO UPDATE
+                SET source_url = EXCLUDED.source_url,
                     egyptian_specific = EXCLUDED.egyptian_specific,
                     requirements = EXCLUDED.requirements,
                     proof_of_funds = EXCLUDED.proof_of_funds,
@@ -59,7 +56,7 @@ async def upsert_visa_requirements(data: Dict[str, Any]) -> Dict[str, Any]:
                 country,
                 visa_type,
                 issuing_body,
-                source_url,
+                data.get("source_url"),
                 data["egyptian_specific"],
                 requirements_json,
                 proof_of_funds_json,
@@ -78,7 +75,7 @@ async def upsert_visa_requirements(data: Dict[str, Any]) -> Dict[str, Any]:
             # unchanged, so ON CONFLICT DO UPDATE returned no row -- look up the
             # existing row's id for the response.
             existing = await conn.fetchrow(
-                "SELECT id FROM visa_requirements WHERE source_url = $1",
-                source_url,
+                "SELECT id FROM visa_requirements WHERE country = $1 AND visa_type = $2 AND issuing_body = $3",
+                country, visa_type, issuing_body,
             )
             return {"status": "success", "id": str(existing["id"]), "action": "unchanged"}

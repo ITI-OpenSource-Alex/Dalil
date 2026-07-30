@@ -23,15 +23,11 @@ variable "queues" {
   }
 
   validation {
-    condition = (
-      var.queues.user_events.visibility_timeout_seconds == 30 &&
-      var.queues.notification.visibility_timeout_seconds == 30 &&
-      var.queues.ingestion.visibility_timeout_seconds >= 900 &&
-      alltrue([
-        for queue in values(var.queues) : queue.max_receive_count == 3
-      ])
-    )
-    error_message = "Interactive queues require a 30-second visibility timeout; ingestion requires at least 900 seconds; every queue requires max_receive_count = 3."
+    condition = alltrue([
+      for queue in values(var.queues) :
+      queue.visibility_timeout_seconds == 30 && queue.max_receive_count == 3
+    ])
+    error_message = "GOA-070 requires every SQS queue to use visibility_timeout_seconds = 30 and max_receive_count = 3."
   }
 }
 

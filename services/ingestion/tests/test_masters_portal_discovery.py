@@ -10,6 +10,7 @@ import pytest
 
 from app.adapters.masters_portal import (
     DISCIPLINE_IDS,
+    EUROPE_ISO,
     MastersPortalAdapter,
     _as_number,
     _card_field,

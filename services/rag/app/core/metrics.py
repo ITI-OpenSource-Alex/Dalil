@@ -44,3 +44,15 @@ LLM_BOOST_VALUE = Histogram(
     "Distribution of the LLM boost values applied",
     buckets=list(range(-10, 12)),  # Creates buckets: [-10, -9, ... 10, 11]
 )
+
+
+CHECKLIST_GENERATED_TOTAL = Counter(
+    "goa_rag_checklist_generated_total",
+    "Total number of checklists generated, by source",
+    labelnames=["source"],  # "llm" or "fallback"
+)
+CHECKLIST_GENERATION_LATENCY = Histogram(
+    "goa_rag_checklist_generation_latency_ms",
+    "Latency of checklist generation (LLM call or fallback) in milliseconds",
+    buckets=[50, 100, 250, 500, 1000, 2500, 5000, 10000, 30000],
+)

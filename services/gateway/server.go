@@ -59,6 +59,7 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	examHandler := handlers.NewExamHandler(examClient, cfg.ExamServiceURL, cfg.InternalApiKey)
 	speakingWSHandler := handlers.NewSpeakingWSHandler(cfg.SpeakingServiceURL, 10*time.Second, logger)
 	notificationHandler := handlers.NewNotificationHandler(httpClient, cfg.NotificationServiceURL, cfg.InternalApiKey)
+	checklistHandler := handlers.NewChecklistHandler(httpClient, cfg.RagServiceURL)
 	examOwnership := middleware.NewExamSessionOwnership(
 		redisClient,
 		httpClient,
@@ -247,6 +248,10 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 		middleware.AIRateLimiter(redisClient, "essay_evaluation", cfg.EssayEvalsPerHour, time.Hour, logger, metrics),
 		streamHandler.WritingEvaluate)
 	api.Get("/notifications", notificationHandler.List)
+	// GOA-084: checklist persistence (RAG service). Free-tier, like notifications
+	// above -- not one of the paid features named in the comment above this group.
+	api.Get("/checklists/:programId", checklistHandler.GetChecklist)
+	api.Put("/checklists/:programId/items/:itemId", checklistHandler.UpdateChecklistItem)
 	app.Post(
 		"/cv/upload",
 		middleware.JWT(cfg.JWTSecret, redisClient, metrics),

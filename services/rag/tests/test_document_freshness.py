@@ -59,19 +59,22 @@ def test_delete_by_source_url_replaces_only_the_named_source():
         finally:
             await conn.close()
 
-    try:
-        _run(seed())
-        with TestClient(app) as client:
+    # Enter the real application lifespan before direct SQL setup. On a fresh CI
+    # database startup applies 001/002 (pgvector + documents); a long-lived local
+    # database had hidden this ordering dependency.
+    with TestClient(app) as client:
+        try:
+            _run(seed())
             response = client.delete(
                 "/internal/documents",
                 params={"source_url": source_url},
                 headers={"X-Internal-Api-Key": settings.internal_api_key},
             )
-        assert response.status_code == 200
-        assert response.json()["deleted"] == 2
-        assert _run(count_rows()) == (0, 1)
-    finally:
-        _run(cleanup())
+            assert response.status_code == 200
+            assert response.json()["deleted"] == 2
+            assert _run(count_rows()) == (0, 1)
+        finally:
+            _run(cleanup())
 
 
 def test_document_upsert_reports_insert_then_update():

@@ -127,6 +127,7 @@ def docx_bytes():
 
 class FakeWritingAgentRunner:
     def __init__(self, delays=None, bands=None):
+        self.model = "test-writing-model"
         self.delays = delays or {}
         self.bands = bands or {
             "task_response": 6.5,
@@ -194,7 +195,7 @@ def evaluation_client(client, fake_agent_runner):
 
     langfuse = MagicMock()
     trace = MagicMock()
-    langfuse.trace.return_value = trace
+    langfuse.start_observation.return_value = trace
     app.dependency_overrides[get_evaluation_coordinator] = lambda: EvaluationCoordinator(
         fake_agent_runner
     )

@@ -1,7 +1,7 @@
 import asyncio
 import json
 import structlog
-from botocore.exceptions import ClientError
+from botocore.exceptions import BotoCoreError, ClientError
 from aiobotocore.session import get_session
 
 
@@ -32,7 +32,7 @@ async def consume_sqs_messages():
             response = await sqs_client.get_queue_url(QueueName=settings.SQS_QUEUE_NAME)
             queue_url = response["QueueUrl"]
             logger.info("SQS Consumer connected", queue_url=queue_url)
-        except ClientError as e:
+        except (BotoCoreError, ClientError) as e:
             logger.error("Failed to get SQS queue URL", error=str(e))
             return
 

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -74,7 +75,9 @@ type Client struct {
 	llmClient       agents.LLMClient // Decoupled interface
 	ttsClient       TTSClient        // Decoupled interface
 	langfuseClient  LangfuseClient   // Decoupled interface
-	firstTTSWritten int32            // atomic check
+	traceID         string
+	parentTraceSpan string
+	firstTTSWritten int32 // atomic check
 	firstTTSSentAt  time.Time
 	// For testing mock
 	transcribeFn func(audio []byte)
@@ -100,22 +103,31 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request, cfg *Config, dbRepo
 	ctx, cancel := context.WithCancel(context.Background())
 	buf := bufferPool.Get().(*bytes.Buffer)
 	buf.Reset()
+	traceID, parentTraceSpan, hasParentTrace := langfuse.ParseTraceparent(
+		r.URL.Query().Get("traceparent"),
+	)
+	if !hasParentTrace {
+		traceID = strings.ReplaceAll(uuid.New().String(), "-", "")
+		parentTraceSpan = ""
+	}
 	client := &Client{
-		id:             uuid.New().String(),
-		conn:           conn,
-		send:           make(chan WSMessage, 256),
-		audioBuffer:    buf,
-		lastAudioAt:    time.Now(),
-		ctx:            ctx,
-		cancel:         cancel,
-		speechURL:      cfg.SpeechServiceURL,
-		userID:         "anonymous", // Defaults to anonymous, overridden upon first text packet
-		startTime:      time.Now(),
-		outcome:        "dropped", // default outcome unless completed/errored
-		dbRepo:         dbRepo,
-		llmClient:      llmClient,
-		ttsClient:      ttsClient,
-		langfuseClient: lfClient,
+		id:              uuid.New().String(),
+		conn:            conn,
+		send:            make(chan WSMessage, 256),
+		audioBuffer:     buf,
+		lastAudioAt:     time.Now(),
+		ctx:             ctx,
+		cancel:          cancel,
+		speechURL:       cfg.SpeechServiceURL,
+		userID:          "anonymous", // Defaults to anonymous, overridden upon first text packet
+		startTime:       time.Now(),
+		outcome:         "dropped", // default outcome unless completed/errored
+		dbRepo:          dbRepo,
+		llmClient:       llmClient,
+		ttsClient:       ttsClient,
+		langfuseClient:  lfClient,
+		traceID:         traceID,
+		parentTraceSpan: parentTraceSpan,
 	}
 	client.transcribeFn = client.transcribeAudio
 	log.Info().Str("session_id", client.id).Msg("New WebSocket connection established")
@@ -372,13 +384,14 @@ func (c *Client) runEvaluationAndTTS(transcript string, transcriptionMs int64) {
 		detachedCtx, detachedCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer detachedCancel()
 
-		events := []langfuse.IngestionEvent{
-			{
+		events := make([]langfuse.IngestionEvent, 0, len(swarmRes.Dimensions)+2)
+		if c.parentTraceSpan == "" {
+			events = append(events, langfuse.IngestionEvent{
 				ID:        c.id,
 				Type:      "trace",
 				Timestamp: time.Now(),
 				Body: langfuse.TraceBody{
-					ID:        c.id,
+					ID:        c.traceID,
 					Name:      "speaking_evaluation",
 					UserID:    c.userID,
 					SessionID: c.id,
@@ -387,11 +400,32 @@ func (c *Client) runEvaluationAndTTS(transcript string, transcriptionMs int64) {
 						"question_type":   c.questionType,
 					},
 				},
-			},
+			})
 		}
 
+		speakingSpanID := strings.ReplaceAll(uuid.New().String(), "-", "")[:16]
+		events = append(events, langfuse.IngestionEvent{
+			ID:        speakingSpanID,
+			Type:      "span",
+			Timestamp: time.Now(),
+			Body: langfuse.SpanBody{
+				ID:                  speakingSpanID,
+				TraceID:             c.traceID,
+				ParentObservationID: c.parentTraceSpan,
+				Name:                "speaking_evaluation",
+				StartTime:           ttsStart.Add(-swarmDuration),
+				EndTime:             ttsStart,
+				Input:               transcript,
+				Output:              map[string]any{"overall_band": swarmRes.OverallBand},
+				Metadata: map[string]any{
+					"session_id": c.id,
+					"user_id":    c.userID,
+				},
+			},
+		})
+
 		for name, dim := range swarmRes.Dimensions {
-			spanID := uuid.New().String()
+			spanID := strings.ReplaceAll(uuid.New().String(), "-", "")[:16]
 			metadata := map[string]any{
 				"criterion": name,
 				"timed_out": dim.TimedOut,
@@ -405,14 +439,15 @@ func (c *Client) runEvaluationAndTTS(transcript string, transcriptionMs int64) {
 				Type:      "generation",
 				Timestamp: time.Now(),
 				Body: langfuse.GenerationBody{
-					ID:        spanID,
-					TraceID:   c.id,
-					Name:      name,
-					StartTime: ttsStart.Add(-swarmDuration),
-					EndTime:   ttsStart,
-					Model:     "claude-3-5-haiku-20241022",
-					Input:     transcript,
-					Output:    dim.Feedback,
+					ID:                  spanID,
+					TraceID:             c.traceID,
+					ParentObservationID: speakingSpanID,
+					Name:                name,
+					StartTime:           ttsStart.Add(-swarmDuration),
+					EndTime:             ttsStart,
+					Model:               "claude-3-5-haiku-20241022",
+					Input:               transcript,
+					Output:              dim.Feedback,
 					Usage: map[string]int{
 						"inputTokens":  dim.PromptTokens,
 						"outputTokens": dim.CompletionTokens,

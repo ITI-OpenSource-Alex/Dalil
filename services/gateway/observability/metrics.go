@@ -10,7 +10,7 @@ import (
 type Metrics struct {
 	RequestsTotal      *prometheus.CounterVec
 	LatencySeconds     *prometheus.HistogramVec
-	RateLimitHitsTotal *prometheus.CounterVec
+	RateLimitHitsTotal prometheus.Counter
 	AuthFailuresTotal  prometheus.Counter
 }
 
@@ -38,12 +38,11 @@ func NewMetrics() (*Metrics, error) {
 		return nil, err
 	}
 
-	rateLimitHitsTotal, err := registerCounterVec(
+	rateLimitHitsTotal, err := registerCounter(
 		prometheus.CounterOpts{
 			Name: "goa_gateway_rate_limit_hits_total",
 			Help: "Total gateway requests blocked by rate limiting.",
 		},
-		[]string{"user_id"},
 	)
 	if err != nil {
 		return nil, err
@@ -89,12 +88,12 @@ func (m *Metrics) RecordAuthFailure() {
 	m.AuthFailuresTotal.Inc()
 }
 
-func (m *Metrics) RecordRateLimitHit(userID string) {
+func (m *Metrics) RecordRateLimitHit(_ string) {
 	if m == nil || m.RateLimitHitsTotal == nil {
 		return
 	}
 
-	m.RateLimitHitsTotal.WithLabelValues(userID).Inc()
+	m.RateLimitHitsTotal.Inc()
 }
 
 func registerCounterVec(opts prometheus.CounterOpts, labels []string) (*prometheus.CounterVec, error) {

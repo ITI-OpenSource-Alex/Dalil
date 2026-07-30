@@ -2,7 +2,7 @@ import time
 import json
 import structlog
 from fastapi import HTTPException
-from langfuse.decorators import observe, langfuse_context
+from langfuse import get_client, observe
 from app.core.database import db
 from app.core.redis import redis_client
 from app.schemas.scoring import UserProfile, ProgramRequirements
@@ -141,7 +141,7 @@ async def get_program_requirements(program_id: str) -> ProgramRequirements | Non
         )
 
 
-@observe(as_type="trace", name="GOA-012-scoring-pipeline")
+@observe(as_type="span", name="GOA-012-scoring-pipeline")
 async def calculate_score(user_id: str, program_id: str, apply_llm_boost: bool = True) -> dict:
     start_time = time.time()
 
@@ -217,9 +217,9 @@ async def calculate_score(user_id: str, program_id: str, apply_llm_boost: bool =
     latency_ms = int((time.time() - start_time) * 1000)
 
     # 7. METRICS & TRACING: Inject into Langfuse parent trace
-    langfuse_context.update_current_trace(
-        user_id=user_id,
+    get_client().update_current_span(
         metadata={
+            "user_id": user_id,
             "program_id": program_id,
             "stage1_passed": gate_result.passed,
             "final_score": final_result["score"],

@@ -35,6 +35,11 @@ func TestMetricsRegistryContainsRequiredGatewayMetrics(t *testing.T) {
 	names := make(map[string]bool)
 	for _, family := range families {
 		names[family.GetName()] = true
+		if family.GetName() == "goa_gateway_rate_limit_hits_total" {
+			if labels := family.Metric[0].GetLabel(); len(labels) != 0 {
+				t.Fatalf("rate-limit counter must not expose user IDs: %+v", labels)
+			}
+		}
 	}
 
 	required := []string{

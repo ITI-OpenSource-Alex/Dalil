@@ -32,19 +32,28 @@ async def lifespan(app: FastAPI):
     # Start the background SQS consumer task
     sqs_task = asyncio.create_task(consume_sqs_messages())
 
-    yield  # App is running and serving requests here
-
-    # --- Shutdown ---
-    logger.info("Shutting down RAG service...")
-    sqs_task.cancel()  # Tell the background task to stop
     try:
-        await sqs_task
-    except asyncio.CancelledError:
-        pass
+        yield  # App is running and serving requests here
+    finally:
+        # --- Shutdown ---
+        # A failed optional background consumer must never skip cleanup of the
+        # request-serving database and Redis clients. In credential-free CI the
+        # SQS task can finish before shutdown, so awaiting it may raise rather
+        # than CancelledError.
+        logger.info("Shutting down RAG service...")
+        sqs_task.cancel()  # Tell the background task to stop
+        try:
+            await sqs_task
+        except asyncio.CancelledError:
+            pass
+        except Exception:
+            logger.exception("SQS consumer stopped with an error")
 
-    await db.disconnect()
-    await redis_client.disconnect()
-    logger.info("RAG service database connection closed.")
+        try:
+            await db.disconnect()
+        finally:
+            await redis_client.disconnect()
+        logger.info("RAG service database connection closed.")
 
 
 app = FastAPI(

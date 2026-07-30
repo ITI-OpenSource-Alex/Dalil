@@ -23,6 +23,7 @@ locals {
       key => (
         key == "JWT_SECRET" ? random_password.jwt_secret[service].result :
         key == "INTERNAL_API_KEY" ? random_password.internal_api_key.result :
+        key == "ADMIN_API_KEY" ? random_password.admin_api_key.result :
         key == "DATABASE_URL" ? lookup(local.database_url_by_service, service, "") :
         ""
       )
@@ -50,6 +51,11 @@ resource "random_password" "jwt_secret" {
 }
 
 resource "random_password" "internal_api_key" {
+  length  = 40
+  special = false
+}
+
+resource "random_password" "admin_api_key" {
   length  = 40
   special = false
 }

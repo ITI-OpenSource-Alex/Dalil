@@ -63,6 +63,8 @@ locals {
         ENVIRONMENT = var.environment
         PORT        = tostring(local.service_ports[service])
         AWS_REGION  = var.aws_region
+        # Every LLM-producing service writes the Gateway-owned daily cost roll-up.
+        REDIS_GATEWAY_URL = "redis://${module.elasticache.primary_endpoint_address}:${module.elasticache.port}/0"
         }, service == "gateway" ? {
         PORT                      = "8080"
         REDIS_URL                 = "redis://${module.elasticache.primary_endpoint_address}:${module.elasticache.port}/0"
@@ -135,6 +137,7 @@ locals {
     gateway = [
       "JWT_SECRET",
       "INTERNAL_API_KEY",
+      "ADMIN_API_KEY",
     ]
 
     user = [
@@ -289,7 +292,7 @@ locals {
         datapoints_to_alarm = 5
         period              = 60
         extended_statistic  = "p95"
-        treat_missing_data  = "notBreaching"
+        treat_missing_data  = "missing"
       }
 
       cv_processor_failure_queue_depth = {
@@ -321,7 +324,7 @@ locals {
         datapoints_to_alarm = 5
         period              = 60
         statistic           = "Average"
-        treat_missing_data  = "notBreaching"
+        treat_missing_data  = "missing"
       }
     },
     {

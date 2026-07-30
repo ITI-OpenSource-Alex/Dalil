@@ -64,3 +64,45 @@ func TestChatForwardsSubscriptionTierAndAuthoritativeUserID(t *testing.T) {
 		t.Fatalf("expected JWT user id, got %q", receivedUserID)
 	}
 }
+
+func TestWritingEvaluateForwardsTraceparentFromBrowserHandoff(t *testing.T) {
+	const traceparent = "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01"
+	var receivedTraceparent string
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedTraceparent = r.Header.Get("traceparent")
+		w.Header().Set(fiber.HeaderContentType, "text/event-stream")
+		_, _ = io.WriteString(w, "event: complete\ndata: {}\n\n")
+	}))
+	t.Cleanup(upstream.Close)
+
+	handler := NewStreamHandler(
+		http.DefaultClient,
+		"http://orchestration.invalid",
+		upstream.URL,
+		"test-internal-key",
+	)
+	app := fiber.New()
+	app.Use(func(c *fiber.Ctx) error {
+		c.Locals(middleware.ContextKeyUserID, "jwt-user")
+		return c.Next()
+	})
+	app.Post("/writing/essays/:essayId/evaluate", handler.WritingEvaluate)
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/writing/essays/42/evaluate?traceparent="+traceparent,
+		nil,
+	)
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("writing evaluation request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", resp.StatusCode)
+	}
+	if receivedTraceparent != traceparent {
+		t.Fatalf("expected traceparent %q, got %q", traceparent, receivedTraceparent)
+	}
+}

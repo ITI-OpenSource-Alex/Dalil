@@ -128,6 +128,9 @@ func (h *StreamHandler) stream(
 		return err
 	}
 	req.Header.Set("X-Internal-API-Key", h.internalAPIKey)
+	if traceparent := c.Query("traceparent"); traceparent != "" {
+		req.Header.Set("traceparent", traceparent)
+	}
 	if forwardSubscriptionTier {
 		tier, _ := c.Locals(middleware.ContextKeySubscriptionTier).(string)
 		if tier == "" {

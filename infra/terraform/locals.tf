@@ -292,7 +292,7 @@ locals {
         datapoints_to_alarm = 5
         period              = 60
         extended_statistic  = "p95"
-        treat_missing_data  = "notBreaching"
+        treat_missing_data  = "missing"
       }
 
       cv_processor_failure_queue_depth = {
@@ -324,7 +324,7 @@ locals {
         datapoints_to_alarm = 5
         period              = 60
         statistic           = "Average"
-        treat_missing_data  = "notBreaching"
+        treat_missing_data  = "missing"
       }
     },
     {

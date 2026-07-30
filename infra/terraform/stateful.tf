@@ -161,12 +161,19 @@ module "observability" {
   source = "./modules/observability"
 
   name_prefix           = local.name_prefix
+  aws_region            = var.aws_region
+  dashboard_name        = var.environment == "staging" ? "GOA-Overview" : "GOA-Overview-${var.environment}"
   service_names         = local.service_names
   log_retention_days    = 30
   sns_topic_name        = "${local.name_prefix}-alerts"
   alert_email_addresses = var.alert_email_addresses
   sqs_queue_names       = values(module.sqs.dlq_names)
   ecs_cluster_name      = var.ecs_cluster_name
-  alarm_definitions     = local.goa027_alarm_definitions
-  tags                  = local.common_tags
+  lambda_function_names = [
+    "goa-cv-processor-${var.environment}",
+    "goa-scholarship-matcher-${var.environment}",
+    "goa-notification-sender-${var.environment}",
+  ]
+  alarm_definitions = local.goa027_alarm_definitions
+  tags              = local.common_tags
 }

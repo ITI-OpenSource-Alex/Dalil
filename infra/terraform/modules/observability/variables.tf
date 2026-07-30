@@ -20,6 +20,17 @@ variable "sns_topic_name" {
   default     = "goa-alerts"
 }
 
+variable "aws_region" {
+  description = "AWS region rendered into CloudWatch dashboard widgets."
+  type        = string
+}
+
+variable "dashboard_name" {
+  description = "CloudWatch dashboard name."
+  type        = string
+  default     = "GOA-Overview"
+}
+
 variable "alert_email_addresses" {
   description = "Email addresses subscribed to the alert SNS topic."
   type        = list(string)
@@ -36,6 +47,12 @@ variable "ecs_cluster_name" {
   description = "ECS cluster name used by running task count alarms."
   type        = string
   default     = ""
+}
+
+variable "lambda_function_names" {
+  description = "Lambda function names included in the invocation panel."
+  type        = list(string)
+  default     = []
 }
 
 variable "alarm_definitions" {

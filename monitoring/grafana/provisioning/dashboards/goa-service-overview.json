@@ -1,11 +1,11 @@
 {
   "uid": "goa-service-overview",
   "title": "GOA — Service Overview",
-  "description": "Request rate, latency and error rate across GOA services. Covers GOA-106 / OBS-03.",
-  "tags": ["goa", "overview"],
+  "description": "Request rate, latency, error rate, realtime sessions, and LLM telemetry across GOA services. Covers GOA-027 and GOA-106 / OBS-03.",
+  "tags": ["goa", "overview", "GOA-027"],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "30s",
   "time": { "from": "now-1h", "to": "now" },
   "templating": {
@@ -368,6 +368,130 @@
         "defaults": {
           "unit": "ms",
           "custom": { "fillOpacity": 0, "showPoints": "never", "lineWidth": 2 }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "id": 15,
+      "type": "row",
+      "title": "Realtime and evaluation SLOs",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 41 }
+    },
+    {
+      "id": 16,
+      "type": "stat",
+      "title": "Active WebSocket connections",
+      "description": "Current Speaking WebSocket sessions. Open a speaking session to validate that this moves above zero.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 42 },
+      "targets": [
+        {
+          "expr": "goa_speaking_active_connections",
+          "legendFormat": "connections",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "value_and_name"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "blue", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 17,
+      "type": "stat",
+      "title": "Langfuse ingestion failures (5m)",
+      "description": "Individual Speaking ingestion events rejected by Langfuse, including partial 207 responses.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 42 },
+      "targets": [
+        {
+          "expr": "sum(increase(goa_langfuse_ingestion_failures_total[5m]))",
+          "legendFormat": "failed events",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "background",
+        "graphMode": "area",
+        "textMode": "value_and_name"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 18,
+      "type": "timeseries",
+      "title": "Writing evaluation latency p95",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 42 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(goa_writing_evaluation_latency_ms_bucket[5m])))",
+          "legendFormat": "writing p95",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": { "fillOpacity": 10, "showPoints": "never", "lineWidth": 2 }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "id": 19,
+      "type": "timeseries",
+      "title": "Speaking end-to-end latency p95",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 42 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(goa_speaking_e2e_latency_ms_bucket[5m])))",
+          "legendFormat": "speaking p95",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": { "fillOpacity": 10, "showPoints": "never", "lineWidth": 2 }
         },
         "overrides": []
       },

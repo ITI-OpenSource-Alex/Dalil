@@ -1,11 +1,9 @@
 import hashlib
 import time
 import logging
-from datetime import datetime
 from typing import List, Tuple, Dict, Any
 from openai import AsyncOpenAI
 
-from langchain_openai import OpenAIEmbeddings
 from langchain_anthropic import ChatAnthropic
 from langfuse import Langfuse
 
@@ -149,7 +147,7 @@ async def _record_faq_hit(faq_id) -> None:
 
 
 async def query_rag(
-    question: str, user_id: str, top_k: int = 5
+    question: str, user_id: str, top_k: int = 5, trace: Any = None
 ) -> Tuple[str, List[Dict[str, Any]], Dict[str, Any]]:
     """
     Checks for a hand-curated FAQ match first (zero-token, skips the LLM entirely on
@@ -176,6 +174,17 @@ async def query_rag(
             "faq_hit": True,
         }
         return faq_match["answer_markdown"], [], metrics_summary
+
+    retrieval_span = None
+    if trace is not None:
+        try:
+            retrieval_span = trace.start_observation(
+                name="retrieval",
+                as_type="retriever",
+                input={"question": question, "top_k": top_k},
+            )
+        except Exception as exc:
+            logger.warning("Failed to start Langfuse retrieval span: %s", exc)
 
     # 2. Embed the search query
     query_vector = await generate_embedding(question)
@@ -209,6 +218,16 @@ async def query_rag(
         if sim > top_similarity:
             top_similarity = sim
 
+    if retrieval_span is not None:
+        try:
+            retrieval_span.update(
+                output=sources,
+                metadata={"top_k": top_k, "top_similarity": top_similarity},
+            )
+            retrieval_span.end()
+        except Exception as exc:
+            logger.warning("Failed to end Langfuse retrieval span: %s", exc)
+
     # 4. Format context for prompt
     context_str = "\n\n".join(
         [
@@ -228,9 +247,19 @@ Question:
 Answer:"""
 
     # 5. Call LLM (Claude)
-    llm_start_time = time.time()
+    generation = None
+    if trace is not None:
+        try:
+            generation = trace.start_observation(
+                name="answer-generation",
+                as_type="generation",
+                model=settings.llm_model,
+                input=prompt,
+            )
+        except Exception as exc:
+            logger.warning("Failed to start Langfuse generation: %s", exc)
+
     response = await _invoke_llm_with_retry(prompt)
-    llm_latency_ms = (time.time() - llm_start_time) * 1000
     answer_text = response.content
 
     # Extract token usage
@@ -244,6 +273,23 @@ Answer:"""
 
     # Estimated cost calculation for claude-haiku-4-5-20251001 ($0.25/M input, $1.25/M output tokens)
     cost_usd = (input_tokens * 0.25 + output_tokens * 1.25) / 1_000_000
+
+    if generation is not None:
+        try:
+            generation.update(
+                output=answer_text,
+                usage_details={
+                    "input": int(input_tokens),
+                    "output": int(output_tokens),
+                },
+                metadata={
+                    "cost_usd": cost_usd,
+                    "chunks_used": len(sources),
+                },
+            )
+            generation.end()
+        except Exception as exc:
+            logger.warning("Failed to end Langfuse generation: %s", exc)
     
     try:
         from app.telemetry import record_llm_cost
@@ -252,44 +298,6 @@ Answer:"""
         logger.warning("telemetry helper not found")
 
     total_latency_ms = (time.time() - start_time) * 1000
-
-    # 6. Trace in Langfuse
-    if langfuse_client:
-        try:
-            trace = langfuse_client.trace(
-                name="rag-query",
-                user_id=user_id,
-                metadata={
-                    "question_hash": question_hash,
-                    "top_similarity_score": top_similarity,
-                },
-            )
-
-            trace.span(
-                name="retrieval",
-                start_time=datetime.fromtimestamp(start_time),
-                end_time=datetime.fromtimestamp(
-                    start_time + (total_latency_ms - llm_latency_ms) / 1000
-                ),
-                input=question,
-                output=sources,
-                metadata={"top_k": top_k, "top_similarity": top_similarity},
-            )
-
-            trace.generation(
-                name="answer-generation",
-                model=settings.llm_model,
-                start_time=datetime.fromtimestamp(
-                    start_time + (total_latency_ms - llm_latency_ms) / 1000
-                ),
-                end_time=datetime.fromtimestamp(time.time()),
-                input=prompt,
-                output=answer_text,
-                usage={"input": input_tokens, "output": output_tokens},
-                metadata={"cost_usd": cost_usd, "chunks_used": len(sources)},
-            )
-        except Exception as e:
-            logger.error("Failed to write trace to Langfuse: %s", str(e))
 
     metrics_summary = {
         "question_hash": question_hash,

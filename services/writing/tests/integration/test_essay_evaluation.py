@@ -58,14 +58,16 @@ def test_evaluation_trace_has_one_root_and_exactly_four_child_spans(evaluation_c
     response = client.post("/essays/evaluate", json=PAYLOAD)
 
     assert response.status_code == 200
-    langfuse.trace.assert_called_once()
-    trace_call = langfuse.trace.call_args.kwargs
-    assert trace_call["user_id"] == PAYLOAD["userId"]
+    langfuse.start_observation.assert_called_once()
+    trace_call = langfuse.start_observation.call_args.kwargs
+    assert trace_call["as_type"] == "span"
+    assert trace_call["metadata"]["user_id"] == PAYLOAD["userId"]
     assert trace_call["metadata"]["essay_id"] == response.json()["essay_id"]
     assert trace_call["metadata"]["task_type"] == PAYLOAD["examType"]
-    assert trace.span.call_count == 4
+    assert trace.start_observation.call_count == 4
     span_criteria = {
-        call.kwargs["input"]["criterion"] for call in trace.span.call_args_list
+        call.kwargs["input"]["criterion"]
+        for call in trace.start_observation.call_args_list
     }
     assert span_criteria == {
         "task_response",
@@ -73,6 +75,10 @@ def test_evaluation_trace_has_one_root_and_exactly_four_child_spans(evaluation_c
         "vocabulary",
         "grammar",
     }
+    assert all(
+        call.kwargs["as_type"] == "generation"
+        for call in trace.start_observation.call_args_list
+    )
 
 
 def test_streaming_endpoint_yields_each_agent_then_complete(

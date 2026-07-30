@@ -72,6 +72,8 @@ class FakeSQSClient:
 
 
 class FakeAgentRunner:
+    model = "test-writing-model"
+
     """Mimics WritingAgentRunner with configurable band scores."""
 
     def __init__(self, bands=None):
@@ -146,7 +148,7 @@ async def setup():
     fake_sqs = FakeSQSClient()
     fake_runner = FakeAgentRunner()
     langfuse = MagicMock()
-    langfuse.trace.return_value = MagicMock()
+    langfuse.start_observation.return_value = MagicMock()
 
     def override_db():
         yield session

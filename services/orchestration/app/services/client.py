@@ -6,6 +6,7 @@ import structlog
 import pybreaker
 import contextvars
 from typing import AsyncGenerator, Dict, List, Optional
+from urllib.parse import quote
 
 correlation_id_var = contextvars.ContextVar("correlation_id", default="unknown")
 from app.core.config import settings
@@ -176,6 +177,7 @@ async def forward_downstream_stream(
         correlation_id: str,
         attachments: Optional[List[str]] = None,
         exam_context: Optional[Dict] = None,
+        traceparent: Optional[str] = None,
 ) -> AsyncGenerator[ChatStreamEvent, None]:
     """
     Routes the request to the target microservice based on intent classification.
@@ -186,6 +188,8 @@ async def forward_downstream_stream(
         "X-Correlation-Id": correlation_id,
         "Content-Type": "application/json"
     }
+    if traceparent:
+        headers["traceparent"] = traceparent
 
     intent = intent.upper()
     correlation_id_var.set(correlation_id)
@@ -197,7 +201,14 @@ async def forward_downstream_stream(
         #
         # This one still bypasses the Gateway: there is no WS proxy yet, so it
         # misses JWT auth and rate limiting. Tracked as a follow-up under GOA-094.
-        yield ChatStreamEvent(type="speaking_url", wsUrl=settings.public_speaking_ws_url)
+        ws_url = settings.public_speaking_ws_url
+        if traceparent:
+            separator = "&" if "?" in ws_url else "?"
+            ws_url = (
+                f"{ws_url}{separator}traceparent="
+                f"{quote(traceparent, safe='-')}"
+            )
+        yield ChatStreamEvent(type="speaking_url", wsUrl=ws_url)
         return
 
     if intent == "EXAM_PREP":
@@ -237,6 +248,10 @@ async def forward_downstream_stream(
             sse_url = (
                 f"{settings.public_gateway_url}/api/writing/essays/{essay_id}/evaluate"
             )
+            if traceparent:
+                sse_url = (
+                    f"{sse_url}?traceparent={quote(traceparent, safe='-')}"
+                )
             yield ChatStreamEvent(type="writing_url", essayId=str(essay_id), sseUrl=sse_url)
 
         elif intent == "RAG":

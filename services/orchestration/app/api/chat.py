@@ -8,6 +8,7 @@ from app.services.supervisor import classify_intent
 from app.services.memory import get_session_memory, load_memory_variables, save_context
 from app.services.client import forward_downstream_stream
 from app.services.exam_context import fetch_exam_context
+from app.core.trace_context import build_traceparent
 
 logger = structlog.get_logger("orchestration.api.chat")
 router = APIRouter()
@@ -156,12 +157,17 @@ async def chat_endpoint(request: ChatRequest, req: Request):
             
             # 5. Initialize downstream call trace span
             downstream_span = None
+            downstream_traceparent = None
             if trace:
                 try:
                     downstream_span = trace.start_observation(
                         name="downstream_call",
                         as_type="span",
                         input={"intent": intent, "message": resolved_message},
+                    )
+                    downstream_traceparent = build_traceparent(
+                        trace.trace_id,
+                        downstream_span.id,
                     )
                 except Exception as e:
                     logger.warning("Failed to initialize Langfuse downstream span", error=str(e))
@@ -175,6 +181,7 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                 correlation_id=correlation_id,
                 attachments=request.attachments,
                 exam_context=exam_context,
+                traceparent=downstream_traceparent,
             )
             
             async for event in response_stream:

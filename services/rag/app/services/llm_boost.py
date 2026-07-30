@@ -1,7 +1,6 @@
-import os
 import time
 import structlog
-from langfuse.decorators import observe, langfuse_context
+from langfuse import get_client, observe
 from langchain_anthropic import ChatAnthropic
 from pydantic import BaseModel, Field
 from app.core.config import settings
@@ -78,7 +77,7 @@ async def get_llm_boost(cv_text: str | None, program_description: str, user_id: 
         latency_ms = int((time.time() - start_time) * 1000)
 
         # 3. Inject trace data into Langfuse child span
-        langfuse_context.update_current_span(
+        get_client().update_current_span(
             metadata={
                 "model": settings.llm_model,
                 "boost_value": clamped_boost,

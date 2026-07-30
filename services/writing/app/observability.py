@@ -4,6 +4,7 @@ from functools import lru_cache
 from typing import Any
 
 from app.config import get_settings
+from app.core.trace_context import parse_traceparent
 
 
 logger = logging.getLogger("writing.evaluation")
@@ -31,13 +32,15 @@ def start_evaluation_trace(
     essay_id: int,
     task_type: str,
     from_cache: bool,
+    traceparent: str | None = None,
 ) -> Any:
     if client is None:
         return None
     try:
-        return client.trace(
+        return client.start_observation(
+            trace_context=parse_traceparent(traceparent),
             name="writing-evaluation-swarm",
-            user_id=user_id,
+            as_type="span",
             metadata={
                 "user_id": user_id,
                 "essay_id": essay_id,
@@ -48,6 +51,28 @@ def start_evaluation_trace(
     except Exception as exc:
         logger.warning("Unable to create Langfuse writing trace: %s", exc)
         return None
+
+
+def end_evaluation_trace(
+    trace: Any,
+    *,
+    output: Any = None,
+    error: Exception | None = None,
+) -> None:
+    if trace is None:
+        return
+    try:
+        if error is not None:
+            trace.update(
+                level="ERROR",
+                status_message=str(error),
+                output={"error": str(error)},
+            )
+        elif output is not None:
+            trace.update(output=output)
+        trace.end()
+    except Exception as exc:
+        logger.warning("Unable to end Langfuse writing trace: %s", exc)
 
 
 def log_evaluation(
@@ -94,19 +119,20 @@ def trace_cv_extraction(
     if client is None:
         return
     try:
-        trace = client.trace(
+        trace = client.start_observation(
             name="cv-structured-extraction",
-            user_id=user_id,
-            metadata={"cv_id": cv_id},
+            as_type="span",
+            metadata={"cv_id": cv_id, "user_id": user_id},
         )
-        generation = trace.generation(
+        generation = trace.start_observation(
             name="extract-structured-cv-fields",
+            as_type="generation",
             model=model,
             input={"cv_id": cv_id, "content": "redacted"},
         )
-        generation.end(
+        generation.update(
             output={"fields_extracted": fields_extracted},
-            usage={"input": input_tokens, "output": output_tokens},
+            usage_details={"input": input_tokens, "output": output_tokens},
             metadata={
                 "model": model,
                 "input_tokens": input_tokens,
@@ -116,6 +142,9 @@ def trace_cv_extraction(
                 "fields_extracted": fields_extracted,
             },
         )
+        generation.end()
+        trace.update(output={"fields_extracted": fields_extracted})
+        trace.end()
         flush = getattr(client, "flush", None)
         if flush:
             flush()

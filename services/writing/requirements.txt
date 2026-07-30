@@ -9,7 +9,7 @@ boto3
 pytest
 httpx
 anthropic>=0.49.0,<1.0.0
-langfuse>=2.35.0,<3.0.0
+langfuse>=4.0.0,<5.0.0
 prometheus-client>=0.20.0,<1.0.0
 pytest-asyncio>=0.23.6,<1.0.0
 redis>=5.0.1

@@ -55,6 +55,9 @@ service_secret_values = {
     LANGFUSE_SECRET_KEY = ""
     LANGFUSE_HOST       = "https://cloud.langfuse.com"
   }
+  ingestion = {
+    ANTHROPIC_API_KEY = ""
+  }
 }
 
 ecs_exec_operator_resource_arns    = ["*"]

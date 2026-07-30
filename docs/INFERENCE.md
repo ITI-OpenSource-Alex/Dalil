@@ -30,10 +30,10 @@ Baseline timings captured under local E2E runs:
 *Note: The high tail latencies (up to 110s for RAG/Orchestration) are **not** a property of the model (Opus) nor output length, but are caused by erratic gateway channel queueing. An identical 4-token call ranges from 2.5s to 110s. This is mitigated client-side by applying a 20-30s timeout and exactly one retry (which typically lands the request on a fast channel).*
 
 ## Budget & Quota Tracking
-We have instrumented a strict $150 budget guardrail for AgentRouter usage.
-* Token metrics are incremented globally and per-user in Redis (`redis-gateway`).
-* Spend is computed dynamically based on config: `$2.00 / 1M prompt` and `$10.00 / 1M completion`.
-* **Checking Quota**: Use `GET /admin/costs` on the Gateway to verify remaining quota. A single PR evaluation suite typically costs $1.50–$2.00.
+We have instrumented a $150 observability guardrail for AgentRouter usage. It reports and feeds alerts; it does not block requests.
+* Token metrics are grouped by UTC date, user, and service in Redis (`redis-gateway`) and expire after 35 days.
+* Spend is computed dynamically from the model-specific `LLM_PRICING_JSON` Gateway configuration. Unknown models use the legacy `COST_PROMPT_PER_1M` / `COST_COMPLETION_PER_1M` fallback.
+* **Checking Quota**: Use `GET /admin/costs` on the Gateway with `X-Admin-Key: $ADMIN_API_KEY`. Missing, empty, wrong, or unconfigured admin keys return `401`. The response includes today's per-user cost, RAG/Writing/Speaking token breakdown, total spend, budget, and remaining quota. A single PR evaluation suite typically costs $1.50–$2.00.
 
 ## Provider Switch-Back Procedure
 If AgentRouter fails or quota is exhausted, you can seamlessly fall back to native Anthropic inference:

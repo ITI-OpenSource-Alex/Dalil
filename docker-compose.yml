@@ -9,6 +9,8 @@ services:
       - USER_SERVICE_URL=http://user-service:8081
       - INTERNAL_API_KEY=supersecret_internal_key_123
       - ADMIN_API_KEY=${ADMIN_API_KEY:-local_admin_key_123}
+      - BUDGET_USD=${BUDGET_USD:-150}
+      - LLM_PRICING_JSON=${LLM_PRICING_JSON:-{"claude-opus-4-8":{"prompt_per_1m":2,"completion_per_1m":10},"glm-5.2":{"prompt_per_1m":6,"completion_per_1m":9},"gpt-5.5":{"prompt_per_1m":7,"completion_per_1m":14},"claude-opus-4-6":{"prompt_per_1m":8,"completion_per_1m":40},"claude-opus-4-7":{"prompt_per_1m":8,"completion_per_1m":40}}}
       - REDIS_URL=redis://redis-gateway:6379/0
       - JWT_SECRET=supersecret_dev_key
       - WRITING_SERVICE_URL=http://writing:8000

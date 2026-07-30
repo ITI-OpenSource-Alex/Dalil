@@ -107,7 +107,13 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	})
 
 	admin := app.Group("/admin", middleware.AdminKey(cfg.AdminAPIKey))
-	admin.Get("/costs", handlers.AdminCosts(redisClient, cfg.BudgetUSD, cfg.CostPromptPer1M, cfg.CostCompletionPer1M))
+	admin.Get("/costs", handlers.AdminCosts(
+		redisClient,
+		cfg.BudgetUSD,
+		cfg.LLMPricingJSON,
+		cfg.CostPromptPer1M,
+		cfg.CostCompletionPer1M,
+	))
 	// Subscription policy is default-allow: only the Writing and CV routes named
 	// as paid features attach RequirePaid. Chat, chat history, notifications,
 	// exams and any future unnamed route remain free unless explicitly changed.

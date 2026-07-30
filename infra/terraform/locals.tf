@@ -63,6 +63,8 @@ locals {
         ENVIRONMENT = var.environment
         PORT        = tostring(local.service_ports[service])
         AWS_REGION  = var.aws_region
+        # Every LLM-producing service writes the Gateway-owned daily cost roll-up.
+        REDIS_GATEWAY_URL = "redis://${module.elasticache.primary_endpoint_address}:${module.elasticache.port}/0"
         }, service == "gateway" ? {
         PORT                      = "8080"
         REDIS_URL                 = "redis://${module.elasticache.primary_endpoint_address}:${module.elasticache.port}/0"

@@ -39,6 +39,7 @@ type Config struct {
 	BudgetUSD           float64 `envconfig:"BUDGET_USD" default:"150.0"`
 	CostPromptPer1M     float64 `envconfig:"COST_PROMPT_PER_1M" default:"2.0"`
 	CostCompletionPer1M float64 `envconfig:"COST_COMPLETION_PER_1M" default:"10.0"`
+	LLMPricingJSON      string  `envconfig:"LLM_PRICING_JSON" default:"{\"claude-opus-4-8\":{\"prompt_per_1m\":2,\"completion_per_1m\":10},\"glm-5.2\":{\"prompt_per_1m\":6,\"completion_per_1m\":9},\"gpt-5.5\":{\"prompt_per_1m\":7,\"completion_per_1m\":14},\"claude-opus-4-6\":{\"prompt_per_1m\":8,\"completion_per_1m\":40},\"claude-opus-4-7\":{\"prompt_per_1m\":8,\"completion_per_1m\":40}}"`
 }
 
 func LoadConfig() (Config, error) {

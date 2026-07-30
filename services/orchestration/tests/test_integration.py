@@ -1,4 +1,5 @@
 import json
+import time
 import pytest
 import httpx
 from langchain_core.chat_history import BaseChatMessageHistory
@@ -202,6 +203,53 @@ async def test_free_tier_rag_intent_proceeds(mocker):
         assert events[0][0] == "metadata"
         assert events[0][1]["intent"] == "RAG"
         mock_downstream_client.post.assert_called_once()
+
+
+async def test_langfuse_failure_does_not_block_chat(mocker):
+    mock_sequence = mocker.MagicMock()
+    raw_mock = mocker.MagicMock()
+    raw_mock.response_metadata = {"usage": {"input_tokens": 10, "output_tokens": 5}}
+    mock_sequence.ainvoke = mocker.AsyncMock(
+        return_value={
+            "parsed": IntentResult(intent="RAG", confidence=0.95),
+            "raw": raw_mock,
+        }
+    )
+    mocker.patch("app.services.supervisor.structured_llm", mock_sequence)
+
+    class UnreachableLangfuse:
+        def start_observation(self, **_kwargs):
+            raise ConnectionError("Langfuse host is unreachable")
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://testserver",
+    ) as client:
+        downstream = mocker.MagicMock()
+        downstream.post = mocker.AsyncMock(
+            return_value=httpx.Response(
+                200,
+                json={"answer": "RAG answer", "sources": []},
+                request=httpx.Request("POST", "http://testserver"),
+            )
+        )
+        app.state.http_client = downstream
+        app.state.langfuse = UnreachableLangfuse()
+
+        started = time.perf_counter()
+        response = await client.post(
+            "/chat",
+            json={
+                "userId": "user_123",
+                "sessionId": "session_unreachable_langfuse",
+                "message": "What IELTS score do I need?",
+            },
+        )
+        elapsed = time.perf_counter() - started
+
+        assert response.status_code == 200
+        assert parse_sse_events(response.text)[0][1]["intent"] == "RAG"
+        assert elapsed < 1
 
 async def test_downstream_error_circuit_breaker(mocker):
     mock_sequence = mocker.MagicMock()

@@ -128,6 +128,27 @@ func TestClient_SendBatchCountsRejectedBatch(t *testing.T) {
 	}
 }
 
+func TestClient_SendBatchCountsNetworkFailure(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	serverURL := server.URL
+	server.Close()
+
+	before := testutil.ToFloat64(ingestionFailures)
+	client := NewClient("pk-123", "sk-123", serverURL)
+	err := client.SendBatch(context.Background(), []IngestionEvent{
+		{ID: "event-1", Type: "trace", Timestamp: time.Now(), Body: TraceBody{ID: "trace-1", Name: "one"}},
+		{ID: "event-2", Type: "trace", Timestamp: time.Now(), Body: TraceBody{ID: "trace-2", Name: "two"}},
+	})
+
+	if err == nil {
+		t.Fatal("expected network error")
+	}
+	after := testutil.ToFloat64(ingestionFailures)
+	if got := after - before; got != 2 {
+		t.Fatalf("expected two failed events, got counter increase %v", got)
+	}
+}
+
 func TestObservationBodiesIncludeParentContext(t *testing.T) {
 	span := SpanBody{
 		ID:                  "span-1",

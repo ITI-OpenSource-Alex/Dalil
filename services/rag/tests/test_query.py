@@ -48,6 +48,16 @@ def make_mock_db_pool(monkeypatch, similarity_score=0.85):
     mock_conn.fetch = AsyncMock(return_value=[mock_row])
     mock_conn.fetchrow = AsyncMock(return_value=None)
 
+    # Retrieval now runs inside `async with conn.transaction():` so that
+    # SET LOCAL ivfflat.probes actually reaches the query -- outside a transaction
+    # Postgres discards the setting silently. AsyncMock makes transaction() return a
+    # coroutine rather than an async context manager, so it is built explicitly here.
+    mock_txn = MagicMock()
+    mock_txn.__aenter__ = AsyncMock(return_value=None)
+    mock_txn.__aexit__ = AsyncMock(return_value=None)
+    mock_conn.transaction = MagicMock(return_value=mock_txn)
+    mock_conn.execute = AsyncMock(return_value=None)
+
     # Create the context manager mock
     mock_ctx = MagicMock()
     mock_ctx.__aenter__ = AsyncMock(return_value=mock_conn)
@@ -156,7 +166,7 @@ def test_api_query_langfuse_tracing(mock_db_pool, mock_langfuse):
 
 
 def test_low_similarity_increments_metrics_counter(monkeypatch):
-    """Verify that submitting a low-similarity query increments the low-confidence metric."""
+    """Verify that submitting a low-similarity query returns refusal response and increments metric."""
     # 1. Mock DB pool to return low similarity score (0.50, which is < 0.60 threshold)
     make_mock_db_pool(monkeypatch, similarity_score=0.50)
 
@@ -175,6 +185,13 @@ def test_low_similarity_increments_metrics_counter(monkeypatch):
     response = client.post("/query", json=payload)
     assert response.status_code == 200
 
+    # Confirm refusal contract fields
+    data = response.json()
+    assert data["answer"] is None
+    assert data["reason"] == "insufficient_data"
+    assert data["suggestion"] is not None
+    assert len(data["sources"]) == 1
+
     # 4. Check counter value after execution
     metrics_after = client.get("/metrics").text
     val_after = get_prometheus_counter_value(
@@ -183,6 +200,7 @@ def test_low_similarity_increments_metrics_counter(monkeypatch):
 
     # Confirm it has incremented by exactly 1.0
     assert val_after == val_before + 1.0
+
 
 
 def test_api_visa_requirements_endpoint(monkeypatch):

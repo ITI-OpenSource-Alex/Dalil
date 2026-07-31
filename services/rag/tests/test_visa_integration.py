@@ -355,36 +355,104 @@ def test_paraphrased_faq_question_short_circuits(live_client, mock_ai_apis):
     _, mock_llm = mock_ai_apis
     assert mock_llm.call_count == 0
 
-def test_unrelated_question_falls_through_to_llm(live_client, mock_ai_apis):
+def test_unrelated_question_is_refused_not_answered(live_client, mock_ai_apis):
+    """An off-corpus question is refused before the LLM, not answered from model memory.
+
+    Renamed from test_unrelated_question_falls_through_to_llm. That name described the
+    pre-GOA-033 behaviour -- no FAQ match, so fall through to the LLM -- and after the
+    confidence threshold landed it asserted zero LLM calls under a name promising one.
+    The assertion is right; the name was not. The fall-through path it used to cover is
+    now covered by test_above_threshold_question_reaches_llm below.
+    """
     req = {
         "question": "What is the capital of Mongolia?",
         "userId": "test-user"
     }
     res = live_client.post("/query", json=req)
     assert res.status_code == 200
-    
-    _, mock_llm = mock_ai_apis
-    assert mock_llm.call_count == 1
 
-def test_threshold_boundary(live_client, mock_ai_apis):
+    data = res.json()
+    _, mock_llm = mock_ai_apis
+    assert data["answer"] is None
+    assert data["reason"] == "insufficient_data"
+    # The point of the threshold is the call that never happens.
+    assert mock_llm.call_count == 0
+
+
+def test_below_threshold_question_is_refused(live_client, mock_ai_apis):
+    """Retrieval below the confidence floor refuses instead of answering weakly."""
     _, mock_llm = mock_ai_apis
 
-    # 1. Below threshold (0.847 - "France")
     res_below = live_client.post("/query", json={
         "question": "Is the Egyptian Thanaweya Amma certificate recognized for university admission in France?",
         "userId": "test-user"
     })
     assert res_below.status_code == 200
-    assert mock_llm.call_count == 1
-    
-    # 2. Above threshold (0.89 - "uni admission")
-    res_above = live_client.post("/query", json={
+    assert res_below.json()["answer"] is None
+    assert res_below.json()["reason"] == "insufficient_data"
+    assert mock_llm.call_count == 0
+    # A refusal still shows its work -- the user sees what was found and how weak it was.
+    assert "sources" in res_below.json()
+
+
+def test_faq_hit_bypasses_the_confidence_threshold(live_client, mock_ai_apis):
+    """A curated FAQ answer is served without being judged by the vector threshold.
+
+    This was previously half of test_threshold_boundary, which after the GOA-033 edits
+    tested no boundary at all: the 'below' case was refused and the 'above' case was an
+    FAQ short-circuit that never reaches the threshold. The two are separated here
+    because they exercise different metrics -- pg_trgm string similarity for the FAQ
+    match, cosine similarity for the threshold -- and conflating them is how a change to
+    FAQ_SIMILARITY_THRESHOLD would silently start refusing curated answers.
+    """
+    _, mock_llm = mock_ai_apis
+
+    res = live_client.post("/query", json={
         "question": "Is the Egyptian Thanaweya Amma certificate recognized for uni admission in Germany?",
         "userId": "test-user"
     })
-    assert res_above.status_code == 200
-    assert "The Thanaweya Amma" in res_above.json()["answer"]
-    assert mock_llm.call_count == 1 # didn't increment
+    assert res.status_code == 200
+    assert "The Thanaweya Amma" in res.json()["answer"]
+    assert res.json()["answer"] is not None
+    assert mock_llm.call_count == 0  # FAQ short-circuit, zero tokens
+
+
+def test_above_threshold_question_reaches_llm(live_client, mock_ai_apis):
+    """Retrieval above the floor must still reach the LLM and produce an answer.
+
+    Coverage restored: after the GOA-033 test edits, every remaining case either was
+    refused or short-circuited on the FAQ, so nothing asserted that a good retrieval
+    still gets answered. A confidence threshold set too high -- refusing everything --
+    would have passed the entire suite without this.
+
+    The document is seeded with FIXED_EMBEDDING, which is the same vector the mocked
+    embedding client returns for the query, so cosine similarity is ~1.0 and the result
+    clears the 0.60 floor by construction rather than by luck.
+    """
+    _, mock_llm = mock_ai_apis
+    doc_id = uuid.uuid4()
+
+    try:
+        _run(_insert_document(
+            doc_id, "https://example.com/germany-student-visa", "visa",
+            "A German student visa application requires proof of admission, a blocked "
+            "account, health insurance and a valid passport.",
+            FIXED_EMBEDDING,
+        ))
+
+        res = live_client.post("/query", json={
+            "question": "What documents are required for a German student visa?",
+            "userId": "test-user",
+        })
+        assert res.status_code == 200
+        data = res.json()
+        assert data["answer"] is not None
+        assert data.get("reason") is None
+        assert mock_llm.call_count == 1
+    finally:
+        _run(_delete_documents([doc_id]))
+
+
 
 def test_faq_seed_count(live_client):
     async def get_count():

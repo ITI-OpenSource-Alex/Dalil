@@ -60,6 +60,7 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	speakingWSHandler := handlers.NewSpeakingWSHandler(cfg.SpeakingServiceURL, 10*time.Second, logger)
 	notificationHandler := handlers.NewNotificationHandler(httpClient, cfg.NotificationServiceURL, cfg.InternalApiKey)
 	checklistHandler := handlers.NewChecklistHandler(httpClient, cfg.RagServiceURL)
+	profileHandler := handlers.NewProfileHandler(httpClient, cfg.UserServiceURL, cfg.InternalApiKey)
 	examOwnership := middleware.NewExamSessionOwnership(
 		redisClient,
 		httpClient,
@@ -252,6 +253,12 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	// above -- not one of the paid features named in the comment above this group.
 	api.Get("/checklists/:programId", checklistHandler.GetChecklist)
 	api.Put("/checklists/:programId/items/:itemId", checklistHandler.UpdateChecklistItem)
+	// GOA-035: structured Financial Requirements for a checklist, sourced from
+	// GOA-108 visa data via RAG's sibling route -- see checklist_financial.py.
+	api.Get("/checklists/:programId/financial", checklistHandler.GetChecklistFinancials)
+	// GOA-035/BUG-047: the authenticated user's own profile, proxied to the User
+	// service's existing GET /users/:id (no new User-service endpoint needed).
+	api.Get("/profile", profileHandler.GetProfile)
 	app.Post(
 		"/cv/upload",
 		middleware.JWT(cfg.JWTSecret, redisClient, metrics),

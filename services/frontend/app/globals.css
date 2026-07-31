@@ -38,3 +38,16 @@ body {
 
   --border: #e2e8f0;
 }
+
+/* GOA-035: checklist PDF export via the browser's print dialog. Elements outside
+   the checklist (sidebar nav, header actions) hide; phase sections avoid splitting
+   across a page break where possible. */
+@media print {
+  .print-hidden {
+    display: none !important;
+  }
+
+  .print-avoid-break {
+    break-inside: avoid;
+  }
+}

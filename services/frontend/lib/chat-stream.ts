@@ -3,6 +3,9 @@
 /* -------------------------------------------------------------------------- */
 
 export interface Opportunity {
+  // See components/chat/chat-shell.tsx's Opportunity type for why this was added
+  // (GOA-035): RAG's /match already returns it, this type just wasn't declaring it.
+  programId: string;
   programName: string;
   university: string;
   country: string;

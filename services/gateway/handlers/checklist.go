@@ -60,6 +60,24 @@ func (h *ChecklistHandler) UpdateChecklistItem(c *fiber.Ctx) error {
 	return h.forward(c, http.MethodPut, target, bytes.NewReader(c.Body()), userID)
 }
 
+// GetChecklistFinancials proxies GET /api/checklists/:programId/financial.
+// GOA-035: same ownership/forwarding shape as GetChecklist, hitting RAG's sibling
+// /checklists/:programId/financial route (checklist_financial.py), which reads
+// structured visa data (GOA-108) only -- no LLM in that path.
+func (h *ChecklistHandler) GetChecklistFinancials(c *fiber.Ctx) error {
+	userID, err := authenticatedUserID(c)
+	if err != nil {
+		return err
+	}
+
+	target, err := url.JoinPath(h.ragServiceURL, "checklists", c.Params("programId"), "financial")
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid program id")
+	}
+
+	return h.forward(c, http.MethodGet, target, nil, userID)
+}
+
 // forward builds the downstream request, injects the authenticated user's id as
 // X-User-ID -- taken from the validated JWT rather than any client-supplied value,
 // so a caller can never read or mutate another user's checklist -- and relays the

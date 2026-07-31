@@ -453,6 +453,192 @@
       "expected_soft_score": 75.0
     }
   ],
+  "rag_retrieval": [
+    {
+      "id": "rag-q01",
+      "question": "How many questions are in the IELTS Reading test?",
+      "relevant_document_ids": [
+        "c90c6811-fb06-5607-9253-9565d7ce4941"
+      ],
+      "unanswerable": false
+    },
+    {
+      "id": "rag-q02",
+      "question": "What does band 7 mean?",
+      "relevant_document_ids": [
+        "c90c6811-fb06-5607-9253-9565d7ce4941"
+      ],
+      "unanswerable": false
+    },
+    {
+      "id": "rag-q03",
+      "question": "How long is an IELTS score valid?",
+      "relevant_document_ids": [
+        "c90c6811-fb06-5607-9253-9565d7ce4941"
+      ],
+      "unanswerable": false
+    },
+    {
+      "id": "rag-q04",
+      "question": "What documents are needed for a German student visa?",
+      "relevant_document_ids": [
+        "3ffdd2e7-ebc2-5555-896a-0498b3c4f74d"
+      ],
+      "unanswerable": false
+    },
+    {
+      "id": "rag-q05",
+      "question": "What is a blocked account for Germany?",
+      "relevant_document_ids": [
+        "4810e0af-a634-5589-94a7-0fb88ea1a9fc"
+      ],
+      "unanswerable": false
+    },
+    {
+      "id": "rag-q06",
+      "question": "What is the minimum score required for Stipendium Hungaricum?",
+      "relevant_document_ids": [
+        "731671ec-be34-58a4-a4f6-8ef3bc51b033"
+      ],
+      "unanswerable": false
+    },
+    {
+      "id": "rag-q07",
+      "question": "How long can a Stipendium Hungaricum holder stay outside Hungary?",
+      "relevant_document_ids": [
+        "731671ec-be34-58a4-a4f6-8ef3bc51b033"
+      ],
+      "unanswerable": false
+    },
+    {
+      "id": "rag-q08",
+      "question": "What is the Sweden residence permit passport validity rule?",
+      "relevant_document_ids": [
+        "7f6c3826-646b-586b-951c-6d1ebcdce2b4"
+      ],
+      "unanswerable": false
+    },
+    {
+      "id": "rag-q09",
+      "question": "How much money is required for UK student visa application fee?",
+      "relevant_document_ids": [
+        "6ff39dd7-25e4-539c-a111-c918c50ca1bf"
+      ],
+      "unanswerable": false
+    },
+    {
+      "id": "rag-q10",
+      "question": "What are the IELTS band score levels?",
+      "relevant_document_ids": [
+        "c90c6811-fb06-5607-9253-9565d7ce4941"
+      ],
+      "unanswerable": false
+    },
+    {
+      "id": "rag-q11-unanswerable",
+      "question": "What is the capital of Jupiter?",
+      "relevant_document_ids": [],
+      "unanswerable": true
+    },
+    {
+      "question": "What TOEFL score do I need for a German masters programme?",
+      "relevant_document_ids": [],
+      "expected_answer_concepts": [],
+      "unanswerable": true,
+      "rationale": "No corpus document mentions this topic (verified: 0 ILIKE matches)."
+    },
+    {
+      "question": "Is the Duolingo English Test accepted for admission?",
+      "relevant_document_ids": [],
+      "expected_answer_concepts": [],
+      "unanswerable": true,
+      "rationale": "No corpus document mentions this topic (verified: 0 ILIKE matches)."
+    },
+    {
+      "question": "What is the minimum PTE Academic score for admission?",
+      "relevant_document_ids": [],
+      "expected_answer_concepts": [],
+      "unanswerable": true,
+      "rationale": "No corpus document mentions this topic (verified: 0 ILIKE matches)."
+    },
+    {
+      "question": "What GMAT score is required for an MBA programme?",
+      "relevant_document_ids": [],
+      "expected_answer_concepts": [],
+      "unanswerable": true,
+      "rationale": "No corpus document mentions this topic (verified: 0 ILIKE matches)."
+    },
+    {
+      "question": "Do I need to sit the SAT exam to apply?",
+      "relevant_document_ids": [],
+      "expected_answer_concepts": [],
+      "unanswerable": true,
+      "rationale": "No corpus document mentions this topic (verified: 0 ILIKE matches)."
+    },
+    {
+      "question": "How do I apply for a Fulbright scholarship?",
+      "relevant_document_ids": [],
+      "expected_answer_concepts": [],
+      "unanswerable": true,
+      "rationale": "No corpus document mentions this topic (verified: 0 ILIKE matches)."
+    },
+    {
+      "question": "What MCAT score is needed for medical school admission?",
+      "relevant_document_ids": [],
+      "expected_answer_concepts": [],
+      "unanswerable": true,
+      "rationale": "No corpus document mentions this topic (verified: 0 ILIKE matches)."
+    },
+    {
+      "question": "What is the LSAT requirement for a law degree?",
+      "relevant_document_ids": [],
+      "expected_answer_concepts": [],
+      "unanswerable": true,
+      "rationale": "No corpus document mentions this topic (verified: 0 ILIKE matches)."
+    },
+    {
+      "question": "Is Cambridge C1 Advanced accepted instead of IELTS?",
+      "relevant_document_ids": [],
+      "expected_answer_concepts": [],
+      "unanswerable": true,
+      "rationale": "No corpus document mentions this topic (verified: 0 ILIKE matches)."
+    },
+    {
+      "question": "What JLPT level is required to study in Japanese?",
+      "relevant_document_ids": [],
+      "expected_answer_concepts": [],
+      "unanswerable": true,
+      "rationale": "No corpus document mentions this topic (verified: 0 ILIKE matches)."
+    },
+    {
+      "question": "What HSK level do I need for a Chinese-taught programme?",
+      "relevant_document_ids": [],
+      "expected_answer_concepts": [],
+      "unanswerable": true,
+      "rationale": "No corpus document mentions this topic (verified: 0 ILIKE matches)."
+    },
+    {
+      "question": "Is TestDaF accepted as proof of German language ability?",
+      "relevant_document_ids": [],
+      "expected_answer_concepts": [],
+      "unanswerable": true,
+      "rationale": "No corpus document mentions this topic (verified: 0 ILIKE matches)."
+    },
+    {
+      "question": "Do I need a Goethe-Zertifikat for admission?",
+      "relevant_document_ids": [],
+      "expected_answer_concepts": [],
+      "unanswerable": true,
+      "rationale": "No corpus document mentions this topic (verified: 0 ILIKE matches)."
+    },
+    {
+      "question": "What is the typical postdoc salary in this programme?",
+      "relevant_document_ids": [],
+      "expected_answer_concepts": [],
+      "unanswerable": true,
+      "rationale": "No corpus document mentions this topic (verified: 0 ILIKE matches)."
+    }
+  ],
   "speaking": [
     {
       "id": "s-01",

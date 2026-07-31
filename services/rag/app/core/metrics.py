@@ -1,4 +1,4 @@
-from prometheus_client import Histogram, Counter
+from prometheus_client import Histogram, Counter, Gauge
 
 # Latency histogram in milliseconds
 QUERY_LATENCY = Histogram(
@@ -15,6 +15,22 @@ RETRIEVAL_SIMILARITY = Histogram(
 LOW_CONFIDENCE_TOTAL = Counter(
     "goa_rag_low_confidence_total",
     "Total number of low confidence RAG queries (similarity < 0.6)",
+)
+
+
+# GOA-033: the cross-encoder degrades to a token-overlap heuristic when the model
+# cannot load -- which is what happens on the musl base image, since PyTorch has no
+# musl build. A fallback nobody can see is a re-ranker that quietly stopped working,
+# and a benchmark run in that state reports "rerank_enabled" while measuring
+# something else entirely. Export the active mode instead of only logging it once.
+RERANK_MODE = Gauge(
+    "goa_rag_rerank_mode",
+    "Active re-ranker: 1 = cross-encoder, 0 = degraded token-overlap fallback",
+)
+RERANK_FALLBACK_TOTAL = Counter(
+    "goa_rag_rerank_fallback_total",
+    "Re-rank calls served by the degraded fallback instead of the cross-encoder",
+    labelnames=["cause"],  # model_unavailable | predict_failed
 )
 
 

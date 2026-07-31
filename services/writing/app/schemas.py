@@ -72,29 +72,26 @@ class CVUploadResponse(BaseModel):
 
 
 class CVReviewRequest(BaseModel):
-    userId: str
-    cvId: int
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    userId: str = Field(min_length=1, max_length=128)
+    cvS3Key: str = Field(min_length=1, max_length=512)
+    targetCountry: str = Field(min_length=1, max_length=128)
+    targetField: str = Field(min_length=1, max_length=128)
 
 
 class CVReviewSection(BaseModel):
     """One area of feedback, e.g. Experience or Education."""
 
-    section: str
-    strengths: list[str] = Field(default_factory=list)
-    gaps: list[str] = Field(default_factory=list)
+    name: str
+    score: int = Field(ge=0, le=100)
+    issues: list[str] = Field(default_factory=list)
     suggestions: list[str] = Field(default_factory=list)
 
 
 class CVReviewResponse(BaseModel):
-    cvId: int
-    summary: str
+    overallScore: int = Field(ge=0, le=100)
     sections: list[CVReviewSection]
-    # Deliberately coarse. A CV has no marking rubric the way an IELTS essay
-    # does, so a decimal score would imply a precision that does not exist --
-    # the same concern BUG-040 raises about presenting a one-criterion mean as
-    # an overall band.
-    readiness: Literal["strong", "adequate", "needs_work"]
-    missing_for_study_abroad: list[str] = Field(default_factory=list)
 
 
 class ExamTaskEvaluationRequest(BaseModel):

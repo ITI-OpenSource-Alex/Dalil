@@ -21,7 +21,10 @@ class Settings:
     cv_processor_queue_url: str = ""
     anthropic_api_key: str = ""
     anthropic_base_url: str = ""
+    internal_api_key: str = ""
+    rag_service_url: str = "http://rag:8084"
     writing_model: str = "claude-opus-4-8"
+    cv_review_model: str = "claude-sonnet-4-6"
     cv_extraction_model: str = "claude-haiku-4-5-20251001"
     anthropic_user_agent: str = "Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14"
     anthropic_timeout_seconds: float = 25.0
@@ -45,7 +48,10 @@ def get_settings() -> Settings:
         cv_processor_queue_url=os.getenv("CV_PROCESSOR_QUEUE_URL", ""),
         anthropic_api_key=os.getenv("ANTHROPIC_AUTH_TOKEN") or os.getenv("ANTHROPIC_API_KEY", ""),
         anthropic_base_url=os.getenv("ANTHROPIC_BASE_URL", ""),
+        internal_api_key=os.getenv("INTERNAL_API_KEY", ""),
+        rag_service_url=os.getenv("RAG_SERVICE_URL", "http://rag:8084"),
         writing_model=os.getenv("WRITING_MODEL", "claude-opus-4-8"),
+        cv_review_model=os.getenv("CV_REVIEW_MODEL", "claude-sonnet-4-6"),
         cv_extraction_model=os.getenv(
             "CV_EXTRACTION_MODEL", "claude-haiku-4-5-20251001"
         ),

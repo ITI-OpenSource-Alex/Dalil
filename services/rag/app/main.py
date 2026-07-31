@@ -26,6 +26,8 @@ async def lifespan(app: FastAPI):
     # --- Startup ---
     logger.info("Starting up RAG service...")
     await db.connect()
+    from app.services.reranker import init_reranker
+    init_reranker()
     await redis_client.connect()
     logger.info("RAG service database connected and migrations checked.")
 

@@ -28,6 +28,16 @@ class Settings(BaseSettings):
     llm_model: str = "claude-opus-4-8"
     anthropic_user_agent: str = "Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14"
 
+
+
+    rag_rerank_enabled: bool = True
+    rag_threshold_enabled: bool = True
+    rag_cache_enabled: bool = True
+    rag_retrieval_width: int = 15
+    rag_ivfflat_probes: int = 1
+    confidence_threshold: float = 0.60
+
+
     
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"

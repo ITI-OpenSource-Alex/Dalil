@@ -732,5 +732,81 @@ resource "aws_lambda_event_source_mapping" "cv_processed_to_notification_sender"
   function_response_types            = ["ReportBatchItemFailures"]
 }
 
+# ---------------------------------------------------------------------------
+# Lambda alarms
+# ---------------------------------------------------------------------------
+
+resource "aws_cloudwatch_metric_alarm" "lambda_error_rate" {
+  for_each = var.enable_lambda_workers ? {
+    cv_processor         = module.cv_processor_lambda[0].function_name
+    scholarship_matcher   = module.scholarship_matcher_lambda[0].function_name
+    notification_sender   = module.notification_sender_lambda[0].function_name
+  } : {}
+
+  alarm_name          = "${local.name_prefix}-${each.key}-lambda-error-rate"
+  alarm_description   = "${each.key} Lambda error rate is above 5% over 15 minutes."
+  comparison_operator  = "GreaterThanThreshold"
+  threshold           = 5
+  evaluation_periods  = 15
+  datapoints_to_alarm = 15
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [module.observability.sns_topic_arn]
+  ok_actions          = [module.observability.sns_topic_arn]
+
+  metric_query {
+    id          = "errors"
+    return_data = false
+    metric {
+      namespace   = "AWS/Lambda"
+      metric_name = "Errors"
+      dimensions  = { FunctionName = each.value }
+      period      = 60
+      stat        = "Sum"
+    }
+  }
+
+  metric_query {
+    id          = "invocations"
+    return_data = false
+    metric {
+      namespace   = "AWS/Lambda"
+      metric_name = "Invocations"
+      dimensions  = { FunctionName = each.value }
+      period      = 60
+      stat        = "Sum"
+    }
+  }
+
+  metric_query {
+    id          = "error_rate"
+    label       = "Lambda error rate (%)"
+    expression  = "IF(invocations > 0, 100 * errors / invocations, 0)"
+    return_data = true
+  }
+
+  tags = local.goa071_tags
+}
+
+resource "aws_cloudwatch_metric_alarm" "cv_processor_duration" {
+  count = var.enable_lambda_workers ? 1 : 0
+
+  alarm_name          = "${local.name_prefix}-cv-processor-duration"
+  alarm_description   = "CV Processor Lambda duration is approaching its timeout."
+  namespace           = "AWS/Lambda"
+  metric_name         = "Duration"
+  dimensions          = { FunctionName = module.cv_processor_lambda[0].function_name }
+  comparison_operator = "GreaterThanThreshold"
+  threshold           = 25000
+  evaluation_periods  = 1
+  datapoints_to_alarm = 1
+  period              = 60
+  statistic           = "Maximum"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [module.observability.sns_topic_arn]
+  ok_actions          = [module.observability.sns_topic_arn]
+
+  tags = local.goa071_tags
+}
+
 
 

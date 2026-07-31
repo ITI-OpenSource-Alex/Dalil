@@ -1,3 +1,4 @@
+import asyncio
 import httpx
 import structlog
 import uuid
@@ -9,6 +10,7 @@ from langfuse import Langfuse
 
 from app.core.config import settings
 from app.api.chat import router as chat_router
+from app.services.account_deletion_consumer import consume_account_deleted_messages
 
 
 # Configure structlog for JSON logs
@@ -29,6 +31,7 @@ async def lifespan(app: FastAPI):
     #Instantiate shared httpx.AsyncClient for connection pooling
     app.state.http_client = httpx.AsyncClient(timeout=30.0)
     logger.info("Shared HTTPX AsyncClient instantiated.")
+    app.state.account_deleted_consumer = asyncio.create_task(consume_account_deleted_messages())
 
     if settings.langfuse_public_key and settings.langfuse_secret_key:
         app.state.langfuse = Langfuse(
@@ -45,6 +48,12 @@ async def lifespan(app: FastAPI):
      # Teardown
     logger.info("Shutting down Orchestration service...")
     
+    app.state.account_deleted_consumer.cancel()
+    try:
+        await app.state.account_deleted_consumer
+    except asyncio.CancelledError:
+        pass
+
     # 3. Close the shared HTTPX Client
     await app.state.http_client.aclose()
     logger.info("Shared HTTPX AsyncClient closed.")
@@ -82,3 +91,4 @@ app.mount("/metrics", metrics_app)
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+

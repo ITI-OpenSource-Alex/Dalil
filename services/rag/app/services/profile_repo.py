@@ -111,3 +111,20 @@ async def upsert_local_profiles(profile_dict: dict) -> None:
             user_id=profile_dict["userId"],
         )
         raise
+
+
+async def delete_local_user_data(user_id: str) -> None:
+    """Delete RAG-owned replicated profile and checklist state for a deleted account."""
+    async with db.pool.acquire() as conn:
+        async with conn.transaction():
+            await conn.execute(
+                """
+                DELETE FROM checklist_item_states
+                WHERE checklist_id IN (SELECT id FROM checklists WHERE user_id = $1)
+                """,
+                user_id,
+            )
+            await conn.execute("DELETE FROM checklists WHERE user_id = $1", user_id)
+            await conn.execute("DELETE FROM local_user_profiles WHERE user_id = $1", user_id)
+
+    logger.info("Deleted RAG local user data", user_id=user_id)

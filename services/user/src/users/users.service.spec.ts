@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UsersService } from './users.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { User } from './entities/user.entity';
 import { UserProfile } from '../profile/entities/profile.entity';
 import { ResetToken } from './entities/reset-tokens.entity';
@@ -20,6 +20,7 @@ describe('UsersService', () => {
     manager: {
       transaction: jest.fn(),
     },
+    findAndCount: jest.fn(),
   };
   const mockProfileRepository = {
     create: jest.fn(),
@@ -87,6 +88,97 @@ describe('UsersService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  describe('GOA-085 account deletion and data export', () => {
+    const userId = '11111111-1111-4111-8111-111111111111';
+
+    beforeEach(() => {
+      jest.spyOn(service as any, 'revokeAllAccessTokens').mockResolvedValue(undefined);
+    });
+
+    it('DELETE /account with wrong password returns 401', async () => {
+      mockUserRepository.findOne.mockResolvedValue({
+        id: userId,
+        email: 'lina@example.com',
+        passwordHash: 'hash',
+        deletedAt: null,
+      });
+      jest.spyOn(require('bcrypt'), 'compare').mockResolvedValue(false);
+
+      await expect(service.deleteAccount(userId, userId, 'wrong')).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it('DELETE /account sets deletedAt, anonymises email, revokes tokens and publishes AccountDeleted', async () => {
+      mockUserRepository.findOne.mockResolvedValue({
+        id: userId,
+        email: 'lina@example.com',
+        passwordHash: 'hash',
+        deletedAt: null,
+      });
+      jest.spyOn(require('bcrypt'), 'compare').mockResolvedValue(true);
+      const manager = { update: jest.fn() };
+      mockUserRepository.manager.transaction.mockImplementation(async (cb) => cb(manager));
+      mockSqsService.send.mockResolvedValue([]);
+
+      const result = await service.deleteAccount(userId, userId, 'correct-password');
+      await new Promise(process.nextTick);
+
+      expect(result).toMatchObject({ success: true, deletedAt: expect.any(String) });
+      expect(manager.update).toHaveBeenCalledWith(User, userId, {
+        deletedAt: expect.any(Date),
+        email: `deleted_${userId}@deleted.goa`,
+      });
+      expect(manager.update).toHaveBeenCalledWith(
+        RefreshToken,
+        { userId },
+        { revokedAt: expect.any(Date) },
+      );
+      expect(mockSqsService.send).toHaveBeenCalledWith('user-events', {
+        id: expect.any(String),
+        body: expect.objectContaining({
+          type: 'account.deleted',
+          payload: { userId, deletedAt: expect.any(String) },
+        }),
+      });
+    });
+
+    it('GET /data-export returns valid JSON sections', async () => {
+      mockUserRepository.findOne.mockResolvedValue({
+        id: userId,
+        email: 'lina@example.com',
+        passwordHash: 'hash',
+        deletedAt: null,
+        profile: { userId, degreeLevel: 'Bachelor' },
+      });
+
+      const exported = await service.exportUserData(userId, userId);
+
+      expect(exported).toMatchObject({
+        userId,
+        profile: expect.objectContaining({ email: 'lina@example.com' }),
+        examHistory: [],
+        essays: [],
+        speakingSessions: [],
+      });
+      expect(JSON.parse(JSON.stringify(exported))).toBeTruthy();
+      expect((exported.profile as any).passwordHash).toBeUndefined();
+    });
+
+    it('deleted user attempts login returns 401', async () => {
+      mockUserRepository.findOne.mockResolvedValue({
+        id: userId,
+        email: 'deleted@example.com',
+        passwordHash: 'hash',
+        deletedAt: new Date(),
+      });
+
+      await expect(
+        service.internalLogin({ email: 'deleted@example.com', password: 'Secret123!' }),
+      ).rejects.toThrow(UnauthorizedException);
+    });
   });
 
   describe('forgotPassword (Security Aspect)', () => {
@@ -311,3 +403,4 @@ describe('UsersService', () => {
     });
   });
 });
+

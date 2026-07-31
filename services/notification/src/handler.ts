@@ -1,6 +1,6 @@
 import { SQSEvent, SQSBatchResponse, ALBEvent, ALBResult } from 'aws-lambda';
-import { parseNotificationEvent, deriveNotificationId } from './events.js';
-import { insertNotification, getUnreadNotifications } from './db.js';
+import { parseNotificationEvent, deriveNotificationId, parseAccountDeletedEvent } from './events.js';
+import { insertNotification, getUnreadNotifications, deleteNotificationsForUser } from './db.js';
 import { renderNotificationTemplate } from './templates.js';
 import { sendEmail } from './ses.js';
 import { lookupUserEmail } from './users.js';
@@ -99,3 +99,4 @@ export const handler = async (event: unknown) => {
     }
     throw new Error(`Unrecognised event shape: ${JSON.stringify(event).slice(0, 200)}`);
 };
+

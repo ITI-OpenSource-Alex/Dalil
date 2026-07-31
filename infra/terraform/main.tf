@@ -340,6 +340,16 @@ module "writing_files_bucket" {
   source      = "./modules/s3"
   bucket_name = "goa-writing-files-${var.environment}"
   tags        = local.goa071_tags
+
+  expiration_rules = [
+    {
+      id   = "expire-writing-files-retention-90d"
+      days = 90
+      tags = {
+        retention = "90d"
+      }
+    }
+  ]
 }
 
 module "exam_audio_bucket" {
@@ -721,3 +731,6 @@ resource "aws_lambda_event_source_mapping" "cv_processed_to_notification_sender"
   maximum_batching_window_in_seconds = 5
   function_response_types            = ["ReportBatchItemFailures"]
 }
+
+
+

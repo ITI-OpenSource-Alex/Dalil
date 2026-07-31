@@ -20,3 +20,14 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "expiration_rules" {
+  description = "Current-version object expiration rules filtered by object tags."
+  type = list(object({
+    id     = string
+    days   = number
+    tags   = map(string)
+    status = optional(string, "Enabled")
+  }))
+  default = []
+}

@@ -335,3 +335,52 @@ func TestPostgresRepository_GetByShareToken_NotFound(t *testing.T) {
 		t.Errorf("there were unfulfilled database expectations: %s", err)
 	}
 }
+
+func TestPostgresRepository_DeleteByUser(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create pgxmock pool: %v", err)
+	}
+	defer mock.Close()
+
+	repo := NewPostgresRepository(mock)
+	mock.ExpectExec("DELETE FROM speaking_sessions WHERE user_id").
+		WithArgs("user-123").
+		WillReturnResult(pgxmock.NewResult("DELETE", 3))
+
+	deleted, err := repo.DeleteByUser(context.Background(), "user-123")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if deleted != 3 {
+		t.Fatalf("expected 3 deleted rows, got %d", deleted)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled database expectations: %s", err)
+	}
+}
+
+func TestPostgresRepository_DeleteOlderThan(t *testing.T) {
+	mock, err := pgxmock.NewPool()
+	if err != nil {
+		t.Fatalf("failed to create pgxmock pool: %v", err)
+	}
+	defer mock.Close()
+
+	repo := NewPostgresRepository(mock)
+	cutoff := time.Now().Add(-365 * 24 * time.Hour)
+	mock.ExpectExec("DELETE FROM speaking_sessions WHERE created_at").
+		WithArgs(cutoff).
+		WillReturnResult(pgxmock.NewResult("DELETE", 7))
+
+	deleted, err := repo.DeleteOlderThan(context.Background(), cutoff)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if deleted != 7 {
+		t.Fatalf("expected 7 deleted rows, got %d", deleted)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled database expectations: %s", err)
+	}
+}

@@ -3,16 +3,20 @@ import {
   Post,
   Get,
   Put,
+  Delete,
   Body,
   Param,
   UseGuards,
   Query,
+  Headers,
+  Header,
 } from '@nestjs/common';
 
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { InternalAuthGuard } from '../common/guards/internal-auth.guard';
 import { UpdateProfileDto } from '../profile/dto/update-profile.dto';
+import { DeleteAccountDto } from './dto/delete-account.dto';
 
 @Controller('users')
 export class UsersController {
@@ -50,4 +54,23 @@ export class UsersController {
   updateProfile(@Param('id') id: string, @Body() dto: UpdateProfileDto) {
     return this.usersService.updateProfile(id, dto);
   }
+
+  @Delete(':id/account')
+  deleteAccount(
+    @Param('id') id: string,
+    @Body() dto: DeleteAccountDto,
+    @Headers('x-user-id') requesterId?: string,
+  ) {
+    return this.usersService.deleteAccount(id, requesterId, dto.confirmPassword);
+  }
+
+  @Get(':id/data-export')
+  @Header('Content-Type', 'application/json')
+  exportData(
+    @Param('id') id: string,
+    @Headers('x-user-id') requesterId?: string,
+  ) {
+    return this.usersService.exportUserData(id, requesterId);
+  }
 }
+

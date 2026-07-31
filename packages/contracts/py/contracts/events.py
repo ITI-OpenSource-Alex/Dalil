@@ -19,6 +19,13 @@ class UserUpdated(BaseEvent):
     type: Literal["user.updated"] = "user.updated"
     payload: UserUpdatedPayload
 
+class AccountDeletedPayload(BaseModel):
+    userId: str
+    deletedAt: datetime
+
+class AccountDeleted(BaseEvent):
+    type: Literal["account.deleted"] = "account.deleted"
+    payload: AccountDeletedPayload
 class CVUploadedPayload(BaseModel):
     userId: str
     s3Key: str
@@ -90,9 +97,12 @@ class DeadlineReminderNotification(BaseModel):
 # A Union type representing any valid domain event
 DomainEvent = Union[
     UserUpdated,
+    AccountDeleted,
     CVUploaded,
     CVProcessed,
     ScholarshipMatched,
     NotificationRequested,
     IngestionCompleted
 ]
+
+

@@ -24,6 +24,7 @@ import datetime
 import hashlib
 import json
 import os
+import time
 
 import structlog
 from contracts.events import DeadlineReminderNotification, ScholarshipMatchedNotification
@@ -32,6 +33,7 @@ from client import get_headers
 from config import settings
 
 logger = structlog.get_logger("ingestion_worker.scholarship_matcher")
+COLD_START = True
 
 # The ticket's threshold: only a strong match is worth an email.
 MATCH_SCORE_THRESHOLD = 60.0
@@ -311,10 +313,46 @@ def run_matcher(since_hours: int = 24, ledger: NotificationLedger | None = None,
     return counts
 
 
+def _memory_used_mb() -> float:
+    try:
+        import resource
+
+        usage = resource.getrusage(resource.RUSAGE_SELF)
+        return round(float(usage.ru_maxrss) / 1024.0, 2)
+    except Exception:
+        return 0.0
+
+
 def handler(event=None, context=None) -> dict:
     """Lambda entry point (EventBridge daily at 08:00 UTC)."""
+    global COLD_START
+    started = time.perf_counter()
     since_hours = int((event or {}).get("since_hours", 24))
-    return run_matcher(since_hours=since_hours)
+    request_id = getattr(context, "aws_request_id", None)
+    function_name = getattr(context, "function_name", "goa-scholarship-matcher")
+    outcome = "success"
+    try:
+        summary = run_matcher(since_hours=since_hours)
+        return summary
+    except Exception:
+        outcome = "fail"
+        raise
+    finally:
+        logger.info(
+            json.dumps(
+                {
+                    "function_name": function_name,
+                    "request_id": request_id,
+                    "duration_ms": round((time.perf_counter() - started) * 1000, 2),
+                    "memory_used_mb": _memory_used_mb(),
+                    "cold_start": COLD_START,
+                    "records_processed": summary.get("scholarships", 0) if "summary" in locals() else 0,
+                    "outcome": outcome,
+                },
+                separators=(",", ":"),
+            )
+        )
+        COLD_START = False
 
 
 if __name__ == "__main__":

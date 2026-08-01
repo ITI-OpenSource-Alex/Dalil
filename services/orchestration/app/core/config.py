@@ -21,6 +21,26 @@ class Settings(BaseSettings):
     anthropic_user_agent: str = "Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14"
     llm_model: str = "claude-opus-4-8"
 
+    # Long-term conversation memory (GOA-038).
+    #
+    # Every threshold here is configuration rather than a constant so tests can
+    # drive the sweep without waiting for it: an integration test sets
+    # memory_idle_minutes low and backdates a score, and the manual E2E runs with
+    # memory_idle_minutes=1 so a human can watch the timer actually fire.
+    memory_enabled: bool = True
+    memory_idle_minutes: int = 30
+    memory_sweep_interval_seconds: int = 300
+    memory_sweep_batch_max: int = 20
+    memory_fact_ttl_days: int = 30
+    # Below this many turns there is nothing worth an LLM call. Without it every
+    # abandoned "hi" costs a frontier-model extraction, which matters now that
+    # inference is billed through AgentRouter.
+    memory_min_turns: int = 4
+    # Hard ceiling on the fact read that sits in front of classification. The
+    # read is enrichment; a slow database must degrade the answer, never the turn.
+    memory_load_timeout_ms: int = 250
+    memory_cache_ttl_seconds: int = 300
+
     # Downstream Service URLs
     rag_service_url: str = "http://rag:8084"
     speaking_service_url: str = "http://speaking:8082"

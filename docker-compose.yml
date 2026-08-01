@@ -397,6 +397,17 @@ services:
       - RAG_SERVICE_URL=http://rag:8084
       - SPEAKING_SERVICE_URL=http://speaking:8082
       - WRITING_SERVICE_URL=http://writing:8000
+      - EXAM_SERVICE_URL=http://exam:8085
+      # Long-term conversation memory (GOA-038). Overridable so the manual E2E
+      # can run with MEMORY_IDLE_MINUTES=1 and watch the sweep fire in real time,
+      # and so load tests (GOA-036) can set MEMORY_ENABLED=false rather than
+      # handing the sweep thousands of synthetic sessions to extract from.
+      - MEMORY_ENABLED=${MEMORY_ENABLED:-true}
+      - MEMORY_IDLE_MINUTES=${MEMORY_IDLE_MINUTES:-30}
+      - MEMORY_SWEEP_INTERVAL_SECONDS=${MEMORY_SWEEP_INTERVAL_SECONDS:-300}
+      - MEMORY_SWEEP_BATCH_MAX=${MEMORY_SWEEP_BATCH_MAX:-20}
+      - MEMORY_FACT_TTL_DAYS=${MEMORY_FACT_TTL_DAYS:-30}
+      - MEMORY_MIN_TURNS=${MEMORY_MIN_TURNS:-4}
     volumes:
       - ./services/orchestration:/app
     depends_on:

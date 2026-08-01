@@ -8,6 +8,8 @@ from app.services.supervisor import classify_intent
 from app.services.memory import get_session_memory, load_memory_variables, save_context
 from app.services.client import forward_downstream_stream
 from app.services.exam_context import fetch_exam_context
+from app.services.session_index import get_redis_client, touch_session
+from app.core.config import settings
 from app.core.trace_context import build_traceparent
 
 logger = structlog.get_logger("orchestration.api.chat")
@@ -210,6 +212,25 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                     )
                 except Exception as e:
                     logger.warning("Failed to save session memory", error=str(e))
+
+            # 8b. Record that this session moved, and who owns it (GOA-038).
+            #
+            # After the stream, deliberately: this is bookkeeping for a sweep
+            # that runs half an hour from now, and it has no business sitting
+            # between the user and their tokens. Failure costs this session's
+            # long-term facts and nothing else.
+            if settings.memory_enabled:
+                redis_client = None
+                try:
+                    redis_client = await get_redis_client()
+                    await touch_session(
+                        redis_client, request.sessionId, request.userId
+                    )
+                except Exception as e:
+                    logger.warning("Failed to index session activity", error=str(e))
+                finally:
+                    if redis_client is not None:
+                        await redis_client.aclose()
             
         except Exception as e:
             status = "error"

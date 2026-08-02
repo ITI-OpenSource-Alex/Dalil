@@ -13,6 +13,7 @@ second client is a second thing to get wrong the next time the gateway changes.
 
 from __future__ import annotations
 
+import asyncio
 import time
 from typing import Optional
 
@@ -176,7 +177,21 @@ async def extract_facts(
             try:
                 from app.telemetry import record_llm_cost
 
-                record_llm_cost(user_id, settings.llm_model, input_tokens, output_tokens)
+                # Off the event loop. record_llm_cost uses the *synchronous*
+                # redis client against redis-gateway with a 2s connect timeout,
+                # so calling it directly from a coroutine stalls the whole loop
+                # whenever that host is slow -- and the sweep would do it once
+                # per session, up to the batch cap, while chat requests are
+                # trying to run. The same call is made inline by
+                # supervisor.classify_intent on the request path; that one is
+                # pre-existing and worth the same treatment.
+                await asyncio.to_thread(
+                    record_llm_cost,
+                    user_id,
+                    settings.llm_model,
+                    input_tokens,
+                    output_tokens,
+                )
             except ImportError:
                 pass
 

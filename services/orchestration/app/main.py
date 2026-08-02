@@ -1,3 +1,4 @@
+import asyncio
 import httpx
 import structlog
 import uuid
@@ -10,6 +11,7 @@ from langfuse import Langfuse
 
 from app.core.config import settings
 from app.core.database import db
+from app.services.memory_sweep import run_sweep_loop
 from app.api.chat import router as chat_router
 
 
@@ -61,7 +63,33 @@ async def lifespan(app: FastAPI):
     else:
         logger.warning("Langfuse keys not set. Tracing will be inactive.")
         app.state.langfuse = None
+
+    # The idle-session sweep (GOA-038). No "session ended" event exists in this
+    # system and none is being introduced, so a session is considered over when
+    # nobody has spoken in it for MEMORY_IDLE_MINUTES.
+    sweep_task = None
+    if settings.memory_enabled and db.pool is not None:
+        sweep_task = asyncio.create_task(run_sweep_loop(db.pool, app.state.langfuse))
+        logger.info(
+            "Long-term memory sweep started",
+            interval_seconds=settings.memory_sweep_interval_seconds,
+            idle_minutes=settings.memory_idle_minutes,
+        )
+    else:
+        logger.warning(
+            "Long-term memory sweep not started",
+            memory_enabled=settings.memory_enabled,
+            database_available=db.pool is not None,
+        )
+
     yield
+
+    if sweep_task is not None:
+        sweep_task.cancel()
+        try:
+            await sweep_task
+        except asyncio.CancelledError:
+            pass
 
      # Teardown
     logger.info("Shutting down Orchestration service...")

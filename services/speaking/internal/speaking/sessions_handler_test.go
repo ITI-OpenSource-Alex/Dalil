@@ -46,6 +46,14 @@ func (m *sessionsMockRepo) GetByShareToken(ctx context.Context, token string) (*
 	return m.getByShareTokenFn(ctx, token)
 }
 
+func (m *sessionsMockRepo) DeleteByUser(ctx context.Context, userID string) (int64, error) {
+	return 0, nil
+}
+
+func (m *sessionsMockRepo) DeleteOlderThan(ctx context.Context, cutoff time.Time) (int64, error) {
+	return 0, nil
+}
+
 func TestHandleListSessions_MissingUserID(t *testing.T) {
 	repo := &sessionsMockRepo{}
 	req := httptest.NewRequest(http.MethodGet, "/sessions", nil)

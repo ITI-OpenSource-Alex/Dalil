@@ -24,8 +24,8 @@ class Settings:
     internal_api_key: str = ""
     rag_service_url: str = "http://rag:8084"
     writing_model: str = "claude-opus-4-8"
-    cv_review_model: str = "claude-sonnet-4-6"
-    cv_extraction_model: str = "claude-haiku-4-5-20251001"
+    cv_review_model: str = "claude-opus-4-8"
+    cv_extraction_model: str = "claude-opus-4-8"
     anthropic_user_agent: str = "Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14"
     anthropic_timeout_seconds: float = 25.0
     openai_api_key: str = ""
@@ -33,6 +33,7 @@ class Settings:
     langfuse_secret_key: str = ""
     langfuse_host: str = "https://cloud.langfuse.com"
     cache_version: str = "v1"
+    redis_url: str = "redis://redis-gateway:6379/0"
 
 
 @lru_cache
@@ -51,9 +52,9 @@ def get_settings() -> Settings:
         internal_api_key=os.getenv("INTERNAL_API_KEY", ""),
         rag_service_url=os.getenv("RAG_SERVICE_URL", "http://rag:8084"),
         writing_model=os.getenv("WRITING_MODEL", "claude-opus-4-8"),
-        cv_review_model=os.getenv("CV_REVIEW_MODEL", "claude-sonnet-4-6"),
+        cv_review_model=os.getenv("CV_REVIEW_MODEL", "claude-opus-4-8"),
         cv_extraction_model=os.getenv(
-            "CV_EXTRACTION_MODEL", "claude-haiku-4-5-20251001"
+            "CV_EXTRACTION_MODEL", "claude-opus-4-8"
         ),
         anthropic_timeout_seconds=float(
             os.getenv("ANTHROPIC_TIMEOUT_SECONDS", "25")
@@ -63,4 +64,6 @@ def get_settings() -> Settings:
         langfuse_secret_key=os.getenv("LANGFUSE_SECRET_KEY", ""),
         langfuse_host=os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com"),
         cache_version=os.getenv("WRITING_CACHE_VERSION", "v1"),
+        redis_url=os.getenv("REDIS_URL")
+        or os.getenv("REDIS_GATEWAY_URL", "redis://redis-gateway:6379/0"),
     )

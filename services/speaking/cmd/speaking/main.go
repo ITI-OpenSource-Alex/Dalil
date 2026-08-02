@@ -78,6 +78,10 @@ func main() {
 	langfuseClient := langfuse.NewClient(cfg.LangfusePublicKey, cfg.LangfuseSecretKey, cfg.LangfuseHost)
 
 	speaking.StartBackgroundTasks()
+	appCtx, appCancel := context.WithCancel(context.Background())
+	defer appCancel()
+	speaking.StartAccountDeletedConsumer(appCtx, cfg, dbRepo)
+	speaking.StartRetentionCleanup(appCtx, cfg, dbRepo)
 
 	// 3. HTTP Server configuration
 	//
@@ -110,6 +114,7 @@ func main() {
 	<-stop
 
 	log.Info().Msg("Shutting down Speaking Service gracefully...")
+	appCancel()
 
 	// Create shutdown deadline (5 seconds maximum drain window)
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)

@@ -4,6 +4,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.config import Settings
+from app.schemas import CVReviewSection
 from app.services import cv_review
 
 
@@ -28,54 +29,51 @@ class FakeClient:
 class FakeRedis:
     def __init__(self):
         self.storage = {}
+        self.setex_calls = []
 
     async def get(self, key):
         return self.storage.get(key)
 
     async def setex(self, key, ttl, value):
+        self.setex_calls.append((key, ttl, value))
         self.storage[key] = value
 
 
 @pytest.mark.asyncio
-async def test_generate_review_parses_structured_json(monkeypatch):
-    body = {
-        "overallScore": 86,
-        "sections": [
+async def test_generate_review_parses_structured_json():
+    fake_client = FakeClient(
+        json.dumps(
             {
-                "name": "Structure/Formatting",
-                "score": 80,
-                "issues": ["No contact header"],
-                "suggestions": ["Add a clear contact header at the top."],
-            },
-            {
-                "name": "Skills Gaps",
-                "score": 78,
-                "issues": ["Missing cloud skills"],
-                "suggestions": ["Add AWS, Docker, and CI/CD experience."],
-            },
-            {
-                "name": "ATS Keywords",
-                "score": 84,
-                "issues": ["Missing role keywords"],
-                "suggestions": ["Use keywords from the target job description."],
-            },
-            {
-                "name": "Length Appropriateness",
-                "score": 90,
-                "issues": [],
-                "suggestions": ["Keep it to one page for early-career roles."],
-            },
-            {
-                "name": "Country Conventions",
+                "name": "Country-specific conventions",
                 "score": 88,
                 "issues": ["Photo missing for Germany"],
                 "suggestions": ["Add a professional photo for German applications."],
-            },
-        ],
-    }
-    fake_client = FakeClient(json.dumps(body))
-    monkeypatch.setattr(cv_review, "_build_client", lambda _settings: fake_client)
+            }
+        )
+    )
+    runner = cv_review.CVReviewRunner(fake_client)
 
+    result = await runner.review_section(
+        "Country-specific conventions",
+        cv_context="Jane Doe CV text.",
+        target_country="Germany",
+        target_field="Software Engineering",
+        country_conventions="German CVs may include a photo.",
+    )
+
+    assert result.result == CVReviewSection(
+        name="Country-specific conventions",
+        score=88,
+        issues=["Photo missing for Germany"],
+        suggestions=["Add a professional photo for German applications."],
+    )
+    assert fake_client.messages.calls[0]["model"] == "claude-opus-4-8"
+
+
+@pytest.mark.asyncio
+async def test_review_cv_uses_cache_on_repeat(monkeypatch):
+    fake_redis = FakeRedis()
+    calls = []
     settings = Settings(
         aws_region="us-east-1",
         aws_access_key_id="test",
@@ -85,92 +83,59 @@ async def test_generate_review_parses_structured_json(monkeypatch):
         cv_uploaded_queue_url="queue",
     )
 
-    result = await cv_review._generate_review(
+    class FakeCoordinator:
+        async def review(self, **kwargs):
+            calls.append(kwargs)
+            sections = [
+                CVReviewSection(
+                    name="Structure and formatting",
+                    score=74,
+                    issues=["Needs a clearer summary"],
+                    suggestions=["Move the profile summary to the top."],
+                )
+            ]
+            if kwargs.get("on_partial"):
+                await kwargs["on_partial"](sections[0])
+            return cv_review.CVReviewSummary(
+                overall_score=74,
+                sections=sections,
+                total_tokens=100,
+            )
+
+        async def replay_cached(self, payload, *, on_partial=None):
+            response = cv_review.CVReviewResponse.model_validate(payload)
+            for section in response.sections:
+                if on_partial:
+                    await on_partial(section)
+            return cv_review.CVReviewSummary(
+                overall_score=response.overallScore,
+                sections=response.sections,
+                total_tokens=0,
+            )
+
+    cache_key = cv_review.cv_review_cache_key(
         "Jane Doe CV text.",
-        {"skills": ["Python"]},
         "Germany",
         "Software Engineering",
-        conventions={"photo_required": True},
-        settings=settings,
+        settings,
     )
 
-    assert result.overallScore == 86
-    assert [section.name for section in result.sections] == [
-        "Structure/Formatting",
-        "Skills Gaps",
-        "ATS Keywords",
-        "Length Appropriateness",
-        "Country Conventions",
-    ]
-    assert fake_client.messages.calls[0]["model"] == "claude-sonnet-4-6"
-
-
-@pytest.mark.asyncio
-async def test_review_cv_uses_cache_on_repeat(monkeypatch):
-    fake_redis = FakeRedis()
-    calls = []
-
-    async def fake_generate_review(*args, **kwargs):
-        calls.append((args, kwargs))
-        return cv_review.CVReviewOutput.model_validate(
-            {
-                "overallScore": 74,
-                "sections": [
-                    {
-                        "name": "Structure/Formatting",
-                        "score": 72,
-                        "issues": ["Needs a clearer summary"],
-                        "suggestions": ["Move the profile summary to the top."],
-                    },
-                    {
-                        "name": "Skills Gaps",
-                        "score": 68,
-                        "issues": ["No skills section"],
-                        "suggestions": ["Add a dedicated skills section."],
-                    },
-                    {
-                        "name": "ATS Keywords",
-                        "score": 70,
-                        "issues": ["Few field keywords"],
-                        "suggestions": ["Mirror keywords from the target job description."],
-                    },
-                    {
-                        "name": "Length Appropriateness",
-                        "score": 80,
-                        "issues": [],
-                        "suggestions": ["Keep the CV concise."],
-                    },
-                    {
-                        "name": "Country Conventions",
-                        "score": 76,
-                        "issues": ["Photo omission for Germany"],
-                        "suggestions": ["Include a photo for German applications if appropriate."],
-                    },
-                ],
-            }
-        )
-
-    async def fake_conventions(*_args, **_kwargs):
-        return {"photo_required": True}
-
-    monkeypatch.setattr(cv_review, "_get_redis_client", lambda: fake_redis)
-    monkeypatch.setattr(cv_review, "_generate_review", fake_generate_review)
-    monkeypatch.setattr(cv_review, "_fetch_country_conventions", fake_conventions)
-
-    first = await cv_review.review_cv(
-        "Jane Doe CV text.",
-        {"skills": ["Python"]},
-        "Germany",
-        "Software Engineering",
+    first = await FakeCoordinator().review(
+        extracted_text="Jane Doe CV text.",
+        structured_data={"skills": ["Python"]},
+        target_country="Germany",
+        target_field="Software Engineering",
+        country_conventions="German CVs may include a photo.",
     )
-    second = await cv_review.review_cv(
-        "Jane Doe CV text.",
-        {"skills": ["Python"]},
-        "Germany",
-        "Software Engineering",
+    await cv_review.set_cached_review(
+        fake_redis,
+        cache_key,
+        cv_review.cv_review_response(first).model_dump(mode="json"),
     )
+    cached_payload = await cv_review.get_cached_review(fake_redis, cache_key)
+    second = await FakeCoordinator().replay_cached(cached_payload)
 
-    assert first.from_cache is False
-    assert second.from_cache is True
     assert len(calls) == 1
-    assert first.review.model_dump() == second.review.model_dump()
+    assert first.overall_score == second.overall_score == 74
+    assert first.sections == second.sections
+    assert fake_redis.setex_calls[0][1] == 24 * 60 * 60

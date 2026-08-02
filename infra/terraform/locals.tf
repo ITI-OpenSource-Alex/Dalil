@@ -78,24 +78,30 @@ locals {
         INGESTION_QUEUE_URL       = module.sqs.queue_urls["ingestion"]
         SECURE_COOKIES            = "true"
         } : service == "user" ? {
-        REDIS_HOST    = module.elasticache.primary_endpoint_address
-        REDIS_PORT    = tostring(module.elasticache.port)
-        SQS_QUEUE_URL = module.sqs.queue_urls["user_events"]
+        REDIS_HOST            = module.elasticache.primary_endpoint_address
+        REDIS_PORT            = tostring(module.elasticache.port)
+        SQS_QUEUE_URL         = module.sqs.queue_urls["user_events"]
+        USER_EVENTS_TOPIC_ARN = aws_sns_topic.user_events.arn
         } : service == "orchestration" ? {
         REDIS_URL            = "redis://${module.elasticache.primary_endpoint_address}:${module.elasticache.port}/1"
         RAG_SERVICE_URL      = "http://${local.name_prefix}-rag:8084"
         SPEAKING_SERVICE_URL = "http://${local.name_prefix}-speaking:8082"
         WRITING_SERVICE_URL  = "http://${local.name_prefix}-writing:8000"
+        SQS_QUEUE_NAME       = module.sqs.queue_names["user_events_orchestration"]
         } : service == "writing" ? {
-        S3_BUCKET              = module.writing_files_bucket.bucket_name
-        CV_PROCESSED_QUEUE_URL = aws_sqs_queue.cv_processed.url
+        S3_BUCKET                 = module.writing_files_bucket.bucket_name
+        CV_PROCESSED_QUEUE_URL    = aws_sqs_queue.cv_processed.url
+        ACCOUNT_DELETED_QUEUE_URL = module.sqs.queue_urls["user_events_writing"]
         } : service == "rag" ? {
         REDIS_URL      = "redis://${module.elasticache.primary_endpoint_address}:${module.elasticache.port}/1"
-        SQS_QUEUE_NAME = module.sqs.queue_names["user_events"]
+        SQS_QUEUE_NAME = module.sqs.queue_names["user_events_rag"]
         } : service == "exam" ? {
         SPEAKING_SERVICE_URL = "http://${local.name_prefix}-speaking:8082"
         WRITING_SERVICE_URL  = "http://${local.name_prefix}-writing:8000"
         S3_BUCKET            = module.exam_audio_bucket.bucket_name
+        SQS_QUEUE_NAME       = module.sqs.queue_names["user_events_exam"]
+        } : service == "speaking" ? {
+        SQS_QUEUE_NAME = module.sqs.queue_names["user_events_speaking"]
         } : service == "ingestion" ? {
         RAG_SERVICE_URL                     = "http://${local.name_prefix}-rag:8084"
         INGESTION_QUEUE_URL                 = module.sqs.queue_urls["ingestion"]
@@ -142,7 +148,52 @@ locals {
       visibility_timeout_seconds = 4320
       max_receive_count          = 3
     }
+
+    user_events_rag = {
+      name                       = "${local.name_prefix}-user-events-rag"
+      visibility_timeout_seconds = 30
+      max_receive_count          = 3
+    }
+
+    user_events_orchestration = {
+      name                       = "${local.name_prefix}-user-events-orchestration"
+      visibility_timeout_seconds = 30
+      max_receive_count          = 3
+    }
+
+    user_events_exam = {
+      name                       = "${local.name_prefix}-user-events-exam"
+      visibility_timeout_seconds = 30
+      max_receive_count          = 3
+    }
+
+    user_events_speaking = {
+      name                       = "${local.name_prefix}-user-events-speaking"
+      visibility_timeout_seconds = 30
+      max_receive_count          = 3
+    }
+
+    user_events_writing = {
+      name                       = "${local.name_prefix}-user-events-writing"
+      visibility_timeout_seconds = 30
+      max_receive_count          = 3
+    }
+
+    user_events_notification = {
+      name                       = "${local.name_prefix}-user-events-notification"
+      visibility_timeout_seconds = 30
+      max_receive_count          = 3
+    }
   }
+
+  user_event_subscriber_queue_keys = toset([
+    "user_events_rag",
+    "user_events_orchestration",
+    "user_events_exam",
+    "user_events_speaking",
+    "user_events_writing",
+    "user_events_notification",
+  ])
 
   service_secret_keys = {
     gateway = [
@@ -195,6 +246,7 @@ locals {
     notification = [
       "DATABASE_URL",
       "INTERNAL_API_KEY",
+      "SES_SENDER_ADDRESS",
     ]
 
     ingestion = [
@@ -228,12 +280,26 @@ locals {
       "ingestion",
     ]
 
-    user = [
-      "user_events",
-    ]
+    user = []
 
     rag = [
-      "user_events",
+      "user_events_rag",
+    ]
+
+    orchestration = [
+      "user_events_orchestration",
+    ]
+
+    exam = [
+      "user_events_exam",
+    ]
+
+    speaking = [
+      "user_events_speaking",
+    ]
+
+    writing = [
+      "user_events_writing",
     ]
 
     notification = [
@@ -251,6 +317,11 @@ locals {
       for queue_key in lookup(local.service_sqs_queue_keys, service, []) :
       module.sqs.queue_arns[queue_key]
     ]
+  }
+
+  service_sns_topic_arns = {
+    for service in local.service_names :
+    service => service == "user" ? [aws_sns_topic.user_events.arn] : []
   }
 
   service_secret_arns = {
@@ -286,6 +357,7 @@ locals {
         execution_secret_arns = toset(local.service_secret_arns[service])
         task_secret_arns      = toset(local.service_secret_arns[service])
         sqs_queue_arns        = toset(local.service_sqs_queue_arns[service])
+        sns_topic_arns        = toset(local.service_sns_topic_arns[service])
         s3_read_object_arns   = toset(local.service_s3_read_object_arns[service])
         s3_write_object_arns  = toset(local.service_s3_write_object_arns[service])
         kms_key_arns          = toset(var.task_kms_key_arns)
@@ -296,6 +368,7 @@ locals {
         execution_secret_arns = toset([module.secrets.rds_master_secret_arn])
         task_secret_arns      = toset([])
         sqs_queue_arns        = toset([])
+        sns_topic_arns        = toset([])
         s3_read_object_arns   = toset([])
         s3_write_object_arns  = toset([])
         kms_key_arns          = toset(var.task_kms_key_arns)

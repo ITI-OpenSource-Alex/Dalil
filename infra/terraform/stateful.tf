@@ -6,6 +6,52 @@ module "sqs" {
   tags        = local.common_tags
 }
 
+resource "aws_sns_topic" "user_events" {
+  name = "${local.name_prefix}-user-events"
+
+  tags = merge(local.common_tags, {
+    Name = "${local.name_prefix}-user-events"
+  })
+}
+
+resource "aws_sns_topic_subscription" "user_events_sqs" {
+  for_each = local.user_event_subscriber_queue_keys
+
+  topic_arn            = aws_sns_topic.user_events.arn
+  protocol             = "sqs"
+  endpoint             = module.sqs.queue_arns[each.key]
+  raw_message_delivery = false
+}
+
+data "aws_iam_policy_document" "user_events_sqs" {
+  for_each = local.user_event_subscriber_queue_keys
+
+  statement {
+    sid     = "AllowUserEventsTopicDelivery"
+    actions = ["sqs:SendMessage"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["sns.amazonaws.com"]
+    }
+
+    resources = [module.sqs.queue_arns[each.key]]
+
+    condition {
+      test     = "ArnEquals"
+      variable = "aws:SourceArn"
+      values   = [aws_sns_topic.user_events.arn]
+    }
+  }
+}
+
+resource "aws_sqs_queue_policy" "user_events_sns_delivery" {
+  for_each = local.user_event_subscriber_queue_keys
+
+  queue_url = module.sqs.queue_urls[each.key]
+  policy    = data.aws_iam_policy_document.user_events_sqs[each.key].json
+}
+
 module "secrets" {
   source = "./modules/secrets"
 

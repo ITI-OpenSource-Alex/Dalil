@@ -33,6 +33,23 @@ import { SQSClient } from '@aws-sdk/client-sqs';
           'user-events',
         );
 
+        // GOA-083: a second producer targeting the Notification service's
+        // queue. The User service no longer sends email directly — the
+        // forgot-password and registration flows publish PasswordResetRequested
+        // / EmailVerificationRequired events here, and the Notification Lambda
+        // (which already consumes notification-queue) renders and sends them.
+        //
+        // Registered only when NOTIFICATION_QUEUE_URL is set so that existing
+        // environments and unit tests that don't need it still boot. The
+        // service logs and no-ops if it's asked to publish without it.
+        const notificationProducerName = configService.get<string>(
+          'SQS_NOTIFICATION_PRODUCER_NAME',
+          'notifications',
+        );
+        const notificationQueueUrl = configService.get<string>(
+          'NOTIFICATION_QUEUE_URL',
+        );
+
         return {
           consumers: [],
           producers: [
@@ -42,6 +59,16 @@ import { SQSClient } from '@aws-sdk/client-sqs';
               region,
               sqs: sqsClient,
             },
+            ...(notificationQueueUrl
+              ? [
+                  {
+                    name: notificationProducerName,
+                    queueUrl: notificationQueueUrl,
+                    region,
+                    sqs: sqsClient,
+                  },
+                ]
+              : []),
           ],
         };
       },

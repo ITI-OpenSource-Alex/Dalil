@@ -73,3 +73,7 @@ services/ingestion/scratch/
 
 # Judge response cache: local cost optimisation, not shared state.
 evals/.judge_cache.json
+
+# Local Go build cache used when the OS user cache is not writable.
+.go-build-cache/
+.go-mod-cache/

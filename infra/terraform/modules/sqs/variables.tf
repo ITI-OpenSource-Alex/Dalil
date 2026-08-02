@@ -13,13 +13,19 @@ variable "queues" {
 
   validation {
     condition = (
-      length(var.queues) == 3 &&
-      toset(keys(var.queues)) == toset(["user_events", "notification", "ingestion"]) &&
+      alltrue([
+        for required_key in ["user_events", "notification", "ingestion"] :
+        contains(keys(var.queues), required_key)
+      ]) &&
       endswith(var.queues.user_events.name, "user-events") &&
       endswith(var.queues.notification.name, "notification-queue") &&
-      endswith(var.queues.ingestion.name, "ingestion-queue")
+      endswith(var.queues.ingestion.name, "ingestion-queue") &&
+      alltrue([
+        for key, queue in var.queues :
+        startswith(key, "user_events_") ? startswith(queue.name, "${var.name_prefix}-user-events-") : true
+      ])
     )
-    error_message = "GOA-070 requires exactly the user-events, notification-queue, and ingestion-queue definitions."
+    error_message = "GOA requires user-events, notification-queue, ingestion-queue, and AccountDeleted subscriber queues to follow the user-events-* naming contract."
   }
 
   validation {
@@ -29,6 +35,10 @@ variable "queues" {
       var.queues.ingestion.visibility_timeout_seconds >= 900 &&
       alltrue([
         for queue in values(var.queues) : queue.max_receive_count == 3
+      ]) &&
+      alltrue([
+        for key, queue in var.queues :
+        startswith(key, "user_events_") ? queue.visibility_timeout_seconds == 30 : true
       ])
     )
     error_message = "Interactive queues require a 30-second visibility timeout; ingestion requires at least 900 seconds; every queue requires max_receive_count = 3."

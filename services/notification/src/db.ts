@@ -2,13 +2,18 @@ import pg from 'pg';
 
 const { Pool } = pg;
 
-const connectionString = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/notification_db';
+let pool: pg.Pool | null = null;
 
-export const pool = new Pool({
-    connectionString,
-    max: 5,
-    idleTimeoutMillis: 30000,
-});
+function getPool(): pg.Pool {
+    if (!pool) {
+        pool = new Pool({
+            connectionString: process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/notification_db',
+            max: 5,
+            idleTimeoutMillis: 30000,
+        });
+    }
+    return pool;
+}
 
 const INIT_SQL = `
 CREATE TABLE IF NOT EXISTS notifications (
@@ -30,7 +35,7 @@ let migrationRan = false;
 
 export async function runMigrations(): Promise<void> {
     if (migrationRan) return;
-    const client = await pool.connect();
+    const client = await getPool().connect();
     try {
         await client.query(INIT_SQL);
         migrationRan = true;
@@ -55,7 +60,7 @@ export async function insertNotification(params: InsertNotificationParams): Prom
         ON CONFLICT (notification_id) DO NOTHING;
     `;
     const values = [params.notificationId, params.userId, params.type, params.title, params.body];
-    const result = await pool.query(query, values);
+    const result = await getPool().query(query, values);
     return (result.rowCount ?? 0) > 0;
 }
 
@@ -78,7 +83,7 @@ export async function getUnreadNotifications(userId: string): Promise<Notificati
         WHERE user_id = $1 AND read_at IS NULL
         ORDER BY created_at DESC;
     `;
-    const result = await pool.query(query, [userId]);
+    const result = await getPool().query(query, [userId]);
     return result.rows.map(row => ({
         id: row.id,
         notificationId: row.notification_id,
@@ -93,6 +98,6 @@ export async function getUnreadNotifications(userId: string): Promise<Notificati
 
 export async function deleteNotificationsForUser(userId: string): Promise<number> {
     await runMigrations();
-    const result = await pool.query('DELETE FROM notifications WHERE user_id = $1', [userId]);
+    const result = await getPool().query('DELETE FROM notifications WHERE user_id = $1', [userId]);
     return result.rowCount ?? 0;
 }

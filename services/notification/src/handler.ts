@@ -1,9 +1,10 @@
 import { SQSEvent, SQSBatchResponse, ALBEvent, ALBResult } from 'aws-lambda';
-import { parseNotificationEvent, deriveNotificationId, parseAccountDeletedEvent } from './events.js';
+import { parseNotificationEvent, deriveNotificationId, parseAccountDeletedEvent, parseAuthEmailEvent } from './events.js';
 import { insertNotification, getUnreadNotifications, deleteNotificationsForUser } from './db.js';
-import { renderNotificationTemplate } from './templates.js';
+import { renderNotificationTemplate, renderAuthEmailTemplate } from './templates.js';
 import { sendEmail } from './ses.js';
 import { lookupUserEmail } from './users.js';
+import { loadNotificationRuntimeSecrets } from './runtime-secrets.js';
 
 let coldStart = true;
 
@@ -37,10 +38,33 @@ export const isAlbEvent = (e: any): e is ALBEvent =>
     Boolean(e?.requestContext?.elb);
 
 export async function handleSqsBatch(event: SQSEvent): Promise<SQSBatchResponse> {
+    await loadNotificationRuntimeSecrets();
     const failedIds: string[] = [];
 
     for (const record of event.Records) {
         try {
+            // GOA-083: transactional auth emails (PasswordResetRequested /
+            // EmailVerificationRequired) are handled first. They carry the
+            // recipient email inline and are email-only — no in-app notification
+            // row and no User-service lookup. Any other event type returns null
+            // here and falls through to the notification path below.
+            const authEvent = parseAuthEmailEvent(record.body);
+            if (authEvent) {
+                const rendered = renderAuthEmailTemplate(authEvent);
+                await sendEmail({
+                    recipientEmail: authEvent.email,
+                    subject: rendered.title,
+                    htmlBody: rendered.body,
+                });
+                continue;
+            }
+
+            const accountDeleted = parseAccountDeletedEvent(record.body);
+            if (accountDeleted) {
+                await deleteNotificationsForUser(accountDeleted.payload.userId);
+                continue;
+            }
+
             const notifEvent = parseNotificationEvent(record.body);
             const notificationId = deriveNotificationId(notifEvent);
             const rendered = renderNotificationTemplate(notifEvent);
@@ -82,6 +106,7 @@ export async function handleSqsBatch(event: SQSEvent): Promise<SQSBatchResponse>
 
 export async function handleHttp(event: ALBEvent): Promise<ALBResult> {
     try {
+        await loadNotificationRuntimeSecrets();
         const userId = event.headers?.['x-user-id'] || event.headers?.['X-User-ID'] || event.queryStringParameters?.['userId'];
 
         if (!userId) {
@@ -123,6 +148,13 @@ export const handler = async (event: unknown, context?: { awsRequestId?: string;
     let outcome = 'success';
 
     try {
+        if ((event as any)?.healthcheck === true) {
+            return {
+                ok: true,
+                worker: 'notification-sender',
+                mode: 'healthcheck',
+            };
+        }
         if (isSqsEvent(event)) {
             recordsProcessed = event.Records.length;
             const result = await handleSqsBatch(event);

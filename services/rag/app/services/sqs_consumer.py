@@ -12,6 +12,13 @@ from app.services.profile_repo import delete_local_user_data, upsert_local_profi
 logger = structlog.get_logger("rag_service.sqs_consumer")
 
 
+def parse_user_event(body: str) -> dict:
+    event = json.loads(body)
+    if event.get("Type") == "Notification" and event.get("Message"):
+        return json.loads(event["Message"])
+    return event
+
+
 async def consume_sqs_messages():
     """
     Background task to consume UserUpdated events from SQS.
@@ -49,7 +56,7 @@ async def consume_sqs_messages():
                     for msg in response["Messages"]:
                         try:
                             # Parse the incoming event
-                            body = json.loads(msg["Body"])
+                            body = parse_user_event(msg["Body"])
 
                             # Ensure it's the event we care about
                             if body.get('type') == 'account.deleted':

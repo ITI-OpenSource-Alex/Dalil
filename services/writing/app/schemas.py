@@ -81,9 +81,9 @@ class CVReviewRequest(BaseModel):
 
 
 class CVReviewSection(BaseModel):
-    """One area of feedback, e.g. Experience or Education."""
+    """One area of ticket-defined CV review feedback."""
 
-    name: str
+    name: str = Field(min_length=1)
     score: int = Field(ge=0, le=100)
     issues: list[str] = Field(default_factory=list)
     suggestions: list[str] = Field(default_factory=list)

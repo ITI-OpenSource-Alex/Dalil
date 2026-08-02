@@ -7,7 +7,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 
-MODEL = "claude-haiku-4-5-20251001"
+MODEL = "claude-opus-4-8"
 INPUT_COST_PER_MILLION_USD = 1.0
 OUTPUT_COST_PER_MILLION_USD = 5.0
 

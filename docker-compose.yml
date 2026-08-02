@@ -90,7 +90,7 @@ services:
       - S3_BUCKET=goa-writing-files
       - CV_UPLOADED_QUEUE_URL=http://localstack:4566/000000000000/goa-cv-uploaded
       - CV_PROCESSED_QUEUE_URL=http://localstack:4566/000000000000/goa-cv-processed
-      - PYTHONPATH=/app:/packages/contracts/py
+      - PYTHONPATH=/app:/packages/contracts/py:/opt/goa
       - OTEL_SERVICE_NAME=writing-service
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-}
@@ -111,6 +111,7 @@ services:
       - ./services/writing/migrations:/app/migrations
       - ./services/writing/tests:/app/tests
       - ./packages/contracts/py:/packages/contracts/py
+      - ./packages/security/py:/opt/goa
     depends_on:
       postgres:
         condition: service_healthy
@@ -149,13 +150,14 @@ services:
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
       - LANGFUSE_HOST=${LANGFUSE_HOST}
-      - PYTHONPATH=/app:/packages/contracts/py
+      - PYTHONPATH=/app:/packages/contracts/py:/opt/goa
       - OTEL_SERVICE_NAME=cv-processor
     volumes:
       - ./services/writing/app:/app/app
       - ./services/writing/cv_processor:/app/cv_processor
       - ./services/writing/migrations:/app/migrations
       - ./packages/contracts/py:/packages/contracts/py
+      - ./packages/security/py:/opt/goa
     depends_on:
       postgres:
         condition: service_healthy
@@ -303,7 +305,8 @@ services:
 
   rag:
     build:
-      context: ./services/rag
+      context: .
+      dockerfile: services/rag/Dockerfile
       target: dev
     ports:
       - "8084:8084"
@@ -332,6 +335,7 @@ services:
       - EMBEDDING_API_KEY=${EMBEDDING_API_KEY:-ollama}
     volumes:
       - ./services/rag:/app
+      - ./packages/security/py:/opt/goa
     depends_on:
       postgres:
         condition: service_healthy
@@ -370,7 +374,8 @@ services:
 
   orchestration:
     build:
-      context: ./services/orchestration
+      context: .
+      dockerfile: services/orchestration/Dockerfile
       target: dev
     ports:
       - "8083:8083"
@@ -410,6 +415,9 @@ services:
       - MEMORY_MIN_TURNS=${MEMORY_MIN_TURNS:-4}
     volumes:
       - ./services/orchestration:/app
+      # Shared security package (GOA-034). Mounted so a change to it is
+      # live in dev the same way a change to the service is.
+      - ./packages/security/py:/opt/goa
     depends_on:
       postgres:
         condition: service_healthy

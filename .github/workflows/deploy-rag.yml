@@ -13,6 +13,7 @@ on:
       - dev
     paths:
       - services/rag/**
+      - packages/security/py/**
       - .github/workflows/deploy-rag.yml
       - .github/workflows/deploy-template.yml
   workflow_dispatch:
@@ -48,6 +49,9 @@ jobs:
     uses: ./.github/workflows/deploy-template.yml
     with:
       service_path: services/rag
+      # GOA-034: the Dockerfile copies packages/security/py, which a
+      # context of services/rag cannot see.
+      build_context: .
       ecr_repository: goa-staging-rag
       ecs_service: goa-staging-rag
       container_name: rag

@@ -91,6 +91,51 @@ func (h *StreamHandler) ChatHistory(c *fiber.Ctx) error {
 	return h.stream(c, http.MethodGet, target, nil, "orchestration", false)
 }
 
+// ChatMemory proxies DELETE /api/sessions/memory to Orchestration (GOA-038).
+//
+// Not routed through h.stream: that helper forces Accept: text/event-stream and
+// streams a body, and this is a small JSON response to a destructive call.
+//
+// The user id is taken from the validated JWT and forwarded as X-User-Id.
+// Orchestration will not act without that header, and deliberately does not
+// accept an id from the request itself -- otherwise any authenticated user
+// could erase any other user's memory by naming them.
+func (h *StreamHandler) ChatMemory(c *fiber.Ctx) error {
+	userID, err := authenticatedUserID(c)
+	if err != nil {
+		return err
+	}
+
+	target, err := url.JoinPath(h.orchestrationBaseURL, "sessions", "memory")
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "invalid memory endpoint")
+	}
+
+	req, err := downstream.NewRequest(c, http.MethodDelete, target, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("X-Internal-API-Key", h.internalAPIKey)
+	req.Header.Set("X-User-Id", userID)
+	c.Locals(middleware.ContextKeyUpstream, "orchestration")
+
+	resp, err := h.httpClient.Do(req)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadGateway, "failed to contact orchestration service")
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadGateway, "failed to read orchestration response")
+	}
+
+	if ct := resp.Header.Get(fiber.HeaderContentType); ct != "" {
+		c.Set(fiber.HeaderContentType, ct)
+	}
+	return c.Status(resp.StatusCode).Send(body)
+}
+
 // WritingEvaluate proxies POST /api/writing/essays/{essayId}/evaluate, the
 // per-criterion SSE stream.
 //

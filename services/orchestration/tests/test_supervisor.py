@@ -125,6 +125,54 @@ async def test_no_history_still_classifies(mock_llm):
     assert result.standalone_question == ""
 
 
+async def test_cost_telemetry_does_not_block_the_event_loop(mock_llm, monkeypatch):
+    """Token accounting must never stall concurrent chat turns.
+
+    record_llm_cost uses the *synchronous* redis client with a 2s connect
+    timeout. Called inline from this coroutine it blocks the whole event loop --
+    every other in-flight chat, the health check, everything -- for as long as
+    redis-gateway takes to answer. With that host absent it measured ~4s per
+    call, on the request path of every turn.
+
+    Asserted behaviourally rather than by inspecting how the call is made: two
+    classifications, each with a telemetry call that sleeps synchronously, must
+    finish in roughly the time of one. Inline, they serialise and take twice as
+    long.
+    """
+    import asyncio
+    import time as _time
+
+    import app.telemetry
+
+    raw_mock = MagicMock()
+    raw_mock.response_metadata = {"usage": {"input_tokens": 10, "output_tokens": 5}}
+    mock_llm.return_value = {
+        "parsed": IntentResult(intent="RAG", confidence=0.9),
+        "raw": raw_mock,
+    }
+
+    # Two 0.5s sleeps: concurrent is ~0.5s, serialised is ~1.0s. The gap is wide
+    # enough in absolute terms that a loaded CI runner cannot turn a pass into a
+    # failure, which a tighter budget could.
+    delay = 0.5
+
+    def slow_record(*args, **kwargs):
+        _time.sleep(delay)
+
+    monkeypatch.setattr(app.telemetry, "record_llm_cost", slow_record)
+
+    started = _time.perf_counter()
+    await asyncio.gather(
+        classify_intent("What is IELTS?"), classify_intent("What is a visa?")
+    )
+    elapsed = _time.perf_counter() - started
+
+    assert elapsed < delay * 1.5, (
+        f"two turns took {elapsed:.2f}s for {delay}s of telemetry each -- "
+        "the telemetry call is blocking the event loop"
+    )
+
+
 async def test_fallback_result_carries_no_rewrite(mock_llm):
     """A classifier failure must not silently substitute an empty message.
 

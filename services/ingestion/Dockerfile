@@ -3,6 +3,14 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl rpm \
+    && curl -fsSLo /tmp/lambda-insights-extension.rpm https://lambda-insights-extension.s3-ap-northeast-1.amazonaws.com/amazon_linux/lambda-insights-extension.rpm \
+    && rpm -U --nodeps /tmp/lambda-insights-extension.rpm \
+    && rm -f /tmp/lambda-insights-extension.rpm \
+    && apt-get purge -y --auto-remove curl rpm \
+    && rm -rf /var/lib/apt/lists/*
+
 # 1. Install pip dependencies first to cache this layer
 COPY services/ingestion/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

@@ -172,6 +172,16 @@ data "aws_iam_policy_document" "ecs_task_app" {
   }
 
   dynamic "statement" {
+    for_each = length(each.value.sns_topic_arns) > 0 ? [1] : []
+
+    content {
+      sid       = "PublishAssignedTopics"
+      actions   = ["sns:Publish"]
+      resources = each.value.sns_topic_arns
+    }
+  }
+
+  dynamic "statement" {
     for_each = length(each.value.s3_read_object_arns) > 0 ? [1] : []
 
     content {
@@ -306,6 +316,11 @@ resource "aws_iam_role_policy_attachment" "lambda_vpc_access" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 }
 
+resource "aws_iam_role_policy_attachment" "lambda_insights" {
+  role       = aws_iam_role.lambda_execution.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchLambdaInsightsExecutionRolePolicy"
+}
+
 data "aws_iam_policy_document" "lambda_app" {
   count = local.create_lambda_app_policy ? 1 : 0
 
@@ -341,6 +356,12 @@ data "aws_iam_policy_document" "lambda_app" {
       actions   = ["s3:GetObject"]
       resources = [for arn in local.lambda_s3_bucket_arns : "${arn}/*"]
     }
+  }
+
+  statement {
+    sid       = "SendNotificationEmail"
+    actions   = ["ses:SendEmail", "ses:SendRawEmail"]
+    resources = ["*"]
   }
 
   dynamic "statement" {

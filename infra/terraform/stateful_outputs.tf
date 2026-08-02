@@ -43,6 +43,10 @@ output "sqs_queue_urls" {
   value = module.sqs.queue_urls
 }
 
+output "user_events_topic_arn" {
+  value = aws_sns_topic.user_events.arn
+}
+
 output "sqs_queue_arns" {
   value = module.sqs.queue_arns
 }

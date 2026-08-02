@@ -1,5 +1,6 @@
-import logging
+import asyncio
 import json
+import logging
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
@@ -10,7 +11,16 @@ from app.config import Settings, get_settings
 from app.dependencies import get_db, get_s3_client, get_sqs_client
 from app.models import CVReview
 from app.schemas import CVReviewRequest, CVUploadResponse
-from app.services.cv_review import review_cv
+from app.services.cv_review import (
+    CVReviewCoordinator,
+    cv_review_cache_key,
+    cv_review_response,
+    fetch_country_conventions,
+    get_cached_review,
+    get_cv_review_coordinator,
+    get_redis_client,
+    set_cached_review,
+)
 from app.services.cv_storage import (
     content_sha256,
     delete_from_s3,
@@ -124,33 +134,31 @@ async def upload_cv(
 
 @router.post(
     "/review",
+    response_model=None,
     summary="Review an extracted CV",
+    responses={200: {"content": {"text/event-stream": {}}}},
 )
 async def review_cv_endpoint(
     payload: CVReviewRequest,
     db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    coordinator: CVReviewCoordinator = Depends(get_cv_review_coordinator),
 ):
-    """Turn an extracted CV into actionable feedback."""
+    """Stream a structured CV review from already-extracted CV content."""
     validate_user_id(payload.userId)
 
-    review = db.query(CVReview).filter(CVReview.s3_key == payload.cvS3Key).first()
+    review = (
+        db.query(CVReview)
+        .filter(CVReview.user_id == payload.userId, CVReview.s3_key == payload.cvS3Key)
+        .first()
+    )
     if review is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="CV not found",
         )
 
-    if review.user_id != payload.userId:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="CV belongs to another user",
-        )
-
     if review.status != "ready":
-        # 409, not 500: nothing is broken, the extraction simply has not
-        # finished. A CV that failed extraction reports its own error rather
-        # than being reviewed on empty text -- reviewing nothing would produce
-        # confident feedback about a document the model never saw.
         detail = (
             f"CV extraction failed: {review.error_message}"
             if review.status == "failed" and review.error_message
@@ -164,32 +172,83 @@ async def review_cv_endpoint(
             detail="CV is marked ready but holds no extracted content",
         )
 
+    cache_key = cv_review_cache_key(
+        review.extracted_text or "",
+        payload.targetCountry,
+        payload.targetField,
+        settings,
+    )
+    cache_client = get_redis_client(settings)
     try:
-        execution = await review_cv(
-            review.extracted_text,
-            review.structured_data,
-            payload.targetCountry,
-            payload.targetField,
-        )
-    except Exception as exc:
-        logger.exception("CV review failed", extra={"cv_s3_key": payload.cvS3Key})
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="The CV review model could not be reached",
-        ) from exc
-
-    response_payload = execution.review.model_dump()
+        cached_payload = await get_cached_review(cache_client, cache_key)
+    except Exception:
+        logger.warning("CV review cache read failed", exc_info=True)
+        cached_payload = None
 
     async def event_stream():
-        for section in response_payload["sections"]:
-            yield (
-                "event: section\n"
-                f"data: {json.dumps(section, separators=(',', ':'))}\n\n"
-            )
-        yield (
-            "event: complete\n"
-            f"data: {json.dumps(response_payload, separators=(',', ':'))}\n\n"
-        )
+        queue: asyncio.Queue[tuple[str, dict] | None] = asyncio.Queue()
+
+        async def on_partial(section):
+            await queue.put(("section", section.model_dump(mode="json")))
+
+        async def review_in_background():
+            try:
+                if cached_payload is not None:
+                    summary = await coordinator.replay_cached(
+                        cached_payload,
+                        on_partial=on_partial,
+                    )
+                    from_cache = True
+                else:
+                    conventions = await fetch_country_conventions(
+                        payload.userId,
+                        payload.targetCountry,
+                        settings,
+                    )
+                    summary = await coordinator.review(
+                        extracted_text=review.extracted_text,
+                        structured_data=review.structured_data,
+                        target_country=payload.targetCountry,
+                        target_field=payload.targetField,
+                        country_conventions=conventions,
+                        on_partial=on_partial,
+                    )
+                    from_cache = False
+                    try:
+                        await set_cached_review(
+                            cache_client,
+                            cache_key,
+                            cv_review_response(summary).model_dump(mode="json"),
+                        )
+                    except Exception:
+                        logger.warning("CV review cache write failed", exc_info=True)
+
+                data = cv_review_response(summary).model_dump(mode="json")
+                data["fromCache"] = from_cache
+                await queue.put(("complete", data))
+            except Exception:
+                logger.exception("CV review failed", extra={"cv_id": review.id})
+                await queue.put(
+                    ("error", {"detail": "The CV review model could not be reached"})
+                )
+            finally:
+                await queue.put(None)
+
+        task = asyncio.create_task(review_in_background())
+        try:
+            while True:
+                event = await queue.get()
+                if event is None:
+                    break
+                event_name, data = event
+                yield (
+                    f"event: {event_name}\n"
+                    f"data: {json.dumps(data, separators=(',', ':'))}\n\n"
+                )
+        finally:
+            if not task.done():
+                task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
 
     return StreamingResponse(
         event_stream(),

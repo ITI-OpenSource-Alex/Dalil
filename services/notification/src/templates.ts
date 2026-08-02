@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import Handlebars from 'handlebars';
 import type { NotificationEvent } from '../../../packages/contracts/ts/index.js';
+import type { AuthEmailEvent } from './events.js';
 
 export interface RenderedTemplate {
     title: string;
@@ -45,6 +46,36 @@ export function renderNotificationTemplate(event: NotificationEvent): RenderedTe
         default: {
             const _exhaustive: never = event;
             throw new Error(`Unsupported event type: ${JSON.stringify(_exhaustive)}`);
+        }
+    }
+}
+
+/**
+ * GOA-083: render the transactional auth-email templates. The subjects match the
+ * legacy titles the templates carried before the SES → SQS refactor, and the
+ * links match the legacy console.log links the User service used to emit:
+ *   reset    → https://goa.app/reset-password?token=<resetToken>
+ *   verify   → https://goa.app/verify-email/<verificationToken>
+ */
+export function renderAuthEmailTemplate(event: AuthEmailEvent): RenderedTemplate {
+    switch (event.type) {
+        case 'PasswordResetRequested': {
+            const template = loadTemplate('password-reset.hbs');
+            return {
+                title: 'Reset Your Password',
+                body: template({ resetToken: event.resetToken, email: event.email }),
+            };
+        }
+        case 'EmailVerificationRequired': {
+            const template = loadTemplate('email-verify.hbs');
+            return {
+                title: 'Verify Your Email',
+                body: template({ verificationToken: event.verificationToken, email: event.email }),
+            };
+        }
+        default: {
+            const _exhaustive: never = event;
+            throw new Error(`Unsupported auth email type: ${JSON.stringify(_exhaustive)}`);
         }
     }
 }

@@ -13,6 +13,14 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl rpm \
+    && curl -fsSLo /tmp/lambda-insights-extension.rpm https://lambda-insights-extension.s3-ap-northeast-1.amazonaws.com/amazon_linux/lambda-insights-extension.rpm \
+    && rpm -U --nodeps /tmp/lambda-insights-extension.rpm \
+    && rm -f /tmp/lambda-insights-extension.rpm \
+    && apt-get purge -y --auto-remove curl rpm \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --from=builder /install /usr/local
 
 # Shared security primitives (GOA-034). Outside /app because compose

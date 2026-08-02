@@ -41,6 +41,14 @@ func (m *mockDBRepo) GetByShareToken(ctx context.Context, token string) (*db.Spe
 	return nil, db.ErrSessionNotFound
 }
 
+func (m *mockDBRepo) DeleteByUser(ctx context.Context, userID string) (int64, error) {
+	return 0, nil
+}
+
+func (m *mockDBRepo) DeleteOlderThan(ctx context.Context, cutoff time.Time) (int64, error) {
+	return 0, nil
+}
+
 // mockLLMClient satisfies agents.LLMClient for testing
 type mockLLMClient struct{}
 

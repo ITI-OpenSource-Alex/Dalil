@@ -116,8 +116,8 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	app.Post("/auth/logout", middleware.JWT(cfg.JWTSecret, redisClient, metrics), authHandler.Logout)
 	app.Post("/auth/logout-all", middleware.JWT(cfg.JWTSecret, redisClient, metrics), authHandler.LogoutAll)
 
-`tapp.Delete("/users/:id/account", middleware.JWT(cfg.JWTSecret, redisClient, metrics), authHandler.DeleteAccount)
-`tapp.Get("/users/:id/data-export", middleware.JWT(cfg.JWTSecret, redisClient, metrics), authHandler.DataExport)
+	app.Delete("/users/:id/account", middleware.JWT(cfg.JWTSecret, redisClient, metrics), authHandler.DeleteAccount)
+	app.Get("/users/:id/data-export", middleware.JWT(cfg.JWTSecret, redisClient, metrics), authHandler.DataExport)
 	// Register the API admin route before the broad /api JWT middleware. This
 	// endpoint is machine-administered with X-Admin-Key and must not also require
 	// a user session.

@@ -392,12 +392,13 @@ module "cv_processor_lambda" {
   lambda_insights_layer_arn      = local.lambda_insights_layer_arn
 
   environment_variables = {
-    ENVIRONMENT            = var.environment
-    WORKER                 = "cv-processor"
-    S3_BUCKET              = module.writing_files_bucket.bucket_id
-    CV_PROCESSED_QUEUE_URL = aws_sqs_queue.cv_processed.url
-    CV_EXTRACTION_MODEL    = "claude-haiku-4-5-20251001"
-    WRITING_SECRET_ARN     = module.secrets.service_secret_arns["writing"]
+    ENVIRONMENT               = var.environment
+    WORKER                    = "cv-processor"
+    S3_BUCKET                 = module.writing_files_bucket.bucket_id
+    CV_PROCESSED_QUEUE_URL    = aws_sqs_queue.cv_processed.url
+    CV_EXTRACTION_MODEL       = "claude-opus-4-8"
+    ANTHROPIC_TIMEOUT_SECONDS = "25"
+    WRITING_SECRET_ARN        = module.secrets.service_secret_arns["writing"]
   }
 
   tags = local.goa071_tags
@@ -426,11 +427,13 @@ resource "aws_lambda_function_event_invoke_config" "cv_processor" {
 }
 
 module "scholarship_matcher_lambda" {
-  count         = var.enable_lambda_workers ? 1 : 0
-  source        = "./modules/lambda"
-  function_name = "goa-scholarship-matcher-${var.environment}"
-  package_type  = "Image"
-  image_uri     = "${module.ecr.repository_urls["scholarship-matcher"]}:${var.image_tag}"
+  count             = var.enable_lambda_workers ? 1 : 0
+  source            = "./modules/lambda"
+  function_name     = "goa-scholarship-matcher-${var.environment}"
+  package_type      = "Image"
+  image_uri         = "${module.ecr.repository_urls["scholarship-matcher"]}:${var.image_tag}"
+  image_entry_point = ["python", "-m", "awslambdaric"]
+  image_command     = ["app.workers.scholarship_matcher.handler"]
 
   role_arn                       = module.iam.lambda_execution_role_arn
   vpc_subnet_ids                 = module.vpc.private_app_subnet_ids
@@ -441,8 +444,11 @@ module "scholarship_matcher_lambda" {
   lambda_insights_layer_arn      = local.lambda_insights_layer_arn
 
   environment_variables = {
-    ENVIRONMENT = var.environment
-    WORKER      = "scholarship-matcher"
+    ENVIRONMENT            = var.environment
+    WORKER                 = "scholarship-matcher"
+    INGESTION_SECRET_ARN   = module.secrets.service_secret_arns["ingestion"]
+    RAG_SERVICE_URL        = "http://${local.name_prefix}-rag:8084"
+    NOTIFICATION_QUEUE_URL = module.sqs.queue_urls["notification"]
   }
 
   tags = local.goa071_tags
@@ -465,8 +471,9 @@ module "notification_sender_lambda" {
 
   environment_variables = merge(
     {
-      ENVIRONMENT = var.environment
-      WORKER      = "notification-sender"
+      ENVIRONMENT             = var.environment
+      WORKER                  = "notification-sender"
+      NOTIFICATION_SECRET_ARN = module.secrets.service_secret_arns["notification"]
     },
     { SQS_QUEUE_URL = module.sqs.queue_urls["notification"] }
   )
@@ -709,6 +716,16 @@ resource "aws_lambda_event_source_mapping" "sqs_to_notification_sender" {
   function_response_types            = ["ReportBatchItemFailures"]
 }
 
+resource "aws_lambda_event_source_mapping" "account_deleted_to_notification_sender" {
+  count = var.enable_lambda_workers ? 1 : 0
+
+  event_source_arn                   = module.sqs.queue_arns["user_events_notification"]
+  function_name                      = module.notification_sender_lambda[0].function_name
+  batch_size                         = 10
+  maximum_batching_window_in_seconds = 5
+  function_response_types            = ["ReportBatchItemFailures"]
+}
+
 # CVProcessed is published by the Writing service to its own queue, not to
 # notification-queue, so the notification Lambda needs a second source. Without
 # this mapping the CV_PROCESSED notification type can never fire, and
@@ -738,14 +755,14 @@ resource "aws_lambda_event_source_mapping" "cv_processed_to_notification_sender"
 
 resource "aws_cloudwatch_metric_alarm" "lambda_error_rate" {
   for_each = var.enable_lambda_workers ? {
-    cv_processor         = module.cv_processor_lambda[0].function_name
-    scholarship_matcher   = module.scholarship_matcher_lambda[0].function_name
-    notification_sender   = module.notification_sender_lambda[0].function_name
+    cv_processor        = module.cv_processor_lambda[0].function_name
+    scholarship_matcher = module.scholarship_matcher_lambda[0].function_name
+    notification_sender = module.notification_sender_lambda[0].function_name
   } : {}
 
   alarm_name          = "${local.name_prefix}-${each.key}-lambda-error-rate"
   alarm_description   = "${each.key} Lambda error rate is above 5% over 15 minutes."
-  comparison_operator  = "GreaterThanThreshold"
+  comparison_operator = "GreaterThanThreshold"
   threshold           = 5
   evaluation_periods  = 15
   datapoints_to_alarm = 15

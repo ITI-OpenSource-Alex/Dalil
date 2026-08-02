@@ -13,6 +13,7 @@ from app.core.config import settings
 from app.core.database import db
 from app.services.memory_sweep import run_sweep_loop
 from app.api.chat import router as chat_router
+from app.api.memory import router as memory_router
 
 
 # Configure structlog for JSON logs
@@ -115,6 +116,7 @@ app = FastAPI(
 )
 
 app.include_router(chat_router)
+app.include_router(memory_router)
 
 
 

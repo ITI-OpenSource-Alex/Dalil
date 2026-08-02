@@ -155,6 +155,12 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	// correlation IDs (BUG-029).
 	api.Post("/chat", streamHandler.Chat)
 	api.Get("/chat/sessions/:sessionId/history", streamHandler.ChatHistory)
+	// GOA-038. Inside the /api group, so erasure inherits JWT auth, rate
+	// limiting and a correlation ID like every other call. A third "sessions"
+	// namespace alongside /api/chat/sessions/... and /api/exam/sessions/... --
+	// distinct paths that do not shadow each other, but worth GOA-132 knowing
+	// about when it inventories routes.
+	api.Delete("/sessions/memory", streamHandler.ChatMemory)
 	api.Post("/exam/sessions", examHandler.CreateSession)
 	api.Get("/exam/sessions/:sessionId", examHandler.GetSession)
 	api.Put("/exam/sessions/:sessionId/submit", examHandler.SubmitSession)

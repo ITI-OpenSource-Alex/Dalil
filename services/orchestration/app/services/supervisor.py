@@ -1,3 +1,4 @@
+import asyncio
 import time
 import structlog
 from typing import Literal
@@ -228,7 +229,20 @@ async def classify_intent(
                 
             try:
                 from app.telemetry import record_llm_cost
-                record_llm_cost(user_id, settings.llm_model, input_tokens, output_tokens)
+                # Off the event loop. record_llm_cost uses the *synchronous*
+                # redis client against redis-gateway with a 2s connect timeout,
+                # and this is the request path of every chat turn: called
+                # inline, a slow or unreachable redis-gateway stalls the whole
+                # loop -- every concurrent chat, every health check, everything
+                # -- for two seconds per turn, to record a token count nobody is
+                # waiting on. Measured at ~4s per call with the host absent.
+                await asyncio.to_thread(
+                    record_llm_cost,
+                    user_id,
+                    settings.llm_model,
+                    input_tokens,
+                    output_tokens,
+                )
             except ImportError:
                 pass
             

@@ -14,7 +14,7 @@ deliberately, and adding one would remove the only thing being tested.
 
 from __future__ import annotations
 
-from typing import Any, Literal, Protocol
+from typing import Literal, Protocol
 
 import structlog
 from asyncpg import Pool
@@ -151,12 +151,19 @@ class FactsRepository:
         return "replaced"
 
     async def delete_all_for_user(self, user_id: str) -> int:
-        """Wipe every stored fact for one user. Idempotent; returns rows removed."""
+        """Wipe every stored fact for one user. Idempotent; returns rows removed.
+
+        RETURNING, rather than parsing asyncpg's command tag. This number is
+        reported back to the user as "we deleted N facts about you", which makes
+        it the answer to a privacy question rather than a debug statistic --
+        more weight than the last whitespace-separated word of a status string
+        should be asked to carry.
+        """
         async with self.pool.acquire() as conn:
-            result = await conn.execute(
-                "DELETE FROM user_facts WHERE user_id = $1", user_id
+            rows = await conn.fetch(
+                "DELETE FROM user_facts WHERE user_id = $1 RETURNING id", user_id
             )
-        return _rows_affected(result)
+        return len(rows)
 
     async def purge_expired(self, ttl_days: int) -> int:
         """Housekeeping so the table does not grow without bound.
@@ -164,16 +171,10 @@ class FactsRepository:
         Not the mechanism that makes expiry correct -- see get_live_facts.
         """
         async with self.pool.acquire() as conn:
-            result = await conn.execute(
-                "DELETE FROM user_facts WHERE reinforced_at < NOW() - ($1::int * INTERVAL '1 day')",
+            rows = await conn.fetch(
+                "DELETE FROM user_facts "
+                "WHERE reinforced_at < NOW() - ($1::int * INTERVAL '1 day') "
+                "RETURNING id",
                 ttl_days,
             )
-        return _rows_affected(result)
-
-
-def _rows_affected(command_tag: Any) -> int:
-    """asyncpg returns the command tag ('DELETE 3'); the count is the last word."""
-    try:
-        return int(str(command_tag).split()[-1])
-    except (ValueError, IndexError):
-        return 0
+        return len(rows)

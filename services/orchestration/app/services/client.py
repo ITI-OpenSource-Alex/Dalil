@@ -405,7 +405,11 @@ async def forward_downstream_stream(
         
         # We explicitly log ReadTimeouts differently for clarity
         if isinstance(e, httpx.ReadTimeout):
-            logger.error(f"Timeout (30s) reached connecting to {service_name}")
+            logger.error(
+                "Read timeout reached waiting for downstream service",
+                service=service_name,
+                read_timeout_s=settings.downstream_read_timeout_seconds,
+            )
             
         if intent in ["WRITING", "CV_REVIEW"]:
             yield ChatStreamEvent(type="error", error="I'm sorry, but the Writing evaluation service is currently offline. Please try again later.")

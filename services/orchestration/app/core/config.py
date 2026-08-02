@@ -41,6 +41,22 @@ class Settings(BaseSettings):
     memory_load_timeout_ms: int = 250
     memory_cache_ttl_seconds: int = 300
 
+    # Downstream HTTP budget.
+    #
+    # Split on purpose. One 30s value used to cover both "is anyone there?" and
+    # "have you finished generating?", which are different questions with very
+    # different right answers: a dead host should fail in seconds, while a model
+    # writing an answer deserves time to finish.
+    #
+    # 30s sat under the p90. Measured over 26 real RAG queries on 2026-08-02:
+    # median 14.0s, p90 33.4s, max 36.1s -- so the slowest ~15% of perfectly
+    # good answers were cut off and reported to the user as "the global
+    # opportunity database is currently offline". 90s is ~2.5x the observed
+    # maximum. A downstream that is genuinely broken is caught by the circuit
+    # breaker after 3 failures, not by an aggressive read timeout.
+    downstream_read_timeout_seconds: float = 90.0
+    downstream_connect_timeout_seconds: float = 5.0
+
     # Downstream Service URLs
     rag_service_url: str = "http://rag:8084"
     speaking_service_url: str = "http://speaking:8082"

@@ -32,8 +32,17 @@ logger = structlog.get_logger("orchestration.main")
 async def lifespan(app: FastAPI):
     logger.info("Starting up Orchestration service...")
     #Instantiate shared httpx.AsyncClient for connection pooling
-    app.state.http_client = httpx.AsyncClient(timeout=30.0)
-    logger.info("Shared HTTPX AsyncClient instantiated.")
+    app.state.http_client = httpx.AsyncClient(
+        timeout=httpx.Timeout(
+            settings.downstream_read_timeout_seconds,
+            connect=settings.downstream_connect_timeout_seconds,
+        )
+    )
+    logger.info(
+        "Shared HTTPX AsyncClient instantiated.",
+        read_timeout_s=settings.downstream_read_timeout_seconds,
+        connect_timeout_s=settings.downstream_connect_timeout_seconds,
+    )
 
     # Postgres, for GOA-038's long-term facts. Migrations run inside connect().
     #

@@ -148,6 +148,13 @@ export const handler = async (event: unknown, context?: { awsRequestId?: string;
     let outcome = 'success';
 
     try {
+        if ((event as any)?.healthcheck === true) {
+            return {
+                ok: true,
+                worker: 'notification-sender',
+                mode: 'healthcheck',
+            };
+        }
         if (isSqsEvent(event)) {
             recordsProcessed = event.Records.length;
             const result = await handleSqsBatch(event);

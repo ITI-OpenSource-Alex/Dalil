@@ -349,11 +349,18 @@ def handler(event=None, context=None) -> dict:
     """Lambda entry point (EventBridge daily at 08:00 UTC)."""
     global COLD_START
     started = time.perf_counter()
-    since_hours = int((event or {}).get("since_hours", 24))
+    event = event or {}
+    since_hours = int(event.get("since_hours", 24))
     request_id = getattr(context, "aws_request_id", None)
     function_name = getattr(context, "function_name", "goa-scholarship-matcher")
     outcome = "success"
     try:
+        if event.get("healthcheck") is True:
+            return {
+                "ok": True,
+                "worker": "scholarship-matcher",
+                "mode": "healthcheck",
+            }
         summary = run_matcher(since_hours=since_hours)
         return summary
     except Exception:

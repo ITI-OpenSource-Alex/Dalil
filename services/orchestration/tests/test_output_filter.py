@@ -14,6 +14,27 @@ from app.services.output_filter import filter_response
 from app.services.supervisor import SUPERVISOR_CANARIES, SUPERVISOR_PROMPT
 
 
+def sse_answer(body: str) -> str:
+    """Reassemble the tokens a browser would render.
+
+    Asserting on the raw SSE body is really asserting about five-character
+    chunk boundaries, and would pass even if nothing had been filtered.
+    """
+    import json as _json
+
+    rendered = ""
+    for line in body.replace("\r\n", "\n").split("\n"):
+        if not line.startswith("data:"):
+            continue
+        try:
+            event = _json.loads(line[5:].strip())
+        except ValueError:
+            continue
+        if event.get("type") == "token" and event.get("content"):
+            rendered += event["content"]
+    return rendered
+
+
 def filtered(answer: str, fragments=()) -> str:
     return filter_response(
         answer,
@@ -125,6 +146,62 @@ def chat_app(mocker):
     return app
 
 
+async def test_a_low_confidence_refusal_reaches_the_user_as_advice_not_an_outage(
+    chat_app, mocker
+):
+    """GOA-033 gave RAG a refusal contract; orchestration never consumed it.
+
+    When retrieval confidence is too low RAG returns answer=null with a
+    `suggestion` written for the user. `.get("answer", default)` returns None
+    for a key that exists with a null value, so len(None) raised TypeError into
+    the generic handler and the user was told "the global opportunity database
+    is currently offline" -- about a service that was healthy and had just
+    answered correctly.
+
+    Found by the GOA-034 pentest: every adversarial payload retrieves nothing
+    and trips the threshold, which made it obvious that ordinary off-topic
+    questions do too.
+    """
+    from app.services.supervisor import IntentResult
+
+    raw = mocker.MagicMock()
+    raw.response_metadata = {"usage": {}}
+    llm = mocker.MagicMock()
+    llm.ainvoke = mocker.AsyncMock(
+        return_value={"parsed": IntentResult(intent="RAG", confidence=0.3), "raw": raw}
+    )
+    mocker.patch("app.services.supervisor.structured_llm", llm)
+
+    downstream = mocker.MagicMock()
+    downstream.post = mocker.AsyncMock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "answer": None,
+                "reason": "insufficient_data",
+                "suggestion": "Please rephrase your question with specific details regarding universities, programs, or visa requirements.",
+                "sources": [],
+            },
+            request=httpx.Request("POST", "http://rag"),
+        )
+    )
+    chat_app.state.http_client = downstream
+    chat_app.state.langfuse = None
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=chat_app), base_url="http://testserver"
+    ) as client:
+        response = await client.post(
+            "/chat",
+            json={"userId": "u-1", "sessionId": "s-1", "message": "something obscure"},
+        )
+
+    assert "Please rephrase your question" in sse_answer(response.text)
+    assert "currently offline" not in response.text, (
+        "a healthy service that declined to answer was reported as an outage"
+    )
+
+
 async def test_pii_is_redacted_on_the_streamed_chat_response(chat_app, mocker):
     """End to end through the SSE path: the tokens the browser would render
     must not contain the email RAG returned."""
@@ -160,21 +237,7 @@ async def test_pii_is_redacted_on_the_streamed_chat_response(chat_app, mocker):
             json={"userId": "u-1", "sessionId": "s-1", "message": "How do I apply?"},
         )
 
-    # Reassemble the tokens the browser would render. Asserting on the raw SSE
-    # body is really asserting about five-character chunk boundaries, and would
-    # pass even if nothing had been redacted.
-    import json as _json
-
-    rendered = ""
-    for line in response.text.replace("\r\n", "\n").split("\n"):
-        if not line.startswith("data:"):
-            continue
-        try:
-            event = _json.loads(line[5:].strip())
-        except ValueError:
-            continue
-        if event.get("type") == "token" and event.get("content"):
-            rendered += event["content"]
+    rendered = sse_answer(response.text)
 
     assert "admissions@tum.de" not in rendered
     assert "100 123 4567" not in rendered

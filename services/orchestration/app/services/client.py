@@ -266,7 +266,29 @@ async def forward_downstream_stream(
             duration_ms = (time.perf_counter() - start_time) * 1000
             goa_orchestration_downstream_latency_ms.labels(service=service_name).observe(duration_ms)
             
-            answer = data.get("answer", "No answer received.")
+            # GOA-033 gave RAG a refusal contract: when retrieval confidence is
+            # too low it returns answer=null with a `reason` and a `suggestion`
+            # written for the user. Orchestration never consumed it. `.get()`
+            # returns None for a key that exists with a null value, so len(None)
+            # raised TypeError into the generic handler below and the user was
+            # told "the global opportunity database is currently offline" -- a
+            # false statement about a healthy service that had just answered
+            # correctly, and the same shape as BUG-015.
+            #
+            # Found by the GOA-034 pentest: every adversarial payload retrieves
+            # nothing and so trips the threshold, which made it obvious that any
+            # ordinary off-topic question does too.
+            answer = data.get("answer")
+            if not answer:
+                answer = data.get("suggestion") or (
+                    "I could not find enough information to answer that reliably. "
+                    "Try asking about a specific university, programme or visa requirement."
+                )
+                logger.info(
+                    "RAG declined to answer; relaying its suggestion",
+                    reason=data.get("reason"),
+                    correlation_id=correlation_id,
+                )
             # GOA-034: the last moment this text exists whole. Once the loop
             # below starts emitting five-character chunks, the first of them
             # has already left and nothing downstream can be recalled.
@@ -321,7 +343,20 @@ async def forward_downstream_stream(
             duration_ms_rag = (time.perf_counter() - start_time_rag) * 1000
             goa_orchestration_downstream_latency_ms.labels(service=service_name).observe(duration_ms_rag)
 
-            answer = data.get("answer", "No answer received.")
+            # Same refusal contract as the RAG branch above, and the same bug:
+            # a CV whose review retrieves nothing confident produced "the
+            # database is offline" instead of RAG's own suggestion.
+            answer = data.get("answer")
+            if not answer:
+                answer = data.get("suggestion") or (
+                    "I could not review that reliably. Try uploading a CV with "
+                    "more detail about your education and experience."
+                )
+                logger.info(
+                    "RAG declined to review; relaying its suggestion",
+                    reason=data.get("reason"),
+                    correlation_id=correlation_id,
+                )
             # GOA-034: the last moment this text exists whole. Once the loop
             # below starts emitting five-character chunks, the first of them
             # has already left and nothing downstream can be recalled.

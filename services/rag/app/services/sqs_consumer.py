@@ -6,7 +6,7 @@ from aiobotocore.session import get_session
 
 
 from app.core.config import settings
-from app.services.profile_repo import upsert_local_profiles
+from app.services.profile_repo import delete_local_user_data, upsert_local_profiles
 
 
 logger = structlog.get_logger("rag_service.sqs_consumer")
@@ -52,7 +52,15 @@ async def consume_sqs_messages():
                             body = json.loads(msg["Body"])
 
                             # Ensure it's the event we care about
-                            if body.get('type') == 'user.updated':
+                            if body.get('type') == 'account.deleted':
+                                payload = body.get('payload', {})
+                                await delete_local_user_data(payload['userId'])
+                                logger.info(
+                                    "Processed AccountDeleted event",
+                                    user_id=payload.get("userId"),
+                                    event_timestamp=body.get("timestamp"),
+                                )
+                            elif body.get('type') == 'user.updated':
                                 payload = body.get('payload', {})
                                 # Pass the envelope timestamp for out-of-order protection
                                 payload['last_synced_at'] = body.get('timestamp')
@@ -81,3 +89,4 @@ async def consume_sqs_messages():
             except Exception as e:
                 logger.error("Error receiving SQS messages", error=str(e))
                 await asyncio.sleep(5)
+

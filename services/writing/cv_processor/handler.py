@@ -2,6 +2,7 @@ import hashlib
 import json
 import logging
 import re
+import os
 import time
 from datetime import datetime, timezone
 from functools import lru_cache
@@ -28,6 +29,7 @@ from cv_processor.structured import StructuredCVExtractor
 
 logger = logging.getLogger("writing.cv_processor")
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
+COLD_START = True
 
 
 class CVProcessorConfigurationError(RuntimeError):
@@ -255,6 +257,16 @@ def _fields_extracted(structured_data: dict[str, Any] | None) -> int:
     )
 
 
+def _memory_used_mb() -> float:
+    try:
+        import resource
+
+        usage = resource.getrusage(resource.RUSAGE_SELF)
+        return round(float(usage.ru_maxrss) / 1024.0, 2)
+    except Exception:
+        return 0.0
+
+
 def _iter_s3_records(event: dict[str, Any]) -> Iterable[dict[str, Any]]:
     for record in event.get("Records", []):
         if "s3" in record:
@@ -310,11 +322,38 @@ def get_processor() -> CVProcessor:
 
 
 def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
+    global COLD_START
+    started = time.perf_counter()
     records = list(_iter_s3_records(event))
+    request_id = getattr(context, "aws_request_id", None)
+    function_name = getattr(context, "function_name", "goa-cv-processor")
+    outcome = "success"
+    response: dict[str, Any]
+
     if not records:
         logger.warning("CV processor invocation contained no S3 records")
-        return {"processed": 0, "results": []}
+        response = {"processed": 0, "results": []}
+        outcome = "empty"
+    else:
+        processor = get_processor()
+        results = [processor.process_record(record) for record in records]
+        response = {"processed": len(results), "results": results}
+        if any(result.get("status") == "failed" for result in results):
+            outcome = "partial_failure"
 
-    processor = get_processor()
-    results = [processor.process_record(record) for record in records]
-    return {"processed": len(results), "results": results}
+    logger.info(
+        json.dumps(
+            {
+                "function_name": function_name,
+                "request_id": request_id,
+                "duration_ms": round((time.perf_counter() - started) * 1000, 2),
+                "memory_used_mb": _memory_used_mb(),
+                "cold_start": COLD_START,
+                "records_processed": len(records),
+                "outcome": outcome,
+            },
+            separators=(",", ":"),
+        )
+    )
+    COLD_START = False
+    return response

@@ -1,9 +1,34 @@
 import { SQSEvent, SQSBatchResponse, ALBEvent, ALBResult } from 'aws-lambda';
-import { parseNotificationEvent, deriveNotificationId } from './events.js';
-import { insertNotification, getUnreadNotifications } from './db.js';
+import { parseNotificationEvent, deriveNotificationId, parseAccountDeletedEvent } from './events.js';
+import { insertNotification, getUnreadNotifications, deleteNotificationsForUser } from './db.js';
 import { renderNotificationTemplate } from './templates.js';
 import { sendEmail } from './ses.js';
 import { lookupUserEmail } from './users.js';
+
+let coldStart = true;
+
+function memoryUsedMb(): number {
+    return Math.round((process.memoryUsage().rss / 1024 / 1024) * 100) / 100;
+}
+
+function logInvocation(params: {
+    functionName: string;
+    requestId: string | undefined;
+    durationMs: number;
+    recordsProcessed: number;
+    outcome: string;
+}) {
+    console.log(JSON.stringify({
+        function_name: params.functionName,
+        request_id: params.requestId,
+        duration_ms: Math.round(params.durationMs * 100) / 100,
+        memory_used_mb: memoryUsedMb(),
+        cold_start: coldStart,
+        records_processed: params.recordsProcessed,
+        outcome: params.outcome,
+    }));
+    coldStart = false;
+}
 
 export const isSqsEvent = (e: any): e is SQSEvent =>
     Array.isArray(e?.Records) && e.Records[0]?.eventSource === 'aws:sqs';
@@ -90,12 +115,36 @@ export async function handleHttp(event: ALBEvent): Promise<ALBResult> {
     }
 }
 
-export const handler = async (event: unknown) => {
-    if (isSqsEvent(event)) {
-        return handleSqsBatch(event);
+export const handler = async (event: unknown, context?: { awsRequestId?: string; functionName?: string }) => {
+    const started = Date.now();
+    const functionName = context?.functionName || 'goa-notification-sender';
+    const requestId = context?.awsRequestId;
+    let recordsProcessed = 0;
+    let outcome = 'success';
+
+    try {
+        if (isSqsEvent(event)) {
+            recordsProcessed = event.Records.length;
+            const result = await handleSqsBatch(event);
+            if ((result.batchItemFailures || []).length > 0) {
+                outcome = 'partial_failure';
+            }
+            return result;
+        }
+        if (isAlbEvent(event)) {
+            const result = await handleHttp(event);
+            return result;
+        }
+        outcome = 'fail';
+        throw new Error(`Unrecognised event shape: ${JSON.stringify(event).slice(0, 200)}`);
+    } finally {
+        logInvocation({
+            functionName,
+            requestId,
+            durationMs: Date.now() - started,
+            recordsProcessed,
+            outcome,
+        });
     }
-    if (isAlbEvent(event)) {
-        return handleHttp(event);
-    }
-    throw new Error(`Unrecognised event shape: ${JSON.stringify(event).slice(0, 200)}`);
 };
+

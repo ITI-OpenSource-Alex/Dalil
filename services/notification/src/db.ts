@@ -90,3 +90,9 @@ export async function getUnreadNotifications(userId: string): Promise<Notificati
         createdAt: row.created_at.toISOString(),
     }));
 }
+
+export async function deleteNotificationsForUser(userId: string): Promise<number> {
+    await runMigrations();
+    const result = await pool.query('DELETE FROM notifications WHERE user_id = $1', [userId]);
+    return result.rowCount ?? 0;
+}

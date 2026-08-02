@@ -18,6 +18,7 @@ from app.api.sessions import router as sessions_router
 from app.core.database import db
 from app.core.logging import configure_logging, correlation_id_var
 from app.services.sweep_service import run_sweep_loop
+from app.services.account_deletion_consumer import consume_account_deleted_messages
 
 configure_logging()
 logger = structlog.get_logger("exam_service.main")
@@ -30,11 +31,17 @@ async def lifespan(app: FastAPI):
     logger.info("Exam service database connected and migrations checked.")
 
     sweep_task = asyncio.create_task(run_sweep_loop(db.pool))
+    account_deleted_task = asyncio.create_task(consume_account_deleted_messages())
     yield
 
     sweep_task.cancel()
+    account_deleted_task.cancel()
     try:
         await sweep_task
+    except asyncio.CancelledError:
+        pass
+    try:
+        await account_deleted_task
     except asyncio.CancelledError:
         pass
 
@@ -130,3 +137,5 @@ async def health_check():
 # Metrics endpoint using standard prometheus client exporter
 metrics_app = make_asgi_app()
 app.mount("/metrics", metrics_app)
+
+

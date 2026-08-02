@@ -377,6 +377,31 @@ func (h *AuthHandler) VerifyEmail(c *fiber.Ctx) error {
 	return h.proxyToUserService(c, http.MethodGet, "/auth/verify-email/"+token)
 }
 
+func (h *AuthHandler) DeleteAccount(c *fiber.Ctx) error {
+	userID, ok := c.Locals(middleware.ContextKeyUserID).(string)
+	if !ok || userID == "" {
+		return fiber.NewError(fiber.StatusUnauthorized, "unauthorized")
+	}
+	if c.Params("id") != userID {
+		return fiber.NewError(fiber.StatusForbidden, "users can only delete their own account")
+	}
+	if err := h.proxyAuthenticatedToUserService(c, http.MethodDelete, "/users/"+userID+"/account", userID); err != nil {
+		return err
+	}
+	h.clearCookies(c)
+	return nil
+}
+
+func (h *AuthHandler) DataExport(c *fiber.Ctx) error {
+	userID, ok := c.Locals(middleware.ContextKeyUserID).(string)
+	if !ok || userID == "" {
+		return fiber.NewError(fiber.StatusUnauthorized, "unauthorized")
+	}
+	if c.Params("id") != userID {
+		return fiber.NewError(fiber.StatusForbidden, "users can only export their own account data")
+	}
+	return h.proxyAuthenticatedToUserService(c, http.MethodGet, "/users/"+userID+"/data-export", userID)
+}
 func (h *AuthHandler) proxyToUserService(c *fiber.Ctx, method string, path string) error {
 	var bodyReader io.Reader
 	if method != http.MethodGet {
@@ -423,3 +448,4 @@ func (h *AuthHandler) clearCookies(c *fiber.Ctx) {
 		Expires:  time.Now().Add(-24 * time.Hour),
 	})
 }
+

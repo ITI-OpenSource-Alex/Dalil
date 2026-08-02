@@ -1,13 +1,15 @@
 import logging
+import json
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
 from app.dependencies import get_db, get_s3_client, get_sqs_client
 from app.models import CVReview
-from app.schemas import CVReviewRequest, CVReviewResponse, CVUploadResponse
+from app.schemas import CVReviewRequest, CVUploadResponse
 from app.services.cv_review import review_cv
 from app.services.cv_storage import (
     content_sha256,
@@ -122,31 +124,22 @@ async def upload_cv(
 
 @router.post(
     "/review",
-    response_model=CVReviewResponse,
     summary="Review an extracted CV",
 )
 async def review_cv_endpoint(
     payload: CVReviewRequest,
     db: Session = Depends(get_db),
-) -> CVReviewResponse:
-    """Turn an extracted CV into actionable feedback.
-
-    This route did not exist anywhere in the codebase -- 404 on both the writing
-    service and the gateway. The pipeline produced good structured data since
-    BUG-018 and nothing consumed it, and Orchestration's CV_REVIEW intent had no
-    endpoint to call (BUG-019).
-    """
+):
+    """Turn an extracted CV into actionable feedback."""
     validate_user_id(payload.userId)
 
-    review = db.query(CVReview).filter(CVReview.id == payload.cvId).first()
+    review = db.query(CVReview).filter(CVReview.s3_key == payload.cvS3Key).first()
     if review is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="CV not found",
         )
 
-    # Ownership is checked before status so a caller probing for other users'
-    # CVs cannot distinguish "not yours" from "not ready yet".
     if review.user_id != payload.userId:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -172,12 +165,37 @@ async def review_cv_endpoint(
         )
 
     try:
-        result = await review_cv(review.extracted_text, review.structured_data)
+        execution = await review_cv(
+            review.extracted_text,
+            review.structured_data,
+            payload.targetCountry,
+            payload.targetField,
+        )
     except Exception as exc:
-        logger.exception("CV review failed", extra={"cv_id": payload.cvId})
+        logger.exception("CV review failed", extra={"cv_s3_key": payload.cvS3Key})
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="The CV review model could not be reached",
         ) from exc
 
-    return CVReviewResponse(cvId=review.id, **result)
+    response_payload = execution.review.model_dump()
+
+    async def event_stream():
+        for section in response_payload["sections"]:
+            yield (
+                "event: section\n"
+                f"data: {json.dumps(section, separators=(',', ':'))}\n\n"
+            )
+        yield (
+            "event: complete\n"
+            f"data: {json.dumps(response_payload, separators=(',', ':'))}\n\n"
+        )
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )

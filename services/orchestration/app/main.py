@@ -14,6 +14,7 @@ from app.core.database import db
 from app.services.memory_sweep import run_sweep_loop
 from app.api.chat import router as chat_router
 from app.api.memory import router as memory_router
+from app.services.account_deletion_consumer import consume_account_deleted_messages
 
 
 # Configure structlog for JSON logs
@@ -34,6 +35,7 @@ async def lifespan(app: FastAPI):
     #Instantiate shared httpx.AsyncClient for connection pooling
     app.state.http_client = httpx.AsyncClient(timeout=30.0)
     logger.info("Shared HTTPX AsyncClient instantiated.")
+    app.state.account_deleted_consumer = asyncio.create_task(consume_account_deleted_messages())
 
     # Postgres, for GOA-038's long-term facts. Migrations run inside connect().
     #
@@ -95,6 +97,12 @@ async def lifespan(app: FastAPI):
      # Teardown
     logger.info("Shutting down Orchestration service...")
     
+    app.state.account_deleted_consumer.cancel()
+    try:
+        await app.state.account_deleted_consumer
+    except asyncio.CancelledError:
+        pass
+
     # 3. Close the shared HTTPX Client
     await app.state.http_client.aclose()
     logger.info("Shared HTTPX AsyncClient closed.")

@@ -1,3 +1,4 @@
+import asyncio
 import time
 from pathlib import Path
 
@@ -15,6 +16,7 @@ from app.dependencies import get_db
 from app.models import Essay
 from app.routers.cvs import router as cv_router
 from app.routers.essays import router as essay_router
+from app.services.account_deletion_consumer import consume_account_deleted_messages
 
 configure_logging()
 logger = structlog.get_logger("writing_service.main")
@@ -86,6 +88,22 @@ async def reject_oversized_cv_request(request: Request, call_next):
                 )
     return await call_next(request)
 
+
+
+@app.on_event("startup")
+async def start_account_deleted_consumer():
+    app.state.account_deleted_consumer = asyncio.create_task(consume_account_deleted_messages())
+
+
+@app.on_event("shutdown")
+async def stop_account_deleted_consumer():
+    task = getattr(app.state, "account_deleted_consumer", None)
+    if task:
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
 
 @app.get("/health")
 def health():
@@ -183,3 +201,4 @@ def get_essay(
 app.include_router(internal.router)
 app.include_router(cv_router)
 app.include_router(essay_router)
+

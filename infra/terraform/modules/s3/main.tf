@@ -43,4 +43,23 @@ resource "aws_s3_bucket_lifecycle_configuration" "this" {
       noncurrent_days = var.noncurrent_version_expiration_days
     }
   }
+
+  dynamic "rule" {
+    for_each = var.expiration_rules
+    content {
+      id     = rule.value.id
+      status = rule.value.status
+
+      filter {
+        tag {
+          key   = keys(rule.value.tags)[0]
+          value = values(rule.value.tags)[0]
+        }
+      }
+
+      expiration {
+        days = rule.value.days
+      }
+    }
+  }
 }

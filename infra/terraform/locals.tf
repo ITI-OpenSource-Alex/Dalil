@@ -246,6 +246,7 @@ locals {
     notification = [
       "DATABASE_URL",
       "INTERNAL_API_KEY",
+      "SES_SENDER_ADDRESS",
     ]
 
     ingestion = [

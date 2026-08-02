@@ -25,7 +25,7 @@ class Settings:
     rag_service_url: str = "http://rag:8084"
     writing_model: str = "claude-opus-4-8"
     cv_review_model: str = "claude-opus-4-8"
-    cv_extraction_model: str = "claude-haiku-4-5-20251001"
+    cv_extraction_model: str = "claude-opus-4-8"
     anthropic_user_agent: str = "Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14"
     anthropic_timeout_seconds: float = 25.0
     openai_api_key: str = ""
@@ -54,7 +54,7 @@ def get_settings() -> Settings:
         writing_model=os.getenv("WRITING_MODEL", "claude-opus-4-8"),
         cv_review_model=os.getenv("CV_REVIEW_MODEL", "claude-opus-4-8"),
         cv_extraction_model=os.getenv(
-            "CV_EXTRACTION_MODEL", "claude-haiku-4-5-20251001"
+            "CV_EXTRACTION_MODEL", "claude-opus-4-8"
         ),
         anthropic_timeout_seconds=float(
             os.getenv("ANTHROPIC_TIMEOUT_SECONDS", "25")

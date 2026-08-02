@@ -4,6 +4,7 @@ import { insertNotification, getUnreadNotifications, deleteNotificationsForUser 
 import { renderNotificationTemplate, renderAuthEmailTemplate } from './templates.js';
 import { sendEmail } from './ses.js';
 import { lookupUserEmail } from './users.js';
+import { loadNotificationRuntimeSecrets } from './runtime-secrets.js';
 
 let coldStart = true;
 
@@ -37,6 +38,7 @@ export const isAlbEvent = (e: any): e is ALBEvent =>
     Boolean(e?.requestContext?.elb);
 
 export async function handleSqsBatch(event: SQSEvent): Promise<SQSBatchResponse> {
+    await loadNotificationRuntimeSecrets();
     const failedIds: string[] = [];
 
     for (const record of event.Records) {
@@ -104,6 +106,7 @@ export async function handleSqsBatch(event: SQSEvent): Promise<SQSBatchResponse>
 
 export async function handleHttp(event: ALBEvent): Promise<ALBResult> {
     try {
+        await loadNotificationRuntimeSecrets();
         const userId = event.headers?.['x-user-id'] || event.headers?.['X-User-ID'] || event.queryStringParameters?.['userId'];
 
         if (!userId) {

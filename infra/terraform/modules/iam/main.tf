@@ -353,6 +353,12 @@ data "aws_iam_policy_document" "lambda_app" {
     }
   }
 
+  statement {
+    sid       = "SendNotificationEmail"
+    actions   = ["ses:SendEmail", "ses:SendRawEmail"]
+    resources = ["*"]
+  }
+
   dynamic "statement" {
     for_each = length(local.lambda_kms_key_arns) > 0 ? [1] : []
     content {

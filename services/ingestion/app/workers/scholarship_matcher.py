@@ -29,6 +29,28 @@ import time
 import structlog
 from contracts.events import DeadlineReminderNotification, ScholarshipMatchedNotification
 
+
+def _load_ingestion_runtime_secrets() -> None:
+    secret_arn = os.getenv("INGESTION_SECRET_ARN", "").strip()
+    if not secret_arn:
+        return
+    import boto3
+
+    client = boto3.client(
+        "secretsmanager",
+        region_name=os.getenv("AWS_REGION", "us-east-1"),
+    )
+    response = client.get_secret_value(SecretId=secret_arn)
+    values = json.loads(response.get("SecretString") or "{}")
+    for key, value in values.items():
+        if value is not None and not os.getenv(key):
+            os.environ[key] = str(value)
+    if os.getenv("DATABASE_URL") and not os.getenv("INGESTION_DATABASE_URL"):
+        os.environ["INGESTION_DATABASE_URL"] = os.environ["DATABASE_URL"]
+
+
+_load_ingestion_runtime_secrets()
+
 from client import get_headers
 from config import settings
 

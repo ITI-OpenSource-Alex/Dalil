@@ -64,6 +64,10 @@ FROM public.ecr.aws/lambda/nodejs:20
 
 WORKDIR ${LAMBDA_TASK_ROOT}
 
+RUN curl -fsSLo /tmp/lambda-insights-extension.rpm https://lambda-insights-extension.s3-ap-northeast-1.amazonaws.com/amazon_linux/lambda-insights-extension.rpm \
+    && rpm -U /tmp/lambda-insights-extension.rpm \
+    && rm -f /tmp/lambda-insights-extension.rpm
+
 # Only the service's own compiled output. The contract is a type-only import and
 # is erased at compile time — the emitted events.js requires nothing but crypto —
 # so packages/contracts is a build-time dependency and never ships.

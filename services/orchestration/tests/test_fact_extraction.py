@@ -66,6 +66,31 @@ def test_lists_are_capped():
     assert len(facts["concern"]) == 5
 
 
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        ("", []),
+        ("[]", []),
+        ("null", []),
+        (None, []),
+        ('["TU Munich", "RWTH Aachen"]', ["TU Munich", "RWTH Aachen"]),
+        ("TU Munich", ["TU Munich"]),
+        (["TU Munich"], ["TU Munich"]),
+    ],
+)
+def test_list_fields_accept_the_shapes_the_model_actually_returns(raw, expected):
+    """Found by running the sweep, not by reading the schema.
+
+    The model returned `""` and the string `"[]"` where a list was declared.
+    Pydantic rejected both, both attempts failed, and the session was requeued
+    -- resilient, but it spent two frontier-model calls establishing that a
+    conversation mentioned no programmes, which is the most common outcome
+    there is.
+    """
+    assert ExtractedFacts(mentioned_programs=raw, confidence=0.5).mentioned_programs == expected
+    assert ExtractedFacts(concerns=raw, confidence=0.5).concerns == expected
+
+
 def test_u23_empty_extraction_yields_nothing():
     """Most conversations teach us nothing, and that must cost zero rows."""
     assert fx._build_candidates(ExtractedFacts(confidence=0.0), "s-1") == []

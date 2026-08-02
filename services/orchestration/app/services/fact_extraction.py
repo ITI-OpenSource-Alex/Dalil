@@ -14,12 +14,13 @@ second client is a second thing to get wrong the next time the gateway changes.
 from __future__ import annotations
 
 import asyncio
+import json
 import time
 from typing import Optional
 
 import structlog
 from langfuse.langchain import CallbackHandler
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.core.config import settings
 from app.core.metrics import goa_orchestration_facts_extraction_latency_ms
@@ -39,6 +40,36 @@ class ExtractedFacts(BaseModel):
     mentioned_programs: list[str] = Field(default_factory=list)
     concerns: list[str] = Field(default_factory=list)
     confidence: float = Field(0.0, ge=0.0, le=1.0)
+
+    @field_validator("mentioned_programs", "concerns", mode="before")
+    @classmethod
+    def coerce_list(cls, value):
+        """Accept the several shapes the model actually returns for an empty list.
+
+        Observed live: `""` and the *string* `"[]"` where a list was declared.
+        Pydantic rejected both, both attempts failed, and the session was
+        requeued -- correct behaviour, but it spent two frontier-model calls
+        discovering that a conversation mentioned no programmes, which is the
+        single most common outcome there is.
+
+        Coerced here rather than asked for in the prompt, because the prompt
+        already declares the schema and the model still did this.
+        """
+        if value is None:
+            return []
+        if isinstance(value, list):
+            return value
+        if isinstance(value, str):
+            stripped = value.strip()
+            if not stripped or stripped in ("[]", "null", "none", "None"):
+                return []
+            try:
+                parsed = json.loads(stripped)
+            except ValueError:
+                # A bare string where a list was asked for is one item.
+                return [stripped]
+            return parsed if isinstance(parsed, list) else [str(parsed)]
+        return value
 
 
 structured_extractor = llm.with_structured_output(ExtractedFacts, include_raw=True)

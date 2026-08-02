@@ -18,6 +18,8 @@ import json
 import logging
 from typing import Any
 
+from goa_security import wrap_untrusted
+
 from app.agents import _json_object, _response_text
 from app.config import get_settings
 
@@ -69,7 +71,19 @@ def _build_input(extracted_text: str | None, structured: dict[str, Any] | None) 
         # Truncated because a CV is short and the tail of a long PDF is usually
         # references or boilerplate. Sending an unbounded document to the model
         # would make cost a function of whatever the user uploaded.
-        parts.append("Raw CV text:\n" + extracted_text[:20000])
+        #
+        # GOA-034: fenced as untrusted. A CV is a file the user chose, and text
+        # in a PDF can be invisible to a human reader -- white on white, or
+        # sized to nothing -- while being perfectly legible to the model that
+        # reads the extracted layer. That makes an uploaded document a better
+        # injection vector than the chat box, not a worse one.
+        parts.append(
+            wrap_untrusted(
+                extracted_text[:20000],
+                label="RAW CV TEXT",
+                origin="a document uploaded by the user",
+            )
+        )
     return "\n\n".join(parts)
 
 

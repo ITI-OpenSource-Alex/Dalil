@@ -16,6 +16,7 @@ probability rather than eliminating risk. Read `docs/security/threat-model.md`
 before assuming otherwise.
 """
 
+from goa_security.leakage import canary_fragments, detect_prompt_leak
 from goa_security.patterns import (
     INJECTION_PATTERNS,
     contains_injection,
@@ -34,8 +35,10 @@ __all__ = [
     "PII_PATTERNS",
     "UNTRUSTED_DATA_FOOTER",
     "UNTRUSTED_DATA_HEADER",
+    "canary_fragments",
     "contains_injection",
     "describe_injection",
+    "detect_prompt_leak",
     "has_pii",
     "hash_input",
     "normalise_control_characters",

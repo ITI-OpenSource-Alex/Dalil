@@ -81,6 +81,32 @@ goa_orchestration_facts_loaded_total = Counter(
     ["source"]
 )
 
+# --------------------------------------------------------------------------
+# Security controls (GOA-034)
+#
+# Named goa_security_* rather than goa_orchestration_* on purpose: the same
+# counters are emitted by more than one service, and an attack that touches two
+# of them should aggregate into one number rather than look like two unrelated
+# events. The `service` label is what separates them again when needed.
+# --------------------------------------------------------------------------
+
+goa_security_injection_attempts_total = Counter(
+    "goa_security_injection_attempts_total",
+    "Inputs matching a known prompt-injection pattern",
+    ["service", "pattern"]
+)
+
+goa_security_pii_redactions_total = Counter(
+    "goa_security_pii_redactions_total",
+    "PII spans redacted from a model response before it reached the user",
+    ["pii_type"]
+)
+
+goa_security_prompt_leaks_total = Counter(
+    "goa_security_prompt_leaks_total",
+    "Responses withheld because they contained the system prompt"
+)
+
 goa_orchestration_facts_load_latency_ms = Histogram(
     "goa_orchestration_facts_load_latency_ms",
     "Latency of loading a user's facts on the chat critical path",

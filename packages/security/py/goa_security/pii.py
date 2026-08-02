@@ -49,7 +49,14 @@ PII_PATTERNS: tuple[PIIPattern, ...] = (
             r"(?:\+\d{1,3}[\s-]?)?"
             r"(?:0\d{2}|\d{3})"
             r"[\s-]?\d{3,4}[\s-]?\d{4}"
-            r"(?![\d.])"
+            # Not followed by another digit, and not by a decimal point with
+            # digits after it. The first stops a partial match inside a longer
+            # run; the second keeps "1234567890.50" from being read as a phone
+            # number. A plain trailing period is allowed, because a phone number
+            # at the end of a sentence is the normal way one appears in an
+            # answer -- an earlier version excluded it and silently let every
+            # sentence-final number through.
+            r"(?!\d|\.\d)"
         ),
     ),
     PIIPattern("passport", re.compile(r"\b[A-Z]{1,2}\d{6,9}\b")),

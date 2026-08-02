@@ -12,6 +12,8 @@ correlation_id_var = contextvars.ContextVar("correlation_id", default="unknown")
 from app.core.config import settings
 from app.core.metrics import goa_orchestration_downstream_latency_ms, goa_orchestration_circuit_breaker_state
 from app.schemas.chat import ChatStreamEvent
+from app.services.output_filter import filter_response
+from app.services.supervisor import SUPERVISOR_CANARIES
 
 logger = structlog.get_logger("orchestration.client")
 
@@ -265,6 +267,16 @@ async def forward_downstream_stream(
             goa_orchestration_downstream_latency_ms.labels(service=service_name).observe(duration_ms)
             
             answer = data.get("answer", "No answer received.")
+            # GOA-034: the last moment this text exists whole. Once the loop
+            # below starts emitting five-character chunks, the first of them
+            # has already left and nothing downstream can be recalled.
+            answer = filter_response(
+                answer,
+                user_id=user_id,
+                correlation_id=correlation_id,
+                intent=intent,
+                leak_fragments=SUPERVISOR_CANARIES,
+            )
             chunk_size = 5
             for i in range(0, len(answer), chunk_size):
                 await asyncio.sleep(0.02)
@@ -310,6 +322,16 @@ async def forward_downstream_stream(
             goa_orchestration_downstream_latency_ms.labels(service=service_name).observe(duration_ms_rag)
 
             answer = data.get("answer", "No answer received.")
+            # GOA-034: the last moment this text exists whole. Once the loop
+            # below starts emitting five-character chunks, the first of them
+            # has already left and nothing downstream can be recalled.
+            answer = filter_response(
+                answer,
+                user_id=user_id,
+                correlation_id=correlation_id,
+                intent=intent,
+                leak_fragments=SUPERVISOR_CANARIES,
+            )
             chunk_size = 5
             for i in range(0, len(answer), chunk_size):
                 await asyncio.sleep(0.02)

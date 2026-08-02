@@ -152,10 +152,27 @@ def test_egyptian_national_id_is_redacted():
     assert "national-id" in found
 
 
-def test_phone_numbers_are_redacted():
-    text, found = redact_pii("Call me on +20 100 123 4567 tomorrow")
-    assert "100 123 4567" not in text
-    assert "phone" in found
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "Call me on +20 100 123 4567 tomorrow",
+        # At the end of a sentence, which is how a number usually appears in an
+        # answer. An earlier lookahead excluded a trailing period and let every
+        # sentence-final phone number through.
+        "You can reach the office on +20 100 123 4567.",
+        "Call 01001234567 for details",
+    ],
+)
+def test_phone_numbers_are_redacted(sentence):
+    text, found = redact_pii(sentence)
+    assert "phone" in found, f"not redacted: {sentence!r}"
+    assert "4567" not in text
+
+
+def test_a_decimal_number_is_not_mistaken_for_a_phone_number():
+    text, found = redact_pii("The endowment is 1234567890.50 EUR")
+    assert text == "The endowment is 1234567890.50 EUR"
+    assert found == []
 
 
 def test_passport_is_redacted():

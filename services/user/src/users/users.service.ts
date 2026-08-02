@@ -26,6 +26,7 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import { PublishCommand, SNSClient } from '@aws-sdk/client-sns';
 import { SqsService } from '@ssut/nestjs-sqs';
 import { ConfigService } from '@nestjs/config';
 
@@ -297,11 +298,6 @@ export class UsersService {
         return;
       }
 
-      const producerName = this.configService.get<string>(
-        'SQS_PRODUCER_NAME',
-        'user-events',
-      );
-
       const event = {
         type: 'user.updated',
         version: '1.0',
@@ -323,10 +319,7 @@ export class UsersService {
         },
       };
 
-      await this.sqsService.send(producerName, {
-        id: event.correlationId,
-        body: event,
-      });
+      await this.publishUserEvent(event);
 
       this.logger.log(`UserUpdated event published for user ${userId}`);
     } catch (error) {
@@ -342,10 +335,6 @@ export class UsersService {
     deletedAt: Date,
   ): Promise<void> {
     try {
-      const producerName = this.configService.get<string>(
-        'SQS_PRODUCER_NAME',
-        'user-events',
-      );
       const event = {
         type: 'account.deleted',
         version: '1.0',
@@ -357,10 +346,7 @@ export class UsersService {
         },
       };
 
-      await this.sqsService.send(producerName, {
-        id: event.correlationId,
-        body: event,
-      });
+      await this.publishUserEvent(event);
 
       this.logger.log(`AccountDeleted event published for user ${userId}`);
     } catch (error) {
@@ -464,6 +450,52 @@ export class UsersService {
         error instanceof Error ? error.stack : String(error),
       );
     }
+  }
+
+  private async publishUserEvent(event: {
+    type: string;
+    correlationId: string;
+    [key: string]: unknown;
+  }): Promise<void> {
+    const topicArn = this.configService.get<string>('USER_EVENTS_TOPIC_ARN');
+    if (topicArn) {
+      const endpoint = this.configService.get<string>('AWS_ENDPOINT');
+      const accessKeyId = this.configService.get<string>('AWS_ACCESS_KEY_ID');
+      const secretAccessKey = this.configService.get<string>(
+        'AWS_SECRET_ACCESS_KEY',
+      );
+      const snsClient = new SNSClient({
+        region: this.configService.get<string>('AWS_REGION', 'us-east-1'),
+        ...(endpoint && { endpoint }),
+        ...(accessKeyId &&
+          secretAccessKey && {
+            credentials: { accessKeyId, secretAccessKey },
+          }),
+      });
+
+      await snsClient.send(
+        new PublishCommand({
+          TopicArn: topicArn,
+          Message: JSON.stringify(event),
+          MessageAttributes: {
+            eventType: {
+              DataType: 'String',
+              StringValue: event.type,
+            },
+          },
+        }),
+      );
+      return;
+    }
+
+    const producerName = this.configService.get<string>(
+      'SQS_PRODUCER_NAME',
+      'user-events',
+    );
+    await this.sqsService.send(producerName, {
+      id: event.correlationId,
+      body: event,
+    });
   }
 
   private hashToken(token: string): string {

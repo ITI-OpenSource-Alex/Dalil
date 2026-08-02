@@ -64,6 +64,7 @@ services:
       # GOA-083: auth emails are now published to notification-queue, which the
       # notification service already polls. See services/user/src/sqs/sqs.module.ts.
       - NOTIFICATION_QUEUE_URL=http://localstack:4566/000000000000/notification-queue
+      - USER_EVENTS_TOPIC_ARN=arn:aws:sns:us-east-1:000000000000:user-events
 
       - REDIS_HOST=redis-gateway
       - REDIS_PORT=6379
@@ -93,6 +94,7 @@ services:
       - S3_BUCKET=goa-writing-files
       - CV_UPLOADED_QUEUE_URL=http://localstack:4566/000000000000/goa-cv-uploaded
       - CV_PROCESSED_QUEUE_URL=http://localstack:4566/000000000000/goa-cv-processed
+      - ACCOUNT_DELETED_QUEUE_URL=http://localstack:4566/000000000000/user-events-writing
       - PYTHONPATH=/app:/packages/contracts/py
       - OTEL_SERVICE_NAME=writing-service
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
@@ -184,7 +186,7 @@ services:
       # matcher; goa-cv-processed carries CVProcessed from the Writing service.
       # In AWS these are two event source mappings; locally the poller in
       # src/local-server.ts watches both.
-      - NOTIFICATION_QUEUE_URLS=http://localstack:4566/000000000000/notification-queue,http://localstack:4566/000000000000/goa-cv-processed
+      - NOTIFICATION_QUEUE_URLS=http://localstack:4566/000000000000/notification-queue,http://localstack:4566/000000000000/goa-cv-processed,http://localstack:4566/000000000000/user-events-notification
       # Events carry no email address, so the recipient is resolved from the
       # User service. Without these the handler cannot send anything, which is
       # deliberate -- see src/users.ts.
@@ -235,7 +237,7 @@ services:
       # ses added for GOA-023: the notification service sends email through it.
       # LocalStack accepts and stores messages without delivering, which is what
       # makes the notification E2E runnable locally at zero cost.
-      - SERVICES=sqs,s3,ses
+      - SERVICES=sqs,s3,ses,sns
       - AWS_DEFAULT_REGION=us-east-1
       # GOA-083: the init script verifies this identity so the notification
       # service's SendEmail succeeds. Kept in sync with the notification
@@ -296,11 +298,18 @@ services:
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
       - LANGFUSE_HOST=${LANGFUSE_HOST}
       - SPEECH_SERVICE_URL=http://speech:8086
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - SQS_QUEUE_NAME=user-events-speaking
     volumes:
       - ./services/speaking:/app
     depends_on:
       prometheus:
         condition: service_started
+      localstack:
+        condition: service_healthy
       # The service pings speaking_db during startup and calls log.Fatal on
       # failure, so a cold `docker compose up` raced Postgres and exited 1
       # with "the database system is starting up (SQLSTATE 57P03)". air only
@@ -334,7 +343,7 @@ services:
       - AWS_ACCESS_KEY_ID=test
       - AWS_SECRET_ACCESS_KEY=test
       - AWS_ENDPOINT_URL=http://localstack:4566
-      - SQS_QUEUE_NAME=user-events
+      - SQS_QUEUE_NAME=user-events-rag
       - EMBEDDING_BASE_URL=${EMBEDDING_BASE_URL:-http://host.docker.internal:11434/v1}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL:-nomic-embed-text}
       - EMBEDDING_API_KEY=${EMBEDDING_API_KEY:-ollama}
@@ -368,6 +377,7 @@ services:
       - AWS_SECRET_ACCESS_KEY=test
       - AWS_ENDPOINT_URL=http://localstack:4566
       - S3_BUCKET=goa-exam-audio
+      - SQS_QUEUE_NAME=user-events-exam
     volumes:
       - ./services/exam:/app
     depends_on:
@@ -405,6 +415,11 @@ services:
       - RAG_SERVICE_URL=http://rag:8084
       - SPEAKING_SERVICE_URL=http://speaking:8082
       - WRITING_SERVICE_URL=http://writing:8000
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - SQS_QUEUE_NAME=user-events-orchestration
     volumes:
       - ./services/orchestration:/app
     depends_on:
@@ -412,6 +427,8 @@ services:
         condition: service_healthy
       redis-cache:
         condition: service_started
+      localstack:
+        condition: service_healthy
 
   speech:
     build:

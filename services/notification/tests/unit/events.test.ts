@@ -1,4 +1,4 @@
-import { deriveNotificationId, parseNotificationEvent, parseAuthEmailEvent, deriveAuthEmailId } from '../../src/events';
+import { deriveNotificationId, parseAccountDeletedEvent, parseNotificationEvent, parseAuthEmailEvent, deriveAuthEmailId } from '../../src/events';
 import { ScholarshipMatchedNotification, DeadlineReminderNotification, CVProcessedNotification } from '../../../../packages/contracts/ts/index';
 
 describe('Event Parsing & Idempotency Key Derivation', () => {
@@ -55,6 +55,25 @@ describe('Event Parsing & Idempotency Key Derivation', () => {
     it('should throw on unsupported eventType', () => {
         const rawJson = JSON.stringify({ eventType: 'UNKNOWN_EVENT' });
         expect(() => parseNotificationEvent(rawJson)).toThrow('Unrecognised notification eventType');
+    });
+
+    it('should parse AccountDeleted from an SNS envelope', () => {
+        const message = {
+            type: 'account.deleted',
+            payload: {
+                userId: 'user_123',
+                deletedAt: '2026-08-02T10:00:00.000Z',
+            },
+        };
+        const rawJson = JSON.stringify({
+            Type: 'Notification',
+            Message: JSON.stringify(message),
+        });
+
+        const event = parseAccountDeletedEvent(rawJson);
+
+        expect(event?.type).toBe('account.deleted');
+        expect(event?.payload.userId).toBe('user_123');
     });
 
     it('should produce deterministic sha256 notificationId', () => {

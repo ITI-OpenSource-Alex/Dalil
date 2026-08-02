@@ -172,6 +172,16 @@ data "aws_iam_policy_document" "ecs_task_app" {
   }
 
   dynamic "statement" {
+    for_each = length(each.value.sns_topic_arns) > 0 ? [1] : []
+
+    content {
+      sid       = "PublishAssignedTopics"
+      actions   = ["sns:Publish"]
+      resources = each.value.sns_topic_arns
+    }
+  }
+
+  dynamic "statement" {
     for_each = length(each.value.s3_read_object_arns) > 0 ? [1] : []
 
     content {

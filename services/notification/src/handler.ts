@@ -57,6 +57,12 @@ export async function handleSqsBatch(event: SQSEvent): Promise<SQSBatchResponse>
                 continue;
             }
 
+            const accountDeleted = parseAccountDeletedEvent(record.body);
+            if (accountDeleted) {
+                await deleteNotificationsForUser(accountDeleted.payload.userId);
+                continue;
+            }
+
             const notifEvent = parseNotificationEvent(record.body);
             const notificationId = deriveNotificationId(notifEvent);
             const rendered = renderNotificationTemplate(notifEvent);

@@ -9,7 +9,9 @@ from app.services.memory import get_session_memory, load_memory_variables, save_
 from app.services.client import forward_downstream_stream
 from app.services.exam_context import fetch_exam_context
 from app.services.session_index import get_redis_client, touch_session
+from app.services.facts_context import fetch_user_facts
 from app.core.config import settings
+from app.core.database import db
 from app.core.trace_context import build_traceparent
 
 logger = structlog.get_logger("orchestration.api.chat")
@@ -102,6 +104,26 @@ async def chat_endpoint(request: ChatRequest, req: Request):
             except Exception as e:
                 logger.warning("Failed to load session memory, proceeding statelessly", error=str(e))
 
+            # 2c. Load long-term facts (best-effort, GOA-038)
+            #
+            # On the request path, unlike extraction. That is the whole feature:
+            # the assistant already knows the user when they come back. Bounded
+            # by memory_load_timeout_ms and degrading to None on anything going
+            # wrong, so a slow database costs personalisation and never an
+            # answer.
+            user_facts = None
+            facts_redis = None
+            try:
+                facts_redis = await get_redis_client()
+                user_facts = await fetch_user_facts(
+                    getattr(db, "pool", None), facts_redis, request.userId
+                )
+            except Exception as e:
+                logger.warning("Failed to load long-term facts, proceeding without", error=str(e))
+            finally:
+                if facts_redis is not None:
+                    await facts_redis.aclose()
+
             # 3. Classify intent via structured LLM call
             intent_result = await classify_intent(
                 message=request.message,
@@ -110,6 +132,7 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                 user_id=request.userId,
                 history=history,
                 exam_context=exam_context,
+                user_facts=user_facts,
             )
             intent = intent_result.intent
             downstream_service = intent.lower()
@@ -120,7 +143,23 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                     "Resolved message against history",
                     original=request.message[:80],
                     resolved=resolved_message[:80],
+                    facts_available=len(user_facts or []),
                 )
+
+            if supervisor_span and user_facts:
+                # Which facts were in play when this question was rewritten.
+                # Types only -- the values are personal data and a trace is not
+                # the place for them. Without this there is no way to review,
+                # after the fact, why the assistant claimed to know something.
+                try:
+                    supervisor_span.update(
+                        metadata={
+                            "facts_count": len(user_facts),
+                            "fact_types": sorted({f.fact_type for f in user_facts}),
+                        }
+                    )
+                except Exception as e:
+                    logger.warning("Failed to annotate span with fact context", error=str(e))
                 
             if supervisor_span:
                 try:

@@ -13,6 +13,8 @@ describe('UsersController', () => {
     register: jest.fn(),
     findAllPaginated: jest.fn(),
     findSubscription: jest.fn(),
+    deleteAccount: jest.fn(),
+    exportUserData: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -64,6 +66,24 @@ describe('UsersController', () => {
     });
   });
 
+  describe('account deletion and data export', () => {
+    it('deleteAccount forwards id, requester id and password', async () => {
+      mockUsersService.deleteAccount.mockResolvedValue({ success: true });
+
+      await controller.deleteAccount('user-123', { confirmPassword: 'pw' }, 'user-123');
+
+      expect(service.deleteAccount).toHaveBeenCalledWith('user-123', 'user-123', 'pw');
+    });
+
+    it('exportData forwards id and requester id', async () => {
+      mockUsersService.exportUserData.mockResolvedValue({ userId: 'user-123' });
+
+      await controller.exportData('user-123', 'user-123');
+
+      expect(service.exportUserData).toHaveBeenCalledWith('user-123', 'user-123');
+    });
+  });
+
   describe('findSubscription', () => {
     it('returns the narrow service response', async () => {
       mockUsersService.findSubscription.mockResolvedValue({
@@ -86,3 +106,4 @@ describe('UsersController', () => {
     });
   });
 });
+

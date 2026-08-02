@@ -40,9 +40,13 @@ export class User {
   @Column({ type: 'boolean', default: false, name: 'is_verified' })
   isVerified: boolean;
 
+  @Column({ type: 'timestamp', nullable: true, name: 'deleted_at' })
+  deletedAt: Date | null;
+
   @OneToMany(() => ResetToken, (token) => token.user)
   resetTokens: ResetToken[];
 
   @OneToMany(() => EmailVerification, (verification) => verification.user)
   emailVerifications: EmailVerification[];
 }
+

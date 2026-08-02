@@ -50,6 +50,13 @@ export interface NotificationRequested extends BaseEvent {
     };
 }
 
+export interface AccountDeleted extends BaseEvent {
+    type: 'account.deleted';
+    payload: {
+        userId: string;
+        deletedAt: string;
+    };
+}
 export interface IngestionCompleted extends BaseEvent {
     type: 'ingestion.completed';
     payload: {
@@ -105,8 +112,11 @@ export type NotificationEvent =
 
 export type DomainEvent =
     | UserUpdated
+    | AccountDeleted
     | CVUploaded
     | CVProcessed
     | ScholarshipMatched
     | NotificationRequested
     | IngestionCompleted;
+
+

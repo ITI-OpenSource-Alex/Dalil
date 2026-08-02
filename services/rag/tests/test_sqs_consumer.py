@@ -138,3 +138,40 @@ async def test_sqs_consumer_stops_cleanly_without_aws_credentials():
         await consume_sqs_messages()
 
     mock_sqs_client.receive_message.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_sqs_consumer_account_deleted_purges_local_data(monkeypatch):
+    mock_sqs_client = AsyncMock()
+    mock_sqs_client.get_queue_url.return_value = {"QueueUrl": "http://mock-queue-url"}
+
+    mock_message = {
+        "MessageId": "msg-123",
+        "ReceiptHandle": "rh-123",
+        "Body": json.dumps({"type": "account.deleted", "payload": {"userId": "user-123"}}),
+    }
+
+    mock_sqs_client.receive_message.side_effect = [
+        {"Messages": [mock_message]},
+        Exception("Simulate network error"),
+    ]
+
+    mock_delete = AsyncMock()
+    monkeypatch.setattr("app.services.sqs_consumer.delete_local_user_data", mock_delete)
+    mock_sleep = AsyncMock(side_effect=asyncio.CancelledError("Break loop"))
+    monkeypatch.setattr("asyncio.sleep", mock_sleep)
+
+    with patch("app.services.sqs_consumer.get_session") as mock_get_session:
+        mock_session = MagicMock()
+        mock_client_ctx = MagicMock()
+        mock_client_ctx.__aenter__ = AsyncMock(return_value=mock_sqs_client)
+        mock_client_ctx.__aexit__ = AsyncMock()
+        mock_session.create_client.return_value = mock_client_ctx
+        mock_get_session.return_value = mock_session
+
+        await consume_sqs_messages()
+
+    mock_delete.assert_awaited_once_with("user-123")
+    mock_sqs_client.delete_message.assert_called_once_with(
+        QueueUrl="http://mock-queue-url", ReceiptHandle="rh-123"
+    )

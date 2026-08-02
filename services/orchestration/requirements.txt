@@ -26,3 +26,4 @@ pytest-mock>=3.12.0
 pytest-recording>=0.13.2
 vcrpy>=7.0.0
 pybreaker>=1.2.0
+aiobotocore>=2.13.0,<3.0.0

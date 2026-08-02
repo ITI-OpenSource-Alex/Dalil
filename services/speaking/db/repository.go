@@ -54,6 +54,8 @@ type Repository interface {
 	GetByID(ctx context.Context, id string) (*SpeakingSession, error)
 	CreateShareToken(ctx context.Context, sessionID string) (string, error)
 	GetByShareToken(ctx context.Context, token string) (*SpeakingSession, error)
+	DeleteByUser(ctx context.Context, userID string) (int64, error)
+	DeleteOlderThan(ctx context.Context, cutoff time.Time) (int64, error)
 }
 
 type PostgresRepository struct {
@@ -198,6 +200,26 @@ func (r *PostgresRepository) GetByShareToken(ctx context.Context, token string) 
 	return s, nil
 }
 
+// DeleteByUser removes all speaking session records for a deleted account.
+func (r *PostgresRepository) DeleteByUser(ctx context.Context, userID string) (int64, error) {
+	result, err := r.pool.Exec(ctx, `DELETE FROM speaking_sessions WHERE user_id = $1`, userID)
+	if err != nil {
+		log.Error().Err(err).Str("user_id", userID).Msg("Failed to purge speaking sessions for deleted account")
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+// DeleteOlderThan removes transcripts beyond the 365-day retention window.
+func (r *PostgresRepository) DeleteOlderThan(ctx context.Context, cutoff time.Time) (int64, error) {
+	result, err := r.pool.Exec(ctx, `DELETE FROM speaking_sessions WHERE created_at < $1`, cutoff)
+	if err != nil {
+		log.Error().Err(err).Time("cutoff", cutoff).Msg("Failed to purge expired speaking transcripts")
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 // generateShareToken produces a 160-bit random hex token — unguessable and
 // distinct from internal (sequential/UUID) session ids, so a public share
 // link can't be used to enumerate other users' sessions.
@@ -208,3 +230,4 @@ func generateShareToken() (string, error) {
 	}
 	return hex.EncodeToString(buf), nil
 }
+

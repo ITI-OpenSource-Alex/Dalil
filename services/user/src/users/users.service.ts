@@ -179,6 +179,109 @@ export class UsersService {
     return savedProfile;
   }
 
+  async deleteAccount(
+    userId: string,
+    requesterId: string | undefined,
+    confirmPassword: string,
+  ): Promise<{ success: true; deletedAt: string }> {
+    this.assertSelf(userId, requesterId);
+
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user || user.deletedAt) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+
+    if (!(await bcrypt.compare(confirmPassword, user.passwordHash))) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const deletedAt = new Date();
+    const anonymizedEmail = `deleted_${user.id}@deleted.goa`;
+
+    await this.userRepository.manager.transaction(async (manager) => {
+      await manager.update(User, user.id, {
+        deletedAt,
+        email: anonymizedEmail,
+      });
+      await manager.update(
+        RefreshToken,
+        { userId: user.id },
+        { revokedAt: deletedAt },
+      );
+    });
+
+    await this.revokeAllAccessTokens(user.id, deletedAt);
+    void this.publishAccountDeletedEvent(user.id, deletedAt);
+
+    return { success: true, deletedAt: deletedAt.toISOString() };
+  }
+
+  async exportUserData(userId: string, requesterId?: string) {
+    this.assertSelf(userId, requesterId);
+
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: { profile: true },
+    });
+    if (!user || user.deletedAt) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+
+    const { passwordHash: _, ...profile } = user as any;
+
+    const [examHistory, essays, speakingSessions] = await Promise.all([
+      this.fetchJsonSection('EXAM_SERVICE_URL', `/users/${userId}/exam-history`),
+      this.fetchJsonSection('WRITING_SERVICE_URL', `/internal/users/${userId}/essays`),
+      this.fetchJsonSection('SPEAKING_SERVICE_URL', `/sessions?userId=${userId}`),
+    ]);
+
+    return {
+      exportedAt: new Date().toISOString(),
+      userId,
+      profile,
+      examHistory: examHistory?.items ?? examHistory?.results ?? examHistory ?? [],
+      essays: essays?.essays ?? essays ?? [],
+      speakingSessions: speakingSessions?.sessions ?? speakingSessions ?? [],
+    };
+  }
+
+  private assertSelf(userId: string, requesterId?: string): void {
+    if (!requesterId || requesterId !== userId) {
+      throw new ForbiddenException('Users can only access their own account data');
+    }
+  }
+
+  private async fetchJsonSection(
+    configKey: string,
+    path: string,
+  ): Promise<any> {
+    const baseUrl = this.configService.get<string>(configKey);
+    if (!baseUrl) {
+      return [];
+    }
+    try {
+      const response = await fetch(`${baseUrl}${path}`, {
+        headers: {
+          'X-Internal-API-Key':
+            this.configService.get<string>('INTERNAL_API_KEY', '') || '',
+        },
+      });
+      if (!response.ok) {
+        this.logger.warn(
+          `Data export section ${configKey} returned ${response.status}`,
+        );
+        return [];
+      }
+      return await response.json();
+    } catch (error) {
+      this.logger.warn(
+        `Data export section ${configKey} unavailable`,
+        error instanceof Error ? error.message : String(error),
+      );
+      return [];
+    }
+  }
+
   private async publishUserUpdatedEvent(userId: string): Promise<void> {
     try {
       const user = await this.userRepository.findOne({
@@ -227,6 +330,40 @@ export class UsersService {
     } catch (error) {
       this.logger.error(
         `Failed to publish UserUpdated event for user ${userId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+  }
+
+  private async publishAccountDeletedEvent(
+    userId: string,
+    deletedAt: Date,
+  ): Promise<void> {
+    try {
+      const producerName = this.configService.get<string>(
+        'SQS_PRODUCER_NAME',
+        'user-events',
+      );
+      const event = {
+        type: 'account.deleted',
+        version: '1.0',
+        timestamp: new Date().toISOString(),
+        correlationId: crypto.randomUUID(),
+        payload: {
+          userId,
+          deletedAt: deletedAt.toISOString(),
+        },
+      };
+
+      await this.sqsService.send(producerName, {
+        id: event.correlationId,
+        body: event,
+      });
+
+      this.logger.log(`AccountDeleted event published for user ${userId}`);
+    } catch (error) {
+      this.logger.error(
+        `Failed to publish AccountDeleted event for user ${userId}`,
         error instanceof Error ? error.stack : String(error),
       );
     }
@@ -432,7 +569,11 @@ export class UsersService {
       where: { email: dto.email },
     });
 
-    if (!user || !(await bcrypt.compare(dto.password, user.passwordHash))) {
+    if (
+      !user ||
+      user.deletedAt ||
+      !(await bcrypt.compare(dto.password, user.passwordHash))
+    ) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -547,3 +688,6 @@ export class UsersService {
     };
   }
 }
+
+
+

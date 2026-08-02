@@ -63,6 +63,12 @@ class Settings(BaseSettings):
     writing_service_url: str = "http://writing:8000"
     exam_service_url: str = "http://exam:8085"
 
+    aws_region: str = "us-east-1"
+    aws_endpoint_url: str = ""
+    aws_access_key_id: str = ""
+    aws_secret_access_key: str = ""
+    sqs_queue_name: str = "user-events-orchestration"
+
     # Browser-facing URLs. The two above are Docker hostnames used for
     # server-to-server calls; handing them to a client produced
     # ws://speaking:8082/ws and http://writing:8000/... which no browser can

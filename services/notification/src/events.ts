@@ -23,3 +23,19 @@ export function parseNotificationEvent(body: string): NotificationEvent {
     }
     throw new Error(`Unrecognised notification eventType: ${eventType}`);
 }
+
+export interface AccountDeletedEvent {
+    type: 'account.deleted';
+    payload: {
+        userId: string;
+        deletedAt: string;
+    };
+}
+
+export function parseAccountDeletedEvent(body: string): AccountDeletedEvent | null {
+    const data = JSON.parse(body);
+    const event = data.Type === 'Notification' && data.Message ? JSON.parse(data.Message) : data;
+    if (event.type !== 'account.deleted') return null;
+    if (!event.payload?.userId) throw new Error('AccountDeleted event missing payload.userId');
+    return event as AccountDeletedEvent;
+}

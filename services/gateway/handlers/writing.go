@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -10,10 +11,12 @@ import (
 	"net/textproto"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/ITI-OpenSource-Alex/GOA/services/gateway/downstream"
 	"github.com/ITI-OpenSource-Alex/GOA/services/gateway/middleware"
 	"github.com/gofiber/fiber/v2"
+	"github.com/valyala/fasthttp"
 )
 
 type WritingHandler struct {
@@ -227,9 +230,9 @@ func (h *WritingHandler) UploadCV(c *fiber.Ctx) error {
 // route the browser still could not reach it, and the CV feature would have
 // stayed a pipeline that produces structured data nothing consumes.
 //
-// userId comes from the validated JWT rather than the body. The upstream 403s
-// when it does not match the CV's owner, so taking it from the token is what
-// stops a caller reviewing someone else's CV by editing the payload.
+// userId comes from the validated JWT rather than the body. The writing service
+// reads by (userId, cvS3Key), so taking userId from the token is what stops a
+// caller reviewing someone else's CV by editing the payload.
 func (h *WritingHandler) ReviewCV(c *fiber.Ctx) error {
 	userID, err := authenticatedUserID(c)
 	if err != nil {
@@ -259,13 +262,36 @@ func (h *WritingHandler) ReviewCV(c *fiber.Ctx) error {
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadGateway, "failed to contact writing service")
 	}
-	defer resp.Body.Close()
 
-	responseBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
 	c.Status(resp.StatusCode)
-	c.Set(fiber.HeaderContentType, resp.Header.Get(fiber.HeaderContentType))
-	return c.Send(responseBody)
+	if ct := resp.Header.Get(fiber.HeaderContentType); ct != "" {
+		c.Set(fiber.HeaderContentType, ct)
+	}
+	c.Set("Cache-Control", "no-cache")
+	c.Set("X-Accel-Buffering", "no")
+
+	conn := c.Context().Conn()
+	c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
+		defer resp.Body.Close()
+		if conn != nil {
+			_ = conn.SetWriteDeadline(time.Time{})
+		}
+
+		buf := make([]byte, 4096)
+		for {
+			n, readErr := resp.Body.Read(buf)
+			if n > 0 {
+				if _, writeErr := w.Write(buf[:n]); writeErr != nil {
+					return
+				}
+				if flushErr := w.Flush(); flushErr != nil {
+					return
+				}
+			}
+			if readErr != nil {
+				return
+			}
+		}
+	}))
+	return nil
 }

@@ -1,21 +1,26 @@
-"""POST /cv/review — the CV review agent SSE endpoint."""
-
 import json
 
 import pytest
 
 from app.models import CVReview
-from app.services import cv_review as cv_review_service
+from app.schemas import CVReviewResponse, CVReviewSection
 
 
 def _make_cv(db_session, **overrides):
     defaults = dict(
         user_id="user-1",
-        s3_key=f"cvs/{overrides.get('s3_key_suffix', 'a')}.pdf",
+        s3_key=f"cvs/user-1/{overrides.get('s3_key_suffix', 'a')}.pdf",
         original_filename="cv.pdf",
         status="ready",
-        extracted_text="Ahmed Karim. BSc Computer Science, Cairo University.",
-        structured_data={"name": "Ahmed Karim", "degree": "BSc Computer Science"},
+        extracted_text=(
+            "Ahmed Karim\nBSc Computer Science, Cairo University\n"
+            "Backend developer using Python, FastAPI, PostgreSQL, AWS."
+        ),
+        structured_data={
+            "name": "Ahmed Karim",
+            "degree": "BSc Computer Science",
+            "skills": ["Python", "FastAPI", "PostgreSQL", "AWS"],
+        },
     )
     overrides.pop("s3_key_suffix", None)
     defaults.update(overrides)
@@ -26,22 +31,20 @@ def _make_cv(db_session, **overrides):
     return cv
 
 
-class FakeRedis:
-    def __init__(self):
-        self.storage = {}
+def _payload(cv, **overrides):
+    payload = {
+        "userId": cv.user_id,
+        "cvS3Key": cv.s3_key,
+        "targetCountry": "Germany",
+        "targetField": "Computer Science",
+    }
+    payload.update(overrides)
+    return payload
 
-    async def get(self, key):
-        return self.storage.get(key)
 
-    async def setex(self, key, ttl, value):
-        self.storage[key] = value
-
-
-def _events(response_text):
-    parsed = []
-    for block in response_text.replace("\r\n", "\n").split("\n\n"):
-        if not block.strip():
-            continue
+def _sse_events(response):
+    events = []
+    for block in response.text.strip().split("\n\n"):
         name = None
         data = None
         for line in block.splitlines():
@@ -49,34 +52,138 @@ def _events(response_text):
                 name = line.removeprefix("event: ")
             if line.startswith("data: "):
                 data = json.loads(line.removeprefix("data: "))
-        parsed.append((name, data))
-    return parsed
+        if name:
+            events.append((name, data))
+    return events
 
 
-def _review_payload(target_country="Germany", target_field="Software Engineering"):
-    return {
-        "userId": "user-1",
-        "cvS3Key": "cvs/a.pdf",
-        "targetCountry": target_country,
-        "targetField": target_field,
-    }
+class FakeCache:
+    def __init__(self):
+        self.values = {}
+        self.setex_calls = []
+
+    def get(self, key):
+        return self.values.get(key)
+
+    def setex(self, key, ttl, value):
+        self.setex_calls.append((key, ttl, value))
+        self.values[key] = value
+        return True
+
+
+class FakeCoordinator:
+    def __init__(self):
+        self.review_calls = []
+        self.replay_calls = []
+
+    async def review(
+        self,
+        *,
+        extracted_text,
+        structured_data,
+        target_country,
+        target_field,
+        country_conventions,
+        on_partial=None,
+    ):
+        self.review_calls.append(
+            {
+                "extracted_text": extracted_text,
+                "structured_data": structured_data,
+                "target_country": target_country,
+                "target_field": target_field,
+                "country_conventions": country_conventions,
+            }
+        )
+        skills_issues = (
+            ["No skills section is present in the extracted CV"]
+            if not (structured_data or {}).get("skills")
+            else ["No German language or research-methods keywords"]
+        )
+        sections = [
+            CVReviewSection(
+                name="Structure and formatting",
+                score=82,
+                issues=["No profile headline"],
+                suggestions=["Add a concise academic profile headline."],
+            ),
+            CVReviewSection(
+                name="Skills gaps",
+                score=76,
+                issues=skills_issues,
+                suggestions=["Add relevant tools, methods, and language level."],
+            ),
+            CVReviewSection(
+                name="ATS keyword optimization",
+                score=79,
+                issues=["Few target-field keywords"],
+                suggestions=["Mirror target programme keywords where truthful."],
+            ),
+            CVReviewSection(
+                name="Length appropriateness",
+                score=90,
+                issues=[],
+                suggestions=["Keep the CV to one or two pages."],
+            ),
+        ]
+        for section in sections:
+            if on_partial:
+                await on_partial(section)
+
+        from app.services.cv_review import CVReviewSummary
+
+        return CVReviewSummary(overall_score=82, sections=sections, total_tokens=500)
+
+    async def replay_cached(self, payload, *, on_partial=None):
+        self.replay_calls.append(payload)
+        response = CVReviewResponse.model_validate(payload)
+        for section in response.sections:
+            if on_partial:
+                await on_partial(section)
+
+        from app.services.cv_review import CVReviewSummary
+
+        return CVReviewSummary(
+            overall_score=response.overallScore,
+            sections=response.sections,
+            total_tokens=0,
+        )
+
+
+@pytest.fixture
+def cv_review_stubs(monkeypatch):
+    cache = FakeCache()
+    coordinator = FakeCoordinator()
+    rag_calls = []
+
+    async def fake_conventions(user_id, target_country, settings):
+        rag_calls.append((user_id, target_country, settings.rag_service_url))
+        return "German CV conventions: photo may be expected locally; keep concise."
+
+    monkeypatch.setattr("app.routers.cvs.get_redis_client", lambda settings: cache)
+    monkeypatch.setattr(
+        "app.routers.cvs.fetch_country_conventions", fake_conventions
+    )
+
+    from app.main import app
+    from app.services.cv_review import get_cv_review_coordinator
+
+    app.dependency_overrides[get_cv_review_coordinator] = lambda: coordinator
+    yield cache, coordinator, rag_calls
+    app.dependency_overrides.pop(get_cv_review_coordinator, None)
 
 
 def test_unknown_cv_returns_404(client):
-    response = client.post("/cv/review", json=_review_payload())
-    assert response.status_code == 404
-
-
-def test_another_users_cv_returns_403(client, db_session):
-    cv = _make_cv(db_session, user_id="owner", s3_key_suffix="owned")
-
     response = client.post(
         "/cv/review",
-        json={**_review_payload(), "cvS3Key": cv.s3_key},
+        json={
+            "userId": "user-1",
+            "cvS3Key": "missing.pdf",
+            "targetCountry": "Germany",
+            "targetField": "Computer Science",
+        },
     )
-
-    assert response.status_code == 403
-    assert "another user" in response.json()["detail"]
+    assert response.status_code == 404
 
 
 def test_unprocessed_cv_returns_409(client, db_session):
@@ -88,10 +195,7 @@ def test_unprocessed_cv_returns_409(client, db_session):
         s3_key_suffix="pending",
     )
 
-    response = client.post(
-        "/cv/review",
-        json={**_review_payload(), "cvS3Key": cv.s3_key},
-    )
+    response = client.post("/cv/review", json=_payload(cv))
 
     assert response.status_code == 409
     assert "not ready" in response.json()["detail"]
@@ -107,10 +211,7 @@ def test_failed_extraction_surfaces_its_own_error(client, db_session):
         s3_key_suffix="failed",
     )
 
-    response = client.post(
-        "/cv/review",
-        json={**_review_payload(), "cvS3Key": cv.s3_key},
-    )
+    response = client.post("/cv/review", json=_payload(cv))
 
     assert response.status_code == 409
     assert "Unsupported PDF encoding" in response.json()["detail"]
@@ -125,107 +226,79 @@ def test_ready_but_empty_cv_is_refused(client, db_session):
         s3_key_suffix="empty",
     )
 
-    response = client.post(
-        "/cv/review",
-        json={**_review_payload(), "cvS3Key": cv.s3_key},
-    )
+    response = client.post("/cv/review", json=_payload(cv))
 
     assert response.status_code == 409
     assert "no extracted content" in response.json()["detail"]
 
 
-def test_review_streams_sections_and_uses_cache(client, db_session, monkeypatch):
-    cv = _make_cv(
-        db_session,
-        s3_key_suffix="ok",
-        structured_data={"name": "Ahmed Karim", "degree": "BSc Computer Science"},
-    )
-    fake_redis = FakeRedis()
-    calls = []
+def test_cv_review_streams_structured_sections_and_complete_event(
+    client, db_session, cv_review_stubs
+):
+    cache, coordinator, rag_calls = cv_review_stubs
+    cv = _make_cv(db_session, s3_key_suffix="ok")
 
-    async def fake_conventions(*_args, **_kwargs):
-        return {"photo_required": True, "country": "Germany"}
-
-    async def fake_generate_review(extracted_text, structured_data, target_country, target_field, **kwargs):
-        calls.append((extracted_text, structured_data, target_country, target_field, kwargs["conventions"]))
-        has_skills = bool((structured_data or {}).get("skills"))
-        skills_issues = [] if has_skills else ["No dedicated skills section"]
-        skills_suggestions = [] if has_skills else ["Add a concise skills section for ATS matching"]
-        return cv_review_service.CVReviewOutput.model_validate(
-            {
-                "overallScore": 82,
-                "sections": [
-                    {
-                        "name": "Structure/Formatting",
-                        "score": 80,
-                        "issues": ["Weak headline"],
-                        "suggestions": ["Use a clearer professional headline."],
-                    },
-                    {
-                        "name": "Skills Gaps",
-                        "score": 70,
-                        "issues": skills_issues,
-                        "suggestions": skills_suggestions,
-                    },
-                    {
-                        "name": "ATS Keywords",
-                        "score": 84,
-                        "issues": ["Missing cloud keywords"],
-                        "suggestions": ["Include tools from the target job description."],
-                    },
-                    {
-                        "name": "Length Appropriateness",
-                        "score": 88,
-                        "issues": [],
-                        "suggestions": ["Keep the CV at one page for early-career roles."],
-                    },
-                    {
-                        "name": "Country Conventions",
-                        "score": 76,
-                        "issues": ["Germany typically expects a photo"],
-                        "suggestions": ["Consider adding a professional photo for German applications."],
-                    },
-                ],
-            }
-        )
-
-    monkeypatch.setattr(cv_review_service, "_get_redis_client", lambda: fake_redis)
-    monkeypatch.setattr(cv_review_service, "_fetch_country_conventions", fake_conventions)
-    monkeypatch.setattr(cv_review_service, "_generate_review", fake_generate_review)
-
-    response = client.post(
-        "/cv/review",
-        json={**_review_payload(), "cvS3Key": cv.s3_key},
-    )
+    response = client.post("/cv/review", json=_payload(cv))
 
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/event-stream")
-    events = _events(response.text)
+    events = _sse_events(response)
     section_events = [data for name, data in events if name == "section"]
-    complete_event = next(data for name, data in events if name == "complete")
+    assert len(section_events) == 4
+    assert events[-1][0] == "complete"
 
-    assert len(section_events) == 5
-    assert {section["name"] for section in section_events} == {
-        "Structure/Formatting",
-        "Skills Gaps",
-        "ATS Keywords",
-        "Length Appropriateness",
-        "Country Conventions",
-    }
-    assert any(
-        "skills" in issue.lower()
-        for section in section_events
-        for issue in section["issues"]
+    complete = events[-1][1]
+    CVReviewResponse.model_validate(complete)
+    assert complete["overallScore"] == 82
+    assert len(complete["sections"]) == 4
+    assert complete["fromCache"] is False
+    assert coordinator.review_calls[0]["structured_data"]["skills"] == [
+        "Python",
+        "FastAPI",
+        "PostgreSQL",
+        "AWS",
+    ]
+    assert "German CV conventions" in coordinator.review_calls[0]["country_conventions"]
+    assert rag_calls == [("user-1", "Germany", "http://rag:8084")]
+    assert len(cache.setex_calls) == 1
+    assert cache.setex_calls[0][1] == 24 * 60 * 60
+
+
+def test_missing_skills_section_returns_skills_gap_feedback(
+    client, db_session, cv_review_stubs
+):
+    cv = _make_cv(
+        db_session,
+        s3_key_suffix="no-skills",
+        extracted_text="Ahmed Karim\nBSc Computer Science, Cairo University.",
+        structured_data={"name": "Ahmed Karim", "degree": "BSc Computer Science"},
     )
-    assert complete_event["overallScore"] == 82
-    assert len(calls) == 1
 
-    second = client.post(
-        "/cv/review",
-        json={**_review_payload(), "cvS3Key": cv.s3_key},
-    )
+    response = client.post("/cv/review", json=_payload(cv))
 
-    assert second.status_code == 200
-    assert len(calls) == 1
-    second_events = _events(second.text)
-    assert next(data for name, data in second_events if name == "complete")["overallScore"] == 82
+    assert response.status_code == 200
+    sections = [
+        data
+        for name, data in _sse_events(response)
+        if name == "section" and data["name"] == "Skills gaps"
+    ]
+    assert sections
+    assert "no skills section" in " ".join(sections[0]["issues"]).lower()
+
+
+def test_redis_cache_hit_replays_without_llm_call(client, db_session, cv_review_stubs):
+    cache, coordinator, _ = cv_review_stubs
+    cv = _make_cv(db_session, s3_key_suffix="cache")
+
+    first = client.post("/cv/review", json=_payload(cv))
+    second = client.post("/cv/review", json=_payload(cv))
+
+    assert first.status_code == second.status_code == 200
+    first_complete = _sse_events(first)[-1][1]
+    second_complete = _sse_events(second)[-1][1]
+    assert first_complete["overallScore"] == second_complete["overallScore"] == 82
+    assert first_complete["fromCache"] is False
+    assert second_complete["fromCache"] is True
+    assert len(coordinator.review_calls) == 1
+    assert len(coordinator.replay_calls) == 1
+    assert len(cache.values) == 1

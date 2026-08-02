@@ -1,261 +1,314 @@
-"""LLM review of an already-extracted CV."""
+"""CV review agent for GOA-025.
+
+The endpoint reviews CV text that the CV processor already extracted. It does
+not parse files, re-fetch S3, or mutate the extracted CV row.
+"""
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
+import inspect
 import json
 import logging
-import os
+import time
 from dataclasses import dataclass
-from typing import Any
-from urllib.parse import quote
+from functools import lru_cache
+from typing import Any, Awaitable, Callable
 
 import httpx
-import redis.asyncio as redis
-
-from anthropic import AsyncAnthropic
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, Field
 
 from app.agents import _json_object, _response_text
 from app.config import Settings, get_settings
-
+from app.schemas import CVReviewResponse, CVReviewSection
 
 logger = logging.getLogger(__name__)
 
-CACHE_TTL_SECONDS = 24 * 60 * 60
+REVIEW_MODEL = "claude-opus-4-8"
 REVIEW_TIMEOUT_SECONDS = 120.0
-REVIEW_SECTION_NAMES = (
-    "Structure/Formatting",
-    "Skills Gaps",
-    "ATS Keywords",
-    "Length Appropriateness",
-    "Country Conventions",
+CACHE_TTL_SECONDS = 24 * 60 * 60
+SECTION_NAMES: tuple[str, ...] = (
+    "Structure and formatting",
+    "Skills gaps",
+    "ATS keyword optimization",
+    "Length appropriateness",
+    "Country-specific conventions",
 )
 
-_redis_client = None
 
-
-class CVReviewSectionOutput(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class RawCVSection(BaseModel):
     name: str = Field(min_length=1)
     score: int = Field(ge=0, le=100)
     issues: list[str] = Field(default_factory=list)
     suggestions: list[str] = Field(default_factory=list)
 
 
-class CVReviewOutput(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    overallScore: int = Field(ge=0, le=100)
-    sections: list[CVReviewSectionOutput] = Field(min_length=4)
+@dataclass(frozen=True)
+class CVSectionExecution:
+    result: CVReviewSection
+    prompt_tokens: int
+    completion_tokens: int
+    latency_ms: float
 
 
 @dataclass(frozen=True)
-class CVReviewExecution:
-    review: CVReviewOutput
-    from_cache: bool
-    cache_key: str
+class CVReviewSummary:
+    overall_score: int
+    sections: list[CVReviewSection]
+    total_tokens: int
 
 
-def review_cache_key(cv_text: str, target_country: str, target_field: str) -> str:
-    canonical = f"{cv_text}\u001f{target_country}\u001f{target_field}"
-    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+PartialCallback = Callable[[CVReviewSection], Awaitable[None] | None]
 
 
-def _get_redis_client():
-    global _redis_client
-    if _redis_client is None:
-        redis_url = os.environ.get("REDIS_GATEWAY_URL", "redis://redis-gateway:6379/0")
-        _redis_client = redis.from_url(
-            redis_url,
-            socket_connect_timeout=2,
-            socket_timeout=2,
-            decode_responses=True,
-        )
-    return _redis_client
-
-
-async def _read_cached_review(cache_key: str) -> CVReviewOutput | None:
-    try:
-        cached = await _get_redis_client().get(cache_key)
-    except Exception as exc:
-        logger.warning("cv_review_cache_read_failed", error=str(exc))
-        return None
-    if not cached:
-        return None
-    try:
-        return CVReviewOutput.model_validate_json(cached)
-    except (ValidationError, json.JSONDecodeError, ValueError) as exc:
-        logger.warning("cv_review_cache_invalid", error=str(exc))
-        return None
-
-
-async def _write_cached_review(cache_key: str, review: CVReviewOutput) -> None:
-    try:
-        await _get_redis_client().setex(
-            cache_key,
-            CACHE_TTL_SECONDS,
-            review.model_dump_json(by_alias=True, exclude_none=True),
-        )
-    except Exception as exc:
-        logger.warning("cv_review_cache_write_failed", error=str(exc))
-
-
-async def _fetch_country_conventions(target_country: str, settings: Settings) -> dict[str, Any]:
-    base_url = settings.rag_service_url.rstrip("/")
-    headers = {}
-    if settings.internal_api_key:
-        headers["X-Internal-Api-Key"] = settings.internal_api_key
-
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        response = await client.get(
-            f"{base_url}/internal/cv-country-conventions/{quote(target_country)}",
-            headers=headers,
-        )
-
-    if response.status_code == 404:
-        return {}
-    response.raise_for_status()
-    payload = response.json()
-    if isinstance(payload, dict):
-        return payload
-    return {"data": payload}
-
-
-def _build_input(
-    extracted_text: str | None,
-    structured_data: dict[str, Any] | None,
+def cv_review_cache_key(
+    cv_text: str,
     target_country: str,
     target_field: str,
-    conventions: dict[str, Any],
+    settings: Settings,
 ) -> str:
-    parts = [
-        "You are reviewing a CV for a student or graduate applying for study or entry-level work abroad.",
-        "Return only JSON matching this exact shape:",
-        json.dumps(
-            {
-                "overallScore": 82,
-                "sections": [
-                    {
-                        "name": "Structure/Formatting",
-                        "score": 80,
-                        "issues": ["..."],
-                        "suggestions": ["..."]
-                    }
-                ],
-            },
-            ensure_ascii=False,
-            indent=2,
-        ),
-        "Use exactly these section names in this order: " + ", ".join(REVIEW_SECTION_NAMES),
-        f"Target country: {target_country}",
-        f"Target field: {target_field}",
-        "Country conventions from RAG:\n" + json.dumps(conventions, indent=2, ensure_ascii=False),
-    ]
+    payload = json.dumps(
+        {
+            "version": settings.cache_version,
+            "cvText": cv_text,
+            "targetCountry": target_country.strip().casefold(),
+            "targetField": target_field.strip().casefold(),
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return "cv-review:" + hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _build_cv_context(
+    extracted_text: str | None,
+    structured_data: dict[str, Any] | None,
+) -> str:
+    parts = []
     if structured_data:
         parts.append(
-            "Structured data extracted from the CV:\n"
-            + json.dumps(structured_data, indent=2, ensure_ascii=False)
+            "Structured CV data:\n"
+            + json.dumps(structured_data, ensure_ascii=False, indent=2)
         )
     if extracted_text:
-        parts.append("Raw CV text:\n" + extracted_text[:20000])
+        parts.append("Extracted CV text:\n" + extracted_text[:20000])
     return "\n\n".join(parts)
 
 
-def _build_client(settings: Settings) -> AsyncAnthropic:
-    key = settings.anthropic_api_key or "not-configured"
-    if key == "not-configured":
-        logger.warning("ANTHROPIC_API_KEY is not configured; CV review will fail")
-    client_kwargs: dict[str, Any] = {
-        "api_key": key,
-        "timeout": REVIEW_TIMEOUT_SECONDS,
-        "max_retries": 1,
-        "default_headers": {"User-Agent": settings.anthropic_user_agent},
-    }
-    if settings.anthropic_base_url:
-        client_kwargs["base_url"] = settings.anthropic_base_url
-    return AsyncAnthropic(**client_kwargs)
+async def maybe_await(value: Any) -> Any:
+    if inspect.isawaitable(value):
+        return await value
+    return value
 
 
-async def _generate_review(
-    extracted_text: str | None,
-    structured_data: dict[str, Any] | None,
+async def _notify(callback: PartialCallback | None, result: CVReviewSection) -> None:
+    if callback is None:
+        return
+    await maybe_await(callback(result))
+
+
+async def fetch_country_conventions(
+    user_id: str,
     target_country: str,
-    target_field: str,
-    *,
-    conventions: dict[str, Any],
     settings: Settings,
-) -> CVReviewOutput:
-    client = _build_client(settings)
-    prompt = _build_input(
-        extracted_text,
-        structured_data,
-        target_country,
-        target_field,
-        conventions,
+) -> str:
+    question = (
+        "Summarize country-specific CV conventions for a student applying in "
+        f"{target_country}. Include photo expectations, length, personal details, "
+        "format, Europass or local convention guidance, and any ATS implications."
     )
-
-    last_error: Exception | None = None
-    for attempt in range(2):
-        messages = [{"role": "user", "content": prompt}]
-        if attempt:
-            messages = [
-                {
-                    "role": "user",
-                    "content": (
-                        "Your previous answer was not valid JSON for the required schema. "
-                        "Return only the corrected JSON object.\n\n" + prompt
-                    ),
-                }
-            ]
-        response = await client.messages.create(
-            model=settings.cv_review_model,
-            max_tokens=2500,
-            system=(
-                "You are a careful CV review agent. Assess structure/formatting, "
-                "skills gaps for the target field, ATS keyword optimisation, length "
-                "appropriateness, and country-specific conventions. Give each section "
-                "a 0-100 score. Return JSON only."
-            ),
-            messages=messages,
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(
+                f"{settings.rag_service_url.rstrip('/')}/query",
+                json={"userId": user_id, "question": question, "topK": 5},
+            )
+            response.raise_for_status()
+            data = response.json()
+    except Exception:
+        logger.warning(
+            "RAG country CV conventions lookup failed",
+            exc_info=True,
+            extra={"target_country": target_country},
         )
-        try:
-            review = CVReviewOutput.model_validate_json(_json_object(_response_text(response)))
-        except (ValidationError, json.JSONDecodeError, ValueError) as exc:
-            last_error = exc
-            continue
-
-        if {section.name for section in review.sections} >= set(REVIEW_SECTION_NAMES):
-            return review
-        last_error = ValueError("CV review did not return the required section set")
-
-    raise ValueError("CV review model returned invalid JSON twice") from last_error
+        return (
+            "No RAG convention documents were available. Apply conservative, widely "
+            "accepted country-specific CV guidance and call out uncertainty."
+        )
+    return str(data.get("answer") or "").strip()
 
 
-async def review_cv(
-    extracted_text: str | None,
-    structured_data: dict[str, Any] | None,
-    target_country: str,
-    target_field: str,
-    *,
-    settings: Settings | None = None,
-) -> CVReviewExecution:
-    settings = settings or get_settings()
-    cache_key = review_cache_key(extracted_text or "", target_country, target_field)
+class CVReviewRunner:
+    def __init__(self, client: Any, *, model: str = REVIEW_MODEL) -> None:
+        self.client = client
+        self.model = model
 
-    cached = await _read_cached_review(cache_key)
-    if cached is not None:
-        return CVReviewExecution(review=cached, from_cache=True, cache_key=cache_key)
+    async def review_section(
+        self,
+        section_name: str,
+        *,
+        cv_context: str,
+        target_country: str,
+        target_field: str,
+        country_conventions: str,
+    ) -> CVSectionExecution:
+        system = (
+            "You are the GOA CV Review Agent. Review one CV section dimension "
+            "against study-abroad admissions, target-field expectations, ATS "
+            "keyword quality, and country-specific conventions. Return only JSON."
+        )
+        prompt = f"""Return one JSON object with this exact shape:
+{{
+  "name": "{section_name}",
+  "score": 0,
+  "issues": ["specific problems found"],
+  "suggestions": ["specific improvements the candidate can make"]
+}}
 
-    conventions = await _fetch_country_conventions(target_country, settings)
-    review = await _generate_review(
-        extracted_text,
-        structured_data,
-        target_country,
-        target_field,
-        conventions=conventions,
-        settings=settings,
+Rules:
+- score is an integer from 0 to 100.
+- Judge only the supplied extracted CV content; do not invent credentials.
+- If the skills section is absent, the Skills gaps section must explicitly say so.
+- Suggestions must be concrete rewrite or content actions.
+- Country conventions matter for {target_country}; e.g. photo expectations can differ by country.
+
+Target country: {target_country}
+Target field: {target_field}
+Review dimension: {section_name}
+
+Country convention context from RAG:
+{country_conventions[:4000]}
+
+CV:
+{cv_context}
+"""
+        started = time.perf_counter()
+        response = await self.client.messages.create(
+            model=self.model,
+            max_tokens=1200,
+            system=system,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        latency_ms = (time.perf_counter() - started) * 1000
+        raw = RawCVSection.model_validate_json(_json_object(_response_text(response)))
+        result = CVReviewSection(
+            name=raw.name,
+            score=raw.score,
+            issues=raw.issues,
+            suggestions=raw.suggestions,
+        )
+        usage = getattr(response, "usage", None)
+        return CVSectionExecution(
+            result=result,
+            prompt_tokens=int(getattr(usage, "input_tokens", 0) or 0),
+            completion_tokens=int(getattr(usage, "output_tokens", 0) or 0),
+            latency_ms=latency_ms,
+        )
+
+
+class CVReviewCoordinator:
+    def __init__(self, runner: CVReviewRunner) -> None:
+        self.runner = runner
+
+    async def review(
+        self,
+        *,
+        extracted_text: str | None,
+        structured_data: dict[str, Any] | None,
+        target_country: str,
+        target_field: str,
+        country_conventions: str,
+        on_partial: PartialCallback | None = None,
+    ) -> CVReviewSummary:
+        cv_context = _build_cv_context(extracted_text, structured_data)
+
+        async def run_one(section_name: str) -> CVSectionExecution:
+            execution = await self.runner.review_section(
+                section_name,
+                cv_context=cv_context,
+                target_country=target_country,
+                target_field=target_field,
+                country_conventions=country_conventions,
+            )
+            await _notify(on_partial, execution.result)
+            return execution
+
+        gathered = await asyncio.gather(
+            *(run_one(section_name) for section_name in SECTION_NAMES),
+            return_exceptions=True,
+        )
+        failures = [item for item in gathered if isinstance(item, BaseException)]
+        if failures:
+            raise RuntimeError(f"CV review failed: {failures[0]}") from failures[0]
+
+        executions = [item for item in gathered if isinstance(item, CVSectionExecution)]
+        by_name = {item.result.name.casefold(): item for item in executions}
+        ordered = [
+            by_name.get(section_name.casefold())
+            for section_name in SECTION_NAMES
+            if by_name.get(section_name.casefold()) is not None
+        ]
+        ordered.extend(item for item in executions if item not in ordered)
+        sections = [item.result for item in ordered]
+        overall_score = round(sum(item.score for item in sections) / len(sections))
+        return CVReviewSummary(
+            overall_score=overall_score,
+            sections=sections,
+            total_tokens=sum(
+                item.prompt_tokens + item.completion_tokens for item in ordered
+            ),
+        )
+
+    async def replay_cached(
+        self,
+        payload: dict[str, Any],
+        *,
+        on_partial: PartialCallback | None = None,
+    ) -> CVReviewSummary:
+        response = CVReviewResponse.model_validate(payload)
+        for section in response.sections:
+            await _notify(on_partial, section)
+        return CVReviewSummary(
+            overall_score=response.overallScore,
+            sections=response.sections,
+            total_tokens=0,
+        )
+
+
+def get_redis_client(settings: Settings):
+    import redis
+
+    return redis.Redis.from_url(settings.redis_url, decode_responses=True)
+
+
+async def get_cached_review(cache_client: Any, cache_key: str) -> dict[str, Any] | None:
+    cached = await maybe_await(cache_client.get(cache_key))
+    if not cached:
+        return None
+    return json.loads(cached)
+
+
+async def set_cached_review(cache_client: Any, cache_key: str, payload: dict[str, Any]) -> None:
+    serialized = json.dumps(payload, separators=(",", ":"))
+    await maybe_await(cache_client.setex(cache_key, CACHE_TTL_SECONDS, serialized))
+
+
+def cv_review_response(summary: CVReviewSummary) -> CVReviewResponse:
+    return CVReviewResponse(overallScore=summary.overall_score, sections=summary.sections)
+
+
+@lru_cache
+def get_cv_review_coordinator() -> CVReviewCoordinator:
+    from anthropic import AsyncAnthropic
+
+    settings = get_settings()
+    key = settings.anthropic_api_key or "not-configured"
+    client = AsyncAnthropic(
+        api_key=key,
+        timeout=REVIEW_TIMEOUT_SECONDS,
+        max_retries=1,
+        default_headers={"User-Agent": settings.anthropic_user_agent},
+        **({"base_url": settings.anthropic_base_url} if settings.anthropic_base_url else {}),
     )
-    await _write_cached_review(cache_key, review)
-    return CVReviewExecution(review=review, from_cache=False, cache_key=cache_key)
+    return CVReviewCoordinator(CVReviewRunner(client, model=REVIEW_MODEL))

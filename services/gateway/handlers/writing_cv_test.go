@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -82,4 +83,56 @@ func newCVUploadRequest(t *testing.T) *http.Request {
 	request := httptest.NewRequest(http.MethodPost, "/cv/upload", &body)
 	request.Header.Set("Content-Type", writer.FormDataContentType())
 	return request
+}
+
+func TestReviewCVInjectsAuthenticatedUserAndForwardsSSE(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/cv/review" {
+			t.Fatalf("unexpected upstream path %q", r.URL.Path)
+		}
+		var payload map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Fatalf("failed to decode upstream body: %v", err)
+		}
+		if got := payload["userId"]; got != "user-123" {
+			t.Fatalf("expected authenticated user ID, got %v", got)
+		}
+		if got := payload["cvS3Key"]; got != "cvs/user-123/resume.pdf" {
+			t.Fatalf("expected cvS3Key to be preserved, got %v", got)
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("event: section\n"))
+		_, _ = w.Write([]byte(`data: {"name":"Skills gaps","score":80,"issues":[],"suggestions":[]}` + "\n\n"))
+	}))
+	defer upstream.Close()
+
+	handler := NewWritingHandler(upstream.Client(), upstream.Client(), upstream.URL)
+	app := fiber.New()
+	app.Post("/cv/review", func(c *fiber.Ctx) error {
+		c.Locals(middleware.ContextKeyUserID, "user-123")
+		return handler.ReviewCV(c)
+	})
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/cv/review",
+		bytes.NewReader([]byte(`{"userId":"attacker","cvS3Key":"cvs/user-123/resume.pdf","targetCountry":"Germany","targetField":"CS"}`)),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response, err := app.Test(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", response.StatusCode)
+	}
+	if ct := response.Header.Get("Content-Type"); ct != "text/event-stream" {
+		t.Fatalf("expected event-stream content type, got %q", ct)
+	}
+	body, _ := io.ReadAll(response.Body)
+	if !bytes.Contains(body, []byte("event: section")) {
+		t.Fatalf("expected SSE body, got %s", body)
+	}
 }

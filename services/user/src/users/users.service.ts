@@ -102,19 +102,21 @@ export class UsersService {
       },
     );
 
-    // 4. Fire notifications safely outside the database transaction locks
+    // 4. Fire notifications safely outside the database transaction locks.
     //
-    // Email delivery in this environment is intentionally log-based rather
-    // than routed through LocalStack SES/SQS: no notification service
-    // consumes these events yet, and SES is not enabled in the local
-    // LocalStack container. Writing the link to stdout keeps the
-    // verification flow fully testable end-to-end without a real mail
-    // provider. See docs/local-dev-setup.md for the rationale.
+    // GOA-083: the User service no longer sends verification email directly.
+    // It publishes an EmailVerificationRequired event to the notification
+    // queue; the Notification service renders the template and sends via SES.
+    // A publish failure must not fail registration — the account and token are
+    // already committed — so this is fire-and-forget with internal error
+    // logging, matching publishUserUpdatedEvent/publishAccountDeletedEvent.
     const rawToken = (savedUser as any).rawVerificationToken;
 
-    console.log(
-      `[SQS Simulation] Send verification email to ${savedUser.email} with link: https://goa.app/verify-email/${rawToken}`,
-    );
+    await this.publishEmailVerificationRequired({
+      userId: savedUser.id,
+      verificationToken: rawToken,
+      email: savedUser.email,
+    });
 
     // 5. Securely omit password fields from downstream API responses
     const {
@@ -369,6 +371,101 @@ export class UsersService {
     }
   }
 
+  /**
+   * GOA-083: publish an EmailVerificationRequired event to the notification
+   * queue so the Notification Lambda renders and sends the verification
+   * email. Fire-and-forget — a publish failure must never fail registration.
+   */
+  private async publishEmailVerificationRequired(params: {
+    userId: string;
+    verificationToken: string;
+    email: string;
+  }): Promise<void> {
+    try {
+      const producerName = this.configService.get<string>(
+        'SQS_NOTIFICATION_PRODUCER_NAME',
+        'notifications',
+      );
+      const queueUrl = this.configService.get<string>('NOTIFICATION_QUEUE_URL');
+      if (!queueUrl) {
+        this.logger.warn(
+          'NOTIFICATION_QUEUE_URL is not set — cannot publish EmailVerificationRequired; verification email will not be sent',
+        );
+        return;
+      }
+
+      const event = {
+        type: 'EmailVerificationRequired' as const,
+        userId: params.userId,
+        verificationToken: params.verificationToken,
+        email: params.email,
+      };
+
+      await this.sqsService.send(producerName, {
+        id: crypto.randomUUID(),
+        body: event,
+      });
+
+      this.logger.log(
+        `EmailVerificationRequired event published for user ${params.userId}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to publish EmailVerificationRequired event for user ${params.userId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+  }
+
+  /**
+   * GOA-083: publish a PasswordResetRequested event to the notification
+   * queue so the Notification Lambda renders and sends the reset email.
+   * Fire-and-forget — the endpoint always returns a uniform 200 to prevent
+   * user enumeration, so a queue failure must not surface to the caller.
+   */
+  private async publishPasswordResetRequested(params: {
+    userId: string;
+    resetToken: string;
+    email: string;
+    expiresAt: string;
+  }): Promise<void> {
+    try {
+      const producerName = this.configService.get<string>(
+        'SQS_NOTIFICATION_PRODUCER_NAME',
+        'notifications',
+      );
+      const queueUrl = this.configService.get<string>('NOTIFICATION_QUEUE_URL');
+      if (!queueUrl) {
+        this.logger.warn(
+          'NOTIFICATION_QUEUE_URL is not set — cannot publish PasswordResetRequested; reset email will not be sent',
+        );
+        return;
+      }
+
+      const event = {
+        type: 'PasswordResetRequested' as const,
+        userId: params.userId,
+        resetToken: params.resetToken,
+        email: params.email,
+        expiresAt: params.expiresAt,
+      };
+
+      await this.sqsService.send(producerName, {
+        id: crypto.randomUUID(),
+        body: event,
+      });
+
+      this.logger.log(
+        `PasswordResetRequested event published for user ${params.userId}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to publish PasswordResetRequested event for user ${params.userId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+  }
+
   private hashToken(token: string): string {
     return crypto.createHash('sha256').update(token).digest('hex');
   }
@@ -401,12 +498,17 @@ export class UsersService {
     });
     await this.resetTokenRepository.save(resetTokenEntry);
 
-    // 6. Same log-based delivery approach as registration (see the note in
-    // register() above) — the raw token is written to stdout in place of
-    // an actual email.
-    console.log(
-      `[SQS Simulation] Send email to ${email} with link: https://goa.app/reset-password?token=${rawToken}`,
-    );
+    // 6. GOA-083: publish a PasswordResetRequested event instead of sending
+    // email directly. The Notification service renders the reset template and
+    // sends via SES. Publish failure is logged, not thrown — the endpoint
+    // always returns a uniform 200 to prevent user enumeration (see
+    // AuthController.forgotPassword), so it must not surface a mail/queue error.
+    await this.publishPasswordResetRequested({
+      userId: user.id,
+      resetToken: rawToken,
+      email,
+      expiresAt: expiresAt.toISOString(),
+    });
   }
 
   async resetPassword(resetPasswordDto: ResetPasswordDto): Promise<void> {

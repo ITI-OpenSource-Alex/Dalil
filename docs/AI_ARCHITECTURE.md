@@ -197,9 +197,15 @@ It loads the last ten turns from Redis, resolves references within the classific
 | --- | --- | --- | --- |
 | Short-term conversation | S1–S2 | Redis, 24-hour TTL | Last ten turns and reference resolution. |
 | Exam context | S3 | Exam internal API plus 30-minute Redis cache | Real practice bands and weak-area personalization. |
-| Long-term facts | S4 | `orchestration_db` | Degree, GPA, target countries, programs, and concerns across sessions. |
+| Long-term facts | S4 | `orchestration_db`, 30-day expiry | Degree, GPA, target countries, programs, and concerns across sessions. |
 
-Fact extraction in Sprint 4 runs asynchronously after an idle-session threshold so it does not add latency to the chat critical path.
+Fact extraction runs asynchronously, off the request path. A sweep every five minutes collects sessions that have been silent for thirty minutes, extracts facts from the user's own turns, and stores them in `user_facts`. There is no "session ended" event anywhere in the system and no queue was introduced for one — silence is the signal.
+
+Reading is on the request path, because that is the feature. Facts are loaded before classification (Redis-cached, with a 250 ms ceiling and degrading to no facts rather than to an error) and reach the user through `standalone_question`, the rewritten message downstream services actually receive. Facts placed only in the supervisor's prompt would personalize the routing decision and nothing anyone ever sees.
+
+Exam bands are deliberately excluded from this layer. The exam-context row above is authoritative for those, and a score mentioned in passing must not compete with a graded one; a CHECK constraint on `fact_type` enforces that rather than the extraction prompt.
+
+Expiry is measured from last reinforcement, filtered at read time and purged by the same sweep. `DELETE /api/sessions/memory` erases this layer and the short-term one together — wiping only the durable half would leave the assistant still resolving references from an open session.
 
 ## 7. RAG architecture
 

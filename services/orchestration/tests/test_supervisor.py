@@ -151,8 +151,13 @@ async def test_cost_telemetry_does_not_block_the_event_loop(mock_llm, monkeypatc
         "raw": raw_mock,
     }
 
+    # Two 0.5s sleeps: concurrent is ~0.5s, serialised is ~1.0s. The gap is wide
+    # enough in absolute terms that a loaded CI runner cannot turn a pass into a
+    # failure, which a tighter budget could.
+    delay = 0.5
+
     def slow_record(*args, **kwargs):
-        _time.sleep(0.3)
+        _time.sleep(delay)
 
     monkeypatch.setattr(app.telemetry, "record_llm_cost", slow_record)
 
@@ -162,8 +167,8 @@ async def test_cost_telemetry_does_not_block_the_event_loop(mock_llm, monkeypatc
     )
     elapsed = _time.perf_counter() - started
 
-    assert elapsed < 0.5, (
-        f"two turns took {elapsed:.2f}s for 0.3s of telemetry each -- "
+    assert elapsed < delay * 1.5, (
+        f"two turns took {elapsed:.2f}s for {delay}s of telemetry each -- "
         "the telemetry call is blocking the event loop"
     )
 

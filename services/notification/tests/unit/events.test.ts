@@ -1,4 +1,4 @@
-import { deriveNotificationId, parseNotificationEvent } from '../../src/events';
+import { deriveNotificationId, parseNotificationEvent, parseAuthEmailEvent, deriveAuthEmailId } from '../../src/events';
 import { ScholarshipMatchedNotification, DeadlineReminderNotification, CVProcessedNotification } from '../../../../packages/contracts/ts/index';
 
 describe('Event Parsing & Idempotency Key Derivation', () => {
@@ -75,5 +75,95 @@ describe('Event Parsing & Idempotency Key Derivation', () => {
 
         expect(id1).toBe(id2);
         expect(id1).toHaveLength(64);
+    });
+});
+
+describe('GOA-083 Auth Email Event Parsing', () => {
+    it('should parse a PasswordResetRequested event with the exact User-service payload', () => {
+        const rawJson = JSON.stringify({
+            type: 'PasswordResetRequested',
+            userId: 'user_123',
+            resetToken: 'raw-reset-token-abc',
+            email: 'lina@example.com',
+            expiresAt: '2026-07-29T12:00:00.000Z',
+        });
+
+        const event = parseAuthEmailEvent(rawJson);
+        expect(event).not.toBeNull();
+        expect(event!.type).toBe('PasswordResetRequested');
+        expect(event!.email).toBe('lina@example.com');
+    });
+
+    it('should parse an EmailVerificationRequired event with the exact User-service payload', () => {
+        const rawJson = JSON.stringify({
+            type: 'EmailVerificationRequired',
+            userId: 'user_456',
+            verificationToken: 'raw-verify-token-xyz',
+            email: 'omar@example.com',
+        });
+
+        const event = parseAuthEmailEvent(rawJson);
+        expect(event).not.toBeNull();
+        expect(event!.type).toBe('EmailVerificationRequired');
+        expect(event!.email).toBe('omar@example.com');
+    });
+
+    it('should return null for a non-auth event so the caller falls through', () => {
+        const rawJson = JSON.stringify({
+            eventType: 'ScholarshipMatched',
+            userId: 'user_1',
+        });
+        expect(parseAuthEmailEvent(rawJson)).toBeNull();
+    });
+
+    it('should throw when a PasswordResetRequested event is missing its token', () => {
+        const rawJson = JSON.stringify({
+            type: 'PasswordResetRequested',
+            userId: 'user_123',
+            email: 'lina@example.com',
+        });
+        expect(() => parseAuthEmailEvent(rawJson)).toThrow(
+            'PasswordResetRequested event missing userId, resetToken or email',
+        );
+    });
+
+    it('should throw when an EmailVerificationRequired event is missing its email', () => {
+        const rawJson = JSON.stringify({
+            type: 'EmailVerificationRequired',
+            userId: 'user_456',
+            verificationToken: 'raw-verify-token-xyz',
+        });
+        expect(() => parseAuthEmailEvent(rawJson)).toThrow(
+            'EmailVerificationRequired event missing userId, verificationToken or email',
+        );
+    });
+
+    it('should derive a deterministic, token-scoped idempotency id', () => {
+        const first = deriveAuthEmailId({
+            type: 'PasswordResetRequested',
+            userId: 'u1',
+            resetToken: 'token-A',
+            email: 'a@example.com',
+            expiresAt: '2026-07-29T12:00:00.000Z',
+        });
+        const same = deriveAuthEmailId({
+            type: 'PasswordResetRequested',
+            userId: 'u1',
+            resetToken: 'token-A',
+            email: 'a@example.com',
+            expiresAt: '2026-07-29T13:00:00.000Z',
+        });
+        const differentToken = deriveAuthEmailId({
+            type: 'PasswordResetRequested',
+            userId: 'u1',
+            resetToken: 'token-B',
+            email: 'a@example.com',
+            expiresAt: '2026-07-29T12:00:00.000Z',
+        });
+
+        // Same token → same id (redelivery is deduped); different token → different id.
+        expect(first).toBe(same);
+        expect(first).not.toBe(differentToken);
+        expect(first).toHaveLength(64);
     });
 });

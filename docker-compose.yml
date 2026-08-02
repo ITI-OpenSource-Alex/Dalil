@@ -61,6 +61,9 @@ services:
       - AWS_SECRET_ACCESS_KEY=test
       - AWS_ENDPOINT=http://localstack:4566
       - SQS_QUEUE_URL=http://localstack:4566/000000000000/user-events
+      # GOA-083: auth emails are now published to notification-queue, which the
+      # notification service already polls. See services/user/src/sqs/sqs.module.ts.
+      - NOTIFICATION_QUEUE_URL=http://localstack:4566/000000000000/notification-queue
 
       - REDIS_HOST=redis-gateway
       - REDIS_PORT=6379
@@ -234,6 +237,11 @@ services:
       # makes the notification E2E runnable locally at zero cost.
       - SERVICES=sqs,s3,ses
       - AWS_DEFAULT_REGION=us-east-1
+      # GOA-083: the init script verifies this identity so the notification
+      # service's SendEmail succeeds. Kept in sync with the notification
+      # service's SES_SENDER_ADDRESS so an override can't verify one address
+      # while the sender uses another.
+      - SES_SENDER_ADDRESS=${SES_SENDER_ADDRESS:-notifications@localhost.test}
     ports:
       - "4566:4566"
     healthcheck:

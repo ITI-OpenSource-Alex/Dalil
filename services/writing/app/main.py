@@ -105,6 +105,7 @@ async def stop_account_deleted_consumer():
         except asyncio.CancelledError:
             pass
 
+
 @app.get("/health")
 def health():
     return {"status": "ok"}

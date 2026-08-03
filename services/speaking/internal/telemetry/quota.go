@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -71,18 +72,16 @@ func markUnavailable(err error) {
 		Msg("Speaking quota store unavailable; skipping quota checks")
 }
 
-// NewSpeakingQuota reads the budget from SPEAKING_SECONDS_PER_DAY and checks
-// once, at startup, that the quota store is actually reachable.
+// NewSpeakingQuota reads the budget from SPEAKING_SECONDS_PER_DAY.
 //
-// The probe is what makes the latch work. A latch alone is set by the first
-// failure, which is no help when fifty sessions close at the same instant and
-// all fifty are already in flight -- every one of them dials a dead host, and
-// go-redis's pool outlives their contexts. Asking once at boot means that in an
-// environment without Redis (every test binary, and any deployment where the
-// cache is missing) the per-session path never touches the network at all.
+// Deliberately does no I/O. This is called from a package-level var in
+// internal/speaking, so whatever it does runs at *import* time -- in every test
+// binary and every tool that links the package, before any test has arranged
+// its environment or taken a baseline goroutine count. Dialling Redis from
+// there was both poor practice and a way to make one package's init a variable
+// in another package's test.
 //
-// After the backoff expires one request will try again, so a Redis that comes
-// back is picked up without a restart.
+// The reachability probe moved to first use; see ensureProbed.
 func NewSpeakingQuota() *SpeakingQuota {
 	seconds := defaultDailySpeakingSeconds
 	if raw := os.Getenv("SPEAKING_SECONDS_PER_DAY"); raw != "" {
@@ -93,15 +92,33 @@ func NewSpeakingQuota() *SpeakingQuota {
 		}
 	}
 
-	if redisClient != nil && seconds > 0 {
+	return &SpeakingQuota{DailySeconds: seconds}
+}
+
+// probeOnce runs the reachability check exactly once, on the first quota call.
+//
+// The probe is what makes the latch useful. A latch alone is set by the first
+// failure, which is no help when fifty sessions close at the same instant and
+// all fifty are already in flight -- every one of them dials a dead host, and
+// go-redis's pool outlives their contexts. sync.Once means the first caller
+// pays for the check and the other forty-nine wait on it rather than repeating
+// it, so an environment without Redis costs exactly one failed dial ever.
+//
+// After the backoff expires the next call probes again, so a Redis that comes
+// back is picked up without a restart.
+var probeOnce sync.Once
+
+func ensureProbed() {
+	probeOnce.Do(func() {
+		if redisClient == nil {
+			return
+		}
 		ctx, cancel := context.WithTimeout(context.Background(), quotaTimeout)
 		defer cancel()
 		if err := redisClient.Ping(ctx).Err(); err != nil {
 			markUnavailable(err)
 		}
-	}
-
-	return &SpeakingQuota{DailySeconds: seconds}
+	})
 }
 
 func quotaKey(userID string, at time.Time) string {
@@ -118,7 +135,11 @@ func quotaKey(userID string, at time.Time) string {
 // every user their speaking practice because a cache is down would be the
 // larger harm.
 func (q *SpeakingQuota) Allow(ctx context.Context, userID string) (bool, int64) {
-	if q == nil || q.DailySeconds <= 0 || redisClient == nil || userID == "" || !quotaAvailable() {
+	if q == nil || q.DailySeconds <= 0 || redisClient == nil || userID == "" {
+		return true, 0
+	}
+	ensureProbed()
+	if !quotaAvailable() {
 		return true, 0
 	}
 
@@ -150,7 +171,11 @@ func (q *SpeakingQuota) Allow(ctx context.Context, userID string) (bool, int64) 
 // the day it began, and the extra margin keeps that from being lost to a
 // same-day expiry.
 func (q *SpeakingQuota) Record(ctx context.Context, userID string, seconds float64) {
-	if q == nil || q.DailySeconds <= 0 || redisClient == nil || userID == "" || seconds <= 0 || !quotaAvailable() {
+	if q == nil || q.DailySeconds <= 0 || redisClient == nil || userID == "" || seconds <= 0 {
+		return
+	}
+	ensureProbed()
+	if !quotaAvailable() {
 		return
 	}
 

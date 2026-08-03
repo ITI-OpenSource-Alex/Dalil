@@ -16,6 +16,7 @@ import (
 	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/internal/speaking"
 	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/langfuse"
 	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/llm"
+	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/migrations"
 	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/tts"
 )
 
@@ -43,6 +44,15 @@ func main() {
 	}
 	log.Info().Msg("Successfully established PostgreSQL connection pool")
 
+	// Apply migrations before anything can try to write. Fatal on failure: a
+	// speaking service that cannot persist is worse than one that will not start,
+	// because it answers every session successfully and silently discards the
+	// result — which is precisely what happened while nothing ran these at all
+	// (BUG-039).
+	if err := db.RunMigrations(ctx, dbPool, migrations.FS); err != nil {
+		log.Fatal().Err(err).Msg("Database migrations failed")
+	}
+
 	// 2. Initialize Repositories and Specialist Clients
 	dbRepo := db.NewPostgresRepository(dbPool)
 
@@ -68,6 +78,10 @@ func main() {
 	langfuseClient := langfuse.NewClient(cfg.LangfusePublicKey, cfg.LangfuseSecretKey, cfg.LangfuseHost)
 
 	speaking.StartBackgroundTasks()
+	appCtx, appCancel := context.WithCancel(context.Background())
+	defer appCancel()
+	speaking.StartAccountDeletedConsumer(appCtx, cfg, dbRepo)
+	speaking.StartRetentionCleanup(appCtx, cfg, dbRepo)
 
 	// 3. HTTP Server configuration
 	//
@@ -100,6 +114,7 @@ func main() {
 	<-stop
 
 	log.Info().Msg("Shutting down Speaking Service gracefully...")
+	appCancel()
 
 	// Create shutdown deadline (5 seconds maximum drain window)
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)

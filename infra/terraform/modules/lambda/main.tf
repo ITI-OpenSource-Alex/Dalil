@@ -22,7 +22,9 @@ resource "aws_lambda_function" "this" {
     }
   }
 
-  layers = var.enable_lambda_insights && var.lambda_insights_layer_arn != "" ? [var.lambda_insights_layer_arn] : []
+  # Lambda image functions cannot attach Lambda layers. Image-based workers must
+  # bake the Lambda Insights extension into /opt/extensions in their Dockerfiles.
+  layers = var.package_type == "Zip" && var.enable_lambda_insights && var.lambda_insights_layer_arn != "" ? [var.lambda_insights_layer_arn] : []
 
   vpc_config {
     subnet_ids         = var.vpc_subnet_ids

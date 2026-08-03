@@ -70,14 +70,37 @@ async def test_all_five_intents_classify_correctly(message, expected_intent):
 
 
 def test_base_url_omitted_when_setting_empty(mocker):
-    mock_chat = mocker.patch("langchain_anthropic.ChatAnthropic")
-    import app.core.config
-    mocker.patch.object(app.core.config.settings, "anthropic_base_url", "")
+    """Reloading the supervisor is how this test works, and it has to be undone.
 
+    The reload runs with ChatAnthropic mocked, which leaves the module-level
+    `llm` and `structured_llm` as MagicMocks -- for the remainder of the pytest
+    session, not just this test. Anything running afterwards that calls
+    classify_intent then fails with "object MagicMock can't be used in 'await'
+    expression", gets swallowed by the 2-attempt retry, and returns a fallback
+    RAG intent at confidence 0.0.
+
+    That reads exactly like a gateway or model problem and has nothing to do
+    with the test actually failing. It went unnoticed because nothing ran after
+    this file; GOA-038's cassette tests do.
+
+    stopall() before the second reload, so the module is rebuilt against the
+    real ChatAnthropic -- in a finally, so a failed assertion above does not
+    poison the session either.
+    """
     import importlib
-    import app.services.supervisor
-    importlib.reload(app.services.supervisor)
 
-    mock_chat.assert_called_once()
-    kwargs = mock_chat.call_args[1]
-    assert "base_url" not in kwargs
+    import app.core.config
+    import app.services.supervisor
+
+    try:
+        mock_chat = mocker.patch("langchain_anthropic.ChatAnthropic")
+        mocker.patch.object(app.core.config.settings, "anthropic_base_url", "")
+
+        importlib.reload(app.services.supervisor)
+
+        mock_chat.assert_called_once()
+        kwargs = mock_chat.call_args[1]
+        assert "base_url" not in kwargs
+    finally:
+        mocker.stopall()
+        importlib.reload(app.services.supervisor)

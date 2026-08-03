@@ -44,7 +44,7 @@ def test_rate_limited_and_server_errors_are_still_retried():
 # ---------------------------------------------------------------------------
 
 def test_summary_reports_adapter_failure_and_degrades_status(monkeypatch):
-    async def fake_fetch(only=None, tier=2):
+    async def fake_fetch(only=None, tier=2, **_kwargs):
         return ([], [], [], [], {}, {"daad": "PageFetchError: HTTP 403 fetching https://www2.daad.de/x"})
 
     monkeypatch.setattr(handler, "fetch_all_adapters", fake_fetch)
@@ -60,7 +60,7 @@ def test_summary_reports_adapter_failure_and_degrades_status(monkeypatch):
 def test_clean_run_is_still_success_with_no_failures(monkeypatch):
     """The degraded status must be driven by real failures only -- a healthy run
     that legitimately found nothing new stays green."""
-    async def fake_fetch(only=None, tier=2):
+    async def fake_fetch(only=None, tier=2, **_kwargs):
         return ([], [], [], [], {}, {})
 
     monkeypatch.setattr(handler, "fetch_all_adapters", fake_fetch)
@@ -70,6 +70,35 @@ def test_clean_run_is_still_success_with_no_failures(monkeypatch):
 
     assert summary["status"] == "success"
     assert summary["adapter_failures"] == {}
+
+
+def test_source_item_failures_raise_at_the_platform_boundary(monkeypatch):
+    """An adapter may isolate individual source failures without raising itself.
+
+    Those failed items still have to make the scheduled task fail so SQS/EventBridge
+    retry and DLQ behavior can activate.
+    """
+    async def fake_fetch(only=None, tier=2, **_kwargs):
+        return ([], [], [], [], {"visa_adapter": {"failed": 2}}, {})
+
+    state = type(
+        "State",
+        (),
+        {
+            "start_run": lambda self, _run_id: None,
+            "finish_run": lambda self, _run_id, **_kwargs: None,
+        },
+    )()
+    monkeypatch.setattr(handler, "fetch_all_adapters", fake_fetch)
+    monkeypatch.setattr(
+        handler, "write_completion_report", lambda summary: "reports/test.json"
+    )
+
+    with pytest.raises(handler.IngestionRunFailed) as exc_info:
+        handler.handle_ingestion({}, state_manager=state)
+
+    assert exc_info.value.summary["counts"]["failed"] == 2
+    assert exc_info.value.summary["status"] == "degraded"
 
 
 @pytest.mark.asyncio

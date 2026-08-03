@@ -35,9 +35,9 @@ def annotate_langfuse_trace(trace_id: str, verdict: str, reason: str, score_delt
     if not (langfuse_pk and langfuse_sk and trace_id):
         return
     try:
-        from langfuse import Langfuse
-        langfuse = Langfuse()
-        langfuse.score(
+        from langfuse import get_client
+        langfuse = get_client()
+        langfuse.create_score(
             trace_id=trace_id,
             name="judge_verdict",
             value=1.0 if verdict == "ACCURATE" else 0.0,

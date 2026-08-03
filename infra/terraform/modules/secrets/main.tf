@@ -4,15 +4,10 @@ locals {
     if contains(keys, "JWT_SECRET")
   ])
 
-  services_requiring_internal_api_key = toset([
-    for service, keys in var.service_secret_keys : service
-    if contains(keys, "INTERNAL_API_KEY")
-  ])
-
   database_url_by_service = {
     for service, database_name in var.database_names :
     service => var.rds_proxy_endpoint == null || var.rds_proxy_endpoint == "" ? "" : format(
-      "postgresql://%s:%s@%s:%s/%s",
+      "postgresql://%s:%s@%s:%s/%s?sslmode=require",
       urlencode(var.rds_master_username),
       urlencode(random_password.rds_master.result),
       var.rds_proxy_endpoint,
@@ -27,7 +22,8 @@ locals {
       for key in keys :
       key => (
         key == "JWT_SECRET" ? random_password.jwt_secret[service].result :
-        key == "INTERNAL_API_KEY" ? random_password.internal_api_key[service].result :
+        key == "INTERNAL_API_KEY" ? random_password.internal_api_key.result :
+        key == "ADMIN_API_KEY" ? random_password.admin_api_key.result :
         key == "DATABASE_URL" ? lookup(local.database_url_by_service, service, "") :
         ""
       )
@@ -55,10 +51,18 @@ resource "random_password" "jwt_secret" {
 }
 
 resource "random_password" "internal_api_key" {
-  for_each = local.services_requiring_internal_api_key
-
   length  = 40
   special = false
+}
+
+resource "random_password" "admin_api_key" {
+  length  = 40
+  special = false
+}
+
+moved {
+  from = random_password.internal_api_key["user"]
+  to   = random_password.internal_api_key
 }
 
 resource "aws_secretsmanager_secret" "rds_master" {

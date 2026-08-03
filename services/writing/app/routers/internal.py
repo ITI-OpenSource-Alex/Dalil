@@ -6,6 +6,8 @@ from sqlalchemy.exc import ProgrammingError
 
 
 from app.database import SessionLocal
+from app.models import CVReview, Essay
+from app.services.account_deletion import purge_user_data
 
 router = APIRouter(prefix="/internal")
 
@@ -47,3 +49,45 @@ def get_cv_text(userId: str,
         if "relation" in str(e) and "does not exist" in str(e):
             return {"hasCv": False}
         raise e
+
+@router.get("/users/{userId}/essays")
+def export_user_essays(
+    userId: str,
+    x_internal_api_key: str = Header(None),
+    db: Session = Depends(get_db),
+):
+    expected_key = os.getenv("INTERNAL_API_KEY")
+    if expected_key and x_internal_api_key != expected_key:
+        raise HTTPException(status_code=401, detail="Invalid Internal API Key")
+
+    essays = db.query(Essay).filter(Essay.user_id == userId).all()
+    return {
+        "essays": [
+            {
+                "id": essay.id,
+                "s3Key": essay.s3_key,
+                "essayText": essay.extracted_text,
+                "uploadedAt": essay.uploaded_at.isoformat() if essay.uploaded_at else None,
+                "status": essay.status,
+                "submissionType": essay.submission_type,
+                "examSessionId": essay.exam_session_id,
+                "examType": essay.exam_type,
+                "taskNumber": essay.task_number,
+                "evaluationResult": essay.evaluation_result,
+            }
+            for essay in essays
+        ]
+    }
+
+
+@router.post("/users/{userId}/purge")
+def purge_deleted_account(
+    userId: str,
+    x_internal_api_key: str = Header(None),
+    db: Session = Depends(get_db),
+):
+    expected_key = os.getenv("INTERNAL_API_KEY")
+    if expected_key and x_internal_api_key != expected_key:
+        raise HTTPException(status_code=401, detail="Invalid Internal API Key")
+    return purge_user_data(db, userId)
+

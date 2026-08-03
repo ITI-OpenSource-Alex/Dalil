@@ -15,6 +15,7 @@ func NewRequest(c *fiber.Ctx, method string, url string, body io.Reader) (*http.
 	}
 
 	ForwardCorrelationID(c, req)
+	ForwardClientIP(c, req)
 	return req, nil
 }
 
@@ -29,4 +30,13 @@ func ForwardCorrelationID(c *fiber.Ctx, req *http.Request) {
 	}
 
 	req.Header.Set(middleware.HeaderCorrelationID, correlationID)
+}
+
+func ForwardClientIP(c *fiber.Ctx, req *http.Request) {
+	if c == nil || req == nil {
+		return
+	}
+	if chain := middleware.ForwardedForChain(c); chain != "" {
+		req.Header.Set(middleware.HeaderForwardedFor, chain)
+	}
 }

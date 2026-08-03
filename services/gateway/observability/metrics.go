@@ -8,10 +8,11 @@ import (
 )
 
 type Metrics struct {
-	RequestsTotal      *prometheus.CounterVec
-	LatencySeconds     *prometheus.HistogramVec
-	RateLimitHitsTotal *prometheus.CounterVec
-	AuthFailuresTotal  prometheus.Counter
+	RequestsTotal              *prometheus.CounterVec
+	LatencySeconds             *prometheus.HistogramVec
+	RateLimitHitsTotal         prometheus.Counter
+	AuthFailuresTotal          prometheus.Counter
+	SecurityInputRejectedTotal *prometheus.CounterVec
 }
 
 func NewMetrics() (*Metrics, error) {
@@ -38,12 +39,11 @@ func NewMetrics() (*Metrics, error) {
 		return nil, err
 	}
 
-	rateLimitHitsTotal, err := registerCounterVec(
+	rateLimitHitsTotal, err := registerCounter(
 		prometheus.CounterOpts{
 			Name: "goa_gateway_rate_limit_hits_total",
 			Help: "Total gateway requests blocked by rate limiting.",
 		},
-		[]string{"user_id"},
 	)
 	if err != nil {
 		return nil, err
@@ -59,11 +59,23 @@ func NewMetrics() (*Metrics, error) {
 		return nil, err
 	}
 
+	securityInputRejectedTotal, err := registerCounterVec(
+		prometheus.CounterOpts{
+			Name: "goa_security_input_rejected_total",
+			Help: "Requests rejected by an input security control, by reason.",
+		},
+		[]string{"reason"},
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Metrics{
-		RequestsTotal:      requestsTotal,
-		LatencySeconds:     latencySeconds,
-		RateLimitHitsTotal: rateLimitHitsTotal,
-		AuthFailuresTotal:  authFailuresTotal,
+		RequestsTotal:              requestsTotal,
+		LatencySeconds:             latencySeconds,
+		RateLimitHitsTotal:         rateLimitHitsTotal,
+		AuthFailuresTotal:          authFailuresTotal,
+		SecurityInputRejectedTotal: securityInputRejectedTotal,
 	}, nil
 }
 
@@ -89,12 +101,12 @@ func (m *Metrics) RecordAuthFailure() {
 	m.AuthFailuresTotal.Inc()
 }
 
-func (m *Metrics) RecordRateLimitHit(userID string) {
+func (m *Metrics) RecordRateLimitHit(_ string) {
 	if m == nil || m.RateLimitHitsTotal == nil {
 		return
 	}
 
-	m.RateLimitHitsTotal.WithLabelValues(userID).Inc()
+	m.RateLimitHitsTotal.Inc()
 }
 
 func registerCounterVec(opts prometheus.CounterOpts, labels []string) (*prometheus.CounterVec, error) {
@@ -140,4 +152,17 @@ func registerCounter(opts prometheus.CounterOpts) (prometheus.Counter, error) {
 	}
 
 	return counter, nil
+}
+
+// RecordInputRejected counts a request refused by an input control.
+//
+// The nil checks match every other recorder here: metrics must never be the
+// reason a request fails. A monitoring system that can take down the thing it
+// monitors is worse than no monitoring.
+func (m *Metrics) RecordInputRejected(reason string) {
+	if m == nil || m.SecurityInputRejectedTotal == nil {
+		return
+	}
+
+	m.SecurityInputRejectedTotal.WithLabelValues(reason).Inc()
 }

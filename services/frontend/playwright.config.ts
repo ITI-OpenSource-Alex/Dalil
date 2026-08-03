@@ -1,6 +1,12 @@
 import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
+  // Scoped to test/e2e so Playwright's default *.test.ts matcher doesn't
+  // also try to collect the Vitest unit tests under lib/ (e.g.
+  // lib/reading-grading.test.ts), which fail under Playwright's runner
+  // since they import from "vitest".
+  testDir: "./test/e2e",
+
   /* Set the base URL so relative paths work across all tests */
   use: {
     baseURL: "http://localhost:3000",

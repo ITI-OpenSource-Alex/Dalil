@@ -26,6 +26,7 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import { PublishCommand, SNSClient } from '@aws-sdk/client-sns';
 import { SqsService } from '@ssut/nestjs-sqs';
 import { ConfigService } from '@nestjs/config';
 
@@ -102,19 +103,21 @@ export class UsersService {
       },
     );
 
-    // 4. Fire notifications safely outside the database transaction locks
+    // 4. Fire notifications safely outside the database transaction locks.
     //
-    // Email delivery in this environment is intentionally log-based rather
-    // than routed through LocalStack SES/SQS: no notification service
-    // consumes these events yet, and SES is not enabled in the local
-    // LocalStack container. Writing the link to stdout keeps the
-    // verification flow fully testable end-to-end without a real mail
-    // provider. See docs/local-dev-setup.md for the rationale.
+    // GOA-083: the User service no longer sends verification email directly.
+    // It publishes an EmailVerificationRequired event to the notification
+    // queue; the Notification service renders the template and sends via SES.
+    // A publish failure must not fail registration — the account and token are
+    // already committed — so this is fire-and-forget with internal error
+    // logging, matching publishUserUpdatedEvent/publishAccountDeletedEvent.
     const rawToken = (savedUser as any).rawVerificationToken;
 
-    console.log(
-      `[SQS Simulation] Send verification email to ${savedUser.email} with link: https://goa.app/verify-email/${rawToken}`,
-    );
+    await this.publishEmailVerificationRequired({
+      userId: savedUser.id,
+      verificationToken: rawToken,
+      email: savedUser.email,
+    });
 
     // 5. Securely omit password fields from downstream API responses
     const {
@@ -143,6 +146,23 @@ export class UsersService {
     return userWithoutPassword as User;
   }
 
+  async findSubscription(
+    id: string,
+  ): Promise<{ subscriptionTier: 'free' | 'paid' }> {
+    const user = await this.userRepository.findOne({
+      where: { id },
+      select: {
+        subscriptionTier: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+
+    return { subscriptionTier: user.subscriptionTier };
+  }
+
   async updateProfile(id: string, dto: UpdateProfileDto): Promise<UserProfile> {
     const profile = await this.profileRepository.findOne({
       where: { userId: id },
@@ -162,6 +182,109 @@ export class UsersService {
     return savedProfile;
   }
 
+  async deleteAccount(
+    userId: string,
+    requesterId: string | undefined,
+    confirmPassword: string,
+  ): Promise<{ success: true; deletedAt: string }> {
+    this.assertSelf(userId, requesterId);
+
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user || user.deletedAt) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+
+    if (!(await bcrypt.compare(confirmPassword, user.passwordHash))) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const deletedAt = new Date();
+    const anonymizedEmail = `deleted_${user.id}@deleted.goa`;
+
+    await this.userRepository.manager.transaction(async (manager) => {
+      await manager.update(User, user.id, {
+        deletedAt,
+        email: anonymizedEmail,
+      });
+      await manager.update(
+        RefreshToken,
+        { userId: user.id },
+        { revokedAt: deletedAt },
+      );
+    });
+
+    await this.revokeAllAccessTokens(user.id, deletedAt);
+    void this.publishAccountDeletedEvent(user.id, deletedAt);
+
+    return { success: true, deletedAt: deletedAt.toISOString() };
+  }
+
+  async exportUserData(userId: string, requesterId?: string) {
+    this.assertSelf(userId, requesterId);
+
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: { profile: true },
+    });
+    if (!user || user.deletedAt) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+
+    const { passwordHash: _, ...profile } = user as any;
+
+    const [examHistory, essays, speakingSessions] = await Promise.all([
+      this.fetchJsonSection('EXAM_SERVICE_URL', `/users/${userId}/exam-history`),
+      this.fetchJsonSection('WRITING_SERVICE_URL', `/internal/users/${userId}/essays`),
+      this.fetchJsonSection('SPEAKING_SERVICE_URL', `/sessions?userId=${userId}`),
+    ]);
+
+    return {
+      exportedAt: new Date().toISOString(),
+      userId,
+      profile,
+      examHistory: examHistory?.items ?? examHistory?.results ?? examHistory ?? [],
+      essays: essays?.essays ?? essays ?? [],
+      speakingSessions: speakingSessions?.sessions ?? speakingSessions ?? [],
+    };
+  }
+
+  private assertSelf(userId: string, requesterId?: string): void {
+    if (!requesterId || requesterId !== userId) {
+      throw new ForbiddenException('Users can only access their own account data');
+    }
+  }
+
+  private async fetchJsonSection(
+    configKey: string,
+    path: string,
+  ): Promise<any> {
+    const baseUrl = this.configService.get<string>(configKey);
+    if (!baseUrl) {
+      return [];
+    }
+    try {
+      const response = await fetch(`${baseUrl}${path}`, {
+        headers: {
+          'X-Internal-API-Key':
+            this.configService.get<string>('INTERNAL_API_KEY', '') || '',
+        },
+      });
+      if (!response.ok) {
+        this.logger.warn(
+          `Data export section ${configKey} returned ${response.status}`,
+        );
+        return [];
+      }
+      return await response.json();
+    } catch (error) {
+      this.logger.warn(
+        `Data export section ${configKey} unavailable`,
+        error instanceof Error ? error.message : String(error),
+      );
+      return [];
+    }
+  }
+
   private async publishUserUpdatedEvent(userId: string): Promise<void> {
     try {
       const user = await this.userRepository.findOne({
@@ -174,11 +297,6 @@ export class UsersService {
         );
         return;
       }
-
-      const producerName = this.configService.get<string>(
-        'SQS_PRODUCER_NAME',
-        'user-events',
-      );
 
       const event = {
         type: 'user.updated',
@@ -201,10 +319,7 @@ export class UsersService {
         },
       };
 
-      await this.sqsService.send(producerName, {
-        id: event.correlationId,
-        body: event,
-      });
+      await this.publishUserEvent(event);
 
       this.logger.log(`UserUpdated event published for user ${userId}`);
     } catch (error) {
@@ -213,6 +328,174 @@ export class UsersService {
         error instanceof Error ? error.stack : String(error),
       );
     }
+  }
+
+  private async publishAccountDeletedEvent(
+    userId: string,
+    deletedAt: Date,
+  ): Promise<void> {
+    try {
+      const event = {
+        type: 'account.deleted',
+        version: '1.0',
+        timestamp: new Date().toISOString(),
+        correlationId: crypto.randomUUID(),
+        payload: {
+          userId,
+          deletedAt: deletedAt.toISOString(),
+        },
+      };
+
+      await this.publishUserEvent(event);
+
+      this.logger.log(`AccountDeleted event published for user ${userId}`);
+    } catch (error) {
+      this.logger.error(
+        `Failed to publish AccountDeleted event for user ${userId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+  }
+
+  /**
+   * GOA-083: publish an EmailVerificationRequired event to the notification
+   * queue so the Notification Lambda renders and sends the verification
+   * email. Fire-and-forget — a publish failure must never fail registration.
+   */
+  private async publishEmailVerificationRequired(params: {
+    userId: string;
+    verificationToken: string;
+    email: string;
+  }): Promise<void> {
+    try {
+      const producerName = this.configService.get<string>(
+        'SQS_NOTIFICATION_PRODUCER_NAME',
+        'notifications',
+      );
+      const queueUrl = this.configService.get<string>('NOTIFICATION_QUEUE_URL');
+      if (!queueUrl) {
+        this.logger.warn(
+          'NOTIFICATION_QUEUE_URL is not set — cannot publish EmailVerificationRequired; verification email will not be sent',
+        );
+        return;
+      }
+
+      const event = {
+        type: 'EmailVerificationRequired' as const,
+        userId: params.userId,
+        verificationToken: params.verificationToken,
+        email: params.email,
+      };
+
+      await this.sqsService.send(producerName, {
+        id: crypto.randomUUID(),
+        body: event,
+      });
+
+      this.logger.log(
+        `EmailVerificationRequired event published for user ${params.userId}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to publish EmailVerificationRequired event for user ${params.userId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+  }
+
+  /**
+   * GOA-083: publish a PasswordResetRequested event to the notification
+   * queue so the Notification Lambda renders and sends the reset email.
+   * Fire-and-forget — the endpoint always returns a uniform 200 to prevent
+   * user enumeration, so a queue failure must not surface to the caller.
+   */
+  private async publishPasswordResetRequested(params: {
+    userId: string;
+    resetToken: string;
+    email: string;
+    expiresAt: string;
+  }): Promise<void> {
+    try {
+      const producerName = this.configService.get<string>(
+        'SQS_NOTIFICATION_PRODUCER_NAME',
+        'notifications',
+      );
+      const queueUrl = this.configService.get<string>('NOTIFICATION_QUEUE_URL');
+      if (!queueUrl) {
+        this.logger.warn(
+          'NOTIFICATION_QUEUE_URL is not set — cannot publish PasswordResetRequested; reset email will not be sent',
+        );
+        return;
+      }
+
+      const event = {
+        type: 'PasswordResetRequested' as const,
+        userId: params.userId,
+        resetToken: params.resetToken,
+        email: params.email,
+        expiresAt: params.expiresAt,
+      };
+
+      await this.sqsService.send(producerName, {
+        id: crypto.randomUUID(),
+        body: event,
+      });
+
+      this.logger.log(
+        `PasswordResetRequested event published for user ${params.userId}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to publish PasswordResetRequested event for user ${params.userId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+  }
+
+  private async publishUserEvent(event: {
+    type: string;
+    correlationId: string;
+    [key: string]: unknown;
+  }): Promise<void> {
+    const topicArn = this.configService.get<string>('USER_EVENTS_TOPIC_ARN');
+    if (topicArn) {
+      const endpoint = this.configService.get<string>('AWS_ENDPOINT');
+      const accessKeyId = this.configService.get<string>('AWS_ACCESS_KEY_ID');
+      const secretAccessKey = this.configService.get<string>(
+        'AWS_SECRET_ACCESS_KEY',
+      );
+      const snsClient = new SNSClient({
+        region: this.configService.get<string>('AWS_REGION', 'us-east-1'),
+        ...(endpoint && { endpoint }),
+        ...(accessKeyId &&
+          secretAccessKey && {
+            credentials: { accessKeyId, secretAccessKey },
+          }),
+      });
+
+      await snsClient.send(
+        new PublishCommand({
+          TopicArn: topicArn,
+          Message: JSON.stringify(event),
+          MessageAttributes: {
+            eventType: {
+              DataType: 'String',
+              StringValue: event.type,
+            },
+          },
+        }),
+      );
+      return;
+    }
+
+    const producerName = this.configService.get<string>(
+      'SQS_PRODUCER_NAME',
+      'user-events',
+    );
+    await this.sqsService.send(producerName, {
+      id: event.correlationId,
+      body: event,
+    });
   }
 
   private hashToken(token: string): string {
@@ -247,12 +530,17 @@ export class UsersService {
     });
     await this.resetTokenRepository.save(resetTokenEntry);
 
-    // 6. Same log-based delivery approach as registration (see the note in
-    // register() above) — the raw token is written to stdout in place of
-    // an actual email.
-    console.log(
-      `[SQS Simulation] Send email to ${email} with link: https://goa.app/reset-password?token=${rawToken}`,
-    );
+    // 6. GOA-083: publish a PasswordResetRequested event instead of sending
+    // email directly. The Notification service renders the reset template and
+    // sends via SES. Publish failure is logged, not thrown — the endpoint
+    // always returns a uniform 200 to prevent user enumeration (see
+    // AuthController.forgotPassword), so it must not surface a mail/queue error.
+    await this.publishPasswordResetRequested({
+      userId: user.id,
+      resetToken: rawToken,
+      email,
+      expiresAt: expiresAt.toISOString(),
+    });
   }
 
   async resetPassword(resetPasswordDto: ResetPasswordDto): Promise<void> {
@@ -415,7 +703,11 @@ export class UsersService {
       where: { email: dto.email },
     });
 
-    if (!user || !(await bcrypt.compare(dto.password, user.passwordHash))) {
+    if (
+      !user ||
+      user.deletedAt ||
+      !(await bcrypt.compare(dto.password, user.passwordHash))
+    ) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -530,3 +822,6 @@ export class UsersService {
     };
   }
 }
+
+
+

@@ -10,6 +10,7 @@ import structlog
 
 from app.core.config import settings
 from app.core.database import db
+from app.services.account_deletion import export_user_data, purge_user_data
 from app.core.metrics import (
     goa_speaking_exam_evaluation_ms,
     goa_speaking_exam_evaluations_total,
@@ -187,3 +188,14 @@ async def submit_transcript(session_id: UUID, payload: TranscriptPayload):
         return {}
 
     return {}
+
+
+@router.get("/users/{user_id}/exam-history")
+async def export_exam_user_data(user_id: UUID):
+    return await export_user_data(db.pool, str(user_id))
+
+
+@router.post("/users/{user_id}/purge")
+async def purge_deleted_account(user_id: UUID):
+    return await purge_user_data(db.pool, str(user_id))
+

@@ -44,12 +44,7 @@ enable_cloudfront                  = true
 ecs_desired_counts                 = {}
 enable_lambda_workers              = false
 
-task_execution_secret_arns  = []
-task_execution_kms_key_arns = []
-task_secret_arns            = []
-task_sqs_queue_arns         = []
-task_s3_read_object_arns    = ["arn:aws:s3:::goa-exam-audio/exam-audio/*"]
-task_kms_key_arns           = []
+task_kms_key_arns = []
 
 # Supply these through a secure, uncommitted production.tfvars file or CI TF_VAR.
 service_secret_values = {
@@ -58,6 +53,9 @@ service_secret_values = {
     LANGFUSE_PUBLIC_KEY = ""
     LANGFUSE_SECRET_KEY = ""
     LANGFUSE_HOST       = "https://cloud.langfuse.com"
+  }
+  ingestion = {
+    ANTHROPIC_API_KEY = ""
   }
 }
 

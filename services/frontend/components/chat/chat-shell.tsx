@@ -17,9 +17,14 @@ import EssayComposer from "./essay-composer";
 import WritingEvaluationPanel from "./writing-evaluation-panel";
 
 import { streamWritingEvaluation, WritingEvent } from "@/lib/writing-stream";
+// Used by the inlineIssues state below. The type was referenced without being
+// imported, so the frontend did not compile; that arrived on dev with the
+// inline-feedback work and is not something this branch introduced.
+import type { CriterionEvaluation } from "@/lib/writing-api";
 import { SpeakingEvaluationResult } from "@/app/types/speaking";
 import { extractCriteriaScores } from "@/lib/speaking-format";
 import { CURRENT_USER_ID } from "@/lib/current-user";
+import { getChatSessionId, startNewChatSession } from "@/lib/chat-session";
 
 // The speaking service is reached directly from the browser — same rationale
 // as lib/speaking-api.ts, which notes there's no gateway route for it. Derive
@@ -30,6 +35,14 @@ const SPEAKING_WS_URL =
     /^http/,
     "ws",
   ) + "/ws";
+
+// Chat goes through the Gateway. These two calls used relative paths, i.e. to
+// the Next.js server itself, where no route handler was ever written — both
+// 404'd and surfaced as "Service unavailable" (BUG-044). The Gateway proxies
+// them to Orchestration, adding JWT auth, rate limiting and correlation IDs.
+//
+// credentials: "include" is required because auth rides on HttpOnly cookies.
+const CHAT_API_BASE = `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080"}/api`;
 
 export type Opportunity = {
   programName: string;
@@ -75,8 +88,18 @@ export default function ChatShell() {
   const [speakingError, setSpeakingError] = useState<string | null>(null);
   const [liveTranscript, setLiveTranscript] = useState("");
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
-  const [sessionId] = useState("session-lina-123"); // Hardcoded or dynamic
+  // A real per-session id (GOA-038). This was the constant "session-lina-123",
+  // shared by every browser, tab and reload, so a second conversation could not
+  // exist -- and cross-session memory is only observable across two of them.
+  //
+  // Set in an effect because sessionStorage does not exist during SSR.
+  const [sessionId, setSessionId] = useState<string>("");
+  useEffect(() => {
+    setSessionId(getChatSessionId());
+  }, []);
   const [userId] = useState(CURRENT_USER_ID);
+  const [memoryNotice, setMemoryNotice] = useState<string | null>(null);
+  const [forgetting, setForgetting] = useState(false);
   const speakingQuestion = {
     prompt: "Describe a memorable journey you have taken.",
     type: "part2",
@@ -124,9 +147,15 @@ export default function ChatShell() {
 
   // Load session history on mount
   useEffect(() => {
+    // Empty until the effect above reads sessionStorage. Fetching then would
+    // request /chat/sessions//history, which is a different route entirely.
+    if (!sessionId) return;
+
     async function loadHistory() {
       try {
-        const res = await fetch(`/api/chat/sessions/${sessionId}/history`);
+        const res = await fetch(`${CHAT_API_BASE}/chat/sessions/${sessionId}/history`, {
+          credentials: "include",
+        });
         if (res.ok) {
           const history = await res.json();
           if (history && history.length > 0) {
@@ -145,6 +174,66 @@ export default function ChatShell() {
     }
     loadHistory();
   }, [sessionId]);
+
+  /**
+   * Start a fresh conversation (GOA-038).
+   *
+   * Only the short-term thread is abandoned. Long-term facts survive on
+   * purpose — that is the entire feature: the next conversation should still
+   * know your degree. Wiping them is the separate, explicit control below.
+   */
+  const handleNewConversation = () => {
+    setSessionId(startNewChatSession());
+    setMessages([]);
+    setMemoryNotice(null);
+    setChatMode("chat");
+  };
+
+  /**
+   * Erase everything the assistant has stored about this user.
+   *
+   * Goes straight to the Gateway, not through a Next.js route handler. The
+   * existing app/api/chat/route.ts proxies to Orchestration without any JWT
+   * check; adding a second such route for a destructive endpoint would put an
+   * unauthenticated erasure path on the frontend server.
+   */
+  const handleForgetMe = async () => {
+    const confirmed = window.confirm(
+      "Delete everything GOA remembers about you?\n\n" +
+        "This removes your saved profile facts (degree, GPA, target country, " +
+        "programmes and concerns) and your stored conversations. It cannot be undone.",
+    );
+    if (!confirmed) return;
+
+    setForgetting(true);
+    try {
+      const res = await fetch(`${CHAT_API_BASE}/sessions/memory`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+      const result = await res.json();
+      // A new session id too: the old thread was just deleted server-side, so
+      // continuing to post against it would recreate a conversation the user
+      // asked to be rid of.
+      setSessionId(startNewChatSession());
+      setMessages([]);
+      setMemoryNotice(
+        `Deleted ${result.factsDeleted} saved fact${result.factsDeleted === 1 ? "" : "s"} ` +
+          `and ${result.sessionsCleared} conversation${result.sessionsCleared === 1 ? "" : "s"}.`,
+      );
+    } catch (err) {
+      console.error("Failed to delete stored memory:", err);
+      // Never claim success here. Telling someone their data is gone when the
+      // request failed is worse than telling them nothing.
+      setMemoryNotice(
+        "Could not delete your stored memory. Nothing was changed — please try again.",
+      );
+    } finally {
+      setForgetting(false);
+    }
+  };
+
   const clearTranscriptionTimeout = () => {
     if (transcriptionTimeoutRef.current) {
       clearTimeout(transcriptionTimeoutRef.current);
@@ -447,8 +536,9 @@ export default function ChatShell() {
     setMessages((prev) => [...prev, assistantMessage]);
 
     try {
-      const response = await fetch("/api/chat", {
+      const response = await fetch(`${CHAT_API_BASE}/chat`, {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
         },
@@ -595,11 +685,39 @@ export default function ChatShell() {
             Lina Ahmadi • CGPA 3.45 • IELTS 6
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          {/* GOA-038. Two different things, deliberately worded apart: one
+              starts a new thread and keeps what the assistant knows about you,
+              the other deletes it. */}
+          <button
+            type="button"
+            onClick={handleNewConversation}
+            className="text-xs px-3 py-1.5 rounded-full border border-[#E8ECE7] text-[#0D3820] hover:bg-[#F2F5F1] transition-colors"
+          >
+            New conversation
+          </button>
+          <button
+            type="button"
+            onClick={handleForgetMe}
+            disabled={forgetting}
+            title="Delete your saved profile facts and stored conversations"
+            className="text-xs px-3 py-1.5 rounded-full border border-[#E8ECE7] text-[#8A3324] hover:bg-[#FBF1EF] transition-colors disabled:opacity-50"
+          >
+            {forgetting ? "Deleting…" : "Forget what you know about me"}
+          </button>
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
           <span className="text-xs text-[#526053]">Sync Ready</span>
         </div>
       </motion.div>
+
+      {memoryNotice && (
+        <div
+          role="status"
+          className="px-8 py-2 text-xs text-[#0D3820] bg-[#F2F5F1] border-b border-[#E8ECE7]"
+        >
+          {memoryNotice}
+        </div>
+      )}
 
       {/* Messages Wrapper */}
       <motion.section

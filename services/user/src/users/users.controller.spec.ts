@@ -2,6 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { ConflictException } from '@nestjs/common';
+import { GUARDS_METADATA } from '@nestjs/common/constants';
+import { InternalAuthGuard } from '../common/guards/internal-auth.guard';
 
 describe('UsersController', () => {
   let controller: UsersController;
@@ -10,6 +12,9 @@ describe('UsersController', () => {
   const mockUsersService = {
     register: jest.fn(),
     findAllPaginated: jest.fn(),
+    findSubscription: jest.fn(),
+    deleteAccount: jest.fn(),
+    exportUserData: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -60,4 +65,45 @@ describe('UsersController', () => {
       expect(result.users[0]).toHaveProperty('gpaScale');
     });
   });
+
+  describe('account deletion and data export', () => {
+    it('deleteAccount forwards id, requester id and password', async () => {
+      mockUsersService.deleteAccount.mockResolvedValue({ success: true });
+
+      await controller.deleteAccount('user-123', { confirmPassword: 'pw' }, 'user-123');
+
+      expect(service.deleteAccount).toHaveBeenCalledWith('user-123', 'user-123', 'pw');
+    });
+
+    it('exportData forwards id and requester id', async () => {
+      mockUsersService.exportUserData.mockResolvedValue({ userId: 'user-123' });
+
+      await controller.exportData('user-123', 'user-123');
+
+      expect(service.exportUserData).toHaveBeenCalledWith('user-123', 'user-123');
+    });
+  });
+
+  describe('findSubscription', () => {
+    it('returns the narrow service response', async () => {
+      mockUsersService.findSubscription.mockResolvedValue({
+        subscriptionTier: 'free',
+      });
+
+      await expect(controller.findSubscription('user-123')).resolves.toEqual({
+        subscriptionTier: 'free',
+      });
+      expect(service.findSubscription).toHaveBeenCalledWith('user-123');
+    });
+
+    it('is protected by InternalAuthGuard', () => {
+      const guards = Reflect.getMetadata(
+        GUARDS_METADATA,
+        controller.findSubscription,
+      );
+
+      expect(guards).toContain(InternalAuthGuard);
+    });
+  });
 });
+

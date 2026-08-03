@@ -5,6 +5,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     port: int = 8085
+    aws_region: str = "us-east-1"
+    aws_endpoint_url: str = ""
+    aws_access_key_id: str = ""
+    aws_secret_access_key: str = ""
+    sqs_queue_name: str = "user-events-exam"
     database_url: str
     internal_api_key: str
     langfuse_public_key: Optional[str] = ""
@@ -22,3 +27,4 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+

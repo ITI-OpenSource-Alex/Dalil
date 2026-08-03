@@ -2,4 +2,9 @@ httpx
 pydantic
 anthropic
 boto3
+jinja2
 pytest
+pytest-asyncio
+pytest-mock
+websockets
+langfuse>=4.0.0,<5.0.0

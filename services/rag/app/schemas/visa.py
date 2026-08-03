@@ -29,7 +29,7 @@ class VisaRequirementsRequest(BaseModel):
     issuing_body: str = Field(..., description="Entity issuing the visa")
     requirements: dict = Field(..., description="Structured JSON requirements details")
     proof_of_funds: Optional[ProofOfFunds] = Field(None, description="Structured proof-of-funds details")
-    source_url: Optional[str] = Field(None, description="Source webpage URL")
+    source_url: str = Field(..., min_length=1, description="Canonical source webpage URL")
     processing_days_min: Optional[int] = Field(None, description="Min processing days")
     processing_days_max: Optional[int] = Field(None, description="Max processing days")
     notes: Optional[str] = Field(None, description="Additional notes")

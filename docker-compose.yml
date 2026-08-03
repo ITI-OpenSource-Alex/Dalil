@@ -8,16 +8,31 @@ services:
     environment:
       - USER_SERVICE_URL=http://user-service:8081
       - INTERNAL_API_KEY=supersecret_internal_key_123
+      - ADMIN_API_KEY=${ADMIN_API_KEY:-local_admin_key_123}
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - INGESTION_QUEUE_URL=http://localstack:4566/000000000000/ingestion-queue
+      - BUDGET_USD=${BUDGET_USD:-150}
+      - LLM_PRICING_JSON=${LLM_PRICING_JSON:-{"claude-opus-4-8":{"prompt_per_1m":2,"completion_per_1m":10},"glm-5.2":{"prompt_per_1m":6,"completion_per_1m":9},"gpt-5.5":{"prompt_per_1m":7,"completion_per_1m":14},"claude-opus-4-6":{"prompt_per_1m":8,"completion_per_1m":40},"claude-opus-4-7":{"prompt_per_1m":8,"completion_per_1m":40}}}
       - REDIS_URL=redis://redis-gateway:6379/0
       - JWT_SECRET=supersecret_dev_key
       - WRITING_SERVICE_URL=http://writing:8000
       - EXAM_SERVICE_URL=http://exam:8085
+      - NOTIFICATION_SERVICE_URL=http://notification:8087
+      - ORCHESTRATION_SERVICE_URL=http://orchestration:8083
+      - SUBSCRIPTION_UPGRADE_URL=${SUBSCRIPTION_UPGRADE_URL:-http://localhost:3000/upgrade}
+      - SUBSCRIPTION_CACHE_TTL=5m
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
     volumes:
       - ./services/gateway:/app
     depends_on:
       postgres:
         condition: service_healthy
       redis-gateway:
+        condition: service_healthy
+      localstack:
         condition: service_healthy
       writing:
         condition: service_healthy
@@ -46,6 +61,10 @@ services:
       - AWS_SECRET_ACCESS_KEY=test
       - AWS_ENDPOINT=http://localstack:4566
       - SQS_QUEUE_URL=http://localstack:4566/000000000000/user-events
+      # GOA-083: auth emails are now published to notification-queue, which the
+      # notification service already polls. See services/user/src/sqs/sqs.module.ts.
+      - NOTIFICATION_QUEUE_URL=http://localstack:4566/000000000000/notification-queue
+      - USER_EVENTS_TOPIC_ARN=arn:aws:sns:us-east-1:000000000000:user-events
 
       - REDIS_HOST=redis-gateway
       - REDIS_PORT=6379
@@ -75,7 +94,9 @@ services:
       - S3_BUCKET=goa-writing-files
       - CV_UPLOADED_QUEUE_URL=http://localstack:4566/000000000000/goa-cv-uploaded
       - CV_PROCESSED_QUEUE_URL=http://localstack:4566/000000000000/goa-cv-processed
-      - PYTHONPATH=/app:/packages/contracts/py
+      - ACCOUNT_DELETED_QUEUE_URL=http://localstack:4566/000000000000/user-events-writing
+      # /opt/goa is the shared security package (GOA-034); see the volume below.
+      - PYTHONPATH=/app:/packages/contracts/py:/opt/goa
       - OTEL_SERVICE_NAME=writing-service
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-}
@@ -96,6 +117,7 @@ services:
       - ./services/writing/migrations:/app/migrations
       - ./services/writing/tests:/app/tests
       - ./packages/contracts/py:/packages/contracts/py
+      - ./packages/security/py:/opt/goa
     depends_on:
       postgres:
         condition: service_healthy
@@ -134,13 +156,49 @@ services:
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
       - LANGFUSE_HOST=${LANGFUSE_HOST}
-      - PYTHONPATH=/app:/packages/contracts/py
+      - PYTHONPATH=/app:/packages/contracts/py:/opt/goa
       - OTEL_SERVICE_NAME=cv-processor
     volumes:
       - ./services/writing/app:/app/app
       - ./services/writing/cv_processor:/app/cv_processor
       - ./services/writing/migrations:/app/migrations
       - ./packages/contracts/py:/packages/contracts/py
+      - ./packages/security/py:/opt/goa
+    depends_on:
+      postgres:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+
+  notification:
+    build:
+      context: .
+      dockerfile: services/notification/Dockerfile
+      target: dev
+    ports:
+      - "8087:8087"
+    environment:
+      - PORT=8087
+      - DATABASE_URL=postgresql://goa:goa_pass@postgres:5432/notification_db
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - LOCALSTACK_ENDPOINT=http://localstack:4566
+      # Both queues the Lambda is subscribed to in AWS. notification-queue
+      # carries ScholarshipMatched and DEADLINE_REMINDER from the scholarship
+      # matcher; goa-cv-processed carries CVProcessed from the Writing service.
+      # In AWS these are two event source mappings; locally the poller in
+      # src/local-server.ts watches both.
+      - NOTIFICATION_QUEUE_URLS=http://localstack:4566/000000000000/notification-queue,http://localstack:4566/000000000000/goa-cv-processed,http://localstack:4566/000000000000/user-events-notification
+      # Events carry no email address, so the recipient is resolved from the
+      # User service. Without these the handler cannot send anything, which is
+      # deliberate -- see src/users.ts.
+      - USER_SERVICE_URL=http://user-service:8081
+      - INTERNAL_API_KEY=supersecret_internal_key_123
+      # LocalStack's SES accepts and stores without delivering, so any address
+      # works locally. In AWS this must be an identity verified in SES.
+      - SES_SENDER_ADDRESS=${SES_SENDER_ADDRESS:-notifications@localhost.test}
+      - OTEL_SERVICE_NAME=notification
     depends_on:
       postgres:
         condition: service_healthy
@@ -179,8 +237,16 @@ services:
       context: ./infra/localstack
     image: goa-localstack:3.4.0
     environment:
-      - SERVICES=sqs,s3
+      # ses added for GOA-023: the notification service sends email through it.
+      # LocalStack accepts and stores messages without delivering, which is what
+      # makes the notification E2E runnable locally at zero cost.
+      - SERVICES=sqs,s3,ses,sns
       - AWS_DEFAULT_REGION=us-east-1
+      # GOA-083: the init script verifies this identity so the notification
+      # service's SendEmail succeeds. Kept in sync with the notification
+      # service's SES_SENDER_ADDRESS so an override can't verify one address
+      # while the sender uses another.
+      - SES_SENDER_ADDRESS=${SES_SENDER_ADDRESS:-notifications@localhost.test}
     ports:
       - "4566:4566"
     healthcheck:
@@ -235,11 +301,18 @@ services:
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
       - LANGFUSE_HOST=${LANGFUSE_HOST}
       - SPEECH_SERVICE_URL=http://speech:8086
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - SQS_QUEUE_NAME=user-events-speaking
     volumes:
       - ./services/speaking:/app
     depends_on:
       prometheus:
         condition: service_started
+      localstack:
+        condition: service_healthy
       # The service pings speaking_db during startup and calls log.Fatal on
       # failure, so a cold `docker compose up` raced Postgres and exited 1
       # with "the database system is starting up (SQLSTATE 57P03)". air only
@@ -250,7 +323,8 @@ services:
 
   rag:
     build:
-      context: ./services/rag
+      context: .
+      dockerfile: services/rag/Dockerfile
       target: dev
     ports:
       - "8084:8084"
@@ -273,12 +347,13 @@ services:
       - AWS_ACCESS_KEY_ID=test
       - AWS_SECRET_ACCESS_KEY=test
       - AWS_ENDPOINT_URL=http://localstack:4566
-      - SQS_QUEUE_NAME=user-events
+      - SQS_QUEUE_NAME=user-events-rag
       - EMBEDDING_BASE_URL=${EMBEDDING_BASE_URL:-http://host.docker.internal:11434/v1}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL:-nomic-embed-text}
       - EMBEDDING_API_KEY=${EMBEDDING_API_KEY:-ollama}
     volumes:
       - ./services/rag:/app
+      - ./packages/security/py:/opt/goa
     depends_on:
       postgres:
         condition: service_healthy
@@ -307,6 +382,7 @@ services:
       - AWS_SECRET_ACCESS_KEY=test
       - AWS_ENDPOINT_URL=http://localstack:4566
       - S3_BUCKET=goa-exam-audio
+      - SQS_QUEUE_NAME=user-events-exam
     volumes:
       - ./services/exam:/app
     depends_on:
@@ -317,7 +393,8 @@ services:
 
   orchestration:
     build:
-      context: ./services/orchestration
+      context: .
+      dockerfile: services/orchestration/Dockerfile
       target: dev
     ports:
       - "8083:8083"
@@ -330,6 +407,13 @@ services:
       - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
       - LLM_MODEL=${LLM_MODEL:-claude-opus-4-8}
       - INTERNAL_API_KEY=supersecret_internal_key_123
+      # Browser-facing URLs. The *_SERVICE_URL values above are Docker
+      # hostnames for server-to-server calls; handing them to a client gave
+      # ws://speaking:8082 and http://writing:8000, which no browser resolves
+      # (BUG-016). Writing's SSE now goes via the Gateway; Speaking's socket
+      # is still direct until the Gateway has a WS proxy.
+      - PUBLIC_GATEWAY_URL=${PUBLIC_GATEWAY_URL:-http://localhost:8080}
+      - PUBLIC_SPEAKING_WS_URL=${PUBLIC_SPEAKING_WS_URL:-ws://localhost:8082/ws}
       - OTEL_SERVICE_NAME=orchestration
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
@@ -337,13 +421,35 @@ services:
       - RAG_SERVICE_URL=http://rag:8084
       - SPEAKING_SERVICE_URL=http://speaking:8082
       - WRITING_SERVICE_URL=http://writing:8000
+      - EXAM_SERVICE_URL=http://exam:8085
+      # LocalStack/SQS for the account-deleted consumer (GOA-076).
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - SQS_QUEUE_NAME=user-events-orchestration
+      # Long-term conversation memory (GOA-038). Overridable so the manual E2E
+      # can run with MEMORY_IDLE_MINUTES=1 and watch the sweep fire in real time,
+      # and so load tests (GOA-036) can set MEMORY_ENABLED=false rather than
+      # handing the sweep thousands of synthetic sessions to extract from.
+      - MEMORY_ENABLED=${MEMORY_ENABLED:-true}
+      - MEMORY_IDLE_MINUTES=${MEMORY_IDLE_MINUTES:-30}
+      - MEMORY_SWEEP_INTERVAL_SECONDS=${MEMORY_SWEEP_INTERVAL_SECONDS:-300}
+      - MEMORY_SWEEP_BATCH_MAX=${MEMORY_SWEEP_BATCH_MAX:-20}
+      - MEMORY_FACT_TTL_DAYS=${MEMORY_FACT_TTL_DAYS:-30}
+      - MEMORY_MIN_TURNS=${MEMORY_MIN_TURNS:-4}
     volumes:
       - ./services/orchestration:/app
+      # Shared security package (GOA-034). Mounted so a change to it is
+      # live in dev the same way a change to the service is.
+      - ./packages/security/py:/opt/goa
     depends_on:
       postgres:
         condition: service_healthy
       redis-cache:
         condition: service_started
+      localstack:
+        condition: service_healthy
 
   speech:
     build:
@@ -356,8 +462,11 @@ services:
   ingestion:
     profiles: ["ingestion"]
     build:
-      context: ./services/ingestion
-      dockerfile: Dockerfile
+      # Repo-root context: the Dockerfile copies packages/contracts/py, which the
+      # scholarship matcher imports. A context of ./services/ingestion cannot see
+      # it, and the worker fails with ModuleNotFoundError inside the image.
+      context: .
+      dockerfile: services/ingestion/Dockerfile
     environment:
       - RAG_SERVICE_URL=http://rag:8084
       - INTERNAL_API_KEY=supersecret_internal_key_123
@@ -379,13 +488,21 @@ services:
       - AWS_SECRET_ACCESS_KEY=test
       - AWS_DEFAULT_REGION=us-east-1
       - INGESTION_REPORTS_BUCKET=goa-ingestion-reports
+      - INGESTION_QUEUE_URL=http://localstack:4566/000000000000/ingestion-queue
+      - INGESTION_VISIBILITY_TIMEOUT=4320
     volumes:
       - ./services/ingestion:/app
+      - ./packages/contracts/py/contracts:/app/contracts:ro
+      # The schema-parity test compares the independently deployed ingestion and
+      # RAG models. Mount RAG read-only so that check also runs in the service image.
+      - ./services/rag:/rag:ro
     depends_on:
       postgres:
         condition: service_healthy
       rag:
         condition: service_started
+      localstack:
+        condition: service_healthy
 
 volumes:
   pgdata:

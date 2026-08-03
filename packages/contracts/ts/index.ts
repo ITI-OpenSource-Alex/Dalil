@@ -50,6 +50,13 @@ export interface NotificationRequested extends BaseEvent {
     };
 }
 
+export interface AccountDeleted extends BaseEvent {
+    type: 'account.deleted';
+    payload: {
+        userId: string;
+        deletedAt: string;
+    };
+}
 export interface IngestionCompleted extends BaseEvent {
     type: 'ingestion.completed';
     payload: {
@@ -59,10 +66,57 @@ export interface IngestionCompleted extends BaseEvent {
 }
 
 
+export type NotificationEventType =
+    | 'ScholarshipMatched'
+    | 'DEADLINE_REMINDER'
+    | 'CVProcessed';
+
+export interface ScholarshipMatchedNotification {
+    eventType: 'ScholarshipMatched';
+    userId: string;
+    programId: string;
+    programName: string | null;
+    provider: string | null;
+    country: string | null;
+    deadline: string | null;
+    score: number;
+    cycleDate: string;
+}
+
+export interface DeadlineReminderNotification {
+    eventType: 'DEADLINE_REMINDER';
+    userId: string;
+    programId: string;
+    programName: string | null;
+    provider: string | null;
+    country: string | null;
+    deadline: string | null;
+    score: number;
+    cycleDate: string;
+}
+
+export interface CVProcessedNotification {
+    eventType: 'CVProcessed';
+    userId: string;
+    cvId: number;
+    s3Key: string;
+    status: 'ready' | 'failed';
+    timestamp?: string;
+    correlationId?: string;
+}
+
+export type NotificationEvent =
+    | ScholarshipMatchedNotification
+    | DeadlineReminderNotification
+    | CVProcessedNotification;
+
 export type DomainEvent =
     | UserUpdated
+    | AccountDeleted
     | CVUploaded
     | CVProcessed
     | ScholarshipMatched
     | NotificationRequested
     | IngestionCompleted;
+
+

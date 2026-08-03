@@ -31,6 +31,8 @@ private_data_subnet_cidrs = [
 
 domain_name                        = "staging.goa.internal"
 hosted_zone_id                     = null
+enable_public_dns                  = false
+create_public_hosted_zone          = false
 alb_certificate_arn                = null
 create_self_signed_alb_certificate = true
 enable_cloudfront                  = false
@@ -38,20 +40,25 @@ enable_cloudfront                  = false
 alb_enable_deletion_protection = false
 alb_default_target_group_name  = "gateway"
 
-ecs_image_tag = "latest"
+# GOA-022 (N7): ecs_image_tag is deliberately NOT set here. ECR is IMMUTABLE,
+# so "latest" cannot be re-pushed; the variable defaults to the "bootstrap"
+# placeholder and CI owns the real tag (the commit SHA) from the first deploy
+# onward. See variables.tf.
 ecs_desired_counts = {
-  gateway = 1
+  gateway       = 1
+  user          = 1
+  orchestration = 1
+  speaking      = 1
+  writing       = 1
+  rag           = 1
+  exam          = 1
 }
-enable_lambda_workers            = false
-enable_rds_proxy                 = false
-rds_backup_retention_days        = 1
+enable_lambda_workers            = true
+enable_rds_proxy                 = false # RDS Proxy is unavailable on AWS free-plan accounts.
+rds_backup_retention_days        = 1     # AWS free-plan maximum; production remains 7 days.
 rds_performance_insights_enabled = false
 
-task_execution_secret_arns  = []
-task_execution_kms_key_arns = []
-task_secret_arns            = []
-task_sqs_queue_arns         = []
-task_kms_key_arns           = []
+task_kms_key_arns = []
 
 ecs_exec_operator_resource_arns    = ["*"]
 session_manager_log_retention_days = 30

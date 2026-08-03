@@ -41,6 +41,17 @@ variable "ecs_service_ports" {
   }
 }
 
+variable "alb_direct_service_ports" {
+  description = "Internal ECS ports reached directly by ALB routing or health checks."
+  type        = list(number)
+  default     = []
+
+  validation {
+    condition     = alltrue([for port in var.alb_direct_service_ports : port > 0 && port <= 65535])
+    error_message = "alb_direct_service_ports must contain valid ports between 1 and 65535."
+  }
+}
+
 variable "rds_port" {
   description = "Database port allowed from ECS services to RDS."
   type        = number

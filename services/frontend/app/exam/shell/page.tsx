@@ -1,15 +1,43 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useExamTimer } from "@/app/hooks/useExamTimer";
 import { ExamType, SkillArea, ExamStatus } from "@/app/types/exam";
-import { getSession, submitSession } from "@/lib/exam-api";
+import { getSession, sendHeartbeat, submitSession } from "@/lib/exam-api";
+
+// Well inside the backend's 10-minute grace window, so several consecutive
+// failures are survivable.
+const HEARTBEAT_INTERVAL_MS = 60_000;
 // import { evaluateEssay } from "@/lib/writing-api";
 import type { ExamSessionResponse } from "@/lib/exam-api";
 import { Sidebar } from "@/components/ui/sidebar";
+import ReadingExam from "@/components/reading/ReadingExam";
+import { storeReadingResult } from "@/lib/reading-result-storage";
+import type {
+  NormalizedReadingQuestion,
+  ReadingSubmitResponse,
+} from "@/app/types/reading";
 
+// useSearchParams() opts the page into client-side rendering during
+// prerendering, which Next.js requires to be wrapped in a Suspense boundary
+// (https://nextjs.org/docs/messages/missing-suspense-with-csr-bailout) —
+// otherwise `next build`'s static export of this route fails.
 export default function ExamShell() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#fbfbfa] p-8 font-mono text-xs text-gray-500">
+          Loading active session...
+        </div>
+      }
+    >
+      <ExamShellContent />
+    </Suspense>
+  );
+}
+
+function ExamShellContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("session") || "";
@@ -25,6 +53,10 @@ export default function ExamShell() {
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [writingInput, setWritingInput] = useState({ task1: "", task2: "" });
   const [mounted, setMounted] = useState(false);
+  // Bumped to trigger ReadingExam's own submit on timer expiry — see
+  // ReadingExam's forceSubmitSignal prop for why this can't just reuse
+  // executeSubmission below, which is hardcoded to Writing's payload shape.
+  const [readingForceSubmit, setReadingForceSubmit] = useState(0);
 
   useEffect(() => {
     async function loadSession() {
@@ -62,6 +94,29 @@ export default function ExamShell() {
     }
   }, [examConfig]);
 
+  // Keep the session alive for as long as this page is open.
+  //
+  // The backend sweeps in-progress sessions that stop reporting and marks them
+  // abandoned; submit then returns 403 and the candidate loses the attempt. The
+  // heartbeat endpoint existed but no client had ever called it (BUG-054).
+  //
+  // 60s against a 10-minute grace window means roughly nine consecutive
+  // failures before a session is at risk, so a brief network drop costs
+  // nothing. One fires immediately so a session is marked live from the moment
+  // the exam opens rather than a minute into it.
+  useEffect(() => {
+    if (!sessionId || status !== "in_progress") {
+      return;
+    }
+
+    void sendHeartbeat(sessionId);
+    const timer = setInterval(() => {
+      void sendHeartbeat(sessionId);
+    }, HEARTBEAT_INTERVAL_MS);
+
+    return () => clearInterval(timer);
+  }, [sessionId, status]);
+
   const executeSubmission = async () => {
     setShowSubmitModal(false);
 
@@ -81,9 +136,36 @@ export default function ExamShell() {
     }
   };
 
+  const handleReadingSubmitted = (
+    result: ReadingSubmitResponse,
+    questions: NormalizedReadingQuestion[],
+  ) => {
+    // No GET-result endpoint exists for Reading — the full per-question
+    // breakdown only ever exists as this submit call's own response, so it
+    // has to be carried forward rather than re-fetched. See
+    // lib/reading-result-storage.ts.
+    storeReadingResult(sessionId, { result, questions });
+    router.push(`/exam/results?session=${sessionId}&skill=Reading`);
+  };
+
+  const handleTimeUp = () => {
+    // useExamTimer is called below with session?.remaining_time_seconds ?? 0
+    // — before the session finishes loading, that's 0, which makes the
+    // timer fire an immediate (spurious) time-up on mount, before
+    // examConfig exists. Ignoring that null-session case here is required
+    // for Reading (and doesn't change Writing's real-timeout behavior,
+    // which only ever fires once examConfig is already set).
+    if (!examConfig) return;
+    if (examConfig.skill === "Reading") {
+      setReadingForceSubmit((n) => n + 1);
+      return;
+    }
+    executeSubmission();
+  };
+
   const { formattedTime, isCritical } = useExamTimer(
     session?.remaining_time_seconds ?? 0,
-    executeSubmission,
+    handleTimeUp,
   );
 
   if (loadingSession || !session || !examConfig)
@@ -132,17 +214,43 @@ export default function ExamShell() {
               >
                 {formattedTime}
               </div>
-              <button
-                onClick={() => setShowSubmitModal(true)}
-                className="bg-[#0d4d3a] hover:bg-[#09382a] text-white px-4 py-1.5 rounded-full text-xs font-semibold transition"
-              >
-                Submit Exam
-              </button>
+              {/* Reading has its own submit control + confirmation modal
+                  (ReadingExam / SubmitConfirmModal) with unanswered-count
+                  logic this generic modal doesn't have — see
+                  components/reading/SubmitConfirmModal.tsx for why that's a
+                  separate component rather than a reuse of this one. */}
+              {examConfig.skill !== "Reading" && (
+                <button
+                  onClick={() => setShowSubmitModal(true)}
+                  className="bg-[#0d4d3a] hover:bg-[#09382a] text-white px-4 py-1.5 rounded-full text-xs font-semibold transition"
+                >
+                  Submit Exam
+                </button>
+              )}
             </div>
           </header>
 
-          {/* Workspace Area */}
-          <main className="flex-1 overflow-auto p-8 bg-[#fbfbfa]">
+          {/* Workspace Area. Reading owns its own independently-scrolling
+              split panels, which the generic overflow-auto/p-8 wrapper used
+              by every other skill would fight with (both the page and the
+              inner panels trying to scroll), so it gets an unpadded,
+              height-constrained container instead. */}
+          <main
+            className={
+              examConfig.skill === "Reading"
+                ? "flex-1 min-h-0 overflow-hidden bg-[#fbfbfa]"
+                : "flex-1 overflow-auto p-8 bg-[#fbfbfa]"
+            }
+          >
+            {examConfig.skill === "Reading" && (
+              <ReadingExam
+                sessionId={sessionId}
+                session={session}
+                onSubmitted={handleReadingSubmitted}
+                forceSubmitSignal={readingForceSubmit}
+              />
+            )}
+
             {examConfig.skill === "Writing" && (
               <div className="grid grid-cols-2 gap-6 h-full min-h-125">
                 {/* Task 1 Panel */}
@@ -192,14 +300,21 @@ export default function ExamShell() {
               </div>
             )}
 
-            {examConfig.skill !== "Writing" && (
+            {examConfig.skill !== "Writing" && examConfig.skill !== "Reading" && (
               <div className="bg-white border border-gray-200/80 rounded-2xl p-8 max-w-3xl mx-auto my-8 shadow-2xs">
-                <p className="text-xs text-gray-500 mb-4">
-                  Standard exam interface containing simulation questions.
+                <h2 className="font-serif text-xl font-bold text-gray-900 mb-2">
+                  {examConfig.skill} exams are not available yet
+                </h2>
+                <p className="text-sm text-gray-500 mb-5">
+                  This module does not have a complete exam interface, so no
+                  attempt can be completed from this page.
                 </p>
-                <div className="h-64 border border-dashed border-gray-200 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 text-xs font-medium">
-                  Interactive Simulation Workspace
-                </div>
+                <button
+                  onClick={() => router.push("/exam")}
+                  className="bg-[#0d4d3a] hover:bg-[#09382a] text-white px-4 py-2 rounded-full text-xs font-semibold transition"
+                >
+                  Return to Skills Workspace
+                </button>
               </div>
             )}
           </main>

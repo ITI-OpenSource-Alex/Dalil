@@ -24,13 +24,38 @@ import datetime
 import hashlib
 import json
 import os
+import time
 
 import structlog
+from contracts.events import DeadlineReminderNotification, ScholarshipMatchedNotification
+
+
+def _load_ingestion_runtime_secrets() -> None:
+    secret_arn = os.getenv("INGESTION_SECRET_ARN", "").strip()
+    if not secret_arn:
+        return
+    import boto3
+
+    client = boto3.client(
+        "secretsmanager",
+        region_name=os.getenv("AWS_REGION", "us-east-1"),
+    )
+    response = client.get_secret_value(SecretId=secret_arn)
+    values = json.loads(response.get("SecretString") or "{}")
+    for key, value in values.items():
+        if value is not None and not os.getenv(key):
+            os.environ[key] = str(value)
+    if os.getenv("DATABASE_URL") and not os.getenv("INGESTION_DATABASE_URL"):
+        os.environ["INGESTION_DATABASE_URL"] = os.environ["DATABASE_URL"]
+
+
+_load_ingestion_runtime_secrets()
 
 from client import get_headers
 from config import settings
 
 logger = structlog.get_logger("ingestion_worker.scholarship_matcher")
+COLD_START = True
 
 # The ticket's threshold: only a strong match is worth an email.
 MATCH_SCORE_THRESHOLD = 60.0
@@ -279,17 +304,29 @@ def run_matcher(since_hours: int = 24, ledger: NotificationLedger | None = None,
                 if ledger.already_sent(user_id, program_id, cycle_date, event_type):
                     counts["skipped_duplicates"] += 1
                     continue
-                events.append({
-                    "eventType": event_type,
-                    "userId": user_id,
-                    "programId": program_id,
-                    "programName": scholarship.get("name"),
-                    "provider": scholarship.get("provider"),
-                    "country": country,
-                    "deadline": deadline,
-                    "score": round(score, 2),
-                    "cycleDate": cycle_date,
-                })
+                if event_type == "ScholarshipMatched":
+                    evt = ScholarshipMatchedNotification(
+                        userId=user_id,
+                        programId=program_id,
+                        programName=scholarship.get("name"),
+                        provider=scholarship.get("provider"),
+                        country=country,
+                        deadline=deadline,
+                        score=round(score, 2),
+                        cycleDate=cycle_date,
+                    )
+                else:
+                    evt = DeadlineReminderNotification(
+                        userId=user_id,
+                        programId=program_id,
+                        programName=scholarship.get("name"),
+                        provider=scholarship.get("provider"),
+                        country=country,
+                        deadline=deadline,
+                        score=round(score, 2),
+                        cycleDate=cycle_date,
+                    )
+                events.append(evt.model_dump())
                 ledger.record(user_id, program_id, cycle_date, event_type)
                 counts["matches" if event_type == "ScholarshipMatched" else "reminders"] += 1
 
@@ -298,10 +335,53 @@ def run_matcher(since_hours: int = 24, ledger: NotificationLedger | None = None,
     return counts
 
 
+def _memory_used_mb() -> float:
+    try:
+        import resource
+
+        usage = resource.getrusage(resource.RUSAGE_SELF)
+        return round(float(usage.ru_maxrss) / 1024.0, 2)
+    except Exception:
+        return 0.0
+
+
 def handler(event=None, context=None) -> dict:
     """Lambda entry point (EventBridge daily at 08:00 UTC)."""
-    since_hours = int((event or {}).get("since_hours", 24))
-    return run_matcher(since_hours=since_hours)
+    global COLD_START
+    started = time.perf_counter()
+    event = event or {}
+    since_hours = int(event.get("since_hours", 24))
+    request_id = getattr(context, "aws_request_id", None)
+    function_name = getattr(context, "function_name", "goa-scholarship-matcher")
+    outcome = "success"
+    try:
+        if event.get("healthcheck") is True:
+            return {
+                "ok": True,
+                "worker": "scholarship-matcher",
+                "mode": "healthcheck",
+            }
+        summary = run_matcher(since_hours=since_hours)
+        return summary
+    except Exception:
+        outcome = "fail"
+        raise
+    finally:
+        logger.info(
+            json.dumps(
+                {
+                    "function_name": function_name,
+                    "request_id": request_id,
+                    "duration_ms": round((time.perf_counter() - started) * 1000, 2),
+                    "memory_used_mb": _memory_used_mb(),
+                    "cold_start": COLD_START,
+                    "records_processed": summary.get("scholarships", 0) if "summary" in locals() else 0,
+                    "outcome": outcome,
+                },
+                separators=(",", ":"),
+            )
+        )
+        COLD_START = False
 
 
 if __name__ == "__main__":

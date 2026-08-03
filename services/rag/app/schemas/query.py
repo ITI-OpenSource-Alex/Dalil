@@ -12,13 +12,17 @@ class QueryRequest(BaseModel):
 
 class DocumentSource(BaseModel):
     id: str = Field(..., description="The database UUID of the document chunk")
+    title: Optional[str] = Field(None, description="The document title parsed from stored metadata")
+    url: Optional[str] = Field(None, alias="source_url", description="The source URL of the chunk")
     content: str = Field(..., description="The text content of the chunk")
-    source_url: Optional[str] = Field(None, description="The source URL of the chunk")
-    similarity: float = Field(..., description="Cosine similarity score (0 to 1)")
-
+    relevance_score: float = Field(..., alias="similarity", description="Cosine relevance score (0.0 to 1.0)")
+    class Config:
+        populate_by_name = True
 
 class QueryResponse(BaseModel):
-    answer: str = Field(..., description="The generated answer from Claude")
+    answer: Optional[str] = Field(None, description="The generated answer, or None if confidence is low")
+    reason: Optional[str] = Field(None, description="Refusal reason if answer is None (e.g. insufficient_data)")
+    suggestion: Optional[str] = Field(None, description="User suggestion when query is refused")
     sources: List[DocumentSource] = Field(
-        default=[], description="The retrieved context sources used"
+        default=[], description="The context sources retrieved"
     )

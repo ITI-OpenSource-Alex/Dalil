@@ -3,44 +3,21 @@ variable "environment" {
   type        = string
 }
 
-variable "task_execution_secret_arns" {
-  description = "Secret ARNs the ECS task execution role may read for container startup."
-  type        = list(string)
-  default     = []
-}
-
-variable "task_execution_kms_key_arns" {
-  description = "KMS key ARNs the ECS task execution role may decrypt during container startup."
-  type        = list(string)
-  default     = []
-}
-
-variable "task_secret_arns" {
-  description = "Secret ARNs the ECS task role may read at runtime."
-  type        = list(string)
-  default     = []
-}
-
-variable "task_sqs_queue_arns" {
-  description = "SQS queue ARNs the ECS task role may use at runtime."
-  type        = list(string)
-  default     = []
-}
-
-variable "task_s3_read_object_arns" {
-  description = "S3 object ARN patterns ECS application tasks may read."
-  type        = list(string)
-  default     = []
-}
-
-variable "task_kms_key_arns" {
-  description = "KMS key ARNs the ECS task role may use at runtime."
-  type        = list(string)
-  default     = []
+variable "ecs_service_permissions" {
+  description = "Least-privilege execution and runtime permissions keyed by ECS service."
+  type = map(object({
+    execution_secret_arns = set(string)
+    task_secret_arns      = set(string)
+    sqs_queue_arns        = set(string)
+    sns_topic_arns        = set(string)
+    s3_read_object_arns   = set(string)
+    s3_write_object_arns  = set(string)
+    kms_key_arns          = set(string)
+  }))
 }
 
 variable "ecs_exec_operator_resource_arns" {
-  description = "ECS cluster/task/service ARNs operators may use with ECS Exec. Replace the default once ECS resources exist."
+  description = "ECS cluster/task/service ARNs operators may use with ECS Exec."
   type        = list(string)
   default     = ["*"]
 }
@@ -58,7 +35,7 @@ variable "session_manager_run_as_default_user" {
 }
 
 variable "session_manager_log_group_name" {
-  description = "CloudWatch log group name for Session Manager logs. Defaults to an environment-specific name."
+  description = "CloudWatch log group name for Session Manager logs."
   type        = string
   default     = null
 }
@@ -110,11 +87,13 @@ variable "lambda_secret_arns" {
   type        = list(string)
   default     = []
 }
+
 variable "lambda_kms_key_arns" {
   description = "KMS key ARNs Lambda workers may use at runtime."
   type        = list(string)
   default     = []
 }
+
 variable "lambda_sqs_queue_arns" {
   description = "SQS queue ARNs Lambda workers may use at runtime."
   type        = list(string)

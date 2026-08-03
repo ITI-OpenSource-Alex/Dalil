@@ -1,5 +1,5 @@
 import httpx
-from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type, retry_if_exception
+from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception
 from playwright.async_api import Error as PlaywrightError, TimeoutError as PlaywrightTimeoutError
 
 

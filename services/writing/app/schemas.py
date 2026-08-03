@@ -71,6 +71,29 @@ class CVUploadResponse(BaseModel):
     status: str
 
 
+class CVReviewRequest(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    userId: str = Field(min_length=1, max_length=128)
+    cvS3Key: str = Field(min_length=1, max_length=512)
+    targetCountry: str = Field(min_length=1, max_length=128)
+    targetField: str = Field(min_length=1, max_length=128)
+
+
+class CVReviewSection(BaseModel):
+    """One area of ticket-defined CV review feedback."""
+
+    name: str = Field(min_length=1)
+    score: int = Field(ge=0, le=100)
+    issues: list[str] = Field(default_factory=list)
+    suggestions: list[str] = Field(default_factory=list)
+
+
+class CVReviewResponse(BaseModel):
+    overallScore: int = Field(ge=0, le=100)
+    sections: list[CVReviewSection]
+
+
 class ExamTaskEvaluationRequest(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 

@@ -48,6 +48,16 @@ def make_mock_db_pool(monkeypatch, similarity_score=0.85):
     mock_conn.fetch = AsyncMock(return_value=[mock_row])
     mock_conn.fetchrow = AsyncMock(return_value=None)
 
+    # Retrieval now runs inside `async with conn.transaction():` so that
+    # SET LOCAL ivfflat.probes actually reaches the query -- outside a transaction
+    # Postgres discards the setting silently. AsyncMock makes transaction() return a
+    # coroutine rather than an async context manager, so it is built explicitly here.
+    mock_txn = MagicMock()
+    mock_txn.__aenter__ = AsyncMock(return_value=None)
+    mock_txn.__aexit__ = AsyncMock(return_value=None)
+    mock_conn.transaction = MagicMock(return_value=mock_txn)
+    mock_conn.execute = AsyncMock(return_value=None)
+
     # Create the context manager mock
     mock_ctx = MagicMock()
     mock_ctx.__aenter__ = AsyncMock(return_value=mock_conn)
@@ -72,10 +82,12 @@ def mock_langfuse(monkeypatch):
     """Fixture to mock and inject Langfuse client for verification."""
     mock_lf = MagicMock()
     mock_trace = MagicMock()
-    mock_lf.trace.return_value = mock_trace
+    mock_child = MagicMock()
+    mock_lf.start_observation.return_value = mock_trace
+    mock_trace.start_observation.return_value = mock_child
 
     monkeypatch.setattr("app.services.rag_service.langfuse_client", mock_lf)
-    return mock_lf, mock_trace
+    return mock_lf, mock_trace, mock_child
 
 
 def get_prometheus_counter_value(metrics_text: str, counter_name: str) -> float:
@@ -128,21 +140,33 @@ def test_api_query_endpoint(mock_db_pool, monkeypatch):
 
 def test_api_query_langfuse_tracing(mock_db_pool, mock_langfuse):
     """Verify that POST /query initiates a Langfuse trace with retrieval and generation spans."""
-    mock_lf, mock_trace = mock_langfuse
+    mock_lf, mock_trace, mock_child = mock_langfuse
     payload = {"question": "Traced question rules?", "userId": "user-789", "topK": 3}
+    traceparent = f"00-{'a' * 32}-{'b' * 16}-01"
 
-    response = client.post("/query", json=payload)
+    response = client.post(
+        "/query",
+        json=payload,
+        headers={"traceparent": traceparent},
+    )
     assert response.status_code == 200
 
     # Ensure the parent trace was initiated
-    mock_lf.trace.assert_called_once()
-    # Ensure retrieval span and generation components were called
-    mock_trace.span.assert_called_once()
-    mock_trace.generation.assert_called_once()
+    mock_lf.start_observation.assert_called_once()
+    assert mock_lf.start_observation.call_args.kwargs["trace_context"] == {
+        "trace_id": "a" * 32,
+        "parent_span_id": "b" * 16,
+    }
+    child_types = {
+        call.kwargs["as_type"]
+        for call in mock_trace.start_observation.call_args_list
+    }
+    assert child_types == {"retriever", "generation"}
+    assert mock_child.end.call_count == 2
 
 
 def test_low_similarity_increments_metrics_counter(monkeypatch):
-    """Verify that submitting a low-similarity query increments the low-confidence metric."""
+    """Verify that submitting a low-similarity query returns refusal response and increments metric."""
     # 1. Mock DB pool to return low similarity score (0.50, which is < 0.60 threshold)
     make_mock_db_pool(monkeypatch, similarity_score=0.50)
 
@@ -161,6 +185,13 @@ def test_low_similarity_increments_metrics_counter(monkeypatch):
     response = client.post("/query", json=payload)
     assert response.status_code == 200
 
+    # Confirm refusal contract fields
+    data = response.json()
+    assert data["answer"] is None
+    assert data["reason"] == "insufficient_data"
+    assert data["suggestion"] is not None
+    assert len(data["sources"]) == 1
+
     # 4. Check counter value after execution
     metrics_after = client.get("/metrics").text
     val_after = get_prometheus_counter_value(
@@ -169,6 +200,7 @@ def test_low_similarity_increments_metrics_counter(monkeypatch):
 
     # Confirm it has incremented by exactly 1.0
     assert val_after == val_before + 1.0
+
 
 
 def test_api_visa_requirements_endpoint(monkeypatch):

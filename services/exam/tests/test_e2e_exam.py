@@ -141,8 +141,18 @@ class FakeWritingResponseRepository:
 
 
 class FakeS3Client:
-    def __init__(self) -> None:
+    def __init__(self, missing_keys: set[str] | None = None) -> None:
         self.calls: list[dict[str, Any]] = []
+        self.missing_keys = missing_keys or set()
+
+    def head_object(self, Bucket: str, Key: str) -> dict[str, Any]:  # noqa: N803
+        # The delivery service HEADs each section before signing it, so a bucket
+        # with no audio is refused rather than yielding four URLs that 404 on
+        # play (BUG-022). This fake reports objects present by default; the
+        # absent case is covered directly in test_listening_exam.py.
+        if Key in self.missing_keys:
+            raise RuntimeError(f"404 Not Found: {Key}")
+        return {"ContentLength": 1024}
 
     def generate_presigned_url(self, operation: str, **kwargs: Any) -> str:
         self.calls.append({"operation": operation, **kwargs})

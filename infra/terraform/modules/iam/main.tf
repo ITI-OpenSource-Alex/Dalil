@@ -1,25 +1,20 @@
 locals {
   name_prefix = "goa-${var.environment}"
 
-  common_tags = merge(
-    var.tags,
-    {
-      Environment = var.environment
-      ManagedBy   = "terraform"
-      Module      = "iam"
-      Project     = "goa"
-    }
-  )
+  common_tags = merge(var.tags, {
+    Environment = var.environment
+    ManagedBy   = "terraform"
+    Module      = "iam"
+    Project     = "goa"
+  })
 
-  task_execution_secret_arns  = var.task_execution_secret_arns
-  task_execution_kms_key_arns = var.task_execution_kms_key_arns
-  task_secret_arns            = var.task_secret_arns
-  task_sqs_queue_arns         = var.task_sqs_queue_arns
-  task_s3_read_object_arns    = var.task_s3_read_object_arns
-  task_kms_key_arns           = var.task_kms_key_arns
+  services_with_execution_policy = var.ecs_service_permissions
 
-  create_task_execution_secrets_policy = length(local.task_execution_secret_arns) > 0 || length(local.task_execution_kms_key_arns) > 0
-  create_task_app_policy               = length(local.task_secret_arns) > 0 || length(local.task_sqs_queue_arns) > 0 || length(local.task_s3_read_object_arns) > 0 || length(local.task_kms_key_arns) > 0
+  services_with_task_policy = {
+    for service, permissions in var.ecs_service_permissions :
+    service => permissions
+    if service != "db-bootstrap"
+  }
 
   session_manager_log_group_name = coalesce(var.session_manager_log_group_name, "/aws/ssm/${local.name_prefix}/session-manager")
   session_manager_kms_key_id     = trimspace(var.session_manager_kms_key_id)
@@ -44,80 +39,78 @@ data "aws_iam_policy_document" "ecs_tasks_assume_role" {
 }
 
 resource "aws_iam_role" "ecs_task_execution" {
-  name               = "${local.name_prefix}-ecs-task-execution-role"
-  assume_role_policy = data.aws_iam_policy_document.ecs_tasks_assume_role.json
-  description        = "Execution role used by ECS to pull images, fetch startup secrets, and write logs."
+  for_each = var.ecs_service_permissions
 
-  tags = merge(
-    local.common_tags,
-    {
-      Name = "${local.name_prefix}-ecs-task-execution-role"
-      Role = "ecs-task-execution"
-    }
-  )
+  name               = each.key == "gateway" ? "${local.name_prefix}-ecs-task-execution-role" : "${local.name_prefix}-${each.key}-task-execution"
+  assume_role_policy = data.aws_iam_policy_document.ecs_tasks_assume_role.json
+  description        = each.key == "gateway" ? "Execution role used by ECS to pull images, fetch startup secrets, and write logs." : "ECS execution role for the ${each.key} service."
+
+  tags = merge(local.common_tags, {
+    Name    = "${local.name_prefix}-${each.key}-task-execution"
+    Role    = "ecs-task-execution"
+    Service = each.key
+  })
 }
 
 resource "aws_iam_role_policy_attachment" "ecs_task_execution_managed" {
-  role       = aws_iam_role.ecs_task_execution.name
+  for_each = var.ecs_service_permissions
+
+  role       = aws_iam_role.ecs_task_execution[each.key].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
 data "aws_iam_policy_document" "ecs_task_execution_secrets" {
-  count = local.create_task_execution_secrets_policy ? 1 : 0
+  for_each = local.services_with_execution_policy
 
   dynamic "statement" {
-    for_each = length(local.task_execution_secret_arns) > 0 ? [1] : []
+    for_each = length(each.value.execution_secret_arns) > 0 ? [1] : []
 
     content {
-      sid = "ReadStartupSecrets"
-      actions = [
-        "secretsmanager:DescribeSecret",
-        "secretsmanager:GetSecretValue",
-      ]
-      resources = local.task_execution_secret_arns
+      sid       = "ReadOwnStartupSecret"
+      actions   = ["secretsmanager:GetSecretValue"]
+      resources = each.value.execution_secret_arns
     }
   }
 
   dynamic "statement" {
-    for_each = length(local.task_execution_kms_key_arns) > 0 ? [1] : []
+    for_each = length(each.value.kms_key_arns) > 0 ? [1] : []
 
     content {
-      sid       = "DecryptStartupSecrets"
+      sid       = "DecryptOwnStartupSecret"
       actions   = ["kms:Decrypt"]
-      resources = local.task_execution_kms_key_arns
+      resources = each.value.kms_key_arns
     }
   }
 }
 
 resource "aws_iam_policy" "ecs_task_execution_secrets" {
-  count = local.create_task_execution_secrets_policy ? 1 : 0
+  for_each = local.services_with_execution_policy
 
-  name        = "${local.name_prefix}-ecs-task-execution-secrets-policy"
-  description = "Allows the ECS task execution role to read explicitly listed startup secrets."
-  policy      = data.aws_iam_policy_document.ecs_task_execution_secrets[0].json
-
-  tags = local.common_tags
+  name        = each.key == "gateway" ? "${local.name_prefix}-ecs-task-execution-secrets-policy" : "${local.name_prefix}-${each.key}-execution-secrets"
+  description = each.key == "gateway" ? "Allows the ECS task execution role to read explicitly listed startup secrets." : "Allows ${each.key} ECS startup to read only its own secret."
+  policy      = data.aws_iam_policy_document.ecs_task_execution_secrets[each.key].json
+  tags        = merge(local.common_tags, { Service = each.key })
 }
 
 resource "aws_iam_role_policy_attachment" "ecs_task_execution_secrets" {
-  count = local.create_task_execution_secrets_policy ? 1 : 0
+  for_each = local.services_with_execution_policy
 
-  role       = aws_iam_role.ecs_task_execution.name
-  policy_arn = aws_iam_policy.ecs_task_execution_secrets[0].arn
+  role       = aws_iam_role.ecs_task_execution[each.key].name
+  policy_arn = aws_iam_policy.ecs_task_execution_secrets[each.key].arn
 }
 
 resource "aws_iam_role" "ecs_task" {
-  name               = "${local.name_prefix}-ecs-task-role"
-  assume_role_policy = data.aws_iam_policy_document.ecs_tasks_assume_role.json
-  description        = "Runtime role assumed by GOA ECS application tasks."
+  for_each = var.ecs_service_permissions
 
-  tags = merge(
-    local.common_tags,
-    {
-      Name = "${local.name_prefix}-ecs-task-role"
-      Role = "ecs-task"
-    }
-  )
+  name               = each.key == "gateway" ? "${local.name_prefix}-ecs-task-role" : "${local.name_prefix}-${each.key}-task"
+  assume_role_policy = data.aws_iam_policy_document.ecs_tasks_assume_role.json
+  description        = each.key == "gateway" ? "Runtime role assumed by GOA ECS application tasks." : "Least-privilege runtime role for the ${each.key} service."
+
+  tags = merge(local.common_tags, {
+    Name    = "${local.name_prefix}-${each.key}-task"
+    Role    = "ecs-task"
+    Service = each.key
+  })
 }
 
 data "aws_iam_policy_document" "ecs_exec_task" {
@@ -129,17 +122,8 @@ data "aws_iam_policy_document" "ecs_exec_task" {
       "ssmmessages:OpenControlChannel",
       "ssmmessages:OpenDataChannel",
     ]
+    # The ssmmessages channel APIs do not support resource-level permissions.
     resources = ["*"]
-  }
-
-  dynamic "statement" {
-    for_each = length(local.task_kms_key_arns) > 0 ? [1] : []
-
-    content {
-      sid       = "DecryptEcsExecData"
-      actions   = ["kms:Decrypt"]
-      resources = local.task_kms_key_arns
-    }
   }
 }
 
@@ -147,36 +131,34 @@ resource "aws_iam_policy" "ecs_exec_task" {
   name        = "${local.name_prefix}-ecs-exec-task-policy"
   description = "Allows ECS tasks to open the SSM message channels required by ECS Exec."
   policy      = data.aws_iam_policy_document.ecs_exec_task.json
-
-  tags = local.common_tags
+  tags        = local.common_tags
 }
 
 resource "aws_iam_role_policy_attachment" "ecs_exec_task" {
-  role       = aws_iam_role.ecs_task.name
+  for_each = var.ecs_service_permissions
+
+  role       = aws_iam_role.ecs_task[each.key].name
   policy_arn = aws_iam_policy.ecs_exec_task.arn
 }
 
 data "aws_iam_policy_document" "ecs_task_app" {
-  count = local.create_task_app_policy ? 1 : 0
+  for_each = local.services_with_task_policy
 
   dynamic "statement" {
-    for_each = length(local.task_secret_arns) > 0 ? [1] : []
+    for_each = length(each.value.task_secret_arns) > 0 ? [1] : []
 
     content {
-      sid = "ReadRuntimeSecrets"
-      actions = [
-        "secretsmanager:DescribeSecret",
-        "secretsmanager:GetSecretValue",
-      ]
-      resources = local.task_secret_arns
+      sid       = "ReadOwnRuntimeSecret"
+      actions   = ["secretsmanager:GetSecretValue"]
+      resources = each.value.task_secret_arns
     }
   }
 
   dynamic "statement" {
-    for_each = length(local.task_sqs_queue_arns) > 0 ? [1] : []
+    for_each = length(each.value.sqs_queue_arns) > 0 ? [1] : []
 
     content {
-      sid = "UseRuntimeQueues"
+      sid = "UseAssignedQueues"
       actions = [
         "sqs:ChangeMessageVisibility",
         "sqs:DeleteMessage",
@@ -185,51 +167,65 @@ data "aws_iam_policy_document" "ecs_task_app" {
         "sqs:ReceiveMessage",
         "sqs:SendMessage",
       ]
-      resources = local.task_sqs_queue_arns
+      resources = each.value.sqs_queue_arns
     }
   }
 
   dynamic "statement" {
-    for_each = length(local.task_s3_read_object_arns) > 0 ? [1] : []
+    for_each = length(each.value.sns_topic_arns) > 0 ? [1] : []
 
     content {
-      sid       = "ReadRuntimeObjects"
+      sid       = "PublishAssignedTopics"
+      actions   = ["sns:Publish"]
+      resources = each.value.sns_topic_arns
+    }
+  }
+
+  dynamic "statement" {
+    for_each = length(each.value.s3_read_object_arns) > 0 ? [1] : []
+
+    content {
+      sid       = "ReadAssignedObjects"
       actions   = ["s3:GetObject"]
-      resources = local.task_s3_read_object_arns
+      resources = each.value.s3_read_object_arns
     }
   }
 
   dynamic "statement" {
-    for_each = length(local.task_kms_key_arns) > 0 ? [1] : []
+    for_each = length(each.value.s3_write_object_arns) > 0 ? [1] : []
 
     content {
-      sid = "UseRuntimeKeys"
-      actions = [
-        "kms:Decrypt",
-        "kms:DescribeKey",
-        "kms:Encrypt",
-        "kms:GenerateDataKey",
-      ]
-      resources = local.task_kms_key_arns
+      sid       = "WriteAssignedObjects"
+      actions   = ["s3:PutObject"]
+      resources = each.value.s3_write_object_arns
+    }
+  }
+
+  dynamic "statement" {
+    for_each = length(each.value.kms_key_arns) > 0 ? [1] : []
+
+    content {
+      sid       = "UseAssignedKeys"
+      actions   = ["kms:Decrypt", "kms:DescribeKey"]
+      resources = each.value.kms_key_arns
     }
   }
 }
 
 resource "aws_iam_policy" "ecs_task_app" {
-  count = local.create_task_app_policy ? 1 : 0
+  for_each = local.services_with_task_policy
 
-  name        = "${local.name_prefix}-ecs-task-app-policy"
-  description = "Allows ECS tasks to access explicitly listed runtime dependencies."
-  policy      = data.aws_iam_policy_document.ecs_task_app[0].json
-
-  tags = local.common_tags
+  name        = each.key == "gateway" ? "${local.name_prefix}-ecs-task-app-policy" : "${local.name_prefix}-${each.key}-task-policy"
+  description = each.key == "gateway" ? "Allows ECS tasks to access explicitly listed runtime dependencies." : "Least-privilege runtime permissions for ${each.key}."
+  policy      = data.aws_iam_policy_document.ecs_task_app[each.key].json
+  tags        = merge(local.common_tags, { Service = each.key })
 }
 
 resource "aws_iam_role_policy_attachment" "ecs_task_app" {
-  count = local.create_task_app_policy ? 1 : 0
+  for_each = local.services_with_task_policy
 
-  role       = aws_iam_role.ecs_task.name
-  policy_arn = aws_iam_policy.ecs_task_app[0].arn
+  role       = aws_iam_role.ecs_task[each.key].name
+  policy_arn = aws_iam_policy.ecs_task_app[each.key].arn
 }
 
 data "aws_iam_policy_document" "ecs_exec_operator" {
@@ -259,22 +255,14 @@ resource "aws_iam_policy" "ecs_exec_operator" {
   name        = "${local.name_prefix}-ecs-exec-operator-policy"
   description = "Baseline policy operators can attach to use ECS Exec through SSM channels."
   policy      = data.aws_iam_policy_document.ecs_exec_operator.json
-
-  tags = local.common_tags
+  tags        = local.common_tags
 }
 
 resource "aws_cloudwatch_log_group" "session_manager" {
   name              = local.session_manager_log_group_name
   retention_in_days = var.session_manager_log_retention_days
   kms_key_id        = local.session_manager_kms_key_id != "" ? local.session_manager_kms_key_id : null
-
-  tags = merge(
-    local.common_tags,
-    {
-      Name = local.session_manager_log_group_name
-      Role = "session-manager-logs"
-    }
-  )
+  tags              = merge(local.common_tags, { Role = "session-manager-logs" })
 }
 
 resource "aws_ssm_document" "session_manager_preferences" {
@@ -299,20 +287,11 @@ resource "aws_ssm_document" "session_manager_preferences" {
       s3BucketName                = local.session_manager_s3_bucket_name
       s3EncryptionEnabled         = local.session_manager_s3_bucket_name != ""
       s3KeyPrefix                 = local.session_manager_s3_bucket_name != "" ? var.session_manager_s3_key_prefix : ""
-      shellProfile = {
-        linux   = ""
-        windows = ""
-      }
+      shellProfile                = { linux = "", windows = "" }
     }
   })
 
-  tags = merge(
-    local.common_tags,
-    {
-      Name = "SSM-SessionManagerRunShell"
-      Role = "session-manager-preferences"
-    }
-  )
+  tags = merge(local.common_tags, { Role = "session-manager-preferences" })
 }
 
 data "aws_iam_policy_document" "lambda_assume_role" {
@@ -329,20 +308,17 @@ resource "aws_iam_role" "lambda_execution" {
   name               = "${local.name_prefix}-lambda-execution-role"
   assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
   description        = "Execution role assumed by GOA async worker Lambda functions."
-  tags = merge(
-    local.common_tags,
-    {
-      Name = "${local.name_prefix}-lambda-execution-role"
-      Role = "lambda-execution"
-    }
-  )
+  tags               = merge(local.common_tags, { Role = "lambda-execution" })
 }
 
-# Covers CloudWatch Logs (create group/stream, put events) plus the EC2
-# network-interface actions Lambda needs to run inside the VPC.
 resource "aws_iam_role_policy_attachment" "lambda_vpc_access" {
   role       = aws_iam_role.lambda_execution.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_insights" {
+  role       = aws_iam_role.lambda_execution.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchLambdaInsightsExecutionRolePolicy"
 }
 
 data "aws_iam_policy_document" "lambda_app" {
@@ -351,11 +327,8 @@ data "aws_iam_policy_document" "lambda_app" {
   dynamic "statement" {
     for_each = length(local.lambda_secret_arns) > 0 ? [1] : []
     content {
-      sid = "ReadLambdaSecrets"
-      actions = [
-        "secretsmanager:DescribeSecret",
-        "secretsmanager:GetSecretValue",
-      ]
+      sid       = "ReadLambdaSecrets"
+      actions   = ["secretsmanager:GetSecretValue"]
       resources = local.lambda_secret_arns
     }
   }
@@ -385,16 +358,17 @@ data "aws_iam_policy_document" "lambda_app" {
     }
   }
 
+  statement {
+    sid       = "SendNotificationEmail"
+    actions   = ["ses:SendEmail", "ses:SendRawEmail"]
+    resources = ["*"]
+  }
+
   dynamic "statement" {
     for_each = length(local.lambda_kms_key_arns) > 0 ? [1] : []
     content {
-      sid = "UseLambdaKeys"
-      actions = [
-        "kms:Decrypt",
-        "kms:DescribeKey",
-        "kms:Encrypt",
-        "kms:GenerateDataKey",
-      ]
+      sid       = "UseLambdaKeys"
+      actions   = ["kms:Decrypt", "kms:DescribeKey"]
       resources = local.lambda_kms_key_arns
     }
   }
@@ -412,4 +386,46 @@ resource "aws_iam_role_policy_attachment" "lambda_app" {
   count      = local.create_lambda_app_policy ? 1 : 0
   role       = aws_iam_role.lambda_execution.name
   policy_arn = aws_iam_policy.lambda_app[0].arn
+}
+
+# Preserve the former shared roles as the Gateway roles while GOA-070 expands
+# the module to one isolated role pair per service.
+moved {
+  from = aws_iam_role.ecs_task_execution
+  to   = aws_iam_role.ecs_task_execution["gateway"]
+}
+
+moved {
+  from = aws_iam_role_policy_attachment.ecs_task_execution_managed
+  to   = aws_iam_role_policy_attachment.ecs_task_execution_managed["gateway"]
+}
+
+moved {
+  from = aws_iam_policy.ecs_task_execution_secrets[0]
+  to   = aws_iam_policy.ecs_task_execution_secrets["gateway"]
+}
+
+moved {
+  from = aws_iam_role_policy_attachment.ecs_task_execution_secrets[0]
+  to   = aws_iam_role_policy_attachment.ecs_task_execution_secrets["gateway"]
+}
+
+moved {
+  from = aws_iam_role.ecs_task
+  to   = aws_iam_role.ecs_task["gateway"]
+}
+
+moved {
+  from = aws_iam_role_policy_attachment.ecs_exec_task
+  to   = aws_iam_role_policy_attachment.ecs_exec_task["gateway"]
+}
+
+moved {
+  from = aws_iam_policy.ecs_task_app[0]
+  to   = aws_iam_policy.ecs_task_app["gateway"]
+}
+
+moved {
+  from = aws_iam_role_policy_attachment.ecs_task_app[0]
+  to   = aws_iam_role_policy_attachment.ecs_task_app["gateway"]
 }

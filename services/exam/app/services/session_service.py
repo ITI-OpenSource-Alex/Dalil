@@ -15,7 +15,10 @@ from app.repositories.session_repository import SessionRepository
 from app.schemas import CreateSessionRequest, SubmitAnswersRequest
 from app.schemas.question import QuestionResponse
 from app.services.grading_service import GradingService
-from app.services.audio_delivery_service import S3AudioDeliveryService
+from app.services.audio_delivery_service import (
+    ListeningAudioUnavailableError,
+    S3AudioDeliveryService,
+)
 from app.services.timer_service import TimerService
 from app.repositories.writing_response_repository import WritingResponseRepository
 from app.services.writing_client import WritingClient, WritingServiceError
@@ -362,6 +365,15 @@ class SessionService:
                 audio_s3_key=question["audio_s3_key"],
                 session_id=session_id,
             )
+        except ListeningAudioUnavailableError as exc:
+            # 503, not 500: the key is well-formed and this code is correct --
+            # the audio was simply never uploaded. Refusing here means no session
+            # row and no 40-minute clock, so the candidate can retry later rather
+            # than burning an attempt on a test that cannot play (BUG-022).
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=str(exc),
+            ) from exc
         except ValueError as exc:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

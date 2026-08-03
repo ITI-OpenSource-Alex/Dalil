@@ -13,6 +13,7 @@ bin/
 # Test coverage artifacts
 .coverage
 coverage.xml
+coverage/
 
 # Env files (never commit secrets)
 .env
@@ -23,6 +24,7 @@ coverage.xml
 .terraform/
 *.tfstate
 *.tfstate.backup
+*.tfplan
 *.tfvars
 !*.tfvars.example
 !infra/terraform/environments/staging.tfvars
@@ -51,10 +53,11 @@ sprint_1_review.md
 GOA_Sprint_1_Tickets.md
 GOA_Sprint_2_Tickets.md
 GOA_Sprint_3_Tickets.md
+GOA-021-implementation-plan.md
 .agents/
 scratch_generator.py
 evals/reports/
-d:\ITI\Graduation Project\Docs\GOA-112-116-implementation-plan.md
+GOA-112-116-implementation-plan.md
 # Local Python virtual environments
 .venv_check/
 services/rag/.venv_check/
@@ -70,3 +73,7 @@ services/ingestion/scratch/
 
 # Judge response cache: local cost optimisation, not shared state.
 evals/.judge_cache.json
+
+# Local Go build cache used when the OS user cache is not writable.
+.go-build-cache/
+.go-mod-cache/

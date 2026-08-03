@@ -3,7 +3,7 @@ import json
 import time
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from app.schemas import EssayCreateRequest, EssayCreateResponse
@@ -23,6 +23,7 @@ from app.metrics import (
 from app.models import Essay
 from app.observability import (
     get_langfuse_client,
+    end_evaluation_trace,
     log_evaluation,
     start_evaluation_trace,
 )
@@ -166,6 +167,7 @@ async def _run_exam_evaluation(
 @router.post("/evaluate", response_model=EssayEvaluationResponse)
 async def evaluate_submitted_text(
     payload: EssayEvaluationRequest,
+    request: Request,
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
     coordinator: EvaluationCoordinator = Depends(get_evaluation_coordinator),
@@ -197,6 +199,7 @@ async def evaluate_submitted_text(
         essay_id=essay.id,
         task_type=payload.examType,
         from_cache=from_cache,
+        traceparent=request.headers.get("traceparent"),
     )
     try:
         summary = await _run_evaluation(
@@ -206,18 +209,27 @@ async def evaluate_submitted_text(
             trace=trace,
         )
     except EvaluationFailed as exc:
+        end_evaluation_trace(trace, error=exc)
         essay.status = "evaluation_failed"
         db.commit()
         cache_hit_tracker.record(hit=False)
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     persist_evaluation(db, essay, summary)
     _record_request(essay, summary, started=started, from_cache=from_cache)
+    end_evaluation_trace(
+        trace,
+        output={
+            "overall_band": summary.overall_band,
+            "total_tokens": summary.total_tokens,
+        },
+    )
     return _response(essay, summary, from_cache=from_cache)
 
 
 @router.post("/{essay_id}/evaluate")
 async def stream_essay_evaluation(
     essay_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
     coordinator: EvaluationCoordinator = Depends(get_evaluation_coordinator),
@@ -245,6 +257,7 @@ async def stream_essay_evaluation(
         essay_id=essay.id,
         task_type=essay.exam_type or essay.submission_type or "IELTS Writing",
         from_cache=from_cache,
+        traceparent=request.headers.get("traceparent"),
     )
 
     async def event_stream():
@@ -275,11 +288,17 @@ async def stream_essay_evaluation(
                     )
                 )
             except Exception as exc:
+                end_evaluation_trace(trace, error=exc)
                 essay.status = "evaluation_failed"
                 db.commit()
                 cache_hit_tracker.record(hit=False)
                 await queue.put(("error", {"detail": str(exc)}))
             finally:
+                if essay.status != "evaluation_failed":
+                    end_evaluation_trace(
+                        trace,
+                        output={"status": "complete"},
+                    )
                 await queue.put(None)
 
         task = asyncio.create_task(evaluate_in_background())
@@ -310,6 +329,7 @@ async def stream_essay_evaluation(
 @router.post("/evaluate/exam", response_model=ExamTaskEvaluationResponse)
 async def evaluate_exam_task(
     payload: ExamTaskEvaluationRequest,
+    request: Request,
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
     coordinator: EvaluationCoordinator = Depends(get_evaluation_coordinator),
@@ -343,6 +363,7 @@ async def evaluate_exam_task(
         essay_id=essay.id,
         task_type=payload.examType,
         from_cache=from_cache,
+        traceparent=request.headers.get("traceparent"),
     )
     task_type_label = f"task{payload.taskNumber}"
     try:
@@ -355,6 +376,7 @@ async def evaluate_exam_task(
                 trace=trace,
             )
     except EvaluationFailed as exc:
+        end_evaluation_trace(trace, error=exc)
         essay.status = "evaluation_failed"
         db.commit()
         cache_hit_tracker.record(hit=False)
@@ -362,6 +384,13 @@ async def evaluate_exam_task(
 
     persist_evaluation(db, essay, summary)
     _record_request(essay, summary, started=started, from_cache=from_cache)
+    end_evaluation_trace(
+        trace,
+        output={
+            "overall_band": summary.overall_band,
+            "total_tokens": summary.total_tokens,
+        },
+    )
     return _exam_response(
         essay,
         summary,

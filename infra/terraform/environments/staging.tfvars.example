@@ -41,15 +41,11 @@ alb_enable_deletion_protection = false
 alb_default_target_group_name  = "gateway"
 ecs_desired_counts             = {}
 enable_lambda_workers          = false
-enable_rds_proxy                 = false
-rds_backup_retention_days        = 1
+enable_rds_proxy                 = false # Enable after upgrading the AWS account plan.
+rds_backup_retention_days        = 1 # Set to 7 after upgrading the AWS account plan.
 rds_performance_insights_enabled = false
 
-task_execution_secret_arns  = []
-task_execution_kms_key_arns = []
-task_secret_arns            = []
-task_sqs_queue_arns         = []
-task_kms_key_arns           = []
+task_kms_key_arns = []
 
 # Supply these through a secure, uncommitted staging.tfvars file or CI TF_VAR.
 service_secret_values = {
@@ -58,6 +54,9 @@ service_secret_values = {
     LANGFUSE_PUBLIC_KEY = ""
     LANGFUSE_SECRET_KEY = ""
     LANGFUSE_HOST       = "https://cloud.langfuse.com"
+  }
+  ingestion = {
+    ANTHROPIC_API_KEY = ""
   }
 }
 

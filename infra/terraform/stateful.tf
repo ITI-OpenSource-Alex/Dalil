@@ -6,6 +6,52 @@ module "sqs" {
   tags        = local.common_tags
 }
 
+resource "aws_sns_topic" "user_events" {
+  name = "${local.name_prefix}-user-events"
+
+  tags = merge(local.common_tags, {
+    Name = "${local.name_prefix}-user-events"
+  })
+}
+
+resource "aws_sns_topic_subscription" "user_events_sqs" {
+  for_each = local.user_event_subscriber_queue_keys
+
+  topic_arn            = aws_sns_topic.user_events.arn
+  protocol             = "sqs"
+  endpoint             = module.sqs.queue_arns[each.key]
+  raw_message_delivery = false
+}
+
+data "aws_iam_policy_document" "user_events_sqs" {
+  for_each = local.user_event_subscriber_queue_keys
+
+  statement {
+    sid     = "AllowUserEventsTopicDelivery"
+    actions = ["sqs:SendMessage"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["sns.amazonaws.com"]
+    }
+
+    resources = [module.sqs.queue_arns[each.key]]
+
+    condition {
+      test     = "ArnEquals"
+      variable = "aws:SourceArn"
+      values   = [aws_sns_topic.user_events.arn]
+    }
+  }
+}
+
+resource "aws_sqs_queue_policy" "user_events_sns_delivery" {
+  for_each = local.user_event_subscriber_queue_keys
+
+  queue_url = module.sqs.queue_urls[each.key]
+  policy    = data.aws_iam_policy_document.user_events_sqs[each.key].json
+}
+
 module "secrets" {
   source = "./modules/secrets"
 
@@ -86,14 +132,11 @@ resource "aws_iam_role_policy" "rds_proxy_secret" {
 module "rds" {
   source = "./modules/rds"
 
-  name_prefix        = local.name_prefix
-  environment        = var.environment
-  vpc_id             = module.vpc.vpc_id
-  private_subnet_ids = module.vpc.private_data_subnet_ids
-  allowed_security_group_ids = var.enable_rds_proxy ? [aws_security_group.rds_proxy.id] : [
-    module.security_groups.ecs_services_security_group_id,
-    module.security_groups.lambda_security_group_id,
-  ]
+  name_prefix                  = local.name_prefix
+  environment                  = var.environment
+  vpc_id                       = module.vpc.vpc_id
+  security_group_id            = module.security_groups.rds_security_group_id
+  private_subnet_ids           = module.vpc.private_data_subnet_ids
   database_names               = local.postgres_databases
   instance_class               = local.rds_instance_class
   multi_az                     = local.rds_multi_az
@@ -126,6 +169,16 @@ module "rds_proxy" {
   depends_on = [aws_iam_role_policy.rds_proxy_secret]
 }
 
+resource "aws_vpc_security_group_ingress_rule" "rds_from_proxy" {
+  count                        = var.enable_rds_proxy ? 1 : 0
+  security_group_id            = module.security_groups.rds_security_group_id
+  referenced_security_group_id = aws_security_group.rds_proxy.id
+  ip_protocol                  = "tcp"
+  from_port                    = 5432
+  to_port                      = 5432
+  description                  = "Allow the RDS Proxy to reach PostgreSQL."
+}
+
 moved {
   from = aws_security_group.rds_proxy[0]
   to   = aws_security_group.rds_proxy
@@ -154,12 +207,19 @@ module "observability" {
   source = "./modules/observability"
 
   name_prefix           = local.name_prefix
+  aws_region            = var.aws_region
+  dashboard_name        = var.environment == "staging" ? "GOA-Overview" : "GOA-Overview-${var.environment}"
   service_names         = local.service_names
   log_retention_days    = 30
-  sns_topic_name        = "goa-alerts"
+  sns_topic_name        = "${local.name_prefix}-alerts"
   alert_email_addresses = var.alert_email_addresses
   sqs_queue_names       = values(module.sqs.dlq_names)
   ecs_cluster_name      = var.ecs_cluster_name
-  alarm_definitions     = local.goa027_alarm_definitions
-  tags                  = local.common_tags
+  lambda_function_names = [
+    "goa-cv-processor-${var.environment}",
+    "goa-scholarship-matcher-${var.environment}",
+    "goa-notification-sender-${var.environment}",
+  ]
+  alarm_definitions = local.goa027_alarm_definitions
+  tags              = local.common_tags
 }

@@ -29,23 +29,29 @@ private_data_subnet_cidrs = [
   "10.0.21.0/24",
 ]
 
-domain_name         = "goa.example.com"
-hosted_zone_id      = "REPLACE_WITH_PRODUCTION_HOSTED_ZONE_ID"
-alb_certificate_arn = "arn:aws:acm:eu-west-1:444455556666:certificate/replace-with-production-certificate-id"
+domain_name               = "goa.app"
+hosted_zone_id            = null
+enable_public_dns         = true
+create_public_hosted_zone = true
+alb_certificate_arn       = null
 
 alb_enable_deletion_protection     = true
 alb_default_target_group_name      = "gateway"
 create_self_signed_alb_certificate = false
 enable_cloudfront                  = true
+frontend_bucket_name               = "goa-114403655381-production-frontend-assets"
+cloudfront_price_class             = "PriceClass_100"
+waf_rate_limit                     = 1000
 ecs_desired_counts                 = {}
 enable_lambda_workers              = false
 
-task_execution_secret_arns  = []
-task_execution_kms_key_arns = []
-task_secret_arns            = []
-task_sqs_queue_arns         = []
-task_s3_read_object_arns    = ["arn:aws:s3:::goa-exam-audio/exam-audio/*"]
-task_kms_key_arns           = []
+# GOA-022 (B5/N9): staging owns the account-global GitHub OIDC provider.
+# This workspace only creates its own goa-production-deploy role, which
+# references the provider by constructed ARN, so tearing down staging can no
+# longer destroy production's ability to deploy.
+manage_github_oidc_provider = false
+
+task_kms_key_arns = []
 
 ecs_exec_operator_resource_arns    = ["*"]
 session_manager_log_retention_days = 90

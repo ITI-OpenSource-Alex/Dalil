@@ -65,6 +65,67 @@ async def test_speaking_intent_routing(mocker):
     assert events[0].type == "speaking_url"
     assert "ws" in events[0].wsUrl
 
+
+@pytest.mark.asyncio
+async def test_traceparent_is_forwarded_to_rag(mocker):
+    mock_client = mocker.AsyncMock()
+    mock_client.post.return_value = httpx.Response(
+        200,
+        json={"answer": "ok", "sources": []},
+        request=httpx.Request("POST", "http://test"),
+    )
+    traceparent = f"00-{'a' * 32}-{'b' * 16}-01"
+
+    events = [
+        event
+        async for event in forward_downstream_stream(
+            mock_client,
+            "RAG",
+            "hello",
+            "user_1",
+            "corr-123",
+            traceparent=traceparent,
+        )
+    ]
+
+    assert events
+    assert mock_client.post.call_args.kwargs["headers"]["traceparent"] == traceparent
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("intent,event_type,url_field", [
+    ("SPEAKING", "speaking_url", "wsUrl"),
+    ("WRITING", "writing_url", "sseUrl"),
+])
+async def test_browser_handoff_urls_carry_traceparent(
+    mocker,
+    intent,
+    event_type,
+    url_field,
+):
+    mock_client = mocker.AsyncMock()
+    mock_client.post.return_value = httpx.Response(
+        200,
+        json={"id": "123", "status": "ready"},
+        request=httpx.Request("POST", "http://test"),
+    )
+    traceparent = f"00-{'c' * 32}-{'d' * 16}-01"
+
+    events = [
+        event
+        async for event in forward_downstream_stream(
+            mock_client,
+            intent,
+            "hello",
+            "user_1",
+            "corr-123",
+            traceparent=traceparent,
+        )
+    ]
+
+    handoff = next(event for event in events if event.type == event_type)
+    assert f"traceparent={traceparent}" in getattr(handoff, url_field)
+
 @pytest.mark.asyncio
 async def test_dod_2_and_4_circuit_breaker(mocker):
     """DoD 2: Opens after 3 failures | DoD 4: Circuit breaker metric flips to 1"""

@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"bufio"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -9,20 +11,35 @@ import (
 	"net/textproto"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/ITI-OpenSource-Alex/GOA/services/gateway/downstream"
 	"github.com/ITI-OpenSource-Alex/GOA/services/gateway/middleware"
 	"github.com/gofiber/fiber/v2"
+	"github.com/valyala/fasthttp"
 )
 
 type WritingHandler struct {
 	httpClient        *http.Client
+	llmClient         *http.Client
 	writingServiceURL string
 }
 
-func NewWritingHandler(httpClient *http.Client, writingServiceURL string) *WritingHandler {
+// NewWritingHandler takes two clients on purpose.
+//
+// httpClient carries the shared 10s timeout, which is right for uploads and
+// keeps slow-client protection on those routes. llmClient is for routes that
+// wait on a model: CV review is a full LLM call and cannot finish in 10s, so on
+// the shared client it returned 502 at exactly 10.007s while the writing
+// service was still working — a gateway timeout wearing the costume of an
+// upstream failure.
+func NewWritingHandler(httpClient *http.Client, llmClient *http.Client, writingServiceURL string) *WritingHandler {
+	if llmClient == nil {
+		llmClient = httpClient
+	}
 	return &WritingHandler{
 		httpClient:        httpClient,
+		llmClient:         llmClient,
 		writingServiceURL: writingServiceURL,
 	}
 }
@@ -205,4 +222,76 @@ func (h *WritingHandler) UploadCV(c *fiber.Ctx) error {
 	c.Status(resp.StatusCode)
 	c.Set(fiber.HeaderContentType, resp.Header.Get("Content-Type"))
 	return c.Send(responseBody)
+}
+
+// ReviewCV proxies POST /api/writing/cv/review.
+//
+// The writing service grew this endpoint alongside BUG-019; without a gateway
+// route the browser still could not reach it, and the CV feature would have
+// stayed a pipeline that produces structured data nothing consumes.
+//
+// userId comes from the validated JWT rather than the body. The writing service
+// reads by (userId, cvS3Key), so taking userId from the token is what stops a
+// caller reviewing someone else's CV by editing the payload.
+func (h *WritingHandler) ReviewCV(c *fiber.Ctx) error {
+	userID, err := authenticatedUserID(c)
+	if err != nil {
+		return err
+	}
+
+	payload := map[string]any{}
+	if len(bytes.TrimSpace(c.Body())) > 0 {
+		if err := json.Unmarshal(c.Body(), &payload); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "invalid JSON body")
+		}
+	}
+	payload["userId"] = userID
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	req, err := downstream.NewRequest(c, http.MethodPost, h.writingServiceURL+"/cv/review", bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	c.Locals(middleware.ContextKeyUpstream, "writing")
+
+	resp, err := h.llmClient.Do(req)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadGateway, "failed to contact writing service")
+	}
+
+	c.Status(resp.StatusCode)
+	if ct := resp.Header.Get(fiber.HeaderContentType); ct != "" {
+		c.Set(fiber.HeaderContentType, ct)
+	}
+	c.Set("Cache-Control", "no-cache")
+	c.Set("X-Accel-Buffering", "no")
+
+	conn := c.Context().Conn()
+	c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
+		defer resp.Body.Close()
+		if conn != nil {
+			_ = conn.SetWriteDeadline(time.Time{})
+		}
+
+		buf := make([]byte, 4096)
+		for {
+			n, readErr := resp.Body.Read(buf)
+			if n > 0 {
+				if _, writeErr := w.Write(buf[:n]); writeErr != nil {
+					return
+				}
+				if flushErr := w.Flush(); flushErr != nil {
+					return
+				}
+			}
+			if readErr != nil {
+				return
+			}
+		}
+	}))
+	return nil
 }

@@ -8,7 +8,10 @@ from fastapi.testclient import TestClient
 from prometheus_client import make_asgi_app
 
 from app.api.listening import get_session_service, router as listening_router
-from app.services.audio_delivery_service import S3AudioDeliveryService
+from app.services.audio_delivery_service import (
+    ListeningAudioUnavailableError,
+    S3AudioDeliveryService,
+)
 from app.services.grading_service import GradingService
 from app.services.session_service import SessionService
 
@@ -17,13 +20,79 @@ INTERNAL_HEADERS = {"X-Internal-API-Key": "test-internal-key"}
 
 
 class FakeS3Client:
-    def __init__(self) -> None:
+    """Fake S3 with a real notion of which objects exist.
+
+    `missing_keys` is the point of this fake. The delivery service now HEADs each
+    section before pre-signing it, because pre-signing never touches S3 and so
+    happily produced four valid URLs against an entirely empty bucket (BUG-022).
+    A fake that reports every object as present cannot catch a regression of
+    that, so absence has to be representable here.
+    """
+
+    def __init__(self, missing_keys: set[str] | None = None) -> None:
         self.calls: list[dict[str, Any]] = []
+        self.head_calls: list[str] = []
+        self.missing_keys = missing_keys or set()
+
+    def head_object(self, Bucket: str, Key: str) -> dict[str, Any]:  # noqa: N803
+        self.head_calls.append(Key)
+        if Key in self.missing_keys:
+            raise RuntimeError(f"404 Not Found: {Key}")
+        return {"ContentLength": 1024}
 
     def generate_presigned_url(self, operation: str, **kwargs: Any) -> str:
         self.calls.append({"operation": operation, **kwargs})
         key = kwargs["Params"]["Key"]
         return f"https://audio.example/{key}?signature={len(self.calls)}"
+
+
+def test_empty_bucket_is_refused_rather_than_signed() -> None:
+    """The exact BUG-022 scenario: bucket has nothing in it.
+
+    Before the guard this returned four well-formed URLs and a 200, and the
+    candidate got a session, a 40-minute clock and four 404s on play.
+    """
+    all_sections = {
+        f"exam-audio/IELTS-18/1/section{n}.mp3" for n in range(1, 5)
+    }
+    s3 = FakeS3Client(missing_keys=all_sections)
+    service = S3AudioDeliveryService(s3, "goa-exam-audio")
+
+    with pytest.raises(ListeningAudioUnavailableError) as exc:
+        service.generate_section_urls("exam-audio/IELTS-18/1/section1.mp3", uuid4())
+
+    assert "4 of 4" in str(exc.value)
+    # Nothing may be signed once a section is known missing.
+    assert s3.calls == []
+
+
+def test_partially_uploaded_audio_is_refused_and_names_the_missing_section() -> None:
+    """A half-populated bucket is the more likely production shape.
+
+    Three playable sections and one 404 is worse than none, because it fails
+    only after the candidate has started and burned part of the clock.
+    """
+    s3 = FakeS3Client(missing_keys={"exam-audio/IELTS-18/1/section3.mp3"})
+    service = S3AudioDeliveryService(s3, "goa-exam-audio")
+
+    with pytest.raises(ListeningAudioUnavailableError) as exc:
+        service.generate_section_urls("exam-audio/IELTS-18/1/section1.mp3", uuid4())
+
+    message = str(exc.value)
+    assert "1 of 4" in message
+    assert "section3.mp3" in message
+    assert s3.calls == []
+
+
+def test_all_four_sections_are_checked_before_any_is_signed() -> None:
+    s3 = FakeS3Client()
+    service = S3AudioDeliveryService(s3, "goa-exam-audio")
+
+    service.generate_section_urls("exam-audio/IELTS-18/1/section1.mp3", uuid4())
+
+    assert s3.head_calls == [
+        f"exam-audio/IELTS-18/1/section{n}.mp3" for n in range(1, 5)
+    ]
 
 
 def test_presigned_urls_use_four_section_keys_and_7200_second_expiry() -> None:

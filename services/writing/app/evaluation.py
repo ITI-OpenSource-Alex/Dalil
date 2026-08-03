@@ -33,12 +33,20 @@ def calculate_overall_band(band_scores: list[float]) -> float:
     return float((mean * 2).quantize(Decimal("1"), rounding=ROUND_HALF_UP) / 2)
 
 
-def _span(trace: Any, criterion: Criterion, *, from_cache: bool) -> Any:
+def _span(
+    trace: Any,
+    criterion: Criterion,
+    *,
+    from_cache: bool,
+    model: str,
+) -> Any:
     if trace is None:
         return None
     try:
-        return trace.span(
+        return trace.start_observation(
             name=f"writing-{criterion}",
+            as_type="generation",
+            model=model,
             input={"criterion": criterion, "from_cache": from_cache},
         )
     except Exception:
@@ -57,9 +65,15 @@ def _end_span(span: Any, execution: AgentExecution, *, from_cache: bool) -> None
         "from_cache": from_cache,
     }
     try:
-        span.end(output=execution.result.model_dump(), metadata=metadata)
-    except TypeError:
-        span.end(output={**execution.result.model_dump(), "metadata": metadata})
+        span.update(
+            output=execution.result.model_dump(),
+            metadata=metadata,
+            usage_details={
+                "input": execution.prompt_tokens,
+                "output": execution.completion_tokens,
+            },
+        )
+        span.end()
     except Exception:
         pass
 
@@ -86,7 +100,12 @@ class EvaluationCoordinator:
         on_partial: PartialCallback | None = None,
     ) -> EvaluationSummary:
         async def run_one(criterion: Criterion) -> AgentExecution:
-            child_span = _span(trace, criterion, from_cache=False)
+            child_span = _span(
+                trace,
+                criterion,
+                from_cache=False,
+                model=self.runner.model,
+            )
             try:
                 execution = await self.runner.evaluate(criterion, essay_text, exam_type, user_id=user_id)
                 AGENT_BAND_SCORE.labels(criterion=criterion).observe(
@@ -98,7 +117,12 @@ class EvaluationCoordinator:
             except Exception as exc:
                 if child_span is not None:
                     try:
-                        child_span.end(output={"error": str(exc)})
+                        child_span.update(
+                            level="ERROR",
+                            status_message=str(exc),
+                            output={"error": str(exc)},
+                        )
+                        child_span.end()
                     except Exception:
                         pass
                 raise
@@ -142,7 +166,12 @@ class EvaluationCoordinator:
         async def replay_one(criterion: Criterion) -> AgentExecution:
             result = by_criterion[criterion]
             execution = AgentExecution(result, 0, 0, 0.0, 0.0)
-            child_span = _span(trace, criterion, from_cache=True)
+            child_span = _span(
+                trace,
+                criterion,
+                from_cache=True,
+                model=self.runner.model,
+            )
             AGENT_BAND_SCORE.labels(criterion=criterion).observe(result.band_score)
             _end_span(child_span, execution, from_cache=True)
             await _notify(on_partial, result)
@@ -178,7 +207,12 @@ class EvaluationCoordinator:
             chart_context = await extract_chart_context(stimulus_s3_key)
 
         async def run_one(criterion: Criterion) -> AgentExecution:
-            child_span = _span(trace, criterion, from_cache=False)
+            child_span = _span(
+                trace,
+                criterion,
+                from_cache=False,
+                model=self.runner.model,
+            )
             try:
                 execution = await self.runner.evaluate_exam_task(
                     criterion,
@@ -198,7 +232,12 @@ class EvaluationCoordinator:
             except Exception as exc:
                 if child_span is not None:
                     try:
-                        child_span.end(output={"error": str(exc)})
+                        child_span.update(
+                            level="ERROR",
+                            status_message=str(exc),
+                            output={"error": str(exc)},
+                        )
+                        child_span.end()
                     except Exception:
                         pass
                 raise

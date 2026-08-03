@@ -377,6 +377,83 @@ func (h *AuthHandler) VerifyEmail(c *fiber.Ctx) error {
 	return h.proxyToUserService(c, http.MethodGet, "/auth/verify-email/"+token)
 }
 
+func (h *AuthHandler) DeleteAccount(c *fiber.Ctx) error {
+	userID, ok := c.Locals(middleware.ContextKeyUserID).(string)
+	if !ok || userID == "" {
+		return fiber.NewError(fiber.StatusUnauthorized, "unauthorized")
+	}
+	if c.Params("id") != userID {
+		return fiber.NewError(fiber.StatusForbidden, "users can only delete their own account")
+	}
+	if err := h.proxyAuthenticatedToUserService(c, http.MethodDelete, "/users/"+userID+"/account", userID); err != nil {
+		return err
+	}
+	h.clearCookies(c)
+	return nil
+}
+
+func (h *AuthHandler) DataExport(c *fiber.Ctx) error {
+	userID, ok := c.Locals(middleware.ContextKeyUserID).(string)
+	if !ok || userID == "" {
+		return fiber.NewError(fiber.StatusUnauthorized, "unauthorized")
+	}
+	if c.Params("id") != userID {
+		return fiber.NewError(fiber.StatusForbidden, "users can only export their own account data")
+	}
+	return h.proxyAuthenticatedToUserService(c, http.MethodGet, "/users/"+userID+"/data-export", userID)
+}
+// proxyAuthenticatedToUserService forwards a request and tells the User
+// service who is asking.
+//
+// The plain proxyToUserService below carries no identity, which is fine for
+// login or password reset where the body proves who you are. It is not fine
+// for DELETE /users/:id/account or GET /users/:id/data-export: both are
+// authorised by UsersService.assertSelf(userId, requesterId), and requesterId
+// comes from the x-user-id header. Without it the User service sees an
+// undefined requester and refuses every request.
+//
+// userID always comes from the validated JWT in the caller, never from the
+// path or body -- the path :id is what the caller *claims* to be acting on,
+// and assertSelf compares the two precisely so that a mismatch is rejected.
+func (h *AuthHandler) proxyAuthenticatedToUserService(
+	c *fiber.Ctx,
+	method string,
+	path string,
+	userID string,
+) error {
+	var bodyReader io.Reader
+	if method != http.MethodGet {
+		bodyReader = bytes.NewReader(c.Body())
+	}
+
+	httpReq, err := http.NewRequestWithContext(c.UserContext(), method, h.userServiceURL+path, bodyReader)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "internal request error")
+	}
+	if method != http.MethodGet {
+		httpReq.Header.Set("Content-Type", "application/json")
+	}
+	httpReq.Header.Set("X-User-Id", userID)
+
+	resp, err := h.httpClient.Do(httpReq)
+	if err != nil {
+		return fiber.NewError(fiber.StatusServiceUnavailable, "auth service unavailable")
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "invalid response from auth service")
+	}
+
+	// Relay the upstream status rather than assuming success: a refusal from
+	// assertSelf must reach the caller as a refusal, not as a 200 with an error
+	// body nobody reads.
+	c.Status(resp.StatusCode)
+	c.Set(fiber.HeaderContentType, "application/json")
+	return c.Send(respBody)
+}
+
 func (h *AuthHandler) proxyToUserService(c *fiber.Ctx, method string, path string) error {
 	var bodyReader io.Reader
 	if method != http.MethodGet {
@@ -423,3 +500,4 @@ func (h *AuthHandler) clearCookies(c *fiber.Ctx) {
 		Expires:  time.Now().Add(-24 * time.Hour),
 	})
 }
+

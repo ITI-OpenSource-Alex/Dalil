@@ -97,9 +97,40 @@ variable "domain_name" {
 }
 
 variable "hosted_zone_id" {
-  description = "Route 53 hosted zone ID for the public domain. Used by future DNS wiring."
+  description = "Existing Route 53 hosted zone ID. Leave null when Terraform creates the production zone."
   type        = string
   default     = null
+  nullable    = true
+}
+
+variable "enable_public_dns" {
+  description = "Provision public Route 53, ACM, WAF, CloudFront, and DNS resources."
+  type        = bool
+  default     = false
+}
+
+variable "create_public_hosted_zone" {
+  description = "Create the public Route 53 hosted zone. Set false and provide hosted_zone_id to use an existing zone."
+  type        = bool
+  default     = false
+
+  validation {
+    condition     = !var.enable_public_dns || var.create_public_hosted_zone || var.hosted_zone_id != null
+    error_message = "Public DNS requires create_public_hosted_zone=true or an existing hosted_zone_id."
+  }
+}
+
+variable "frontend_bucket_name" {
+  description = "Optional globally unique name for the private frontend asset bucket."
+  type        = string
+  default     = null
+  nullable    = true
+}
+
+variable "waf_rate_limit" {
+  description = "Maximum requests per IP during WAF's five-minute evaluation window."
+  type        = number
+  default     = 1000
 }
 
 variable "alb_enable_deletion_protection" {
@@ -165,31 +196,41 @@ variable "alb_target_groups" {
       health_check_path    = "/health"
       deregistration_delay = 30
     }
-    notification = {
-      port                 = 8087
-      protocol             = "HTTP"
-      health_check_path    = "/health"
-      deregistration_delay = 30
-    }
-    ingestion = {
-      port                 = 8088
-      protocol             = "HTTP"
-      health_check_path    = "/health"
-      deregistration_delay = 30
-    }
   }
 }
 
 variable "ecs_image_tag" {
-  description = "Image tag used by ECS task definitions."
+  description = "Placeholder image tag for the task definition Terraform creates. CI owns the real tag (the commit SHA) from the first deploy onward."
   type        = string
-  default     = "latest"
+  default     = "bootstrap"
+
+  validation {
+    condition     = var.ecs_image_tag != "latest"
+    error_message = "ecs_image_tag must not be 'latest': ECR repositories are IMMUTABLE (GOA-022 N7), so a floating tag cannot be re-pushed and would pin every service to one set of bytes forever."
+  }
 }
 
 variable "ecs_desired_counts" {
-  description = "Desired task count overrides keyed by service. Defaults to zero for safe initial provisioning."
+  description = "Desired task count overrides keyed by ECS service. Each deployed service defaults to one."
   type        = map(number)
   default     = {}
+
+  validation {
+    condition     = alltrue([for count in values(var.ecs_desired_counts) : count >= 0])
+    error_message = "ECS desired counts cannot be negative."
+  }
+}
+
+variable "weekly_program_ingestion_schedule" {
+  description = "EventBridge schedule for the Tier 1 MastersPortal catalog sweep."
+  type        = string
+  default     = "cron(0 2 ? * SUN *)"
+}
+
+variable "monthly_visa_ingestion_schedule" {
+  description = "EventBridge schedule for source-hash visa verification."
+  type        = string
+  default     = "cron(0 3 1 * ? *)"
 }
 
 variable "enable_lambda_workers" {
@@ -198,38 +239,8 @@ variable "enable_lambda_workers" {
   default     = false
 }
 
-variable "task_execution_secret_arns" {
-  description = "Secret ARNs the ECS task execution role may read for container startup."
-  type        = list(string)
-  default     = []
-}
-
-variable "task_execution_kms_key_arns" {
-  description = "KMS key ARNs the ECS task execution role may decrypt during container startup."
-  type        = list(string)
-  default     = []
-}
-
-variable "task_secret_arns" {
-  description = "Secret ARNs the ECS task role may read at runtime."
-  type        = list(string)
-  default     = []
-}
-
-variable "task_sqs_queue_arns" {
-  description = "SQS queue ARNs the ECS task role may use at runtime."
-  type        = list(string)
-  default     = []
-}
-
-variable "task_s3_read_object_arns" {
-  description = "S3 object ARN patterns ECS application tasks may read, including any externally managed buckets."
-  type        = list(string)
-  default     = []
-}
-
 variable "task_kms_key_arns" {
-  description = "KMS key ARNs the ECS task role may use at runtime."
+  description = "Optional KMS keys used by per-service ECS roles."
   type        = list(string)
   default     = []
 }
@@ -274,25 +285,6 @@ variable "image_tag" {
   default     = "latest"
 }
 
-variable "ecr_cv_processor_repo_url" {
-  description = "ECR repository URL for the cv-processor image (without tag)."
-  type        = string
-  default     = ""
-}
-
-variable "ecr_scholarship_matcher_repo_url" {
-  description = "ECR repository URL for the scholarship-matcher image (without tag)."
-  type        = string
-  default     = ""
-}
-
-variable "ecr_notification_sender_repo_url" {
-  description = "ECR repository URL for the notification-sender image (without tag)."
-  type        = string
-  default     = ""
-}
-
-
 variable "lambda_secret_arns" {
   description = "Secret ARNs Lambda workers may read. Empty until modules/secrets exists."
   type        = list(string)
@@ -325,6 +317,17 @@ variable "github_repo" {
   description = "GitHub repository name (without the org prefix)."
   type        = string
   default     = "GOA"
+}
+
+variable "manage_github_oidc_provider" {
+  description = <<-EOT
+    Whether this workspace creates the account-global GitHub OIDC identity
+    provider. Exactly one workspace in the account may set this to true
+    (staging, by default) -- IAM OIDC providers are global, so a second apply
+    would fail with EntityAlreadyExists. Set false in production.tfvars.
+  EOT
+  type        = bool
+  default     = true
 }
 
 # NOTE: GitHub provider requires a paid org plan for branch protection.

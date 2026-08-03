@@ -1,6 +1,8 @@
 package middleware_test
 
 import (
+	"bytes"
+	"encoding/json"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -79,5 +81,45 @@ func TestMetricsStayGatherableAcrossManyRequests(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+func TestRequestLoggerRecordsForwardedFor(t *testing.T) {
+	originalRegisterer := prometheus.DefaultRegisterer
+	originalGatherer := prometheus.DefaultGatherer
+	registry := prometheus.NewRegistry()
+	prometheus.DefaultRegisterer = registry
+	prometheus.DefaultGatherer = registry
+	t.Cleanup(func() {
+		prometheus.DefaultRegisterer = originalRegisterer
+		prometheus.DefaultGatherer = originalGatherer
+	})
+
+	metrics, err := observability.NewMetrics()
+	if err != nil {
+		t.Fatalf("NewMetrics: %v", err)
+	}
+
+	var output bytes.Buffer
+	app := fiber.New()
+	app.Use(middleware.RequestLogger(zerolog.New(&output), metrics))
+	app.Get("/health", func(c *fiber.Ctx) error { return c.SendStatus(fiber.StatusOK) })
+
+	req := httptest.NewRequest(fiber.MethodGet, "/health", nil)
+	req.RemoteAddr = "192.0.2.44:43120"
+	req.Header.Set(middleware.HeaderForwardedFor, "203.0.113.8")
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("health request: %v", err)
+	}
+	resp.Body.Close()
+
+	var event map[string]any
+	if err := json.Unmarshal(output.Bytes(), &event); err != nil {
+		t.Fatalf("decode structured log: %v", err)
+	}
+	// Fiber's in-memory app.Test transport reports its peer as 0.0.0.0.
+	if got := event["x_forwarded_for"]; got != "203.0.113.8, 0.0.0.0" {
+		t.Fatalf("unexpected x_forwarded_for log field: %#v", got)
 	}
 }

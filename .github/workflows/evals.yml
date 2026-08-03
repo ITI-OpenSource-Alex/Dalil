@@ -75,7 +75,10 @@ jobs:
           AWS_SECRET_ACCESS_KEY: test
           AWS_REGION: us-east-1
         run: |
-          python evals/runner.py --compare-with s3://goa-eval-reports/latest_report.json --s3-upload-path s3://goa-eval-reports/
+          # `python evals/runner.py` puts evals/ on sys.path, not the repo
+          # root, so runner.py's own `from evals.judge import ...` fails with
+          # ModuleNotFoundError. -m puts the repo root on the path instead.
+          python -m evals.runner --compare-with s3://goa-eval-reports/latest_report.json --s3-upload-path s3://goa-eval-reports/
         timeout-minutes: 15
         continue-on-error: ${{ env.STRICT_EVAL_MODE != 'true' }}
 

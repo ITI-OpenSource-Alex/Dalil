@@ -13,6 +13,7 @@ import (
 
 	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/agents"
 	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/db"
+	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/internal/telemetry"
 	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/langfuse"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -28,6 +29,12 @@ var (
 		},
 	}
 	activeConns int32
+
+	// GOA-034: daily speaking budget. Package-level because the Gateway never
+	// sees this traffic -- there is no WebSocket proxy (BUG-029 / GOA-094), so
+	// a speaking session bypasses every Gateway control by design and this is
+	// the only place the limit can live.
+	speakingQuota = telemetry.NewSpeakingQuota()
 )
 
 // swarmEvaluationTimeout bounds the 4-agent evaluation swarm. Every agent call
@@ -157,6 +164,14 @@ func (c *Client) cleanup() {
 	// Increment final session outcome counter
 	sessionsTotalMetric.WithLabelValues(c.outcome).Inc()
 	duration := time.Since(c.startTime).Seconds()
+
+	// GOA-034: the cost of a speaking session is its duration, which is only
+	// knowable now. Recording at close and checking at open means a user can
+	// always start one session that takes them over budget -- accepted
+	// deliberately, because the alternative is cutting someone off
+	// mid-sentence and one session of overrun is cheaper than that experience.
+	speakingQuota.Record(context.Background(), c.userID, duration)
+
 	goroutinesCount := runtime.NumGoroutine()
 
 	log.Info().
@@ -212,6 +227,27 @@ func (c *Client) readPump() {
 			}
 
 			c.userID = initMsg.UserID
+
+			// GOA-034: daily speaking budget (OWASP LLM04).
+			//
+			// Checked here rather than at the WebSocket upgrade because this is
+			// the first moment we know who is connecting -- the user id arrives
+			// in this frame, not in the handshake.
+			if allowed, spent := speakingQuota.Allow(c.ctx, c.userID); !allowed {
+				log.Warn().
+					Str("event", "SECURITY_EVENT").
+					Str("event_type", "speaking_quota_exceeded").
+					Str("severity", "MEDIUM").
+					Str("user_id", c.userID).
+					Str("correlation_id", c.id).
+					Str("action_taken", "rejected").
+					Int64("seconds_used", spent).
+					Int("daily_limit_seconds", speakingQuota.DailySeconds).
+					Msg("security_event")
+				c.sendErrorAndClose("You have used your speaking practice time for today. Please come back tomorrow.")
+				break
+			}
+
 			c.questionPrompt = initMsg.QuestionPrompt
 			c.questionType = initMsg.QuestionType
 			c.initialized = true

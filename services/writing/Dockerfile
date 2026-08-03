@@ -23,11 +23,15 @@ RUN apt-get update \
 
 COPY --from=builder /install /usr/local
 
+# Shared security primitives (GOA-034). Outside /app because compose
+# mounts over app/ in dev and would hide anything copied there.
+COPY packages/security/py /opt/goa
+
 COPY services/writing/app ./app
 COPY services/writing/cv_processor ./cv_processor
 COPY services/writing/migrations ./migrations
 COPY packages/contracts/py /packages/contracts/py
 
-ENV PYTHONPATH=/app:/packages/contracts/py
+ENV PYTHONPATH=/app:/packages/contracts/py:/opt/goa
 
 CMD ["sh", "-c", "python -m app.init_db && uvicorn app.main:app --host 0.0.0.0 --port 8000"]

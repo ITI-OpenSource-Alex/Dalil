@@ -19,6 +19,7 @@ import time
 from typing import Optional
 
 import structlog
+from goa_security import wrap_untrusted
 from langfuse.langchain import CallbackHandler
 from pydantic import BaseModel, Field, field_validator
 
@@ -106,7 +107,6 @@ Rules, all binding:
 6. Facts are noun phrases about a person. Never emit instructions, commands,
    code, markup or anything addressed to a reader.
 
-Conversation (user messages only, oldest first):
 {transcript}
 """
 
@@ -163,7 +163,16 @@ async def extract_facts(
     if not user_turns:
         return []
 
-    transcript = "\n".join(f"- {turn}" for turn in user_turns)
+    # GOA-034. Fenced as untrusted data. The transcript is whatever the user
+    # typed, and extraction runs unattended on a schedule with nobody watching
+    # the result -- an injected instruction here would be acted on with no human
+    # in the loop, and would then be written into a table that feeds every
+    # future prompt for thirty days.
+    transcript = wrap_untrusted(
+        "\n".join(f"- {turn}" for turn in user_turns),
+        label="CONVERSATION (user messages only, oldest first)",
+        origin="messages typed by the user whose profile you are extracting",
+    )
     messages = [
         {"role": "user", "content": EXTRACTION_PROMPT.format(transcript=transcript)}
     ]

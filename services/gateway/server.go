@@ -146,7 +146,10 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	// exams and any future unnamed route remain free unless explicitly changed.
 	api.Post("/writing/essays/upload", subscriptionMiddleware.RequirePaid, middleware.ValidateEssayTextLength(5000), writingHandler.UploadEssay)
 	api.Post("/writing/cv/upload", subscriptionMiddleware.RequirePaid, writingHandler.UploadCV)
-	api.Post("/writing/cv/review", subscriptionMiddleware.RequirePaid, writingHandler.ReviewCV)
+	api.Post("/writing/cv/review",
+		subscriptionMiddleware.RequirePaid,
+		middleware.AIRateLimiter(redisClient, "cv_review", cfg.CVReviewsPerHour, time.Hour, logger, metrics),
+		writingHandler.ReviewCV)
 	api.Get("/exam/listening/start", examHandler.StartListening)
 	api.Put("/exam/listening/:sessionId/submit", examHandler.SubmitListening)
 
@@ -156,7 +159,10 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	// browser in a NEXT_PUBLIC_ variable (BUG-046). Behind the Gateway the key
 	// stays server-side and these paths gain JWT auth, rate limiting and
 	// correlation IDs (BUG-029).
-	api.Post("/chat", streamHandler.Chat)
+	api.Post("/chat",
+		middleware.ValidateJSONFieldLength("message", 2000, logger, metrics),
+		middleware.AIRateLimiter(redisClient, "chat", cfg.ChatQueriesPerHour, time.Hour, logger, metrics),
+		streamHandler.Chat)
 	api.Get("/chat/sessions/:sessionId/history", streamHandler.ChatHistory)
 	// GOA-038. Inside the /api group, so erasure inherits JWT auth, rate
 	// limiting and a correlation ID like every other call. A third "sessions"
@@ -172,7 +178,10 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	// GOA-055: Reading-specific submit, needed for per_question_result and
 	// section_breakdown that the generic submit above doesn't return.
 	api.Put("/exam/reading/:sessionId/submit", examHandler.SubmitReadingSession)
-	api.Post("/writing/essays/:essayId/evaluate", subscriptionMiddleware.RequirePaid, streamHandler.WritingEvaluate)
+	api.Post("/writing/essays/:essayId/evaluate",
+		subscriptionMiddleware.RequirePaid,
+		middleware.AIRateLimiter(redisClient, "essay_evaluation", cfg.EssayEvalsPerHour, time.Hour, logger, metrics),
+		streamHandler.WritingEvaluate)
 	api.Get("/notifications", notificationHandler.List)
 	app.Post(
 		"/cv/upload",

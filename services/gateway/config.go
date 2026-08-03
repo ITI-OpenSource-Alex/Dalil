@@ -39,6 +39,13 @@ type Config struct {
 	// Comma-separated origin allow-list for CORS. Cannot be "*" because auth
 	// rides on HttpOnly cookies and the spec forbids wildcard + credentials.
 	CORSAllowedOrigins  string  `envconfig:"CORS_ALLOWED_ORIGINS" default:"http://localhost:3000"`
+
+	// GOA-034: per-endpoint AI quotas (OWASP LLM04). Zero disables a limit,
+	// which is how the E2E suite and the load test run without weakening the
+	// shipped defaults.
+	ChatQueriesPerHour   int `envconfig:"CHAT_QUERIES_PER_HOUR" default:"20"`
+	EssayEvalsPerHour    int `envconfig:"ESSAY_EVALS_PER_HOUR" default:"5"`
+	CVReviewsPerHour     int `envconfig:"CV_REVIEWS_PER_HOUR" default:"5"`
 	BudgetUSD           float64 `envconfig:"BUDGET_USD" default:"150.0"`
 	CostPromptPer1M     float64 `envconfig:"COST_PROMPT_PER_1M" default:"2.0"`
 	CostCompletionPer1M float64 `envconfig:"COST_COMPLETION_PER_1M" default:"10.0"`

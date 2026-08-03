@@ -5,6 +5,7 @@ from typing import Literal
 from pydantic import BaseModel
 from langchain_anthropic import ChatAnthropic
 from langfuse.langchain import CallbackHandler
+from goa_security import canary_fragments
 from app.core.config import settings
 
 from app.core.metrics import (
@@ -91,6 +92,14 @@ master require?" -> "It requires 6.5 overall." Latest: "Is my score high enough
 for it?" -> standalone_question: "Is my IELTS score high enough for the
 University of Potsdam Data Science master, which requires 6.5 overall?"
 """
+
+# Distinctive lines of the routing prompt, watched for in responses (GOA-034).
+#
+# Computed from the prompt rather than hand-listed, so editing SUPERVISOR_PROMPT
+# cannot silently leave the leak detector watching for text that no longer
+# exists -- a check that quietly stops checking is the failure mode this project
+# keeps having.
+SUPERVISOR_CANARIES = canary_fragments(SUPERVISOR_PROMPT)
 
 EXAM_CONTEXT_INJECTION = """
 

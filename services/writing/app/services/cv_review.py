@@ -19,6 +19,8 @@ from typing import Any, Awaitable, Callable
 import httpx
 from pydantic import BaseModel, Field
 
+from goa_security import wrap_untrusted
+
 from app.agents import _json_object, _response_text
 from app.config import Settings, get_settings
 from app.schemas import CVReviewResponse, CVReviewSection
@@ -86,13 +88,29 @@ def _build_cv_context(
     structured_data: dict[str, Any] | None,
 ) -> str:
     parts = []
+
     if structured_data:
         parts.append(
             "Structured CV data:\n"
             + json.dumps(structured_data, ensure_ascii=False, indent=2)
         )
     if extracted_text:
-        parts.append("Extracted CV text:\n" + extracted_text[:20000])
+        # Truncated because a CV is short and the tail of a long PDF is usually
+        # references or boilerplate. Sending an unbounded document to the model
+        # would make cost a function of whatever the user uploaded.
+        #
+        # GOA-034: fenced as untrusted. A CV is a file the user chose, and text
+        # in a PDF can be invisible to a human reader -- white on white, or
+        # sized to nothing -- while being perfectly legible to the model that
+        # reads the extracted layer. That makes an uploaded document a better
+        # injection vector than the chat box, not a worse one.
+        parts.append(
+            wrap_untrusted(
+                extracted_text[:20000],
+                label="EXTRACTED CV TEXT",
+                origin="a document uploaded by the user",
+            )
+        )
     return "\n\n".join(parts)
 
 
@@ -158,6 +176,17 @@ class CVReviewRunner:
             "against study-abroad admissions, target-field expectations, ATS "
             "keyword quality, and country-specific conventions. Return only JSON."
         )
+        # GOA-034. These conventions are summarised by RAG from scraped pages,
+        # so they are the same indirect-injection surface the RAG query path
+        # had: content nobody here wrote, interpolated into a prompt with the
+        # standing of an instruction unless it is marked otherwise. GOA-025
+        # added this interpolation after the fencing pass, so it is fenced on
+        # merge rather than left as a known hole in a file this ticket covers.
+        fenced_conventions = wrap_untrusted(
+            country_conventions[:4000],
+            label="COUNTRY CONVENTION CONTEXT",
+            origin="pages scraped from the public web and summarised by the RAG service",
+        )
         prompt = f"""Return one JSON object with this exact shape:
 {{
   "name": "{section_name}",
@@ -177,8 +206,7 @@ Target country: {target_country}
 Target field: {target_field}
 Review dimension: {section_name}
 
-Country convention context from RAG:
-{country_conventions[:4000]}
+{fenced_conventions}
 
 CV:
 {cv_context}

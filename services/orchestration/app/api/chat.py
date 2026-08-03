@@ -12,6 +12,8 @@ from app.services.session_index import get_redis_client, touch_session
 from app.services.facts_context import fetch_user_facts
 from app.core.config import settings
 from app.core.database import db
+from app.core.metrics import goa_security_injection_attempts_total
+from goa_security import describe_injection, hash_input
 from app.core.trace_context import build_traceparent
 
 logger = structlog.get_logger("orchestration.api.chat")
@@ -103,6 +105,40 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                 history = memory_vars.get("history") or memory_vars.get("chat_history") or []
             except Exception as e:
                 logger.warning("Failed to load session memory, proceeding statelessly", error=str(e))
+
+            # 2b-i. Injection screening (GOA-034).
+            #
+            # Detect, count and log -- deliberately NOT strip, which is what the
+            # acceptance criterion says. Two reasons, and both are in the
+            # threat model:
+            #
+            # Mutating a user's message produces a wrong answer whenever the
+            # match is a false positive, and "please ignore my previous
+            # message, I meant Germany" is a sentence real students write. The
+            # user would see a confident answer to a question they did not ask,
+            # with nothing to tell them why.
+            #
+            # And stripping does not stop a determined attacker regardless: the
+            # patterns are defeated by paraphrase and encoding. What actually
+            # defends this path is the data-not-instructions fence downstream,
+            # which works whether or not the pattern matched. So the pattern
+            # list is used for what it is genuinely good at -- knowing we are
+            # being probed.
+            injection = describe_injection(request.message)
+            if injection:
+                goa_security_injection_attempts_total.labels(
+                    service="orchestration", pattern=injection
+                ).inc()
+                logger.warning(
+                    "SECURITY_EVENT",
+                    event_type="prompt_injection_attempt",
+                    severity="MEDIUM",
+                    user_id=request.userId,
+                    correlation_id=correlation_id,
+                    input_hash=hash_input(request.message),
+                    action_taken="logged_and_fenced",
+                    pattern=injection,
+                )
 
             # 2c. Load long-term facts (best-effort, GOA-038)
             #

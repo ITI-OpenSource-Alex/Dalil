@@ -14,6 +14,7 @@ on:
       - dev
     paths:
       - services/orchestration/**
+      - packages/security/py/**
       - .github/workflows/deploy-orchestration.yml
       - .github/workflows/deploy-template.yml
   workflow_dispatch:
@@ -52,6 +53,9 @@ jobs:
     uses: ./.github/workflows/deploy-template.yml
     with:
       service_path: services/orchestration
+      # GOA-034: the Dockerfile copies packages/security/py, which a
+      # context of services/orchestration cannot see.
+      build_context: .
       ecr_repository: goa-staging-orchestration
       ecs_service: goa-staging-orchestration
       container_name: orchestration

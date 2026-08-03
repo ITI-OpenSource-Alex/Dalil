@@ -15,8 +15,16 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends build-essential libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+# Repo-root build context (GOA-034), so this stage can see packages/.
+COPY services/rag/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Shared security primitives, deliberately NOT under /app: the dev target
+# mounts ./services/rag over /app and would hide anything copied there, so
+# the import would fail only under compose. PYTHONPATH keeps dev and prod
+# identical.
+ENV PYTHONPATH=/opt/goa
+COPY packages/security/py /opt/goa
 
 # Bake the cross-encoder into the image. Left to first use it is a ~90 MB download
 # from huggingface.co inside the first user request, in an environment that may have
@@ -34,6 +42,6 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8084", "--reload
 
 # Production target
 FROM base AS prod
-COPY . .
+COPY services/rag/ .
 EXPOSE 8084
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8084"]

@@ -302,12 +302,19 @@ function ExamShellContent() {
 
             {examConfig.skill !== "Writing" && examConfig.skill !== "Reading" && (
               <div className="bg-white border border-gray-200/80 rounded-2xl p-8 max-w-3xl mx-auto my-8 shadow-2xs">
-                <p className="text-xs text-gray-500 mb-4">
-                  Standard exam interface containing simulation questions.
+                <h2 className="font-serif text-xl font-bold text-gray-900 mb-2">
+                  {examConfig.skill} exams are not available yet
+                </h2>
+                <p className="text-sm text-gray-500 mb-5">
+                  This module does not have a complete exam interface, so no
+                  attempt can be completed from this page.
                 </p>
-                <div className="h-64 border border-dashed border-gray-200 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 text-xs font-medium">
-                  Interactive Simulation Workspace
-                </div>
+                <button
+                  onClick={() => router.push("/exam")}
+                  className="bg-[#0d4d3a] hover:bg-[#09382a] text-white px-4 py-2 rounded-full text-xs font-semibold transition"
+                >
+                  Return to Skills Workspace
+                </button>
               </div>
             )}
           </main>

@@ -5,13 +5,29 @@ import { useRouter } from "next/navigation";
 import { ExamType, SkillArea } from "@/app/types/exam";
 import { createSession, getExamProgress, type ExamProgress } from "@/lib/exam-api";
 import { Sidebar } from "@/components/ui/sidebar";
+import { useCurrentUser } from "@/app/hooks/useCurrentUser";
 
 export default function ExamLandingPage() {
   const router = useRouter();
+  const {
+    user,
+    status: profileStatus,
+    error: profileError,
+    retry: retryProfile,
+  } = useCurrentUser();
   const [examType, setExamType] = useState<ExamType>("Academic");
   const [progress, setProgress] = useState<ExamProgress | null>(null);
   const [mounted, setMounted] = useState(false);
   const [startingExam, setStartingExam] = useState<SkillArea | null>(null);
+  const [startError, setStartError] = useState<string | null>(null);
+  // doc 11: tracked so the error banner's Retry action re-attempts the
+  // same skill the user actually clicked, not a hardcoded one.
+  const [lastAttemptedSkill, setLastAttemptedSkill] = useState<SkillArea | null>(
+    null,
+  );
+  const [resumableSessionId, setResumableSessionId] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     setMounted(true);
@@ -21,23 +37,67 @@ export default function ExamLandingPage() {
     getExamProgress().then(setProgress).catch(() => setProgress(null));
   }, []);
 
-  // Check sessionStorage for an existing session to resume
+  // doc 10: this previously redirected into the shell automatically and
+  // unguarded -- a corrupted stored value threw during the effect (no
+  // try/catch around JSON.parse), and even a well-formed-but-stale session
+  // id caused a surprising, silent redirect the user never asked for. Now:
+  // malformed JSON is treated the same as "nothing to resume" (cleared,
+  // no redirect); a well-formed value surfaces an explicit resume/discard
+  // choice below instead of navigating automatically. The other half of
+  // this fix -- what happens when the shell then fails to load a stale
+  // session id -- lives in exam/shell/page.tsx's loadSession catch block.
   useEffect(() => {
-    const saved = sessionStorage.getItem("active_exam_session");
-    if (saved) {
-      const { sessionId } = JSON.parse(saved);
-      router.push(`/exam/shell?session=${sessionId}`);
+    try {
+      const saved = sessionStorage.getItem("active_exam_session");
+      if (!saved) return;
+
+      const parsed = JSON.parse(saved);
+      if (parsed && typeof parsed.sessionId === "string") {
+        setResumableSessionId(parsed.sessionId);
+      } else {
+        sessionStorage.removeItem("active_exam_session");
+      }
+    } catch {
+      sessionStorage.removeItem("active_exam_session");
     }
-  }, [router]);
+  }, []);
+
+  const handleResumeSession = () => {
+    if (!resumableSessionId) return;
+    router.push(`/exam/shell?session=${resumableSessionId}`);
+  };
+
+  const handleDiscardSession = () => {
+    sessionStorage.removeItem("active_exam_session");
+    setResumableSessionId(null);
+  };
 
   const handleToggle = (type: ExamType) => {
     setExamType(type);
   };
 
   const startExam = async (skill: SkillArea) => {
+    // GOA-035/BUG-047: an exam session created under the wrong user id
+    // passes creation but then 403s at submit time via the Gateway's
+    // examOwnership check -- failing fast here, before a candidate has
+    // answered a full exam, is far cheaper than that failure mode.
+    if (profileStatus === "loading" || profileStatus === "idle" || !user) {
+      setStartError(
+        "Your profile is still loading — please wait a moment and try again.",
+      );
+      setLastAttemptedSkill(skill);
+      return;
+    }
+
+    setStartError(null);
+
     try {
       setStartingExam(skill);
 
+      // The user id is no longer passed from the browser: the Gateway derives
+      // it from the JWT, so it cannot be spoofed by the caller. The profile
+      // guard above still runs, because starting an exam before identity has
+      // resolved is what BUG-047 was about.
       const session = await createSession(examType, skill);
 
       sessionStorage.setItem(
@@ -52,9 +112,21 @@ export default function ExamLandingPage() {
       router.push(`/exam/shell?session=${session.session_id}`);
     } catch (error) {
       console.error(error);
-      alert("Unable to start exam.");
+      // doc 11: a native alert() here was one of the most jarring failure
+      // modes available on a shared screen -- replaced with the same
+      // inline, dismissible banner already used for the profile-loading
+      // guard above, so the two related failure states share one visual
+      // treatment instead of two.
+      setStartError(`Unable to start the ${skill} exam. Please try again.`);
+      setLastAttemptedSkill(skill);
     } finally {
       setStartingExam(null);
+    }
+  };
+
+  const handleRetryStartExam = () => {
+    if (lastAttemptedSkill) {
+      void startExam(lastAttemptedSkill);
     }
   };
 
@@ -64,12 +136,21 @@ export default function ExamLandingPage() {
     description: string;
     bgColor: string;
     icon: React.ReactNode;
+    // doc 08: Listening and Speaking simulations aren't built yet (blocked
+    // on a backend audio-delivery gap for Listening; both are multi-sprint
+    // work regardless -- see the exam shell's ComingSoonPanel). Disabling
+    // the action here is Layer 1 of that fix: it keeps the shell's
+    // placeholder fallback from ever being reached in ordinary use, and
+    // avoids spending one of the exam service's 3-sessions-per-hour slots
+    // on a session that leads nowhere.
+    available: boolean;
   }[] = [
     {
       key: "Reading",
       title: "Reading",
       description: "Skim, scan, and answer 40 questions in 60 minutes.",
       bgColor: "bg-[#e2f4ea]",
+      available: true,
       icon: (
         <svg
           className="w-5 h-5 text-gray-800"
@@ -91,6 +172,7 @@ export default function ExamLandingPage() {
       title: "Listening",
       description: "Four sections, increasing difficulty, 30 minutes.",
       bgColor: "bg-[#faedd4]",
+      available: false,
       icon: (
         <svg
           className="w-5 h-5 text-gray-800"
@@ -112,6 +194,7 @@ export default function ExamLandingPage() {
       title: "Writing",
       description: "Task 1 (report) + Task 2 (essay) in 60 minutes.",
       bgColor: "bg-[#f2e7f7]",
+      available: true,
       icon: (
         <svg
           className="w-5 h-5 text-gray-800"
@@ -133,6 +216,7 @@ export default function ExamLandingPage() {
       title: "Speaking",
       description: "11-14 minute face-to-face interview with examiner.",
       bgColor: "bg-[#e3edf7]",
+      available: false,
       icon: (
         <svg
           className="w-5 h-5 text-gray-800"
@@ -216,6 +300,68 @@ export default function ExamLandingPage() {
             </div>
           </div>
 
+          {resumableSessionId && (
+            <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-gray-200/80 bg-white p-4 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-gray-700">
+                You have an exam in progress. Would you like to resume it?
+              </p>
+              <div className="flex shrink-0 gap-2">
+                <button
+                  type="button"
+                  onClick={handleResumeSession}
+                  className="rounded-full bg-[#0d4d3a] px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-[#09382a]"
+                >
+                  Resume in-progress exam
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDiscardSession}
+                  className="rounded-full border border-gray-200 px-4 py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
+                >
+                  Discard
+                </button>
+              </div>
+            </div>
+          )}
+
+          {profileStatus === "error" && (
+            <div className="mb-6 rounded-2xl border border-red-100 bg-red-50 p-4 text-center">
+              <p className="text-sm text-red-700">
+                {profileError ?? "Failed to load your profile."}
+              </p>
+              <button
+                type="button"
+                onClick={retryProfile}
+                className="mt-2 rounded-full bg-red-600 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-red-700"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
+          {startError && (
+            <div className="mb-6 rounded-2xl border border-amber-100 bg-amber-50 p-4 text-center">
+              <p className="text-sm text-amber-700">{startError}</p>
+              <div className="mt-2 flex items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleRetryStartExam}
+                  disabled={startingExam !== null}
+                  className="rounded-full bg-amber-600 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Retry
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStartError(null)}
+                  className="text-xs font-semibold text-amber-700 underline underline-offset-2"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Grid of Custom Styled Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             {skillCards.map((card, i) => (
@@ -252,20 +398,22 @@ export default function ExamLandingPage() {
                 {/* Card Action Controls */}
                 <div className="flex justify-between items-center pt-4">
                   <div className="flex gap-1.5">
-                    <button
-                      disabled={
-                        startingExam !== null ||
-                        !["Reading", "Writing"].includes(card.key)
-                      }
-                      onClick={() => startExam(card.key)}
-                      className="bg-white/80 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 text-l font-medium px-3 py-1 rounded-full border border-black/5 transition"
-                    >
-                      {startingExam === card.key
-                        ? "Starting..."
-                        : ["Reading", "Writing"].includes(card.key)
-                          ? "Take Exam"
-                          : "Coming soon"}
-                    </button>
+                    {card.available ? (
+                      <button
+                        disabled={startingExam !== null}
+                        onClick={() => startExam(card.key)}
+                        className="bg-white/80 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 text-l font-medium px-3 py-1 rounded-full border border-black/5 transition"
+                      >
+                        {startingExam === card.key ? "Starting..." : "Take Exam"}
+                      </button>
+                    ) : (
+                      <span
+                        title={`${card.title} simulation is not available yet.`}
+                        className="inline-flex items-center gap-1 bg-white/50 text-gray-400 text-l font-medium px-3 py-1 rounded-full border border-black/5 cursor-not-allowed select-none"
+                      >
+                        Coming soon
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>

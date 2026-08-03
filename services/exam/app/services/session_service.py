@@ -613,7 +613,22 @@ class SessionService:
         responses = await self.writing_response_repository.get_all_by_session(
             session_id
         )
-        all_tasks_submitted = {1, 2}.issubset({r["task_number"] for r in responses})
+        # A response row exists as soon as save_response() runs, *before*
+        # the (possibly failing) evaluation call -- so a task whose
+        # evaluation previously failed still has a row here. Checking row
+        # presence alone previously let a retried task be considered
+        # "submitted" for the *other* task's response, prematurely flipping
+        # the whole session to "submitted"/"scored" while that other task
+        # had no real evaluation yet, then rejecting its own legitimate
+        # retry with 400 "Invalid session state". Require a completed
+        # evaluation on both tasks instead.
+        all_tasks_submitted = {1, 2}.issubset(
+            {
+                r["task_number"]
+                for r in responses
+                if r["evaluation_result"] is not None
+            }
+        )
 
         if all_tasks_submitted:
             await self.session_repository.submit(session_id)

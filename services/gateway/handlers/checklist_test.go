@@ -18,6 +18,7 @@ func checklistTestApp(handler *ChecklistHandler, userID string) *fiber.App {
 	})
 	app.Get("/checklists/:programId", handler.GetChecklist)
 	app.Put("/checklists/:programId/items/:itemId", handler.UpdateChecklistItem)
+	app.Get("/checklists/:programId/financial", handler.GetChecklistFinancials)
 	return app
 }
 
@@ -178,5 +179,106 @@ func TestUpdateChecklistItemDifferentUserCannotImpersonate(t *testing.T) {
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("expected 200, got %d", response.StatusCode)
+	}
+}
+
+// GOA-035: GET /checklists/:programId/financial. Same forwarding/ownership shape as
+// GetChecklist -- these tests only pin the extra path segment and that no internal
+// API key is added (RAG's /financial route sits on the same require_user_id-scoped
+// router as /checklists/:programId).
+
+func TestGetChecklistFinancialsForwardsXUserIDFromJWT(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/checklists/prog-1/financial" {
+			t.Fatalf("unexpected path %q", r.URL.Path)
+		}
+		if got := r.Header.Get("X-User-ID"); got != "user-123" {
+			t.Fatalf("expected X-User-ID forwarded from the JWT, got %q", got)
+		}
+		if got := r.Header.Get("X-Internal-API-Key"); got != "" {
+			t.Fatalf("expected no internal API key on the financial route, got %q", got)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"programId":"prog-1","items":[]}`))
+	}))
+	defer upstream.Close()
+
+	handler := NewChecklistHandler(upstream.Client(), upstream.URL)
+	app := checklistTestApp(handler, "user-123")
+
+	response, err := app.Test(httptest.NewRequest(http.MethodGet, "/checklists/prog-1/financial", nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", response.StatusCode)
+	}
+}
+
+func TestGetChecklistFinancialsUnauthenticatedReturns401(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("upstream must not be called without an authenticated user")
+	}))
+	defer upstream.Close()
+
+	handler := NewChecklistHandler(upstream.Client(), upstream.URL)
+	app := fiber.New()
+	app.Get("/checklists/:programId/financial", handler.GetChecklistFinancials) // no JWT middleware
+
+	response, err := app.Test(httptest.NewRequest(http.MethodGet, "/checklists/prog-1/financial", nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", response.StatusCode)
+	}
+}
+
+func TestGetChecklistFinancialsPropagatesUpstream404(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"detail":"Program not found"}`))
+	}))
+	defer upstream.Close()
+
+	handler := NewChecklistHandler(upstream.Client(), upstream.URL)
+	app := checklistTestApp(handler, "user-123")
+
+	response, err := app.Test(httptest.NewRequest(http.MethodGet, "/checklists/unknown-prog/financial", nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusNotFound {
+		t.Fatalf("expected 404 propagated from the RAG service, got %d", response.StatusCode)
+	}
+}
+
+func TestGetChecklistFinancialsDoesNotHitTheChecklistRoute(t *testing.T) {
+	// Pins that GET /checklists/:programId/financial and GET /checklists/:programId
+	// route to distinct handlers rather than the financial suffix being swallowed
+	// into the programId parameter.
+	var hitPath string
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hitPath = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"programId":"prog-1","items":[]}`))
+	}))
+	defer upstream.Close()
+
+	handler := NewChecklistHandler(upstream.Client(), upstream.URL)
+	app := checklistTestApp(handler, "user-123")
+
+	response, err := app.Test(httptest.NewRequest(http.MethodGet, "/checklists/prog-1/financial", nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if hitPath != "/checklists/prog-1/financial" {
+		t.Fatalf("expected the financial route to be hit, got upstream path %q", hitPath)
 	}
 }

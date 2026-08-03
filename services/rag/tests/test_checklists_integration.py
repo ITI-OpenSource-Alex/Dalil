@@ -327,3 +327,61 @@ def test_deleting_checklist_cascades_item_states(live_client, mock_llm):
         assert len(_run(_fetch_item_states(checklist_id))) == 0
     finally:
         _run(_cleanup_user(user_id))
+
+
+# ---------------------------------------------------------------------------
+# GOA-035: GET /checklists/{program_id}/financial against the live program_requirements
+# row (SEED_PROGRAM_ID -> Germany, seeded by 008_update_program_requirements.sql).
+# get_student_visa_finance itself is GOA-108's territory and already covered by
+# test_visa_task6.py; this only pins that the checklist route looks up the real
+# program's country and hands back visa_finance's output unchanged.
+# ---------------------------------------------------------------------------
+
+
+def test_get_financial_requirements_uses_real_program_country(live_client, monkeypatch):
+    finance_items = [
+        {
+            "type": "informational",
+            "country": "Germany",
+            "issuing_body": "Fintiba",
+            "message": "requires proof of 11904 EUR per year via blocked_account",
+            "source_url": "https://www.fintiba.com/blocked-account/",
+            "last_verified_at": None,
+        }
+    ]
+    monkeypatch.setattr(
+        "app.services.checklist_financial.get_student_visa_finance",
+        AsyncMock(return_value=finance_items),
+    )
+
+    response = live_client.get(
+        f"/checklists/{SEED_PROGRAM_ID}/financial", headers={"X-User-ID": new_user_id()}
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["programId"] == SEED_PROGRAM_ID
+    assert body["items"] == [
+        {
+            "type": "informational",
+            "country": "Germany",
+            "issuingBody": "Fintiba",
+            "message": "requires proof of 11904 EUR per year via blocked_account",
+            "sourceUrl": "https://www.fintiba.com/blocked-account/",
+            "lastVerifiedAt": None,
+        }
+    ]
+
+
+def test_get_financial_requirements_empty_when_no_visa_data(live_client, monkeypatch):
+    monkeypatch.setattr(
+        "app.services.checklist_financial.get_student_visa_finance",
+        AsyncMock(return_value=[]),
+    )
+
+    response = live_client.get(
+        f"/checklists/{SEED_PROGRAM_ID}/financial", headers={"X-User-ID": new_user_id()}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["items"] == []

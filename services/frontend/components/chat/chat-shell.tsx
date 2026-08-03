@@ -45,6 +45,11 @@ const SPEAKING_WS_URL =
 const CHAT_API_BASE = `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080"}/api`;
 
 export type Opportunity = {
+  // Present on every row RAG's /match returns (services/rag/app/services/scoring.py)
+  // and passed through orchestration's match_results event unchanged, but this type
+  // never declared it — GOA-035's "Get Checklist" entry point needs it to link to
+  // /checklist/:programId.
+  programId: string;
   programName: string;
   university: string;
   country: string;

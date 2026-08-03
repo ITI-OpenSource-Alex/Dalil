@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import Link from "next/link";
 import { Message, Opportunity } from "./chat-shell";
 import { GraduationCap, MapPin, Calendar } from "lucide-react";
 import TypingIndicator from "./typing-indicator";
@@ -138,6 +139,13 @@ function OpportunityCard({
           />
         </div>
       </div>
+      {/* GOA-035 entry point: generates/opens this program's application checklist. */}
+      <Link
+        href={`/checklist/${opp.programId}`}
+        className="mt-3 inline-block text-center rounded-full bg-[#0D3820] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[#0a2c19]"
+      >
+        Get Checklist
+      </Link>
     </motion.div>
   );
 }

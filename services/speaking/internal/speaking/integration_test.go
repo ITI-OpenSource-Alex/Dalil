@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -180,6 +181,29 @@ func TestIntegrationE2EAudioStreaming(t *testing.T) {
 	}
 }
 
+// waitForActiveConns polls the activeConns counter until it reaches want, or
+// fails after timeout. activeConns is a shared package global written via
+// atomic.AddInt32 on connect and, crucially, decremented in cleanup() which
+// runs asynchronously on the readPump goroutine — so a connection closed on the
+// client side can still be draining server-side for a short window. Polling
+// atomically both tolerates that drain and avoids the data race the old
+// non-atomic reads had. It also makes the assertions independent of test
+// execution order (any residual connection from a prior test settles here).
+func waitForActiveConns(t *testing.T, want int32, timeout time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for {
+		got := atomic.LoadInt32(&activeConns)
+		if got == want {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("activeConns did not reach %d within %s, last saw %d", want, timeout, got)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
 func TestIntegrationMetricsAndSessionAccounting(t *testing.T) {
 	cfg := &Config{
 		MaxConnections:   10,
@@ -200,27 +224,22 @@ func TestIntegrationMetricsAndSessionAccounting(t *testing.T) {
 	u.Scheme = "ws"
 	u.Path = "/ws"
 
-	if activeConns != 0 {
-		t.Fatalf("Expected baseline activeConns to be 0, got %d", activeConns)
-	}
+	// Baseline: any connection left draining by a prior test settles here, so the
+	// count is a clean 0 before we open ours (fixes cross-test ordering flakiness).
+	waitForActiveConns(t, 0, 2*time.Second)
 
 	ws, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	if err != nil {
 		t.Fatalf("Failed to connect client: %v", err)
 	}
 
-	if activeConns != 1 {
-		t.Errorf("Expected activeConns to be 1, got %d", activeConns)
-	}
+	waitForActiveConns(t, 1, 2*time.Second)
 
 	ws.Close()
 
-	// Wait for cleanup deferred routines to finish
-	time.Sleep(150 * time.Millisecond)
-
-	if activeConns != 0 {
-		t.Errorf("Expected activeConns to return to 0 after disconnect, got %d", activeConns)
-	}
+	// cleanup() decrements activeConns asynchronously on the readPump goroutine,
+	// so wait for it to drain rather than assuming a fixed delay is enough.
+	waitForActiveConns(t, 0, 2*time.Second)
 }
 
 func TestLoadConcurrentConnectionsAndLeaks(t *testing.T) {
@@ -247,6 +266,10 @@ func TestLoadConcurrentConnectionsAndLeaks(t *testing.T) {
 	var wg sync.WaitGroup
 	clients := make([]*websocket.Conn, concurrency)
 	clientErrors := make([]error, concurrency)
+
+	// Settle any residual connection from a prior test before measuring, so the
+	// baseline goroutine count and the activeConns==concurrency check are clean.
+	waitForActiveConns(t, 0, 2*time.Second)
 
 	initialGoroutines := runtime.NumGoroutine()
 

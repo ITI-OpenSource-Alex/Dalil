@@ -31,11 +31,28 @@ async def consume_account_deleted_messages() -> None:
     sqs = _sqs_client()
     while True:
         try:
+            # WaitTimeSeconds bounds how long shutdown takes, not just how
+            # often we poll.
+            #
+            # asyncio.to_thread cannot be cancelled once its thread is running:
+            # task.cancel() marks the future, the poll runs to completion
+            # regardless, and the event loop joins its default executor on
+            # teardown. So shutdown is held for up to this value no matter what
+            # the cancellation code in main.py looks like. At 20 that meant a
+            # twenty-second container stop on every deploy, and -- because
+            # TestClient runs the application lifespan per test -- twenty
+            # seconds of teardown on every integration test in this service,
+            # which read as a hung suite.
+            #
+            # Five keeps most of the benefit of long polling (an idle queue
+            # costs one request per five seconds instead of one per loop) while
+            # capping the stall at five. Raising it again means accepting that
+            # shutdown latency.
             response = await asyncio.to_thread(
                 sqs.receive_message,
                 QueueUrl=queue_url,
                 MaxNumberOfMessages=10,
-                WaitTimeSeconds=20,
+                WaitTimeSeconds=5,
             )
             for message in response.get("Messages", []):
                 user_id = parse_account_deleted_event(message["Body"])

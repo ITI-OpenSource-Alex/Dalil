@@ -21,6 +21,22 @@ sys.path.insert(0, str(SERVICE_ROOT))
 sys.path.insert(0, str(CONTRACTS_ROOT))
 os.environ.setdefault("DATABASE_URL", "sqlite://")
 
+# No background SQS poller during tests.
+#
+# TestClient runs the application lifespan for every test that uses the `client`
+# fixture, so each one started an AccountDeleted consumer that immediately began
+# a 20-second SQS long poll. Shutdown is bounded now (see app/main.py), but a
+# test suite has no business opening a queue subscription forty times over, and
+# where a real queue URL is present in the environment those polls do real work
+# against it.
+#
+# Cleared rather than pointed at a fake URL: the consumer's own guard treats an
+# empty value as "not configured" and returns immediately, which is both the
+# behaviour tests want and a path that already exists in production when the
+# variable is unset.
+os.environ["ACCOUNT_DELETED_QUEUE_URL"] = ""
+os.environ["SQS_QUEUE_URL"] = ""
+
 from app.config import Settings, get_settings  # noqa: E402
 from app.database import Base  # noqa: E402
 from app.dependencies import get_db, get_s3_client, get_sqs_client  # noqa: E402

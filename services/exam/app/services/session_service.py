@@ -638,11 +638,39 @@ class SessionService:
         if question is None:
             return None, None
         questions_data = self._decode_json(question["questions"])
-        task_key = "task1" if task_number == 1 else "task2"
-        task_data = (questions_data or {}).get(task_key, {})
+        task_data = self._select_task(questions_data, task_number)
         task_prompt = task_data.get("prompt")
         image_s3_key = task_data.get("image_s3_key") if task_number == 1 else None
         return task_prompt, image_s3_key
+
+    @staticmethod
+    def _select_task(questions_data: Any, task_number: int) -> dict[str, Any]:
+        """Locate a writing task within the questions JSONB, shape-tolerant.
+
+        The ingestion pipeline emits a list of task objects. Newer records carry an
+        explicit ``task_key`` ("task1"/"task2"); older records only have ``number``
+        (1/2) and ``question_type`` ("Writing Task 1"/"Writing Task 2"). Matching on
+        any of these keeps both in circulation without a data backfill, so a
+        half-migrated bank never silently drops the image key and 502s. A dict keyed
+        by ``task1``/``task2`` is also supported for hand-authored fixtures.
+        """
+        task_key = "task1" if task_number == 1 else "task2"
+        if isinstance(questions_data, dict):
+            found = questions_data.get(task_key)
+            return found if isinstance(found, dict) else {}
+
+        if isinstance(questions_data, list):
+            expected_type = f"writing task {task_number}"
+            for q in questions_data:
+                if not isinstance(q, dict):
+                    continue
+                if q.get("task_key") == task_key:
+                    return q
+                if q.get("number") == task_number:
+                    return q
+                if str(q.get("question_type", "")).strip().lower() == expected_type:
+                    return q
+        return {}
 
     async def _get_writing_result(
         self,

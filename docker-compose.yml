@@ -360,6 +360,11 @@ services:
       - AWS_SECRET_ACCESS_KEY=test
       - AWS_ENDPOINT_URL=http://localstack:4566
       - S3_BUCKET=goa-exam-audio
+      # The writing-question ingester uploads Task 1 stimulus charts here so the
+      # Writing service (which reads its own S3_BUCKET=goa-writing-files) can
+      # fetch them. Kept explicit and separate from S3_BUCKET above, which is the
+      # exam service's own listening-audio bucket.
+      - WRITING_IMAGE_BUCKET=goa-writing-files
     volumes:
       - ./services/exam:/app
     depends_on:

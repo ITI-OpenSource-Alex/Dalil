@@ -5,7 +5,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 import structlog
 
 from app.core.config import settings
@@ -52,10 +52,25 @@ class CriterionDetail(BaseModel):
     criterion: str
     band: float
     overall_feedback: str
-    part_notes: dict[str, str]
-    examples: list[Example]
-    improvement_tip: str
-    timed_out: bool
+    # The speaking service builds timed-out criteria without PartNotes/Examples,
+    # so Go marshals them as JSON null (agents/holistic.go). Strictly required
+    # fields here made the whole result unparseable whenever any agent timed
+    # out, and the 500 that followed left the session stranded (the bug behind
+    # empty exam_results). Tolerate null/absent and normalize to {} / [].
+    part_notes: dict[str, str] = Field(default_factory=dict)
+    examples: list[Example] = Field(default_factory=list)
+    improvement_tip: str = ""
+    timed_out: bool = False
+
+    @field_validator("part_notes", mode="before")
+    @classmethod
+    def _part_notes_null_to_empty(cls, v):
+        return {} if v is None else v
+
+    @field_validator("examples", mode="before")
+    @classmethod
+    def _examples_null_to_empty(cls, v):
+        return [] if v is None else v
 
 
 class EvaluationResponse(BaseModel):
@@ -150,40 +165,63 @@ async def submit_transcript(session_id: UUID, payload: TranscriptPayload):
         return {}
 
     if payload.part == 3:
+        # try_submit is the concurrency lock: exactly one caller flips
+        # in_progress -> submitted and proceeds to evaluate. A second concurrent
+        # part-3 post loses the race and returns empty.
         if not await session_repo.try_submit(session_id):
             return {}
 
-        transcripts = await transcript_repo.get_all_for_session(session_id)
-        text = "\n".join(
-            [f"Part {t['part']}:\n{t['transcript_text']}" for t in transcripts]
-        )
+        # Everything below can fail (speaking service timeout/5xx, a response that
+        # doesn't match EvaluationResponse, or the INSERT itself). Because
+        # try_submit already committed status='submitted', a failure here without
+        # recovery leaves the session permanently stranded: the row is no longer
+        # in_progress so retries lose the try_submit race, the top-of-function
+        # guard short-circuits every later post, and exam_results is never written
+        # -> the results endpoint 404s forever. Revert to in_progress on failure so
+        # the client can retry, and surface the error instead of swallowing it.
+        try:
+            transcripts = await transcript_repo.get_all_for_session(session_id)
+            text = "\n".join(
+                [f"Part {t['part']}:\n{t['transcript_text']}" for t in transcripts]
+            )
 
-        speaking_client = SpeakingServiceClient(
-            settings.speaking_service_url, settings.internal_api_key
-        )
-        start_time = time.time()
-        result = await speaking_client.evaluate_holistic(
-            session_id, {"concatenated_transcript": text, "user_id": str(sessions_res["user_id"])}
-        )
-        duration_ms = (time.time() - start_time) * 1000
-        goa_speaking_exam_evaluation_ms.observe(duration_ms)
-        goa_speaking_exam_evaluations_total.labels(status="success").inc()
+            speaking_client = SpeakingServiceClient(
+                settings.speaking_service_url, settings.internal_api_key
+            )
+            start_time = time.time()
+            result = await speaking_client.evaluate_holistic(
+                session_id, {"concatenated_transcript": text, "user_id": str(sessions_res["user_id"])}
+            )
+            duration_ms = (time.time() - start_time) * 1000
+            goa_speaking_exam_evaluation_ms.observe(duration_ms)
 
-        eval_data = EvaluationResponse.model_validate(result)
-        section_scores = {k: v.band for k, v in eval_data.dimensions.items()}
+            eval_data = EvaluationResponse.model_validate(result)
+            section_scores = {k: v.band for k, v in eval_data.dimensions.items()}
 
-        result_repo = ResultRepository(db.pool)
-        await result_repo.create(
-            result_id=uuid4(),
-            session_id=session_id,
-            user_id=sessions_res["user_id"],
-            skill_area=sessions_res["skill_area"],
-            raw_score=0,
-            band_score=eval_data.overall_band,
-            section_scores=section_scores,
-            agent_responses=eval_data.model_dump(),
-        )
-        await session_repo.mark_scored(session_id)
+            result_repo = ResultRepository(db.pool)
+            await result_repo.create(
+                result_id=uuid4(),
+                session_id=session_id,
+                user_id=sessions_res["user_id"],
+                skill_area=sessions_res["skill_area"],
+                raw_score=0,
+                band_score=eval_data.overall_band,
+                section_scores=section_scores,
+                agent_responses=eval_data.model_dump(),
+            )
+            # Only now is the result durable — settle the terminal state.
+            await session_repo.mark_scored(session_id)
+            goa_speaking_exam_evaluations_total.labels(status="success").inc()
+        except Exception:
+            await session_repo.update_status(session_id, "in_progress")
+            goa_speaking_exam_evaluations_total.labels(status="error").inc()
+            logger.exception(
+                "speaking_evaluation_failed", session_id=str(session_id)
+            )
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Speaking evaluation failed; please retry.",
+            )
 
         return {}
 

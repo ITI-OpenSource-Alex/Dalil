@@ -273,7 +273,11 @@ async def extract_chart_context(s3_key: str) -> str:
             }
         ],
     )
-    return response.content[0].text.strip()
+    # Extended-thinking backends prepend a ThinkingBlock (no `.text`) before the
+    # TextBlock, so content[0] is not reliably the answer. _response_text skips
+    # non-text blocks and concatenates the real output, matching how every other
+    # agent here reads a response.
+    return _response_text(response).strip()
 
 class WritingAgentRunner:
     def __init__(self, client: Any, *, model: str) -> None:

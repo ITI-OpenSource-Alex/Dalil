@@ -286,6 +286,21 @@ def main() -> int:
                         if curated_key is not None:
                             parsed["answer_key"] = curated_key
 
+                    if skill == "writing":
+                        # Re-resolve task1 image with authoritative book_ref/test_number.
+                        # parse_text infers these from mid-book text and is often wrong;
+                        # the pipeline overrides them above, so we must re-resolve here —
+                        # mirroring how listening sets audio_s3_key after the override.
+                        for q in parsed.get("questions", []):
+                            if (
+                                isinstance(q, dict)
+                                and q.get("task_key") == "task1"
+                                and parsed.get("exam_type") == "academic"
+                            ):
+                                q["image_s3_key"] = skill_parser.resolve_task1_image(
+                                    parsed["book_ref"], parsed["test_number"]
+                                )
+
                     q_count = len(parsed.get("questions", []))
                     answer_key = parsed.get("answer_key", {})
                     ak_count = len(answer_key.get("answers", answer_key))

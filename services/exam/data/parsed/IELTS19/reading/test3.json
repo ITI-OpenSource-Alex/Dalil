@@ -1,0 +1,23 @@
+{
+  "book_ref": "IELTS-unknown",
+  "test_number": 3,
+  "exam_type": "academic",
+  "skill_area": "reading",
+  "passage_text": "This test consists of three sections with 40 questions. There are three texts, which are\ntaken from journals, books, magazines and newspapers. The texts are on topics of general\ninterest. At least one text contains detailed logical argument.\nA variety of question types is used, including: multiple choice, identifying information\n(True/False/Not Given), identifying the writer’s views/claims (Yes/No/Not Given), matching\ninformation, matching headings, matching features, matching sentence endings, sentence\ncompletion, summary completion, note completion, table completion, flowchart completion,\ndiagram-label completion and short-answer questions.",
+  "questions": [],
+  "answer_key": {
+    "7": "It was believed that the change Pete Sampras made to his rackets contributed to",
+    "1": "to",
+    "2": "The change that Andy Murray made to his rackets attracted a lot of attention.",
+    "3": "Most of the world’s top players take a professional racket stringer on tour with them.",
+    "4": "Mike and Bob Bryan use rackets that are light in comparison to the majority",
+    "5": "in Listening might be unacceptable even though the",
+    "6": "The weather can affect how professional players adjust the strings on their rackets.",
+    "13": "on his racket handles.",
+    "8": "used on",
+    "9": "for each of the components and an Overall Band Score from",
+    "10": "they do.",
+    "12": "put into the frames of"
+  },
+  "time_limit_seconds": 3600
+}

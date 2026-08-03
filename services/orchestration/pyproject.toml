@@ -1,0 +1,5 @@
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+markers = [
+    "smoke: minimal live-gateway canary subset (run with RUN_LIVE_LLM_TESTS=1 pytest -m smoke)",
+]

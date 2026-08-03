@@ -1,0 +1,106 @@
+{
+  "book_ref": "IELTS-15",
+  "test_number": 2,
+  "exam_type": "academic",
+  "skill_area": "speaking",
+  "passage_text": null,
+  "questions": [
+    {
+      "number": 1,
+      "prompt": "« How many languages can you speak? [Why/Why not?]",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 2,
+      "prompt": "e How useful will English be to you in your future? [Why/Why not?]",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 3,
+      "prompt": "e What do you remember about learning languages at school? [Why/Why not?]",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 4,
+      "prompt": "« What do you think would be the hardest language for you to Jearn? [Why?]",
+      "question_type": "Speaking Part 1",
+      "instructions": "Answer the question in 1-2 sentences.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 5,
+      "prompt": "Describe a website that you bought something from. You will have to talk",
+      "question_type": "Speaking Part 2",
+      "instructions": "Speak for 1-2 minutes on this topic.",
+      "passage_number": null,
+      "section_number": 2,
+      "bullet_points": [
+        "what the website is",
+        "what you bought from this website",
+        "how satisfied you were with what you bought think about what you",
+        "and explain what you liked or disliked about using can make some notes",
+        "this website. to help you if you wish."
+      ]
+    },
+    {
+      "number": 6,
+      "prompt": "What kinds of things do people in your country often buy from online shops?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 7,
+      "prompt": "Why do you think online shopping has become so popular nowadays?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 8,
+      "prompt": "What are some possible disadvantages of buying things from online shops?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 9,
+      "prompt": "Why do many people today keep buying things which they do not need?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 10,
+      "prompt": "Do you believe the benefits of a consumer society outweigh the disadvantages?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 11,
+      "prompt": "How possible is it to avoid the culture of consumerism?",
+      "question_type": "Speaking Part 3",
+      "instructions": "Discuss this question in detail.",
+      "passage_number": null,
+      "section_number": 3
+    }
+  ],
+  "answer_key": {},
+  "time_limit_seconds": 900
+}

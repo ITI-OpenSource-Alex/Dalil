@@ -2,15 +2,40 @@
 
 import Link from "next/link";
 import { Sidebar } from "@/components/ui/sidebar";
+import { useCurrentUser } from "@/app/hooks/useCurrentUser";
 import { useSessionHistory } from "@/app/hooks/useSessionHistory";
 import SessionHistoryList from "@/components/speaking/session-history-list";
 import BandTrendChart from "@/components/speaking/band-trend-chart";
 import { CURRENT_USER_ID } from "@/lib/current-user";
 
 export default function SpeakingHistoryPage() {
-  const { sessions, status, error, retry } = useSessionHistory(
-    CURRENT_USER_ID,
-  );
+  const {
+    user,
+    status: profileStatus,
+    error: profileError,
+    retry: retryProfile,
+  } = useCurrentUser();
+  const userId = user?.id ?? CURRENT_USER_ID;
+  const {
+    sessions,
+    status: historyStatus,
+    error: historyError,
+    retry: retryHistory,
+  } = useSessionHistory(userId);
+
+  // GOA-035/BUG-047: reuse the existing skeleton for the identity fetch too,
+  // rather than adding a second loading treatment -- and surface the real
+  // profile error (with its own retry) instead of silently falling through
+  // to the CURRENT_USER_ID fallback's (wrong) session history.
+  const identityLoading =
+    profileStatus === "loading" || profileStatus === "idle";
+  const status = identityLoading
+    ? "loading"
+    : profileStatus === "error"
+      ? "error"
+      : historyStatus;
+  const error = profileStatus === "error" ? profileError : historyError;
+  const retry = profileStatus === "error" ? retryProfile : retryHistory;
 
   return (
     <div className="flex min-h-screen bg-[#fbfbfa] text-gray-900 font-sans">

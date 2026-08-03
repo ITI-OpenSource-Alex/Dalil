@@ -14,6 +14,7 @@ import type { ExamSessionResponse } from "@/lib/exam-api";
 import { Sidebar } from "@/components/ui/sidebar";
 import ReadingExam from "@/components/reading/ReadingExam";
 import WritingExam from "@/components/writing/WritingExam";
+import ComingSoonPanel from "@/components/exam/ComingSoonPanel";
 import { storeReadingResult } from "@/lib/reading-result-storage";
 import type {
   NormalizedReadingQuestion,
@@ -51,6 +52,11 @@ function ExamShellContent() {
     skill: SkillArea;
   } | null>(null);
   const [status, setStatus] = useState<ExamStatus>("in_progress");
+  // doc 11: a failed submit used to only console.error, leaving `status` stuck
+  // on "evaluating" -- the full-screen "Analyzing performance..." overlay stayed
+  // up forever with no way out short of a reload. The status reset below clears
+  // the overlay; this surfaces the reason so the retry is an informed one.
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [mounted, setMounted] = useState(false);
   // Bumped to trigger ReadingExam's own submit on timer expiry — see
@@ -132,12 +138,21 @@ function ExamShellContent() {
     try {
       setStatus("evaluating");
 
+      setSubmissionError(null);
       await submitSession(sessionId, {});
 
       router.push(`/exam/results?session=${sessionId}&skill=${examConfig?.skill}`);
     } catch (err) {
       console.error(err);
+      // Reset so the "Analyzing performance..." overlay clears and the exam
+      // (and a retry) are usable again. Applies identically to the manual
+      // Submit button and the timer's auto-submit on expiry -- both land here.
       setStatus("in_progress");
+      setSubmissionError(
+        err instanceof Error
+          ? err.message
+          : "Failed to submit your exam. Please try again.",
+      );
     }
   };
 
@@ -291,20 +306,18 @@ function ExamShellContent() {
             )}
 
             {examConfig.skill !== "Writing" && examConfig.skill !== "Reading" && (
-              <div className="bg-white border border-gray-200/80 rounded-2xl p-8 max-w-3xl mx-auto my-8 shadow-2xs">
-                <h2 className="font-serif text-xl font-bold text-gray-900 mb-2">
-                  {examConfig.skill} exams are not available yet
-                </h2>
-                <p className="text-sm text-gray-500 mb-5">
-                  This module does not have a complete exam interface, so no
-                  attempt can be completed from this page.
-                </p>
-                <button
-                  onClick={() => router.push("/exam")}
-                  className="bg-[#0d4d3a] hover:bg-[#09382a] text-white px-4 py-2 rounded-full text-xs font-semibold transition"
-                >
-                  Return to Skills Workspace
-                </button>
+              <ComingSoonPanel
+                skill={examConfig.skill}
+                onBack={() => router.push("/exam")}
+              />
+            )}
+
+            {submissionError && (
+              <div
+                role="alert"
+                className="mt-6 max-w-3xl mx-auto rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+              >
+                {submissionError}
               </div>
             )}
           </main>

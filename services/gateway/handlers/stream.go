@@ -234,6 +234,21 @@ func (h *StreamHandler) stream(
 		for {
 			n, readErr := resp.Body.Read(buf)
 			if n > 0 {
+				// Clear the deadline again before every write, not only once
+				// above.
+				//
+				// Clearing it once was not enough, and the gap is invisible
+				// without a slow upstream to test against: fasthttp re-arms the
+				// write deadline around its own flushes, so a stream that goes
+				// quiet for longer than WriteTimeout between chunks is severed
+				// anyway. That is exactly the shape of a chat response -- the
+				// metadata frame leaves in milliseconds and the first token
+				// waits on RAG for a median of 14s -- which is why the
+				// truncation looked intermittent rather than systematic: fast
+				// answers made it, slow ones did not.
+				if conn != nil {
+					_ = conn.SetWriteDeadline(time.Time{})
+				}
 				if _, writeErr := w.Write(buf[:n]); writeErr != nil {
 					return
 				}

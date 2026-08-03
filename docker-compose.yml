@@ -22,8 +22,11 @@ services:
       - EXAM_SERVICE_URL=http://exam:8085
       - NOTIFICATION_SERVICE_URL=http://notification:8087
       - ORCHESTRATION_SERVICE_URL=http://orchestration:8083
+      - SPEAKING_SERVICE_URL=http://speaking:8082
       - SUBSCRIPTION_UPGRADE_URL=${SUBSCRIPTION_UPGRADE_URL:-http://localhost:3000/upgrade}
       - SUBSCRIPTION_CACHE_TTL=5m
+      - EXAM_START_LIMIT_PER_HOUR=3
+      - EXAM_OWNERSHIP_CACHE_TTL=5m
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
     volumes:
       - ./services/gateway:/app

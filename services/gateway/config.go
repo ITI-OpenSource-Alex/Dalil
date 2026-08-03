@@ -25,6 +25,11 @@ type Config struct {
 	WritingServiceURL      string        `envconfig:"WRITING_SERVICE_URL" required:"true"`
 	ExamServiceURL         string        `envconfig:"EXAM_SERVICE_URL" required:"true"`
 	NotificationServiceURL string        `envconfig:"NOTIFICATION_SERVICE_URL" default:"http://notification:8087"`
+	// GOA-084: checklist persistence lives in the RAG service. Its /checklists
+	// routes take no internal API key -- ownership is scoped by X-User-ID alone
+	// (see ChecklistHandler) -- so unlike ExamServiceURL/WritingServiceURL this
+	// is not paired with InternalApiKey.
+	RagServiceURL string `envconfig:"RAG_SERVICE_URL" default:"http://rag:8084"`
 	// Chat is proxied rather than called from the browser, so the Gateway needs
 	// to know where Orchestration lives (BUG-029, BUG-044).
 	OrchestrationServiceURL string        `envconfig:"ORCHESTRATION_SERVICE_URL" default:"http://orchestration:8083"`

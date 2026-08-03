@@ -21,6 +21,7 @@ services:
       - WRITING_SERVICE_URL=http://writing:8000
       - EXAM_SERVICE_URL=http://exam:8085
       - NOTIFICATION_SERVICE_URL=http://notification:8087
+      - RAG_SERVICE_URL=http://rag:8084
       - ORCHESTRATION_SERVICE_URL=http://orchestration:8083
       - SPEAKING_SERVICE_URL=http://speaking:8082
       - SUBSCRIPTION_UPGRADE_URL=${SUBSCRIPTION_UPGRADE_URL:-http://localhost:3000/upgrade}
@@ -40,6 +41,8 @@ services:
       writing:
         condition: service_healthy
       exam:
+        condition: service_started
+      rag:
         condition: service_started
 
   user-service:

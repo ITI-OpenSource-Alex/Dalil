@@ -152,14 +152,62 @@ async def test_task2_sends_no_image_block(mock_fetch_bytes, mock_anthropic):
         assert mock_eval.call_args.kwargs.get("chart_context") is None
 
 @pytest.mark.asyncio
-async def test_academic_task1_fails_without_image():
+async def test_academic_task1_without_image_evaluates_without_chart_context(
+    mock_fetch_bytes, mock_anthropic
+):
+    """
+    Image-based evaluation is postponed, so Academic Task 1 with no stimulus
+    key must EVALUATE rather than fail.
+
+    This test previously asserted the opposite — that it raised
+    EvaluationFailed("Academic Task 1 requires a stimulus image"). That guard
+    was correct only while the stimulus pipeline was expected to exist. In
+    practice no ingested question carries an image key, so the guard rejected
+    every real Academic Task 1 submission with a 502 and made the most common
+    writing exam impossible to sit.
+
+    TODO(GOA-058 follow-up): when the stimulus pipeline lands, restore the
+    guard in app/evaluation.py and flip this test back to expecting
+    EvaluationFailed.
+    """
     from app.evaluation import get_evaluation_coordinator
     coordinator = get_evaluation_coordinator()
-    
-    with pytest.raises(EvaluationFailed, match="Academic Task 1 requires a stimulus image"):
-        await coordinator.evaluate_exam_task(
+
+    with patch.object(coordinator.runner, "evaluate_exam_task", new_callable=AsyncMock) as mock_eval:
+        from app.schemas import CriterionEvaluation
+        from app.agents import AgentExecution
+
+        def mock_side_effect(criterion, *args, **kwargs):
+            return AgentExecution(
+                result=CriterionEvaluation(
+                    criterion=criterion,
+                    band_score=7.0,
+                    feedback="Good",
+                    improvement_tip="Tip",
+                    word_count=200,
+                    inline_issues=[]
+                ),
+                prompt_tokens=10,
+                completion_tokens=10,
+                latency_ms=10.0,
+                cost_usd=0.01
+            )
+        mock_eval.side_effect = mock_side_effect
+
+        summary = await coordinator.evaluate_exam_task(
             essay_text="test",
             exam_type="Academic",
             task_number=1,
             stimulus_s3_key=None
         )
+
+    # It evaluated all four criteria and produced a band.
+    assert len(summary.evaluations) == 4
+    assert summary.overall_band == 7.0
+
+    # No image was fetched and no vision call was made.
+    mock_fetch_bytes.assert_not_called()
+    mock_anthropic.messages.create.assert_not_called()
+
+    # The agents ran without chart context — the accepted limitation.
+    assert mock_eval.call_args.kwargs.get("chart_context") is None

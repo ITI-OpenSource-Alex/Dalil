@@ -6,6 +6,7 @@ import Link from "next/link";
 import { SkillArea } from "@/app/types/exam";
 import { getResult, getSession, getWritingResult } from "@/lib/exam-api";
 import { Sidebar } from "@/components/ui/sidebar";
+import Skeleton from "@/components/ui/skeleton";
 import type {
   ExamSessionResponse,
   ExamResultResponse,
@@ -24,7 +25,16 @@ import ReadingResultsView from "@/components/reading/results/ReadingResultsView"
 // otherwise `next build`'s static export of this route fails.
 export default function ResultsPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen bg-[#fbfbfa] p-8 md:p-12">
+          <div className="mx-auto w-full max-w-5xl space-y-6">
+            <Skeleton className="h-32 w-full rounded-3xl" />
+            <Skeleton className="h-24 w-full rounded-2xl" />
+          </div>
+        </div>
+      }
+    >
       <ResultsPageContent />
     </Suspense>
   );
@@ -43,10 +53,19 @@ function ResultsPageContent() {
     useState<WritingResultResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // doc 11: bumped by handleRetry to re-run the load effect below without
+  // duplicating its fetch logic in a second function.
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const handleRetry = () => {
+    setError(null);
+    setLoading(true);
+    setRetryCount((n) => n + 1);
+  };
 
   useEffect(() => {
     if (!sessionId) return;
@@ -118,6 +137,19 @@ function ResultsPageContent() {
 
         sessionStorage.removeItem("active_exam_session");
 
+        // Only the generic result shape reaches here: Reading and Writing both
+        // return from their own branches above, and Writing's weighted
+        // `overall_band` is posted by that branch (it is not on this payload).
+        await fetch("/api/profile/update-scores", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            skill,
+            bandScore: resultData.band_score,
+          }),
+        });
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load result");
       } finally {
@@ -126,14 +158,47 @@ function ResultsPageContent() {
     }
 
     loadResult();
-  }, [sessionId, skill]);
+  }, [sessionId, skill, retryCount]);
 
+  // doc 11: previously bare <div>Loading...</div> / <div>{error}</div>
+  // with no styling at all -- replaced with the Skeleton component
+  // (extended above to support block sizing) approximating the real
+  // results layout, and the same styled error/retry card pattern already
+  // used on /profile and ChecklistView, rather than a third distinct
+  // error style.
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="flex min-h-screen bg-[#fbfbfa] text-gray-900 font-sans">
+        <Sidebar />
+        <main className="flex-1 p-8 md:p-12 max-w-5xl mx-auto">
+          <div className="space-y-6" aria-busy="true" aria-label="Loading exam results">
+            <Skeleton className="h-32 w-full rounded-3xl" />
+            <Skeleton className="h-24 w-full rounded-2xl" />
+            <Skeleton className="h-40 w-full rounded-2xl" />
+          </div>
+        </main>
+      </div>
+    );
   }
 
   if (error) {
-    return <div>{error}</div>;
+    return (
+      <div className="flex min-h-screen bg-[#fbfbfa] text-gray-900 font-sans">
+        <Sidebar />
+        <main className="flex-1 p-8 md:p-12 max-w-5xl mx-auto">
+          <div className="rounded-2xl border border-red-100 bg-red-50 p-6 text-center">
+            <p className="text-sm text-red-700">{error}</p>
+            <button
+              type="button"
+              onClick={handleRetry}
+              className="mt-3 rounded-full bg-red-600 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-red-700"
+            >
+              Retry
+            </button>
+          </div>
+        </main>
+      </div>
+    );
   }
 
   if (skill === "Reading") {
@@ -187,7 +252,12 @@ function ResultsPageContent() {
     return <div>No result found.</div>;
   }
 
-  const sectionScores = Object.entries(result.section_scores).filter(
+  // Only the generic result shape reaches here -- Reading and Writing each
+  // returned from their own branch above, so no narrowing is needed and
+  // section_scores is always present on `result`.
+  const sectionScores: [string, number][] = Object.entries(
+    result.section_scores ?? {},
+  ).filter(
     (entry): entry is [string, number] =>
       typeof entry[1] === "number" && Number.isFinite(entry[1]),
   );
@@ -224,59 +294,56 @@ function ResultsPageContent() {
             </div>
           </div>
 
-          {/* Diagnostic feed for the generic result shape. Reading and Writing
-              never reach this point -- both return from their own branches
-              above (ReadingResultsView / CombinedWritingResults), so nothing
-              here can contradict the exam service's real Writing evaluations.
-              The hardcoded bands and invented feedback prose that once sat here
-              were already replaced with real section_scores on dev. */}
-          <section className="mb-8">
-            <h3 className="text-sm font-bold uppercase tracking-wide text-gray-400 mb-4">
-              Diagnostic Feed
-            </h3>
+              {/* Generic (non-Writing) result rendering, from the authenticated
+                  progress work on dev. Writing takes the branch above because
+                  its payload carries no section_scores at all. */}
+              <section className="mb-8">
+                <h3 className="text-sm font-bold uppercase tracking-wide text-gray-400 mb-4">
+                  Diagnostic Feed
+                </h3>
 
-            {sectionScores.length ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {sectionScores.map(([section, score]) => (
-                  <div key={section} className="border border-gray-200/80 p-5 rounded-2xl bg-white shadow-2xs">
-                    <h4 className="font-serif font-bold text-gray-900 text-sm capitalize">
-                      {section.replaceAll("_", " ")}
-                    </h4>
-                    <p className="text-xs text-gray-500 mt-2 leading-relaxed">
-                      Score: {score}
-                    </p>
+                {sectionScores.length ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {sectionScores.map(([section, score]) => (
+                      <div key={section} className="border border-gray-200/80 p-5 rounded-2xl bg-white shadow-2xs">
+                        <h4 className="font-serif font-bold text-gray-900 text-sm capitalize">
+                          {section.replaceAll("_", " ")}
+                        </h4>
+                        <p className="text-xs text-gray-500 mt-2 leading-relaxed">
+                          Score: {score}
+                        </p>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-gray-500">Detailed section feedback is not available for this result.</p>
-            )}
-          </section>
+                ) : (
+                  <p className="text-xs text-gray-500">Detailed section feedback is not available for this result.</p>
+                )}
+              </section>
 
-          {/* Action Engine Block */}
-          <section className="border border-gray-200/80 p-6 bg-white rounded-2xl shadow-2xs">
-            <h3 className="text-base font-serif font-bold text-gray-900 mb-3">
-              Targeted Action Plan
-            </h3>
-            <ul className="space-y-2 text-xs text-gray-600 leading-relaxed list-disc pl-4">
-              {weakestSection ? (
-                <li>
-                  <strong>Focus on {weakestSection[0].replaceAll("_", " ")}:</strong>{" "}
-                  it is the lowest reported section score ({weakestSection[1]}).
-                </li>
-              ) : (
-                <li>Complete another scored exam to receive a data-backed action plan.</li>
-              )}
-            </ul>
-            <div className="mt-6 pt-4 border-t border-gray-100">
-              <Link
-                href="/exam"
-                className="inline-block bg-[#0d4d3a] hover:bg-[#09382a] text-white font-semibold px-5 py-2.5 rounded-full text-xs transition"
-              >
-                Return to Skills Workspace
-              </Link>
-            </div>
-          </section>
+              {/* Action Engine Block */}
+              <section className="border border-gray-200/80 p-6 bg-white rounded-2xl shadow-2xs">
+                <h3 className="text-base font-serif font-bold text-gray-900 mb-3">
+                  Targeted Action Plan
+                </h3>
+                <ul className="space-y-2 text-xs text-gray-600 leading-relaxed list-disc pl-4">
+                  {weakestSection ? (
+                    <li>
+                      <strong>Focus on {weakestSection[0].replaceAll("_", " ")}:</strong>{" "}
+                      it is the lowest reported section score ({weakestSection[1]}).
+                    </li>
+                  ) : (
+                    <li>Complete another scored exam to receive a data-backed action plan.</li>
+                  )}
+                </ul>
+                <div className="mt-6 pt-4 border-t border-gray-100">
+                  <Link
+                    href="/exam"
+                    className="inline-block bg-[#0d4d3a] hover:bg-[#09382a] text-white font-semibold px-5 py-2.5 rounded-full text-xs transition"
+                  >
+                    Return to Skills Workspace
+                  </Link>
+                </div>
+              </section>
         </div>
       </main>
     </div>

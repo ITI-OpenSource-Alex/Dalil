@@ -25,6 +25,17 @@ export default function MessageList({ messages, isTyping }: MessageListProps) {
       <AnimatePresence initial={false}>
         {messages.map((msg) => {
           const isUser = msg.role === "user";
+          // Sources/opportunities/evaluation are only ever set on assistant
+          // messages (see the "match_results"/"sources" cases in
+          // handleChatEvent and the speaking onEvaluation handler in
+          // chat-shell.tsx) -- guarded here too so a user message can never
+          // render a left-aligned attachment block underneath it.
+          const hasAttachments =
+            !isUser &&
+            ((msg.sources?.length ?? 0) > 0 ||
+              (msg.opportunities?.length ?? 0) > 0 ||
+              !!msg.evaluation);
+
           return (
             <motion.div
               key={msg.id}
@@ -32,44 +43,54 @@ export default function MessageList({ messages, isTyping }: MessageListProps) {
               initial={{ opacity: 0, y: 16, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ duration: 0.3, ease: "easeOut" }}
-              className={`flex gap-4 ${isUser ? "justify-end" : "justify-start"}`}
+              className="flex flex-col gap-2"
             >
-              <MessageBubble
-                role={msg.role}
-                content={msg.content}
-                intent={msg.intent}
-                isStreaming={msg.isStreaming}
-              />
+              <div className={`flex gap-4 ${isUser ? "justify-end" : "justify-start"}`}>
+                <MessageBubble
+                  role={msg.role}
+                  content={msg.content}
+                  intent={msg.intent}
+                  isStreaming={msg.isStreaming}
+                />
+              </div>
 
-              {msg.sources && msg.sources.length > 0 && (
-                <SourcesFootnote sources={msg.sources} />
-              )}
+              {hasAttachments && (
+                // ml-12 = avatar width (w-8 = 32px) + the row's gap-4 (16px),
+                // so attachments align with the bubble's start rather than
+                // the avatar. max-w-3xl is deliberately wider than the
+                // bubble's max-w-[75%] -- the two-column opportunity card
+                // grid needs more room than that constraint allows.
+                <div className="ml-12 max-w-3xl space-y-2">
+                  {msg.sources && msg.sources.length > 0 && (
+                    <SourcesFootnote sources={msg.sources} />
+                  )}
 
-              {msg.opportunities && msg.opportunities.length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
-                  {msg.opportunities.map((opp, idx) => (
-                    <OpportunityCard key={idx} opp={opp} index={idx} />
-                  ))}
+                  {msg.opportunities && msg.opportunities.length > 0 && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {msg.opportunities.map((opp, idx) => (
+                        <OpportunityCard key={idx} opp={opp} index={idx} />
+                      ))}
+                    </div>
+                  )}
+
+                  {msg.evaluation && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{
+                        duration: 0.4,
+                        delay: 0.1,
+                        ease: "easeOut",
+                      }}
+                    >
+                      <EvaluationBreakdown
+                        overallBand={msg.evaluation.overallScore}
+                        criteria={msg.evaluation.criteria}
+                        feedback={msg.evaluation.feedback}
+                      />
+                    </motion.div>
+                  )}
                 </div>
-              )}
-
-              {msg.evaluation && (
-                <motion.div
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{
-                    duration: 0.4,
-                    delay: 0.1,
-                    ease: "easeOut",
-                  }}
-                  className="mt-2"
-                >
-                  <EvaluationBreakdown
-                    overallBand={msg.evaluation.overallScore}
-                    criteria={msg.evaluation.criteria}
-                    feedback={msg.evaluation.feedback}
-                  />
-                </motion.div>
               )}
             </motion.div>
           );
@@ -92,7 +113,10 @@ function OpportunityCard({
   opp: Opportunity;
   index?: number;
 }) {
-  const confidencePercent = Math.round(opp.confidence * 100);
+  // opp.result.score is already 0-100 (services/rag/app/services/scoring.py) --
+  // do not multiply by 100 again, that's what previously produced "NaN% Match"
+  // (there was no flat `confidence` field on the real payload at all).
+  const confidencePercent = Math.round(opp.result.score);
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}

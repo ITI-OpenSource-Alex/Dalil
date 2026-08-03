@@ -38,10 +38,18 @@ export async function streamWritingEvaluation(
   sseUrl: string,
   onEvent: (event: WritingEvent) => void,
 ) {
-  const response = await fetch(sseUrl);
+  // credentials: "include" is required -- the SSE URL points at the Gateway
+  // (/api/writing/essays/:id/evaluate), which sits behind JWT auth and a
+  // RequirePaid check. Without this the httpOnly auth cookie never reaches
+  // the request, the Gateway returns 401, and the caller has no way to tell
+  // that apart from any other failure (BUG: writing practice hung forever
+  // because this was missing and the status code was discarded).
+  const response = await fetch(sseUrl, { credentials: "include" });
 
   if (!response.ok) {
-    throw new Error("Unable to start writing evaluation.");
+    throw new Error(
+      `Unable to start writing evaluation (status ${response.status}).`,
+    );
   }
 
   if (!response.body) {

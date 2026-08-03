@@ -77,8 +77,12 @@ export interface ExamResultResponse {
   answer_key: Record<string, unknown>;
 }
 
+export type ExamProgress = Partial<Record<
+  "reading" | "listening" | "speaking" | "writing",
+  { date: string; band: number }[]
+>>;
+
 export async function createSession(
-  userId: string,
   examType: ExamType,
   skillArea: SkillArea,
 ): Promise<CreateSessionResponse> {
@@ -87,10 +91,24 @@ export async function createSession(
     method: "POST",
     headers,
     body: JSON.stringify({
-      user_id: userId,
       exam_type: mapExamType(examType),
       skill_area: mapSkillArea(skillArea),
     }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+
+  return response.json();
+}
+
+/** The Gateway derives the user identity from the HttpOnly-cookie JWT. */
+export async function getExamProgress(): Promise<ExamProgress> {
+  const response = await fetch(`${API_BASE}/progress`, {
+    ...fetchOptions,
+    headers,
+    cache: "no-store",
   });
 
   if (!response.ok) {

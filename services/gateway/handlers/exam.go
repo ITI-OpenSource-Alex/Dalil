@@ -187,6 +187,20 @@ func (h *ExamHandler) GetSessionResult(c *fiber.Ctx) error {
 	return h.forward(c, http.MethodGet, target, nil)
 }
 
+// GetProgress returns the authenticated candidate's score trends. The user ID
+// comes from the JWT, never from a browser-controlled URL parameter.
+func (h *ExamHandler) GetProgress(c *fiber.Ctx) error {
+	userID, err := authenticatedUserID(c)
+	if err != nil {
+		return err
+	}
+	target, err := url.JoinPath(h.examServiceURL, "users", userID, "progress")
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid user id")
+	}
+	return h.forward(c, http.MethodGet, target, nil)
+}
+
 // SubmitReadingSession proxies PUT /api/exam/reading/{sessionId}/submit.
 //
 // The generic SubmitSession above hits the exam service's generic

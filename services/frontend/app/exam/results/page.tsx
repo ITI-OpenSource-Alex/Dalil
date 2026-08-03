@@ -60,19 +60,6 @@ function ResultsPageContent() {
 
       sessionStorage.removeItem("active_exam_session");
 
-      fetch("/api/profile/update-scores", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          skill,
-          bandScore: stored.result.band_score,
-        }),
-      }).catch(() => {
-        // Non-fatal: profile score sync failing shouldn't block the
-        // results view from rendering, matching the generic path's
-        // existing behavior of not surfacing this as a page-level error.
-      });
-
       return;
     }
 
@@ -90,16 +77,6 @@ function ResultsPageContent() {
 
         sessionStorage.removeItem("active_exam_session");
 
-        await fetch("/api/profile/update-scores", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            skill,
-            bandScore: resultData.band_score,
-          }),
-        });
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load result");
       } finally {
@@ -147,6 +124,12 @@ function ResultsPageContent() {
     return <div>No result found.</div>;
   }
 
+  const sectionScores = Object.entries(result.section_scores).filter(
+    (entry): entry is [string, number] =>
+      typeof entry[1] === "number" && Number.isFinite(entry[1]),
+  );
+  const weakestSection = [...sectionScores].sort(([, a], [, b]) => a - b)[0];
+
   return (
     <div className="flex min-h-screen bg-[#fbfbfa] text-gray-900 font-sans">
       <Sidebar />
@@ -184,27 +167,21 @@ function ResultsPageContent() {
               Diagnostic Feed
             </h3>
 
-            {skill === "Writing" && (
+            {sectionScores.length ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="border border-gray-200/80 p-5 rounded-2xl bg-white shadow-2xs">
-                  <h4 className="font-serif font-bold text-gray-900 text-sm">
-                    Task 1 (Band 7.0)
-                  </h4>
-                  <p className="text-xs text-gray-500 mt-2 leading-relaxed">
-                    Data criteria categorization was logically executed. Minor
-                    misalignments identified in structural line summaries.
-                  </p>
-                </div>
-                <div className="border border-gray-200/80 p-5 rounded-2xl bg-white shadow-2xs">
-                  <h4 className="font-serif font-bold text-gray-900 text-sm">
-                    Task 2 (Band 7.5)
-                  </h4>
-                  <p className="text-xs text-gray-500 mt-2 leading-relaxed">
-                    Arguments presented exhibit robust support structures.
-                    Lexical versatility satisfies upper band frameworks.
-                  </p>
-                </div>
+                {sectionScores.map(([section, score]) => (
+                  <div key={section} className="border border-gray-200/80 p-5 rounded-2xl bg-white shadow-2xs">
+                    <h4 className="font-serif font-bold text-gray-900 text-sm capitalize">
+                      {section.replaceAll("_", " ")}
+                    </h4>
+                    <p className="text-xs text-gray-500 mt-2 leading-relaxed">
+                      Score: {score}
+                    </p>
+                  </div>
+                ))}
               </div>
+            ) : (
+              <p className="text-xs text-gray-500">Detailed section feedback is not available for this result.</p>
             )}
           </section>
 
@@ -214,14 +191,14 @@ function ResultsPageContent() {
               Targeted Action Plan
             </h3>
             <ul className="space-y-2 text-xs text-gray-600 leading-relaxed list-disc pl-4">
-              <li>
-                <strong>Enhance Cohesion:</strong> Integrate structured
-                transition phrases across body paragraphs.
-              </li>
-              <li>
-                <strong>Pacing Thresholds:</strong> Practice under time limits
-                to improve writing speed.
-              </li>
+              {weakestSection ? (
+                <li>
+                  <strong>Focus on {weakestSection[0].replaceAll("_", " ")}:</strong>{" "}
+                  it is the lowest reported section score ({weakestSection[1]}).
+                </li>
+              ) : (
+                <li>Complete another scored exam to receive a data-backed action plan.</li>
+              )}
             </ul>
             <div className="mt-6 pt-4 border-t border-gray-100">
               <Link

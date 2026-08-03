@@ -1,3 +1,4 @@
+CREATE DATABASE gateway_db;
 CREATE DATABASE user_db;
 CREATE DATABASE orchestration_db;
 CREATE DATABASE speaking_db;

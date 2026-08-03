@@ -1,55 +1,79 @@
 package main
 
 import (
+	"log"
 	"os"
-	"os/signal"
-	"syscall"
+	"strconv"
+	"time"
 
+	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
+	"github.com/valyala/fasthttp/fasthttpadaptor"
 )
+
+var (
+	startTime = time.Now()
+	version   = "0.1.0"
+
+	requestsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "goa_gateway_requests_total",
+			Help: "Total HTTP requests handled by the gateway",
+		},
+		[]string{"route", "method", "status_code"},
+	)
+)
+
+func init() {
+	prometheus.MustRegister(requestsTotal)
+}
 
 func main() {
 	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
 
-	cfg, err := LoadConfig()
-	if err != nil {
-		logger.Fatal().Err(err).Msg("failed to load gateway configuration")
-	}
+	app := fiber.New(fiber.Config{
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	})
 
-	server, err := NewGatewayServer(cfg, logger)
-	if err != nil {
-		logger.Fatal().Err(err).Msg("failed to create gateway server")
-	}
+	app.Use(func(c *fiber.Ctx) error {
+		reqId := c.Get("X-Correlation-ID")
+		if reqId == "" {
+			reqId = uuid.NewString()
 
-	logger.Info().
-		Str("port", cfg.Port).
-		Str("version", cfg.Version).
-		Msg("starting gateway server")
-
-	serverErrors := make(chan error, 1)
-	go func() {
-		serverErrors <- server.Listen(":" + cfg.Port)
-	}()
-
-	shutdownSignals := make(chan os.Signal, 1)
-	signal.Notify(shutdownSignals, syscall.SIGINT, syscall.SIGTERM)
-	defer signal.Stop(shutdownSignals)
-
-	select {
-	case sig := <-shutdownSignals:
+		}
+		c.Set("X-Correlation-ID", reqId)
+		start := time.Now()
+		err := c.Next()
+		latency := time.Since(start)
+		status := c.Response().StatusCode()
+		requestsTotal.WithLabelValues(c.Route().Path, c.Method(), strconv.Itoa(status)).Inc()
 		logger.Info().
-			Str("signal", sig.String()).
-			Msg("shutdown requested")
+			Str("request_id", reqId).
+			Str("route", c.Route().Path).
+			Int("status", status).
+			Dur("latency_ms", latency).
+			Msg("request handled")
 
-		if err := server.Shutdown(); err != nil {
-			logger.Error().Err(err).Msg("shutdown failure")
-			os.Exit(1)
-		}
+		return err
+	})
 
-		logger.Info().Msg("shutdown complete")
-	case err := <-serverErrors:
-		if err != nil {
-			logger.Fatal().Err(err).Msg("gateway server stopped")
-		}
-	}
+	app.Get("/health", func(c *fiber.Ctx) error {
+		return c.JSON(fiber.Map{
+			"status":  "ok",
+			"version": version,
+			"uptime":  time.Since(startTime).String(),
+		})
+	})
+
+	app.Get("/metrics", func(c *fiber.Ctx) error {
+		handler := fasthttpadaptor.NewFastHTTPHandler(promhttp.Handler())
+		handler(c.Context())
+		return nil
+	})
+
+	log.Fatal(app.Listen(":8080"))
 }

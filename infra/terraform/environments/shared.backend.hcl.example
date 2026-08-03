@@ -1,6 +1,0 @@
-bucket               = "goa-123456789012-eu-west-1-terraform-state"
-key                  = "foundation/terraform.tfstate"
-region               = "eu-west-1"
-dynamodb_table       = "goa-eu-west-1-terraform-locks"
-encrypt              = true
-workspace_key_prefix = "environments"

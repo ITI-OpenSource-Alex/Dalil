@@ -19,13 +19,6 @@ class UserUpdated(BaseEvent):
     type: Literal["user.updated"] = "user.updated"
     payload: UserUpdatedPayload
 
-class AccountDeletedPayload(BaseModel):
-    userId: str
-    deletedAt: datetime
-
-class AccountDeleted(BaseEvent):
-    type: Literal["account.deleted"] = "account.deleted"
-    payload: AccountDeletedPayload
 class CVUploadedPayload(BaseModel):
     userId: str
     s3Key: str
@@ -36,12 +29,14 @@ class CVUploaded(BaseEvent):
     payload: CVUploadedPayload
 
 
-class CVProcessed(BaseEvent):
-    type: Literal["CVProcessed"] = "CVProcessed"
+class CVProcessedPayload(BaseModel):
     userId: str
-    cvId: int
-    s3Key: str
-    status: Literal["ready", "failed"]
+    extractedText: str
+    status: Literal["success", "failed"]
+
+class CVProcessed(BaseEvent):
+    type: Literal["cv.processed"] = "cv.processed"
+    payload: CVProcessedPayload
 
 class ScholarshipMatchedPayload(BaseModel):
     userId: str
@@ -70,39 +65,12 @@ class IngestionCompleted(BaseEvent):
     type: Literal["ingestion.completed"] = "ingestion.completed"
     payload: IngestionCompletedPayload
 
-class ScholarshipMatchedNotification(BaseModel):
-    eventType: Literal["ScholarshipMatched"] = "ScholarshipMatched"
-    userId: str
-    programId: str
-    programName: str | None = None
-    provider: str | None = None
-    country: str | None = None
-    deadline: str | None = None
-    score: float
-    cycleDate: str
-
-
-class DeadlineReminderNotification(BaseModel):
-    eventType: Literal["DEADLINE_REMINDER"] = "DEADLINE_REMINDER"
-    userId: str
-    programId: str
-    programName: str | None = None
-    provider: str | None = None
-    country: str | None = None
-    deadline: str | None = None
-    score: float
-    cycleDate: str
-
-
 # A Union type representing any valid domain event
 DomainEvent = Union[
     UserUpdated,
-    AccountDeleted,
     CVUploaded,
     CVProcessed,
     ScholarshipMatched,
     NotificationRequested,
     IngestionCompleted
 ]
-
-

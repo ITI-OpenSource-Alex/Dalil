@@ -409,6 +409,26 @@ locals {
       }
     },
     {
+      # GOA-066: Reading/Listening grading is pure code + DB (no LLM), so a P95
+      # above 500ms points at a DB or code regression. One alarm per skill_area
+      # because each is a distinct dimension value on goa_exam_grading_latency_ms.
+      for skill in ["reading", "listening"] :
+      "exam_grading_p95_${skill}" => {
+        alarm_name          = "${local.name_prefix}-exam-${skill}-grading-p95-latency"
+        description         = "Exam ${skill} grading latency P95 is above the GOA-066 500ms threshold — indicates a DB or code issue."
+        namespace           = "GOA/Services"
+        metric_name         = "goa_exam_grading_latency_ms"
+        dimensions          = { Service = "exam", skill_area = skill }
+        comparison_operator = "GreaterThanThreshold"
+        threshold           = var.reading_listening_grading_p95_threshold_ms
+        evaluation_periods  = 5
+        datapoints_to_alarm = 5
+        period              = 60
+        extended_statistic  = "p95"
+        treat_missing_data  = "missing"
+      }
+    },
+    {
       for service in local.service_names :
       "service_error_rate_${service}" => {
         alarm_name          = "${local.name_prefix}-${service}-error-rate"

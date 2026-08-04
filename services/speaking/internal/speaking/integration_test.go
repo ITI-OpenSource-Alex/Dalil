@@ -19,6 +19,29 @@ import (
 	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/llm"
 )
 
+// waitForActiveConns polls until the connection gauge reaches want.
+//
+// activeConns is decremented by cleanup(), which runs on readPump's goroutine
+// after the socket closes -- so every assertion on it is asserting on an
+// asynchronous teardown. Reading it immediately (or after a fixed sleep sized
+// on a fast developer machine) is a race that passes locally and fails on a
+// slower CI runner, which is exactly the kind of flake that gets a real
+// regression dismissed as "just CI".
+func waitForActiveConns(t *testing.T, want int32, within time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(within)
+	for {
+		got := atomic.LoadInt32(&activeConns)
+		if got == want {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("activeConns = %d after %v, want %d", got, within, want)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
 // mockDBRepo satisfies db.Repository for testing
 type mockDBRepo struct{}
 
@@ -234,27 +257,18 @@ func TestIntegrationMetricsAndSessionAccounting(t *testing.T) {
 	u.Scheme = "ws"
 	u.Path = "/ws"
 
-	if atomic.LoadInt32(&activeConns) != 0 {
-		t.Fatalf("Expected baseline activeConns to be 0, got %d", atomic.LoadInt32(&activeConns))
-	}
+	waitForActiveConns(t, 0, 5*time.Second)
 
 	ws, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	if err != nil {
 		t.Fatalf("Failed to connect client: %v", err)
 	}
 
-	if atomic.LoadInt32(&activeConns) != 1 {
-		t.Errorf("Expected activeConns to be 1, got %d", atomic.LoadInt32(&activeConns))
-	}
+	waitForActiveConns(t, 1, 5*time.Second)
 
 	ws.Close()
 
-	// Wait for cleanup deferred routines to finish
-	time.Sleep(150 * time.Millisecond)
-
-	if atomic.LoadInt32(&activeConns) != 0 {
-		t.Errorf("Expected activeConns to return to 0 after disconnect, got %d", atomic.LoadInt32(&activeConns))
-	}
+	waitForActiveConns(t, 0, 5*time.Second)
 }
 
 func TestLoadConcurrentConnectionsAndLeaks(t *testing.T) {
@@ -315,11 +329,7 @@ func TestLoadConcurrentConnectionsAndLeaks(t *testing.T) {
 		}
 	}
 
-	time.Sleep(1000 * time.Millisecond)
-
-	if atomic.LoadInt32(&activeConns) != 0 {
-		t.Errorf("Expected activeConns to return to 0, got %d", atomic.LoadInt32(&activeConns))
-	}
+	waitForActiveConns(t, 0, 15*time.Second)
 
 	finalGoroutines := runtime.NumGoroutine()
 	margin := 10 // Allow small background system thread variations

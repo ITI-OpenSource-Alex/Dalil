@@ -33,7 +33,12 @@ func sseServer(t *testing.T, blocks []map[string]any, stopReason string) *httpte
 				"id": "msg_test", "type": "message", "role": "assistant",
 				"model": "claude-opus-4-8", "content": []any{},
 				"stop_reason": nil, "stop_sequence": nil,
-				"usage": map[string]any{"input_tokens": 100, "output_tokens": 0},
+				// Zero usage on purpose: telemetry.RecordLLMCost short-circuits
+				// when both counts are zero, so these tests never touch Redis.
+				// With real counts each subtest paid a 2s dial plus go-redis
+				// retries against a host that does not resolve in CI -- pure
+				// wall-clock and log noise for a side effect none of them assert.
+				"usage": map[string]any{"input_tokens": 0, "output_tokens": 0},
 			},
 		})
 
@@ -69,7 +74,7 @@ func sseServer(t *testing.T, blocks []map[string]any, stopReason string) *httpte
 		send("message_delta", map[string]any{
 			"type":  "message_delta",
 			"delta": map[string]any{"stop_reason": stopReason, "stop_sequence": nil},
-			"usage": map[string]any{"output_tokens": 42},
+			"usage": map[string]any{"output_tokens": 0},
 		})
 		send("message_stop", map[string]any{"type": "message_stop"})
 	}))

@@ -131,12 +131,17 @@ func openSession(t *testing.T, s *speakingTestServer, headers http.Header) *webs
 	if err := ws.WriteMessage(websocket.BinaryMessage, []byte{0, 1, 2, 3}); err != nil {
 		t.Fatalf("audio: %v", err)
 	}
-	_ = ws.SetReadDeadline(time.Now().Add(20 * time.Second))
 	return ws
 }
 
 func readJSONFrame(t *testing.T, ws *websocket.Conn) map[string]any {
 	t.Helper()
+	// Per-read, not one absolute budget from session open. A single deadline
+	// set at open is spent by everything that happens before the frame you are
+	// waiting for, so on a slow runner the later reads inherit whatever is
+	// left -- which is how a test that is not actually timing-sensitive starts
+	// failing only in CI.
+	_ = ws.SetReadDeadline(time.Now().Add(30 * time.Second))
 	msgType, raw, err := ws.ReadMessage()
 	if err != nil {
 		t.Fatalf("read: %v", err)
@@ -268,6 +273,7 @@ func TestStreaming_AudioChunksAreCopied(t *testing.T) {
 
 	var got [][]byte
 	for len(got) < len(want) {
+		_ = ws.SetReadDeadline(time.Now().Add(30 * time.Second))
 		msgType, raw, err := ws.ReadMessage()
 		if err != nil {
 			t.Fatalf("read (got %d of %d audio frames): %v", len(got), len(want), err)

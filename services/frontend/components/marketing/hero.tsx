@@ -18,12 +18,14 @@ export function Hero() {
   return (
     <section
       aria-labelledby="hero-heading"
-      className="relative isolate overflow-hidden bg-canvas pt-16 pb-20 sm:pt-20 lg:pt-28 lg:pb-32"
+      className="relative isolate overflow-hidden bg-canvas pt-20 pb-24 sm:pt-24 lg:pt-32 lg:pb-36"
     >
       {/* ---------------------------------------------------------------
-          Background. Three flat layers instead of the previous three-colour
-          linear gradient, which is the most template-looking element a
-          landing page can have. Everything here is CSS: no images, no JS.
+          Background. Three flat layers instead of a template-looking
+          linear gradient. Everything here is CSS: no images, no JS. The
+          glows are sized and placed to sit directly behind the two things
+          that need the most visual weight -- the headline and the demo
+          card -- rather than as generic corner decoration.
           --------------------------------------------------------------- */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
         {/* Blueprint grid, masked to a soft oval so it never tiles to the
@@ -31,16 +33,17 @@ export function Hero() {
         <div className="absolute inset-0 bg-grid [mask-image:radial-gradient(ellipse_70%_60%_at_50%_0%,black,transparent)] opacity-60" />
         {/* Brand glow behind the headline. */}
         <div className="absolute -top-32 -left-40 h-[36rem] w-[36rem] rounded-full bg-brand/8 blur-3xl" />
-        {/* Warm counterweight on the demo side, so the composition is not
-            symmetrical. */}
-        <div className="absolute -top-20 right-0 h-[28rem] w-[28rem] rounded-full bg-accent/8 blur-3xl" />
+        {/* Warm counterweight behind the demo, larger and slightly lower
+            than before so it reads as the light source the tilted card is
+            catching, rather than a flat corner tint. */}
+        <div className="absolute top-8 right-[-6rem] h-[34rem] w-[34rem] rounded-full bg-accent/10 blur-3xl" />
       </div>
 
       <Container>
         {/* 7/5 rather than 6/6: the headline needs the wider column. At an
             even split "Smarter with AI" could not fit on one line at any
             respectable display size, and orphaned "AI" onto a third line. */}
-        <div className="grid items-center gap-16 lg:grid-cols-12 lg:gap-12">
+        <div className="grid items-center gap-y-16 lg:grid-cols-12 lg:gap-x-10">
           {/* ------------------------------------------------ Copy */}
           <div className="lg:col-span-7">
             <Enter>
@@ -59,13 +62,16 @@ export function Hero() {
             <Enter delay={80}>
               {/* Sized so "Smarter with AI" holds one line at every
                   breakpoint. balance is off because the line break is
-                  explicit -- the balancer would fight it. */}
+                  explicit -- the balancer would fight it. Pushed a step
+                  larger than the previous pass on xl+ screens, where the
+                  wider column has room for the display scale the `3xl`
+                  token is actually built for. */}
               <Heading
                 as="h1"
                 id="hero-heading"
                 size="3xl"
                 balance={false}
-                className="mt-6 text-4xl sm:text-5xl lg:text-6xl"
+                className="mt-7 text-4xl sm:text-5xl lg:text-6xl xl:text-7xl"
               >
                 Study Abroad
                 <br />
@@ -88,7 +94,14 @@ export function Hero() {
             </Enter>
 
             <Enter delay={240}>
-              <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="relative mt-10 flex flex-col gap-3 sm:flex-row sm:items-center">
+                {/* Soft glow seated behind the primary action only, so the
+                    eye lands there first. Same device as the background
+                    glows above, just scaled down to button size. */}
+                <div
+                  aria-hidden="true"
+                  className="absolute top-1/2 left-0 -z-10 h-16 w-40 -translate-y-1/2 rounded-full bg-brand/20 blur-2xl"
+                />
                 <Button
                   asChild
                   size="lg"
@@ -121,22 +134,24 @@ export function Hero() {
               </ul>
             </Enter>
 
-            {/* Stats. Ruled off rather than floating, so they read as a
-                footer to the copy block instead of a fourth element. */}
+            {/* Stats, upgraded from a ruled-off text row to individually
+                boxed metrics -- the same "this is a real product with real
+                numbers" cue a SaaS dashboard widget gives, built from
+                nothing but the existing card border/radius tokens. */}
             <Enter delay={360}>
-              <dl className="mt-10 flex gap-8 border-t border-border pt-8 sm:gap-12">
+              <dl className="mt-12 grid grid-cols-3 gap-3 sm:gap-4">
                 {STATS.map((stat) => (
-                  <div key={stat.label}>
-                    <dt className="sr-only">{stat.label}</dt>
-                    <dd>
-                      <span className="block font-serif text-3xl font-semibold tabular-nums text-fg">
-                        {stat.value}
-                        {stat.suffix}
-                      </span>
-                      <span className="mt-1 block text-sm text-fg-subtle">
-                        {stat.label}
-                      </span>
+                  <div
+                    key={stat.label}
+                    className="rounded-card border border-border bg-surface/60 px-3 py-3.5 backdrop-blur-sm transition-colors duration-200 ease-out hover:border-border-strong sm:px-5 sm:py-4"
+                  >
+                    <dd className="font-serif text-2xl font-semibold tabular-nums text-fg sm:text-3xl">
+                      {stat.value}
+                      {stat.suffix}
                     </dd>
+                    <dt className="mt-1 text-xs text-fg-subtle sm:text-sm">
+                      {stat.label}
+                    </dt>
                   </div>
                 ))}
               </dl>
@@ -144,7 +159,7 @@ export function Hero() {
           </div>
 
           {/* ------------------------------------------------ Demo */}
-          <div className="lg:col-span-5">
+          <div className="lg:col-span-5 lg:border-l lg:border-border lg:pl-10">
             <HeroDemo />
           </div>
         </div>

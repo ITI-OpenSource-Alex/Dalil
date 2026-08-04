@@ -13,7 +13,7 @@ def _db_url() -> str:
     )
 
 
-def run_migrations(db_url: str | None = None) -> None:
+def run_migrations(db_url: str | None = None, *, repair_existing: bool = False) -> None:
     migrations_dir = Path(__file__).resolve().parents[1] / "migrations"
     migration_files = sorted(glob.glob(str(migrations_dir / "*.sql")))
     if not migration_files:
@@ -39,17 +39,19 @@ def run_migrations(db_url: str | None = None) -> None:
                     "SELECT 1 FROM migrations_log WHERE migration_file = %s",
                     (filename,),
                 )
-                if cursor.fetchone():
+                already_executed = cursor.fetchone()
+                if already_executed and not repair_existing:
                     continue
 
                 sql = Path(file_path).read_text(encoding="utf-8").strip()
                 if not sql:
                     continue
                 cursor.execute(sql)
-                cursor.execute(
-                    "INSERT INTO migrations_log (migration_file, migration_batch_id) VALUES (%s, %s)",
-                    (filename, os.getenv("MIGRATION_BATCH_ID")),
-                )
+                if not already_executed:
+                    cursor.execute(
+                        "INSERT INTO migrations_log (migration_file, migration_batch_id) VALUES (%s, %s)",
+                        (filename, os.getenv("MIGRATION_BATCH_ID")),
+                    )
         conn.commit()
 
 

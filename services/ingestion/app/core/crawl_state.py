@@ -42,7 +42,7 @@ class CrawlStateManager:
         if self._initialized:
             return
         try:
-            run_migrations(self.db_url)
+            run_migrations(self.db_url, repair_existing=True)
             self._initialized = True
         except Exception as error:
             self._initialized = False

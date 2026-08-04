@@ -5,6 +5,8 @@ import { ArrowRight, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { authApi, apiErrorMessage } from "@/lib/api";
+import { getMyProfile } from "@/lib/profile-api";
+import { isProfileComplete } from "@/app/types/profile";
 import { Alert, Button, Field, Icon, Input } from "@/components/ui";
 
 export default function LoginForm() {
@@ -22,7 +24,18 @@ export default function LoginForm() {
 
     try {
       await authApi.login(email, password);
-      router.push("/chat");
+      // New accounts (and any account that never finished the wizard) have
+      // a profile row with every field still null (registration creates it
+      // upfront, see isProfileComplete's doc comment) -- send them to
+      // onboarding instead of dropping them into chat with an empty
+      // profile. If the profile check itself fails, fail open to /chat
+      // rather than blocking a successful login.
+      try {
+        const me = await getMyProfile();
+        router.push(isProfileComplete(me.profile) ? "/chat" : "/onboarding");
+      } catch {
+        router.push("/chat");
+      }
     } catch (err) {
       // Surfaces the backend's own message where it has one (e.g. an
       // unverified account) rather than always showing the same generic

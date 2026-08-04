@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  AlertCircle,
   ArrowRight,
   AudioLines,
   ChevronUp,
@@ -22,6 +23,7 @@ import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { authApi } from "@/lib/api";
 import { useCurrentUser } from "@/app/hooks/useCurrentUser";
+import { isProfileComplete } from "@/app/types/profile";
 import { Badge, Button, Icon } from "@/components/ui";
 import { Wordmark } from "@/components/marketing/wordmark";
 
@@ -34,21 +36,43 @@ function initialsFromEmail(email: string): string {
   return (letters.slice(0, 2) || email.slice(0, 2) || "?").toUpperCase();
 }
 
-// href: null marks an entry as unavailable -- rendered as an inert "Soon"
-// badge rather than a Link. matchStrategy: "prefix" is opt-in, only for
-// routes with real child routes that should share the highlight (/exam/shell,
-// /exam/results under IELTS; /speaking/history/[id] under Speaking History)
-// -- every other route matches exactly, so a route like /profile is never
-// marked active while merely prefixed by another route's path.
+// href: null marks an entry as genuinely unavailable -- rendered as an inert
+// badge rather than a Link, with `unavailableReason` as the explicit,
+// visible reason (not just a hover tooltip). Opportunity search and the
+// application checklist *are* implemented, but only inline inside Chat (see
+// chat-shell.tsx and /checklist/[programId]) -- there is no standalone page
+// for either yet, so they link to /chat with a "In Chat" badge instead of
+// being marked unavailable, and `linksElsewhere: true` keeps them from
+// double-highlighting alongside the Chat item itself.
+// matchStrategy: "prefix" is opt-in, only for routes with real child routes
+// that should share the highlight (/exam/shell, /exam/results under IELTS;
+// /speaking/history/[id] under Speaking History) -- every other route
+// matches exactly, so a route like /profile is never marked active while
+// merely prefixed by another route's path.
 const NAV_ITEMS: {
   label: string;
   icon: LucideIcon;
   href: string | null;
   matchStrategy?: "exact" | "prefix";
+  linksElsewhere?: boolean;
+  elsewhereBadge?: string;
+  unavailableReason?: string;
 }[] = [
   { label: "Chat", icon: MessageSquare, href: "/chat" },
-  { label: "Opportunities", icon: Target, href: null },
-  { label: "Checklists", icon: ListChecks, href: null },
+  {
+    label: "Opportunities",
+    icon: Target,
+    href: "/chat",
+    linksElsewhere: true,
+    elsewhereBadge: "In Chat",
+  },
+  {
+    label: "Checklists",
+    icon: ListChecks,
+    href: "/chat",
+    linksElsewhere: true,
+    elsewhereBadge: "In Chat",
+  },
   { label: "IELTS", icon: GraduationCap, href: "/exam", matchStrategy: "prefix" },
   {
     label: "Speaking History",
@@ -56,7 +80,12 @@ const NAV_ITEMS: {
     href: "/speaking/history",
     matchStrategy: "prefix",
   },
-  { label: "CV Review", icon: FileText, href: null },
+  {
+    label: "CV Review",
+    icon: FileText,
+    href: null,
+    unavailableReason: "Requires GOA Pro — coming soon",
+  },
   { label: "Profile", icon: UserIcon, href: "/profile" },
 ];
 
@@ -89,7 +118,7 @@ export function Sidebar() {
     <>
       {/* Mobile top bar with hamburger trigger */}
       <div className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-surface px-4 py-3 lg:hidden print:hidden">
-        <Link href="/chat" className="flex items-center gap-2.5">
+        <Link href="/" className="flex items-center gap-2.5">
           <Wordmark />
         </Link>
         <Button
@@ -124,13 +153,15 @@ export function Sidebar() {
       >
         <div className="space-y-8">
           {/* Brand Header (desktop only, mobile has its own top bar) */}
-          <div className="hidden items-center gap-2.5 px-2 lg:flex">
+          <Link href="/" className="hidden items-center gap-2.5 px-2 lg:flex">
             <Wordmark />
-          </div>
+          </Link>
 
           {/* Mobile drawer header with close button */}
           <div className="flex items-center justify-between px-2 lg:hidden">
-            <Wordmark />
+            <Link href="/">
+              <Wordmark />
+            </Link>
             <Button
               variant="ghost"
               size="sm"
@@ -146,11 +177,12 @@ export function Sidebar() {
           <nav aria-label="Main" className="space-y-1">
             {NAV_ITEMS.map((item) => {
               if (!item.href) {
+                const reason = item.unavailableReason ?? `${item.label} — coming soon`;
                 return (
                   <div
                     key={item.label}
                     aria-disabled="true"
-                    title={`${item.label} — coming soon`}
+                    title={reason}
                     className="flex cursor-not-allowed items-center justify-between gap-3 rounded-full px-3.5 py-2.5 text-sm font-medium text-fg-subtle select-none"
                   >
                     <span className="flex items-center gap-3">
@@ -165,9 +197,10 @@ export function Sidebar() {
               }
 
               const isActive =
-                item.matchStrategy === "prefix"
+                !item.linksElsewhere &&
+                (item.matchStrategy === "prefix"
                   ? pathname === item.href || pathname.startsWith(`${item.href}/`)
-                  : pathname === item.href;
+                  : pathname === item.href);
 
               return (
                 <Link
@@ -175,15 +208,23 @@ export function Sidebar() {
                   href={item.href}
                   onClick={() => setIsOpen(false)}
                   aria-current={isActive ? "page" : undefined}
+                  title={item.linksElsewhere ? `${item.label} — inside Chat` : undefined}
                   className={cn(
-                    "flex items-center gap-3 rounded-full px-3.5 py-2.5 text-sm font-medium transition-colors",
+                    "flex items-center justify-between gap-3 rounded-full px-3.5 py-2.5 text-sm font-medium transition-colors",
                     isActive
                       ? "bg-brand-subtle font-semibold text-brand-fg"
                       : "text-fg-muted hover:bg-canvas-subtle hover:text-fg",
                   )}
                 >
-                  <Icon icon={item.icon} size="sm" />
-                  <span>{item.label}</span>
+                  <span className="flex items-center gap-3">
+                    <Icon icon={item.icon} size="sm" />
+                    <span>{item.label}</span>
+                  </span>
+                  {item.elsewhereBadge && (
+                    <Badge tone="info" size="sm" pill>
+                      {item.elsewhereBadge}
+                    </Badge>
+                  )}
                 </Link>
               );
             })}
@@ -192,6 +233,23 @@ export function Sidebar() {
 
         {/* Bottom Pro Callout & User Menu */}
         <div className="space-y-4">
+          {!identityLoading && user && !isProfileComplete(user.profile) && (
+            <Link
+              href="/onboarding"
+              className="flex items-start gap-2.5 rounded-panel border border-warning-border bg-warning-subtle p-4 transition-colors hover:bg-warning-subtle/80"
+            >
+              <Icon icon={AlertCircle} size="sm" className="mt-0.5 shrink-0 text-warning-fg" />
+              <span>
+                <span className="block text-sm font-semibold text-warning-fg">
+                  Complete Profile
+                </span>
+                <span className="mt-0.5 block text-[11px] leading-normal text-warning-fg/80">
+                  Finish onboarding to unlock programme matching.
+                </span>
+              </span>
+            </Link>
+          )}
+
           <div className="space-y-3 rounded-panel border border-brand-border bg-brand-subtle p-4">
             <div className="flex items-center gap-1.5 text-xs font-semibold text-brand-fg">
               <Icon icon={Sparkles} size="xs" />

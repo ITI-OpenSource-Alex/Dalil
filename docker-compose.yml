@@ -115,7 +115,7 @@ services:
       # AgentRouter serves no channel for haiku ("无可用渠道" / 503), only
       # claude-opus-4-8. Revert to a cheaper model if the gateway ever routes one.
       - CV_EXTRACTION_MODEL=${CV_EXTRACTION_MODEL:-claude-opus-4-8}
-      - ANTHROPIC_TIMEOUT_SECONDS=${ANTHROPIC_TIMEOUT_SECONDS:-25}
+      - ANTHROPIC_TIMEOUT_SECONDS=${ANTHROPIC_TIMEOUT_SECONDS:-120}
       - WRITING_CACHE_VERSION=${WRITING_CACHE_VERSION:-v1}
     volumes:
       - ./services/writing/app:/app/app
@@ -158,7 +158,7 @@ services:
       # AgentRouter serves no channel for haiku ("无可用渠道" / 503), only
       # claude-opus-4-8. Revert to a cheaper model if the gateway ever routes one.
       - CV_EXTRACTION_MODEL=${CV_EXTRACTION_MODEL:-claude-opus-4-8}
-      - ANTHROPIC_TIMEOUT_SECONDS=${ANTHROPIC_TIMEOUT_SECONDS:-25}
+      - ANTHROPIC_TIMEOUT_SECONDS=${ANTHROPIC_TIMEOUT_SECONDS:-120}
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
       - LANGFUSE_HOST=${LANGFUSE_HOST}

@@ -50,7 +50,14 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	tokenService := gatewayauth.NewTokenService(cfg.JWTSecret, cfg.AccessTokenTTL, cfg.RefreshTokenTTL)
 	httpClient := &http.Client{Timeout: 10 * time.Second}
 	authHandler := handlers.NewAuthHandler(redisClient, tokenService, metrics, httpClient, cfg.UserServiceURL, cfg.InternalApiKey)
-	examHandler := handlers.NewExamHandler(httpClient, cfg.ExamServiceURL, cfg.InternalApiKey)
+	// Exam needs its own client. Submitting a Writing task blocks while the exam
+	// service runs four criterion agents against the LLM — measured at ~50s
+	// against AgentRouter — so the shared 10s client returned 502 while both
+	// services were still working normally, an upstream timeout wearing an
+	// upstream failure's costume. The other exam routes (get session, heartbeat)
+	// return in milliseconds, so a longer ceiling costs them nothing.
+	examClient := &http.Client{Timeout: 6 * time.Minute}
+	examHandler := handlers.NewExamHandler(examClient, cfg.ExamServiceURL, cfg.InternalApiKey)
 	notificationHandler := handlers.NewNotificationHandler(httpClient, cfg.NotificationServiceURL, cfg.InternalApiKey)
 	subscriptionMiddleware := middleware.NewSubscriptionMiddleware(
 		redisClient,
@@ -185,6 +192,7 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	api.Put("/exam/sessions/:sessionId/submit", examHandler.SubmitSession)
 	api.Get("/exam/sessions/:sessionId/result", examHandler.GetSessionResult)
 	api.Patch("/exam/sessions/:sessionId/heartbeat", examHandler.Heartbeat)
+	api.Get("/exam/progress", examHandler.GetProgress)
 	// GOA-055: Reading-specific submit, needed for per_question_result and
 	// section_breakdown that the generic submit above doesn't return.
 	api.Put("/exam/reading/:sessionId/submit", examHandler.SubmitReadingSession)

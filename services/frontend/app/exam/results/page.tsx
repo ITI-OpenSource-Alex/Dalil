@@ -4,9 +4,14 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { SkillArea } from "@/app/types/exam";
-import { getResult, getSession } from "@/lib/exam-api";
+import { getResult, getSession, getWritingResult } from "@/lib/exam-api";
 import { Sidebar } from "@/components/ui/sidebar";
-import type { ExamSessionResponse, ExamResultResponse } from "@/lib/exam-api";
+import type {
+  ExamSessionResponse,
+  ExamResultResponse,
+  WritingResultResponse,
+} from "@/lib/exam-api";
+import CombinedWritingResults from "@/components/writing/CombinedWritingResults";
 import {
   loadReadingResult,
   type StoredReadingResult,
@@ -34,6 +39,8 @@ function ResultsPageContent() {
   const [result, setResult] = useState<ExamResultResponse | null>(null);
   const [readingResult, setReadingResult] =
     useState<StoredReadingResult | null>(null);
+  const [writingResult, setWritingResult] =
+    useState<WritingResultResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -60,18 +67,39 @@ function ResultsPageContent() {
 
       sessionStorage.removeItem("active_exam_session");
 
-      fetch("/api/profile/update-scores", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          skill,
-          bandScore: stored.result.band_score,
-        }),
-      }).catch(() => {
-        // Non-fatal: profile score sync failing shouldn't block the
-        // results view from rendering, matching the generic path's
-        // existing behavior of not surfacing this as a page-level error.
-      });
+      return;
+    }
+
+    // Writing does have a GET-result endpoint, but its payload is not
+    // ExamResultResponse: the exam service branches to _get_writing_result and
+    // returns a weighted `overall_band` plus both task records instead of
+    // raw_score/band_score. Reading it through the generic path produced an
+    // empty banner and posted `bandScore: undefined` to the profile.
+    if (skill === "Writing") {
+      (async () => {
+        try {
+          setLoading(true);
+          const writing = await getWritingResult(sessionId);
+          setWritingResult(writing);
+
+          sessionStorage.removeItem("active_exam_session");
+
+          fetch("/api/profile/update-scores", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ skill, bandScore: writing.overall_band }),
+          }).catch(() => {
+            // Non-fatal, matching the Reading path: a profile sync failure
+            // must not stop a candidate seeing their result.
+          });
+        } catch (err) {
+          setError(
+            err instanceof Error ? err.message : "Failed to load result",
+          );
+        } finally {
+          setLoading(false);
+        }
+      })();
 
       return;
     }
@@ -90,16 +118,6 @@ function ResultsPageContent() {
 
         sessionStorage.removeItem("active_exam_session");
 
-        await fetch("/api/profile/update-scores", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            skill,
-            bandScore: resultData.band_score,
-          }),
-        });
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load result");
       } finally {
@@ -143,9 +161,37 @@ function ResultsPageContent() {
     );
   }
 
+  if (skill === "Writing") {
+    if (!writingResult) {
+      return <div>No result found.</div>;
+    }
+
+    return (
+      <div className="flex min-h-screen bg-[#fbfbfa] text-gray-900 font-sans">
+        <Sidebar />
+
+        <main className="flex-1 p-8 md:p-12 max-w-5xl mx-auto">
+          <div
+            className={`transition-all duration-700 ease-out ${
+              mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+            }`}
+          >
+            <CombinedWritingResults result={writingResult} />
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   if (!result) {
     return <div>No result found.</div>;
   }
+
+  const sectionScores = Object.entries(result.section_scores).filter(
+    (entry): entry is [string, number] =>
+      typeof entry[1] === "number" && Number.isFinite(entry[1]),
+  );
+  const weakestSection = [...sectionScores].sort(([, a], [, b]) => a - b)[0];
 
   return (
     <div className="flex min-h-screen bg-[#fbfbfa] text-gray-900 font-sans">
@@ -178,33 +224,32 @@ function ResultsPageContent() {
             </div>
           </div>
 
-          {/* Feedback Feed */}
+          {/* Diagnostic feed for the generic result shape. Reading and Writing
+              never reach this point -- both return from their own branches
+              above (ReadingResultsView / CombinedWritingResults), so nothing
+              here can contradict the exam service's real Writing evaluations.
+              The hardcoded bands and invented feedback prose that once sat here
+              were already replaced with real section_scores on dev. */}
           <section className="mb-8">
             <h3 className="text-sm font-bold uppercase tracking-wide text-gray-400 mb-4">
               Diagnostic Feed
             </h3>
 
-            {skill === "Writing" && (
+            {sectionScores.length ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="border border-gray-200/80 p-5 rounded-2xl bg-white shadow-2xs">
-                  <h4 className="font-serif font-bold text-gray-900 text-sm">
-                    Task 1 (Band 7.0)
-                  </h4>
-                  <p className="text-xs text-gray-500 mt-2 leading-relaxed">
-                    Data criteria categorization was logically executed. Minor
-                    misalignments identified in structural line summaries.
-                  </p>
-                </div>
-                <div className="border border-gray-200/80 p-5 rounded-2xl bg-white shadow-2xs">
-                  <h4 className="font-serif font-bold text-gray-900 text-sm">
-                    Task 2 (Band 7.5)
-                  </h4>
-                  <p className="text-xs text-gray-500 mt-2 leading-relaxed">
-                    Arguments presented exhibit robust support structures.
-                    Lexical versatility satisfies upper band frameworks.
-                  </p>
-                </div>
+                {sectionScores.map(([section, score]) => (
+                  <div key={section} className="border border-gray-200/80 p-5 rounded-2xl bg-white shadow-2xs">
+                    <h4 className="font-serif font-bold text-gray-900 text-sm capitalize">
+                      {section.replaceAll("_", " ")}
+                    </h4>
+                    <p className="text-xs text-gray-500 mt-2 leading-relaxed">
+                      Score: {score}
+                    </p>
+                  </div>
+                ))}
               </div>
+            ) : (
+              <p className="text-xs text-gray-500">Detailed section feedback is not available for this result.</p>
             )}
           </section>
 
@@ -214,14 +259,14 @@ function ResultsPageContent() {
               Targeted Action Plan
             </h3>
             <ul className="space-y-2 text-xs text-gray-600 leading-relaxed list-disc pl-4">
-              <li>
-                <strong>Enhance Cohesion:</strong> Integrate structured
-                transition phrases across body paragraphs.
-              </li>
-              <li>
-                <strong>Pacing Thresholds:</strong> Practice under time limits
-                to improve writing speed.
-              </li>
+              {weakestSection ? (
+                <li>
+                  <strong>Focus on {weakestSection[0].replaceAll("_", " ")}:</strong>{" "}
+                  it is the lowest reported section score ({weakestSection[1]}).
+                </li>
+              ) : (
+                <li>Complete another scored exam to receive a data-backed action plan.</li>
+              )}
             </ul>
             <div className="mt-6 pt-4 border-t border-gray-100">
               <Link

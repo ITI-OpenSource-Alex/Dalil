@@ -3,25 +3,22 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ExamType, SkillArea } from "@/app/types/exam";
-import { createSession } from "@/lib/exam-api";
+import { createSession, getExamProgress, type ExamProgress } from "@/lib/exam-api";
 import { Sidebar } from "@/components/ui/sidebar";
 
 export default function ExamLandingPage() {
   const router = useRouter();
   const [examType, setExamType] = useState<ExamType>("Academic");
-  const [profileScores, setProfileScores] = useState<Record<SkillArea, string>>(
-    {
-      Reading: "6.5",
-      Listening: "6.5",
-      Speaking: "6.0",
-      Writing: "5.5",
-    },
-  );
+  const [progress, setProgress] = useState<ExamProgress | null>(null);
   const [mounted, setMounted] = useState(false);
   const [startingExam, setStartingExam] = useState<SkillArea | null>(null);
 
   useEffect(() => {
     setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    getExamProgress().then(setProgress).catch(() => setProgress(null));
   }, []);
 
   // Check sessionStorage for an existing session to resume
@@ -35,23 +32,13 @@ export default function ExamLandingPage() {
 
   const handleToggle = (type: ExamType) => {
     setExamType(type);
-    fetch("/api/profile", {
-      method: "PATCH",
-      body: JSON.stringify({ preferredExamType: type }),
-    });
   };
 
   const startExam = async (skill: SkillArea) => {
     try {
       setStartingExam(skill);
 
-      /**
-       * TODO:
-       * Replace this with the authenticated user's id.
-       */
-      const userId = "00000000-0000-0000-0000-000000000001";
-
-      const session = await createSession(userId, examType, skill);
+      const session = await createSession(examType, skill);
 
       sessionStorage.setItem(
         "active_exam_session",
@@ -164,6 +151,21 @@ export default function ExamLandingPage() {
     },
   ];
 
+  const latestBand = (skill: SkillArea) => {
+    const scores = progress?.[skill.toLowerCase() as keyof ExamProgress] ?? [];
+    return scores[scores.length - 1]?.band ?? null;
+  };
+  const knownBands = skillCards
+    .map((card) => latestBand(card.key))
+    .filter((band): band is number => band !== null);
+  const overallBand = knownBands.length
+    ? (knownBands.reduce((sum, band) => sum + band, 0) / knownBands.length).toFixed(1)
+    : null;
+  const weakestSkill = skillCards
+    .map((card) => ({ skill: card.key, band: latestBand(card.key) }))
+    .filter((item): item is { skill: SkillArea; band: number } => item.band !== null)
+    .sort((a, b) => a.band - b.band)[0];
+
   return (
     <div className="flex min-h-screen bg-linear-to-br from-emerald-50 via-white to-orange-50 text-gray-900 font-sans">
       <Sidebar />
@@ -185,9 +187,20 @@ export default function ExamLandingPage() {
                 <span className="italic font-serif text-amber-700">band 7</span>
               </h1>
               <p className="text-sm text-gray-500 mt-2">
-                Personalized drills, AI band scoring, and feedback that targets
-                your weakest sub-bands.
+                Practice IELTS modules and review your scored results.
               </p>
+            </div>
+
+            <div className="flex rounded-full border border-gray-200 bg-white p-1 text-xs font-semibold">
+              {(["Academic", "General"] as ExamType[]).map((type) => (
+                <button
+                  key={type}
+                  onClick={() => handleToggle(type)}
+                  className={`rounded-full px-3 py-1.5 transition ${examType === type ? "bg-[#0d4d3a] text-white" : "text-gray-600 hover:bg-gray-100"}`}
+                >
+                  {type}
+                </button>
+              ))}
             </div>
 
             {/* Overall Band Card */}
@@ -197,10 +210,7 @@ export default function ExamLandingPage() {
               </span>
               <div className="flex items-baseline gap-2">
                 <span className="text-3xl font-serif font-semibold text-gray-900">
-                  6
-                </span>
-                <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-                  ↗ +0.5 this month
+                  {overallBand ?? "—"}
                 </span>
               </div>
             </div>
@@ -223,7 +233,7 @@ export default function ExamLandingPage() {
                     <div className="p-1">{card.icon}</div>
                     <div className="text-right">
                       <span className="text-2xl font-serif font-bold text-gray-900 leading-none block">
-                        {profileScores[card.key] || "6.0"}
+                        {latestBand(card.key)?.toFixed(1) ?? "—"}
                       </span>
                       <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">
                         CURRENT BAND
@@ -243,11 +253,18 @@ export default function ExamLandingPage() {
                 <div className="flex justify-between items-center pt-4">
                   <div className="flex gap-1.5">
                     <button
-                      disabled={startingExam !== null}
+                      disabled={
+                        startingExam !== null ||
+                        !["Reading", "Writing"].includes(card.key)
+                      }
                       onClick={() => startExam(card.key)}
                       className="bg-white/80 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 text-l font-medium px-3 py-1 rounded-full border border-black/5 transition"
                     >
-                      {startingExam === card.key ? "Starting..." : "Take Exam"}
+                      {startingExam === card.key
+                        ? "Starting..."
+                        : ["Reading", "Writing"].includes(card.key)
+                          ? "Take Exam"
+                          : "Coming soon"}
                     </button>
                   </div>
                 </div>
@@ -255,18 +272,16 @@ export default function ExamLandingPage() {
             ))}
           </div>
 
-          {/* GOA Suggestion Banner */}
-          <div className="bg-white border border-gray-200/80 rounded-2xl p-4 flex items-center gap-3 text-xs text-gray-600 shadow-2xs">
-            <span className="text-emerald-600 text-base">💡</span>
-            <p>
-              <strong className="text-gray-900 font-semibold">
-                GOA suggests:
-              </strong>{" "}
-              spend 60% of practice on{" "}
-              <span className="font-semibold text-gray-900">Writing</span> this
-              week — it&apos;s your biggest score lever for TU Munich.
-            </p>
-          </div>
+          {weakestSkill && (
+            <div className="bg-white border border-gray-200/80 rounded-2xl p-4 flex items-center gap-3 text-xs text-gray-600 shadow-2xs">
+              <span className="text-emerald-600 text-base">💡</span>
+              <p>
+                <strong className="text-gray-900 font-semibold">Practice focus:</strong>{" "}
+                your latest {weakestSkill.skill} score is {weakestSkill.band.toFixed(1)},
+                so it is a useful place to focus next.
+              </p>
+            </div>
+          )}
         </div>
       </main>
     </div>

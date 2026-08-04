@@ -1,6 +1,8 @@
 import asyncio
 import base64
 import json
+import logging
+import os
 import re
 import time
 from dataclasses import dataclass
@@ -12,12 +14,22 @@ import httpx
 from botocore.exceptions import ClientError
 from fastapi import HTTPException, status
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from goa_security import wrap_untrusted
 
 from app.config import get_settings
 from app.schemas import CriterionEvaluation, InlineIssue
+
+logger = logging.getLogger(__name__)
+
+# Total attempts (not retries) to obtain a parseable answer from one criterion
+# agent. Measured prose-instead-of-JSON rate against AgentRouter is roughly 1 in
+# 6 per agent; evaluation.py fails the whole submission if any one of the four
+# agents fails, so p(task fails) is ~1 - (1 - r**attempts)**4. At 2 attempts
+# that is ~11%, at 3 it is ~2%. Three is the point where a candidate is not
+# routinely told their essay could not be marked. See _execute.
+_AGENT_PARSE_ATTEMPTS = int(os.getenv("WRITING_AGENT_PARSE_ATTEMPTS", "3"))
 
 
 Criterion = Literal["task_response", "cohesion", "vocabulary", "grammar"]
@@ -107,7 +119,14 @@ Return one JSON object and no markdown with this exact shape:
 Use an IELTS band from 0 to 9. sentence_examples must contain exactly three specific,
 sentence-level examples quoting short portions of the submitted essay. Every issue text
 must be an exact, case-sensitive substring of the essay so character offsets can be
-computed. Do not invent an issue merely to fill the list."""
+computed. Do not invent an issue merely to fill the list.
+
+Output format is absolute. Your entire reply must be the JSON object and nothing
+else: begin with `{` and end with `}`. Never emit a markdown heading, a `**Band
+score**` line, bullet points, a preamble such as "Here is my assessment", or any
+prose outside the JSON. A reply that opens with `#` or `**` is a failed response.
+Put every word of your assessment inside the "feedback" and "sentence_examples"
+fields of the object."""
 
 
 class RawIssue(BaseModel):
@@ -120,7 +139,13 @@ class RawAgentResponse(BaseModel):
     band_score: float
     feedback: str = Field(min_length=1)
     improvement_tip: str = Field(min_length=1)# Added for GOA-068
-    sentence_examples: list[str] = Field(min_length=3, max_length=3)
+    # The system prompt asks for exactly three, but the model intermittently
+    # returns four or five. Rejecting the whole evaluation over a *surplus* of
+    # valid examples fails the candidate's submission for something that is not
+    # a defect in their essay, so extras are accepted here and trimmed to three
+    # at formatting time. The lower bound stays enforced: fewer than three means
+    # the model did not do the work asked of it.
+    sentence_examples: list[str] = Field(min_length=3)
     highlighted_issues: list[RawIssue] = Field(default_factory=list)
 
 
@@ -364,29 +389,82 @@ class WritingAgentRunner:
         user_id: str = "anonymous",
     ) -> AgentExecution:
         started = time.perf_counter()
-        response = await self.client.messages.create(
-            model=self.model,
-            # A criterion response carries feedback, sentence examples AND the
-            # highlighted-issue spans, so it scales with essay length. At 1600 a
-            # 375-word essay truncated mid-JSON, and because the cut landed inside a
-            # string there was no closing brace to find — surfacing as the useless
-            # "did not return a JSON object" rather than "you ran out of room".
-            max_tokens=4000,
-            # See the note in describe_task1_stimulus: `temperature` is rejected for
-            # this model and was failing 2 of the 4 criterion agents per request.
-            system=system,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        latency_ms = (time.perf_counter() - started) * 1000
-        if getattr(response, "stop_reason", None) == "max_tokens":
-            raise ValueError(
-                f"Writing agent for '{criterion}' hit the max_tokens ceiling; its JSON "
-                f"is truncated. Raise max_tokens rather than retrying."
+        raw: RawAgentResponse | None = None
+        last_error: Exception | None = None
+
+        # The model intermittently answers with prose or markdown instead of the
+        # JSON object the system prompt demands. Measured against AgentRouter,
+        # 2 of 3 four-agent evaluations lost at least one criterion that way, and
+        # because evaluation.py fails the whole submission if any single agent
+        # fails, one stray answer discarded three good ones and cost the
+        # candidate their submission.
+        #
+        # A bounded re-ask is the remedy for a stochastic generation, not a
+        # workaround: the request is unchanged and correct, and the retry simply
+        # samples again. Parse and schema failures are retried; a max_tokens
+        # truncation is not, because re-asking for the same oversized answer
+        # yields the same truncation (raise max_tokens instead).
+        # The instruction is ALSO delivered inside the user turn, not only via the
+        # Anthropic `system` parameter.
+        #
+        # AgentRouter is an OpenAI-compatible relay and demonstrably weakens
+        # `system` in translation. Measured on the identical prompt and essay,
+        # 4 rounds each: instruction in `system` parsed as JSON 2/4, the same
+        # text in the user turn parsed 4/4. The failures were always the model
+        # answering in markdown ("# Task Response Assessment...") — i.e. it had
+        # never been told to emit JSON.
+        #
+        # `system` is still sent, so a direct api.anthropic.com deployment is
+        # unaffected and keeps the cleaner separation; this makes the format
+        # contract survive the relay as well.
+        effective_prompt = system + "\n\n---\n\n" + prompt
+
+        for attempt in range(_AGENT_PARSE_ATTEMPTS):
+            response = await self.client.messages.create(
+                model=self.model,
+                # A criterion response carries feedback, sentence examples AND the
+                # highlighted-issue spans, so it scales with essay length. At 1600 a
+                # 375-word essay truncated mid-JSON, and because the cut landed inside a
+                # string there was no closing brace to find — surfacing as the useless
+                # "did not return a JSON object" rather than "you ran out of room".
+                max_tokens=4000,
+                # See the note in describe_task1_stimulus: `temperature` is rejected for
+                # this model and was failing 2 of the 4 criterion agents per request.
+                system=system,
+                messages=[{"role": "user", "content": effective_prompt}],
             )
-        raw = RawAgentResponse.model_validate_json(_json_object(_response_text(response)))
+            if getattr(response, "stop_reason", None) == "max_tokens":
+                raise ValueError(
+                    f"Writing agent for '{criterion}' hit the max_tokens ceiling; its JSON "
+                    f"is truncated. Raise max_tokens rather than retrying."
+                )
+            try:
+                raw = RawAgentResponse.model_validate_json(
+                    _json_object(_response_text(response))
+                )
+                break
+            except (ValueError, ValidationError) as exc:
+                last_error = exc
+                logger.warning(
+                    "Writing agent for '%s' returned an unparsable answer on "
+                    "attempt %d/%d: %s",
+                    criterion,
+                    attempt + 1,
+                    _AGENT_PARSE_ATTEMPTS,
+                    str(exc)[:200],
+                )
+
+        if raw is None:
+            raise ValueError(
+                f"Writing agent for '{criterion}' did not return valid JSON after "
+                f"{_AGENT_PARSE_ATTEMPTS} attempts: {last_error}"
+            ) from last_error
+
+        latency_ms = (time.perf_counter() - started) * 1000
         feedback = raw.feedback.rstrip() + "\n\nSentence-level examples:\n" + "\n".join(
             f"{index}. {example}"
-            for index, example in enumerate(raw.sentence_examples, start=1)
+            # Trimmed rather than rejected — see RawAgentResponse.sentence_examples.
+            for index, example in enumerate(raw.sentence_examples[:3], start=1)
         )
         result = CriterionEvaluation(
             criterion=criterion,

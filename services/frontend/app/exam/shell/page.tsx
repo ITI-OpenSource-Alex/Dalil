@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useCallback, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useExamTimer } from "@/app/hooks/useExamTimer";
 import { ExamType, SkillArea, ExamStatus } from "@/app/types/exam";
@@ -13,6 +13,7 @@ const HEARTBEAT_INTERVAL_MS = 60_000;
 import type { ExamSessionResponse } from "@/lib/exam-api";
 import { Sidebar } from "@/components/ui/sidebar";
 import ReadingExam from "@/components/reading/ReadingExam";
+import WritingExam from "@/components/writing/WritingExam";
 import { storeReadingResult } from "@/lib/reading-result-storage";
 import type {
   NormalizedReadingQuestion,
@@ -51,12 +52,15 @@ function ExamShellContent() {
   } | null>(null);
   const [status, setStatus] = useState<ExamStatus>("in_progress");
   const [showSubmitModal, setShowSubmitModal] = useState(false);
-  const [writingInput, setWritingInput] = useState({ task1: "", task2: "" });
   const [mounted, setMounted] = useState(false);
   // Bumped to trigger ReadingExam's own submit on timer expiry — see
   // ReadingExam's forceSubmitSignal prop for why this can't just reuse
-  // executeSubmission below, which is hardcoded to Writing's payload shape.
+  // a generic submission path here.
   const [readingForceSubmit, setReadingForceSubmit] = useState(0);
+  // The same mechanism for Writing. Writing owns its own per-task submits
+  // (GOA-058), so on expiry it is told to flush whatever is unsubmitted rather
+  // than having the shell post on its behalf.
+  const [writingForceSubmit, setWritingForceSubmit] = useState(0);
 
   useEffect(() => {
     async function loadSession() {
@@ -117,24 +121,34 @@ function ExamShellContent() {
     return () => clearInterval(timer);
   }, [sessionId, status]);
 
+  /**
+   * Generic whole-exam submit, used by the skills that have no submit flow of
+   * their own. Reading and Writing both opt out: Reading owns its own confirm
+   * modal, and Writing submits one task at a time (GOA-058).
+   */
   const executeSubmission = async () => {
     setShowSubmitModal(false);
 
     try {
       setStatus("evaluating");
 
-      const result = await submitSession(sessionId, {
-        task1: writingInput.task1,
-        task2: writingInput.task2,
-      });
+      await submitSession(sessionId, {});
 
-      console.log(result);
-
-      router.push(`/exam/results?session=${sessionId}&skill=Writing`);
+      router.push(`/exam/results?session=${sessionId}&skill=${examConfig?.skill}`);
     } catch (err) {
       console.error(err);
+      setStatus("in_progress");
     }
   };
+
+  /**
+   * Both Writing tasks are in, so the exam service has scored the session and
+   * the combined weighted result exists. No overlay is shown on the way out —
+   * the evaluations already ran per task, so there is nothing left to wait for.
+   */
+  const handleWritingCompleted = useCallback(() => {
+    router.push(`/exam/results?session=${sessionId}&skill=Writing`);
+  }, [router, sessionId]);
 
   const handleReadingSubmitted = (
     result: ReadingSubmitResponse,
@@ -160,10 +174,17 @@ function ExamShellContent() {
       setReadingForceSubmit((n) => n + 1);
       return;
     }
+    // Writing flushes its own unsubmitted tasks: only it knows which of the two
+    // have already been evaluated, and each submit needs that task's own text
+    // and number.
+    if (examConfig.skill === "Writing") {
+      setWritingForceSubmit((n) => n + 1);
+      return;
+    }
     executeSubmission();
   };
 
-  const { formattedTime, isCritical } = useExamTimer(
+  const { formattedTime, isCritical, secondsLeft } = useExamTimer(
     session?.remaining_time_seconds ?? 0,
     handleTimeUp,
   );
@@ -218,15 +239,22 @@ function ExamShellContent() {
                   (ReadingExam / SubmitConfirmModal) with unanswered-count
                   logic this generic modal doesn't have — see
                   components/reading/SubmitConfirmModal.tsx for why that's a
-                  separate component rather than a reuse of this one. */}
-              {examConfig.skill !== "Reading" && (
-                <button
-                  onClick={() => setShowSubmitModal(true)}
-                  className="bg-[#0d4d3a] hover:bg-[#09382a] text-white px-4 py-1.5 rounded-full text-xs font-semibold transition"
-                >
-                  Submit Exam
-                </button>
-              )}
+                  separate component rather than a reuse of this one.
+
+                  Writing opts out for a different reason: there is no single
+                  "submit the exam" action to offer. Each task is submitted and
+                  evaluated on its own, and the session completes when the
+                  second one lands. A generic submit here could only post an
+                  empty payload over the top of that. */}
+              {examConfig.skill !== "Reading" &&
+                examConfig.skill !== "Writing" && (
+                  <button
+                    onClick={() => setShowSubmitModal(true)}
+                    className="bg-[#0d4d3a] hover:bg-[#09382a] text-white px-4 py-1.5 rounded-full text-xs font-semibold transition"
+                  >
+                    Submit Exam
+                  </button>
+                )}
             </div>
           </header>
 
@@ -252,62 +280,31 @@ function ExamShellContent() {
             )}
 
             {examConfig.skill === "Writing" && (
-              <div className="grid grid-cols-2 gap-6 h-full min-h-125">
-                {/* Task 1 Panel */}
-                <div className="border border-gray-200/80 rounded-2xl p-5 flex flex-col bg-white shadow-2xs">
-                  <div className="flex justify-between items-center mb-3 border-b border-gray-100 pb-2">
-                    <h4 className="font-serif text-sm font-bold text-gray-900">
-                      TASK 1 (Report / Letter)
-                    </h4>
-                  </div>
-                  <div className="mb-4 text-sm whitespace-pre-wrap">
-                    {String(session.questions[0].questions[0].prompt)}
-                  </div>
-                  <textarea
-                    value={writingInput.task1}
-                    onChange={(e) =>
-                      setWritingInput({
-                        ...writingInput,
-                        task1: e.target.value,
-                      })
-                    }
-                    disabled={status !== "in_progress"}
-                    className="w-full flex-1 p-3.5 bg-gray-50/50 border border-gray-200 rounded-xl text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-[#0d4d3a]/20 focus:border-[#0d4d3a] transition resize-none disabled:opacity-60"
-                    placeholder="Compose Task 1 response here..."
-                  />
-                </div>
-
-                {/* Task 2 Panel */}
-                <div className="border border-gray-200/80 rounded-2xl p-5 flex flex-col bg-white shadow-2xs">
-                  <h4 className="font-serif text-sm font-bold mb-3 border-b border-gray-100 pb-2 text-gray-900">
-                    TASK 2 (Extended Essay)
-                  </h4>
-                  <div className="mb-4 text-sm whitespace-pre-wrap">
-                    {String(session.questions[0].questions[1].prompt)}
-                  </div>
-                  <textarea
-                    value={writingInput.task2}
-                    onChange={(e) =>
-                      setWritingInput({
-                        ...writingInput,
-                        task2: e.target.value,
-                      })
-                    }
-                    className="w-full flex-1 p-3.5 bg-gray-50/50 border border-gray-200 rounded-xl text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-[#0d4d3a]/20 focus:border-[#0d4d3a] transition resize-none"
-                    placeholder="Compose Task 2 argument response here..."
-                  />
-                </div>
-              </div>
+              <WritingExam
+                sessionId={sessionId}
+                session={session}
+                examType={examConfig.type}
+                secondsLeft={secondsLeft}
+                forceSubmitSignal={writingForceSubmit}
+                onCompleted={handleWritingCompleted}
+              />
             )}
 
             {examConfig.skill !== "Writing" && examConfig.skill !== "Reading" && (
               <div className="bg-white border border-gray-200/80 rounded-2xl p-8 max-w-3xl mx-auto my-8 shadow-2xs">
-                <p className="text-xs text-gray-500 mb-4">
-                  Standard exam interface containing simulation questions.
+                <h2 className="font-serif text-xl font-bold text-gray-900 mb-2">
+                  {examConfig.skill} exams are not available yet
+                </h2>
+                <p className="text-sm text-gray-500 mb-5">
+                  This module does not have a complete exam interface, so no
+                  attempt can be completed from this page.
                 </p>
-                <div className="h-64 border border-dashed border-gray-200 rounded-xl bg-gray-50 flex items-center justify-center text-gray-400 text-xs font-medium">
-                  Interactive Simulation Workspace
-                </div>
+                <button
+                  onClick={() => router.push("/exam")}
+                  className="bg-[#0d4d3a] hover:bg-[#09382a] text-white px-4 py-2 rounded-full text-xs font-semibold transition"
+                >
+                  Return to Skills Workspace
+                </button>
               </div>
             )}
           </main>

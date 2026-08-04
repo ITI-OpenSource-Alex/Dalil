@@ -1,8 +1,29 @@
 "use client";
-import React, { useEffect, useState } from "react";
+
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import {
+  ArrowRight,
+  AudioLines,
+  ChevronUp,
+  FileText,
+  GraduationCap,
+  ListChecks,
+  LogOut,
+  Menu,
+  MessageSquare,
+  Sparkles,
+  Target,
+  User as UserIcon,
+  X,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { cn } from "@/lib/cn";
+import { authApi } from "@/lib/api";
 import { useCurrentUser } from "@/app/hooks/useCurrentUser";
+import { Badge, Button, Icon } from "@/components/ui";
+import { Wordmark } from "@/components/marketing/wordmark";
 
 // Derives up to 2 uppercase initials from an email's local part (the
 // segment before "@") for the avatar badge -- CurrentUser carries no
@@ -12,6 +33,32 @@ function initialsFromEmail(email: string): string {
   const letters = localPart.replace(/[^a-zA-Z]/g, "");
   return (letters.slice(0, 2) || email.slice(0, 2) || "?").toUpperCase();
 }
+
+// href: null marks an entry as unavailable -- rendered as an inert "Soon"
+// badge rather than a Link. matchStrategy: "prefix" is opt-in, only for
+// routes with real child routes that should share the highlight (/exam/shell,
+// /exam/results under IELTS; /speaking/history/[id] under Speaking History)
+// -- every other route matches exactly, so a route like /profile is never
+// marked active while merely prefixed by another route's path.
+const NAV_ITEMS: {
+  label: string;
+  icon: LucideIcon;
+  href: string | null;
+  matchStrategy?: "exact" | "prefix";
+}[] = [
+  { label: "Chat", icon: MessageSquare, href: "/chat" },
+  { label: "Opportunities", icon: Target, href: null },
+  { label: "Checklists", icon: ListChecks, href: null },
+  { label: "IELTS", icon: GraduationCap, href: "/exam", matchStrategy: "prefix" },
+  {
+    label: "Speaking History",
+    icon: AudioLines,
+    href: "/speaking/history",
+    matchStrategy: "prefix",
+  },
+  { label: "CV Review", icon: FileText, href: null },
+  { label: "Profile", icon: UserIcon, href: "/profile" },
+];
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -38,127 +85,81 @@ export function Sidebar() {
     };
   }, [isOpen]);
 
-  // href: null marks an entry as unavailable -- rendered as an inert
-  // "Soon" chip rather than a Link, instead of the previous href="#" dead
-  // link (GOA-035/BUG-047 doc 06). matchStrategy: "prefix" is opt-in, only
-  // for routes with real child routes that should share the highlight
-  // (/exam/shell, /exam/results under IELTS; /speaking/history/[id] under
-  // Speaking History) -- every other route matches exactly, so a route
-  // like /profile is never marked active while merely prefixed by another
-  // route's path.
-  const navItems: {
-    label: string;
-    icon: (props: { className?: string }) => React.ReactElement;
-    href: string | null;
-    matchStrategy?: "exact" | "prefix";
-  }[] = [
-    { label: "Chat", icon: ChatIcon, href: "/chat" },
-    { label: "Opportunities", icon: OpportunitiesIcon, href: null },
-    { label: "Checklists", icon: ChecklistsIcon, href: null },
-    { label: "IELTS", icon: IELTSIcon, href: "/exam", matchStrategy: "prefix" },
-    {
-      label: "Speaking History",
-      icon: SpeakingHistoryIcon,
-      href: "/speaking/history",
-      matchStrategy: "prefix",
-    },
-    { label: "CV Review", icon: CVReviewIcon, href: null },
-    { label: "Profile", icon: ProfileIcon, href: "/profile" },
-  ];
-
   return (
     <>
       {/* Mobile top bar with hamburger trigger */}
-      <div className="lg:hidden sticky top-0 z-30 flex items-center justify-between bg-[#fbfbfa] border-b border-gray-200/80 px-4 py-3">
-        <div className="flex items-center gap-2.5">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-full bg-[#0d4d3a] flex items-center justify-center text-white font-serif font-bold text-sm">
-              G
-            </div>
-            <span className="font-serif text-lg font-bold tracking-tight text-[#0d4d3a]">
-              goa
-            </span>
-          </Link>
-        </div>
-        <button
+      <div className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-surface px-4 py-3 lg:hidden print:hidden">
+        <Link href="/chat" className="flex items-center gap-2.5">
+          <Wordmark />
+        </Link>
+        <Button
+          variant="ghost"
+          size="sm"
+          iconOnly
           onClick={() => setIsOpen(true)}
           aria-label="Open menu"
-          className="p-2 rounded-full hover:bg-gray-100/80 text-gray-700"
         >
-          <MenuIcon className="w-5 h-5" />
-        </button>
+          <Icon icon={Menu} size="sm" />
+        </Button>
       </div>
 
       {/* Backdrop overlay (mobile only, shown when drawer is open) */}
       {isOpen && (
         <div
           onClick={() => setIsOpen(false)}
-          className="lg:hidden fixed inset-0 bg-black/40 z-40"
+          className="fixed inset-0 z-40 bg-sage-950/40 lg:hidden"
           aria-hidden="true"
         />
       )}
 
       {/* Sidebar / Drawer */}
       <aside
-        className={`
-          font-sans select-none
-          w-64 bg-[#fbfbfa] border-r border-gray-200/80 p-5
-          flex flex-col justify-between h-screen shrink-0
-          fixed top-0 left-0 z-50 transition-transform duration-300 ease-in-out
-          lg:sticky lg:translate-x-0
-          ${isOpen ? "translate-x-0" : "-translate-x-full"}
-        `}
+        className={cn(
+          "fixed top-0 left-0 z-50 flex h-screen w-64 shrink-0 select-none flex-col justify-between",
+          "border-r border-border bg-surface p-5 font-sans",
+          "transition-transform duration-300 ease-in-out",
+          "lg:sticky lg:translate-x-0 print:hidden",
+          isOpen ? "translate-x-0" : "-translate-x-full",
+        )}
       >
         <div className="space-y-8">
           {/* Brand Header (desktop only, mobile has its own top bar) */}
-          <div className="hidden lg:flex items-center gap-2.5 px-2">
-            <div className="w-8 h-8 rounded-full bg-[#0d4d3a] flex items-center justify-center text-white font-serif font-bold text-lg">
-              G
-            </div>
-            <span className="font-serif text-2xl font-bold tracking-tight text-[#0d4d3a]">
-              goa
-            </span>
+          <div className="hidden items-center gap-2.5 px-2 lg:flex">
+            <Wordmark />
           </div>
 
           {/* Mobile drawer header with close button */}
-          <div className="lg:hidden flex items-center justify-between px-2">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-[#0d4d3a] flex items-center justify-center text-white font-serif font-bold text-lg">
-                G
-              </div>
-              <span className="font-serif text-2xl font-bold tracking-tight text-[#0d4d3a]">
-                goa
-              </span>
-            </div>
-            <button
+          <div className="flex items-center justify-between px-2 lg:hidden">
+            <Wordmark />
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
               onClick={() => setIsOpen(false)}
               aria-label="Close menu"
-              className="p-1.5 rounded-full hover:bg-gray-100/80 text-gray-500"
             >
-              <CloseIcon className="w-5 h-5" />
-            </button>
+              <Icon icon={X} size="sm" />
+            </Button>
           </div>
 
           {/* Navigation Items */}
-          <nav className="space-y-1">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-
+          <nav aria-label="Main" className="space-y-1">
+            {NAV_ITEMS.map((item) => {
               if (!item.href) {
                 return (
                   <div
                     key={item.label}
                     aria-disabled="true"
                     title={`${item.label} — coming soon`}
-                    className="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-full text-sm font-medium text-gray-400 cursor-not-allowed select-none"
+                    className="flex cursor-not-allowed items-center justify-between gap-3 rounded-full px-3.5 py-2.5 text-sm font-medium text-fg-subtle select-none"
                   >
                     <span className="flex items-center gap-3">
-                      <Icon className="w-4 h-4 text-gray-300" />
+                      <Icon icon={item.icon} size="sm" className="text-fg-subtle/70" />
                       <span>{item.label}</span>
                     </span>
-                    <span className="text-[9px] uppercase font-bold tracking-wider text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full shrink-0">
+                    <Badge tone="neutral" size="sm" pill>
                       Soon
-                    </span>
+                    </Badge>
                   </div>
                 );
               }
@@ -173,15 +174,15 @@ export function Sidebar() {
                   key={item.label}
                   href={item.href}
                   onClick={() => setIsOpen(false)}
-                  className={`flex items-center gap-3 px-3.5 py-2.5 rounded-full text-sm font-medium transition-colors ${
+                  aria-current={isActive ? "page" : undefined}
+                  className={cn(
+                    "flex items-center gap-3 rounded-full px-3.5 py-2.5 text-sm font-medium transition-colors",
                     isActive
-                      ? "bg-[#d8f3e5] text-[#0d4d3a] font-semibold"
-                      : "text-gray-600 hover:bg-gray-100/80 hover:text-gray-900"
-                  }`}
+                      ? "bg-brand-subtle font-semibold text-brand-fg"
+                      : "text-fg-muted hover:bg-canvas-subtle hover:text-fg",
+                  )}
                 >
-                  <Icon
-                    className={`w-4 h-4 ${isActive ? "text-[#0d4d3a]" : "text-gray-500"}`}
-                  />
+                  <Icon icon={item.icon} size="sm" />
                   <span>{item.label}</span>
                 </Link>
               );
@@ -189,209 +190,133 @@ export function Sidebar() {
           </nav>
         </div>
 
-        {/* Bottom Pro Callout & Profile */}
+        {/* Bottom Pro Callout & User Menu */}
         <div className="space-y-4">
-          {/* GOA Pro Card */}
-          <div className="bg-[#eaf7f0] border border-[#d2efe0] rounded-2xl p-4 space-y-3">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-[#0d4d3a]">
-              <SparkleIcon className="w-3.5 h-3.5" />
+          <div className="space-y-3 rounded-panel border border-brand-border bg-brand-subtle p-4">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-brand-fg">
+              <Icon icon={Sparkles} size="xs" />
               <span>Free plan</span>
             </div>
             <div>
-              <h4 className="font-bold text-sm text-gray-900 leading-tight">
+              <h4 className="text-sm leading-tight font-bold text-fg">
                 Unlock GOA Pro
               </h4>
-              <p className="text-[11px] text-gray-500 mt-1 leading-normal">
+              <p className="mt-1 text-[11px] leading-normal text-fg-muted">
                 Unlimited AI, CV review, IELTS scoring.
               </p>
             </div>
-            <button className="bg-[#0d4d3a] hover:bg-[#09382a] text-white text-xs font-semibold py-1.5 px-3.5 rounded-full transition-colors flex items-center gap-1">
-              Upgrade <span>→</span>
-            </button>
+            <Button size="sm" trailingIcon={ArrowRight}>
+              Upgrade
+            </Button>
           </div>
-          {/* User Badge */}
-          <div className="flex items-center gap-3 px-2 pt-2 border-t border-gray-100">
-            <div className="w-8 h-8 rounded-full bg-[#1b4332] text-white flex items-center justify-center text-xs font-bold shrink-0">
-              {identityLoading ? "···" : user ? initialsFromEmail(user.email) : "?"}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold text-gray-900 truncate">
-                {identityLoading
-                  ? "Loading…"
-                  : (user?.email ?? "Not signed in")}
-              </p>
-            </div>
-          </div>
+
+          <UserMenu
+            user={user}
+            identityLoading={identityLoading}
+          />
         </div>
       </aside>
     </>
   );
 }
 
-/* Helper Micro-Icons matching the original visual style */
-function ChatIcon({ className }: { className?: string }) {
+function UserMenu({
+  user,
+  identityLoading,
+}: {
+  user: { email: string } | null;
+  identityLoading: boolean;
+}) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function handlePointerDown(event: PointerEvent) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
+        setOpen(false);
+      }
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  async function handleLogout() {
+    setOpen(false);
+    try {
+      await authApi.logout();
+    } catch {
+      // Best-effort: even if the network call fails, the client still treats
+      // the session as ended rather than stranding the user on a dead menu.
+    } finally {
+      router.push("/login");
+      router.refresh();
+    }
+  }
+
   return (
-    <svg
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-      strokeWidth="2"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-      />
-    </svg>
-  );
-}
-function OpportunitiesIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-      strokeWidth="2"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-      />
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"
-      />
-    </svg>
-  );
-}
-function ChecklistsIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-      strokeWidth="2"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
-      />
-    </svg>
-  );
-}
-function IELTSIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-      strokeWidth="2"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-      />
-    </svg>
-  );
-}
-function SpeakingHistoryIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-      strokeWidth="2"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M12 3v3m0 12v3M3 12h3m12 0h3M6.5 6.5l2 2m7 7l2 2m0-11l-2 2m-7 7l-2 2"
-      />
-      <circle cx="12" cy="12" r="3" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-function CVReviewIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-      strokeWidth="2"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-      />
-    </svg>
-  );
-}
-function ProfileIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-      strokeWidth="2"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-      />
-    </svg>
-  );
-}
-function SparkleIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="currentColor" viewBox="0 0 20 20">
-      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-    </svg>
-  );
-}
-function MenuIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-      strokeWidth="2"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M4 6h16M4 12h16M4 18h16"
-      />
-    </svg>
-  );
-}
-function CloseIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-      strokeWidth="2"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M6 18L18 6M6 6l12 12"
-      />
-    </svg>
+    <div ref={containerRef} className="relative border-t border-border pt-3">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        className="flex w-full items-center gap-3 rounded-control px-2 py-2 text-left transition-colors hover:bg-canvas-subtle"
+      >
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-forest-800 text-xs font-bold text-white">
+          {identityLoading ? "···" : user ? initialsFromEmail(user.email) : "?"}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-xs font-bold text-fg">
+            {identityLoading ? "Loading…" : (user?.email ?? "Not signed in")}
+          </span>
+        </span>
+        <Icon
+          icon={ChevronUp}
+          size="xs"
+          className={cn("text-fg-subtle transition-transform", !open && "rotate-180")}
+        />
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          aria-label="Account"
+          className="absolute bottom-full left-0 z-10 mb-2 w-full rounded-panel border border-border bg-surface-raised p-1.5 shadow-e2"
+        >
+          <Link
+            role="menuitem"
+            href="/profile"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2 rounded-control px-3 py-2 text-sm text-fg transition-colors hover:bg-canvas-subtle"
+          >
+            <Icon icon={UserIcon} size="sm" />
+            Profile
+          </Link>
+          <button
+            role="menuitem"
+            type="button"
+            onClick={handleLogout}
+            className="flex w-full items-center gap-2 rounded-control px-3 py-2 text-left text-sm text-fg transition-colors hover:bg-canvas-subtle"
+          >
+            <Icon icon={LogOut} size="sm" />
+            Log out
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

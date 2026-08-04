@@ -4,8 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ExamType, SkillArea } from "@/app/types/exam";
 import { createSession, getExamProgress, type ExamProgress } from "@/lib/exam-api";
-import { Sidebar } from "@/components/ui/sidebar";
 import { useCurrentUser } from "@/app/hooks/useCurrentUser";
+import { PageContainer } from "@/components/ui";
 
 export default function ExamLandingPage() {
   const router = useRouter();
@@ -251,10 +251,10 @@ export default function ExamLandingPage() {
     .sort((a, b) => a.band - b.band)[0];
 
   return (
-    <div className="flex min-h-screen bg-linear-to-br from-emerald-50 via-white to-orange-50 text-gray-900 font-sans">
-      <Sidebar />
-
-      <main className="flex-1 p-8 md:p-12 max-w-6xl mx-auto">
+    <PageContainer
+      size="2xl"
+      className="min-h-screen bg-linear-to-br from-emerald-50 via-white to-orange-50 text-gray-900"
+    >
         <div
           className={`transition-all duration-700 ease-out ${
             mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
@@ -431,7 +431,6 @@ export default function ExamLandingPage() {
             </div>
           )}
         </div>
-      </main>
-    </div>
+    </PageContainer>
   );
 }

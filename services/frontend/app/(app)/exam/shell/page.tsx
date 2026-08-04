@@ -11,7 +11,6 @@ import { getSession, sendHeartbeat, submitSession } from "@/lib/exam-api";
 const HEARTBEAT_INTERVAL_MS = 60_000;
 // import { evaluateEssay } from "@/lib/writing-api";
 import type { ExamSessionResponse } from "@/lib/exam-api";
-import { Sidebar } from "@/components/ui/sidebar";
 import ReadingExam from "@/components/reading/ReadingExam";
 import WritingExam from "@/components/writing/WritingExam";
 import ComingSoonPanel from "@/components/exam/ComingSoonPanel";
@@ -212,10 +211,8 @@ function ExamShellContent() {
     );
 
   return (
-    <div className="flex h-screen bg-[#fbfbfa] text-gray-900 select-none overflow-hidden min-w-3xl">
-      <Sidebar />
-
-      <div className="flex-1 flex flex-col min-w-0">
+    <>
+      <div className="flex h-screen min-w-3xl flex-col overflow-hidden bg-canvas text-fg select-none">
         {/* Responsive Desktop Enforcement Warning */}
         <div className="md:hidden fixed inset-0 bg-gray-900 text-white z-100 flex flex-col justify-center items-center p-6 text-center">
           <p className="text-xl font-bold mb-2">EXAM MODE LOCKED</p>
@@ -360,6 +357,6 @@ function ExamShellContent() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

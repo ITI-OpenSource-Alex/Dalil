@@ -216,7 +216,7 @@ output "production_hosted_zone_id" {
 }
 
 output "production_name_servers" {
-  description = "Name servers that must be configured at the goa.app registrar."
+  description = "Name servers that must be configured at the production domain registrar."
   value       = try(module.production_dns_zone[0].name_servers, [])
 }
 

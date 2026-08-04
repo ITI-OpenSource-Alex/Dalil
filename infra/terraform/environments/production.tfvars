@@ -29,7 +29,7 @@ private_data_subnet_cidrs = [
   "10.0.21.0/24",
 ]
 
-domain_name               = "goa.app"
+domain_name               = "swift-sale.me"
 hosted_zone_id            = null
 enable_public_dns         = true
 create_public_hosted_zone = true

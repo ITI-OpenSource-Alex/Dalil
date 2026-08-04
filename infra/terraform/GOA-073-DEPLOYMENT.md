@@ -2,7 +2,7 @@
 
 ## Preconditions
 
-- Confirm the organization owns `goa.app` and can change its registrar name
+- Confirm the organization owns the configured production domain and can change its registrar name
   servers. As of implementation, public DNS is delegated to Cloudflare, not
   the Route 53 zone this configuration will create.
 - Complete the production container image publication required by GOA-071.
@@ -42,12 +42,12 @@ terraform apply `
 terraform output production_name_servers
 ```
 
-Replace the Cloudflare name servers at the `goa.app` registrar with the four
+Replace the domain registrar name servers with the four
 Route 53 name servers printed by Terraform. Do not continue until public NS
 lookups return those Route 53 servers:
 
 ```powershell
-Resolve-DnsName goa.app -Type NS
+Resolve-DnsName swift-sale.me -Type NS
 ```
 
 ## Publish application artifacts
@@ -91,15 +91,15 @@ aws cloudfront create-invalidation `
 
 ```powershell
 # API through the production ALB
-curl.exe -i "https://api.goa.app/health"
+curl.exe -i "https://api.swift-sale.me/health"
 
 # Populate and then verify the static cache
-curl.exe -sS -D - -o NUL "https://goa.app/"
-curl.exe -sS -D - -o NUL "https://goa.app/"
+curl.exe -sS -D - -o NUL "https://swift-sale.me/"
+curl.exe -sS -D - -o NUL "https://swift-sale.me/"
 
 # SQL injection query must be blocked by WAF
 curl.exe -sS -o NUL -w "%{http_code}`n" `
-  "https://goa.app/?id=1%20OR%201%3D1--"
+  "https://swift-sale.me/?id=1%20OR%201%3D1--"
 
 # Confirm both ACL associations
 aws wafv2 get-web-acl-for-resource `
@@ -119,10 +119,10 @@ from an approved test IP:
 
 ```powershell
 1..1050 | ForEach-Object -Parallel {
-  curl.exe -sS -o NUL "https://goa.app/health"
+  curl.exe -sS -o NUL "https://swift-sale.me/health"
 } -ThrottleLimit 50
 
-curl.exe -sS -o NUL -w "%{http_code}`n" "https://goa.app/health"
+curl.exe -sS -o NUL -w "%{http_code}`n" "https://swift-sale.me/health"
 ```
 
 WAF evaluates the rolling five-minute window asynchronously; retry the final

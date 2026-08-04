@@ -178,10 +178,10 @@ GOA uses one environment-specific VPC across two Availability Zones:
 
 The Sprint 3 production-edge definition in GOA-073 is:
 
-- `goa.app` resolves through Route 53 to CloudFront;
+- `swift-sale.me` resolves through Route 53 to CloudFront;
 - CloudFront serves Next.js static assets from a private S3 origin using Origin Access Control;
 - `/api/*` is forwarded without caching to the ALB;
-- `api.goa.app` resolves directly to the ALB;
+- `api.swift-sale.me` resolves directly to the ALB;
 - ACM provides certificates, including the required `us-east-1` certificate for CloudFront;
 - WAF applies managed common-threat rules, known-bad-input rules, and IP rate limiting;
 - HTTP redirects to HTTPS and production enforces TLS 1.2 or newer.

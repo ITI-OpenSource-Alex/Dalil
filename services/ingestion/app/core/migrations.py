@@ -25,9 +25,13 @@ def run_migrations(db_url: str | None = None) -> None:
                 """
                 CREATE TABLE IF NOT EXISTS migrations_log (
                     migration_file VARCHAR(255) PRIMARY KEY,
-                    executed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    executed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    migration_batch_id VARCHAR(255)
                 );
                 """
+            )
+            cursor.execute(
+                "ALTER TABLE migrations_log ADD COLUMN IF NOT EXISTS migration_batch_id VARCHAR(255)"
             )
             for file_path in migration_files:
                 filename = os.path.basename(file_path)
@@ -43,7 +47,44 @@ def run_migrations(db_url: str | None = None) -> None:
                     continue
                 cursor.execute(sql)
                 cursor.execute(
-                    "INSERT INTO migrations_log (migration_file) VALUES (%s)",
+                    "INSERT INTO migrations_log (migration_file, migration_batch_id) VALUES (%s, %s)",
+                    (filename, os.getenv("MIGRATION_BATCH_ID")),
+                )
+        conn.commit()
+
+
+def run_down_migrations(db_url: str | None = None) -> None:
+    batch_id = os.getenv("MIGRATION_BATCH_ID")
+    if not batch_id:
+        raise RuntimeError("MIGRATION_BATCH_ID is required for down migrations")
+
+    migrations_dir = Path(__file__).resolve().parents[1] / "migrations"
+    with psycopg2.connect(db_url or _db_url()) as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "ALTER TABLE migrations_log ADD COLUMN IF NOT EXISTS migration_batch_id VARCHAR(255)"
+            )
+            cursor.execute(
+                """
+                SELECT migration_file
+                FROM migrations_log
+                WHERE migration_batch_id = %s
+                ORDER BY migration_file DESC
+                """,
+                (batch_id,),
+            )
+            for (filename,) in cursor.fetchall():
+                stem = Path(filename).stem
+                rollback_path = migrations_dir / "rollback" / f"{stem}_down.sql"
+                if not rollback_path.exists():
+                    raise RuntimeError(f"Missing rollback migration: {rollback_path}")
+
+                sql = rollback_path.read_text(encoding="utf-8").strip()
+                if not sql:
+                    continue
+                cursor.execute(sql)
+                cursor.execute(
+                    "DELETE FROM migrations_log WHERE migration_file = %s",
                     (filename,),
                 )
         conn.commit()

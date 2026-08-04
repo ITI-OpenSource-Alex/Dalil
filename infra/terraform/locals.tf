@@ -116,7 +116,7 @@ locals {
 
   ecs_migration_commands = {
     gateway       = ["sh", "-c", "echo 'gateway owns no database migrations'"]
-    user          = ["npm", "run", "migration:run:prod"]
+    user          = ["sh", "-c", "if [ \"$MIGRATION_DIRECTION\" = \"down\" ]; then npm run migration:revert:prod; else npm run migration:run:prod; fi"]
     orchestration = ["python", "-m", "app.migrate"]
     speaking      = ["./speaking", "migrate"]
     writing       = ["python", "-m", "app.init_db"]

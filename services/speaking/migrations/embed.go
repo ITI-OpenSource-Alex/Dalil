@@ -16,5 +16,5 @@ import "embed"
 
 // FS holds every .sql file in this directory, applied in filename order.
 //
-//go:embed *.sql
+//go:embed *.sql rollback/*.sql
 var FS embed.FS

@@ -1,5 +1,10 @@
-from app.core.migrations import run_migrations
+import os
+
+from app.core.migrations import run_down_migrations, run_migrations
 
 
 if __name__ == "__main__":
-    run_migrations()
+    if os.getenv("MIGRATION_DIRECTION") == "down":
+        run_down_migrations()
+    else:
+        run_migrations()

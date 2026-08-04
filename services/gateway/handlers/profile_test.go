@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -140,7 +141,7 @@ func TestUpdateProfileForwardsBodyToJWTUserIDPath(t *testing.T) {
 		if got := r.Header.Get("X-Internal-Api-Key"); got != "test-internal-key" {
 			t.Fatalf("expected internal key forwarded, got %q", got)
 		}
-		buf := new(strings.Builder)
+		buf := new(bytes.Buffer)
 		_, _ = buf.ReadFrom(r.Body)
 		if buf.String() != `{"degreeLevel":"masters"}` {
 			t.Fatalf("expected request body forwarded verbatim, got %q", buf.String())

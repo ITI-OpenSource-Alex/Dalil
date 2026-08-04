@@ -1,211 +1,272 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useRef, useState } from "react";
+import { ArrowLeft, CheckCircle2, FileText, Upload, X } from "lucide-react";
+import { cn } from "@/lib/cn";
+import { authApi, apiErrorMessage, isSubscriptionRequired } from "@/lib/api";
+import { Alert, Button, Heading, Icon, Progress, Text } from "@/components/ui";
 
 interface CvUploadStepProps {
-  onComplete: (cvData: { fileName: string; skipped: boolean } | null) => void;
+  onComplete: (cvData: { fileName: string; skipped: boolean } | null) => void | Promise<void>;
   onBack: () => void;
+  /** True while the wizard's own PUT /api/profile call (triggered after this
+   * step) is in flight, so the Finish button reflects that too. */
+  finishing: boolean;
 }
 
-export default function CvUploadStep({
-  onComplete,
-  onBack,
-}: CvUploadStepProps) {
+const MAX_SIZE_BYTES = 10 * 1024 * 1024;
+
+type Status = "idle" | "uploading" | "uploaded" | "upgrade-required" | "error";
+
+export default function CvUploadStep({ onComplete, onBack, finishing }: CvUploadStepProps) {
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<number>(0);
-  const [status, setStatus] = useState<
-    "idle" | "uploading" | "processing" | "done"
-  >("idle");
+  const [progress, setProgress] = useState(0);
+  const [status, setStatus] = useState<Status>("idle");
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
-  // Simulate file upload progress, then simulate Lambda background extraction processing
-  const simulateUploadAndProcessing = (selectedFile: File) => {
-    setFile(selectedFile);
+  function validate(candidate: File): string | null {
+    if (candidate.type !== "application/pdf") return "Only PDF files are supported.";
+    if (candidate.size > MAX_SIZE_BYTES) return "File is too large — the limit is 10 MB.";
+    return null;
+  }
+
+  async function startUpload(selected: File) {
+    const error = validate(selected);
+    if (error) {
+      setValidationError(error);
+      return;
+    }
+    setValidationError(null);
+    setUploadError(null);
+    setFile(selected);
     setStatus("uploading");
-    setUploadProgress(0);
+    setProgress(0);
 
-    // 1. Simulate Upload Progress
-    const uploadInterval = setInterval(() => {
-      setUploadProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(uploadInterval);
+    const controller = new AbortController();
+    abortRef.current = controller;
 
-          // 2. Transition to Lambda "Processing..." State
-          setStatus("processing");
-          setTimeout(() => {
-            setStatus("done");
-            // Finish up and transition automatically to chat
-            onComplete({ fileName: selectedFile.name, skipped: false });
-          }, 2500); // Lambda parsing delay simulation
+    try {
+      await authApi.uploadCv(selected, { onProgress: setProgress, signal: controller.signal });
+      setStatus("uploaded");
+    } catch (err) {
+      if (controller.signal.aborted) {
+        setStatus("idle");
+        setFile(null);
+        return;
+      }
+      if (isSubscriptionRequired(err)) {
+        setStatus("upgrade-required");
+      } else {
+        setUploadError(apiErrorMessage(err) ?? "Upload failed. Please try again.");
+        setStatus("error");
+      }
+    }
+  }
 
-          return 100;
-        }
-        return prev + 10;
-      });
-    }, 150);
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    if (status === "idle") setIsDragging(true);
-  };
-
-  const handleDragLeave = () => {
-    setIsDragging(false);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
+  function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     setIsDragging(false);
-    if (status !== "idle") return;
+    if (status !== "idle" && status !== "error") return;
+    const dropped = e.dataTransfer.files?.[0];
+    if (dropped) void startUpload(dropped);
+  }
 
-    const droppedFile = e.dataTransfer.files?.[0];
-    if (droppedFile && droppedFile.type === "application/pdf") {
-      simulateUploadAndProcessing(droppedFile);
-    } else {
-      alert("Please upload a valid PDF document.");
-    }
-  };
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const selected = e.target.files?.[0];
+    if (selected) void startUpload(selected);
+    e.target.value = "";
+  }
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      simulateUploadAndProcessing(selectedFile);
-    }
-  };
+  function reset() {
+    abortRef.current?.abort();
+    setFile(null);
+    setProgress(0);
+    setStatus("idle");
+    setValidationError(null);
+    setUploadError(null);
+  }
 
-  const handleSkip = () => {
-    onComplete({ fileName: "", skipped: true });
-  };
+  const dropzoneInteractive = status === "idle" || status === "error";
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-start">
-        <div className="space-y-1">
-          <h2 className="text-xl font-bold text-black">
+    <div className="flex flex-col gap-6">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <Heading as="h2" size="md">
             Upload your latest CV
-          </h2>
-          <p className="text-sm text-gray-500">
-            Optional, but unlocks personalized program ranking and CV review.
-          </p>
+          </Heading>
+          <Text size="sm" tone="muted" className="mt-1">
+            Optional, but unlocks personalised programme ranking and CV
+            review.
+          </Text>
         </div>
-        {status === "idle" && (
-          <button
-            type="button"
-            onClick={handleSkip}
-            className="text-xs font-semibold text-gray-400 hover:text-black uppercase tracking-wider bg-gray-50 hover:bg-yellow-50 transition px-2.5 py-1.5 rounded-md"
-          >
+        {dropzoneInteractive && !file && (
+          <Button variant="ghost" size="sm" onClick={() => onComplete({ fileName: "", skipped: true })}>
             Skip step
-          </button>
+          </Button>
         )}
       </div>
 
-      {/* DRAG AND DROP ZONE */}
-      {status === "idle" && (
+      {dropzoneInteractive && (
         <div
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
+          role="button"
+          tabIndex={0}
           onClick={() => fileInputRef.current?.click()}
-          className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition flex flex-col items-center justify-center min-h-55 ${
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              fileInputRef.current?.click();
+            }
+          }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsDragging(true);
+          }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={handleDrop}
+          aria-label="Upload your CV as a PDF, up to 10 megabytes"
+          className={cn(
+            "flex min-h-55 cursor-pointer flex-col items-center justify-center rounded-card border-2 border-dashed p-8 text-center transition-colors duration-120 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted",
             isDragging
-              ? "border-emerald-600 bg-emerald-50/20"
-              : "border-gray-200 hover:border-emerald-500 hover:bg-gray-50/50 bg-white"
-          }`}
+              ? "border-brand bg-brand-subtle"
+              : "border-border bg-surface hover:border-brand-border hover:bg-canvas-subtle",
+          )}
         >
           <input
-            type="file"
             ref={fileInputRef}
+            type="file"
+            accept=".pdf,application/pdf"
             onChange={handleFileChange}
-            accept=".pdf"
             className="hidden"
           />
-          <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 text-xl mb-3">
-            📥
-          </div>
-          <p className="text-sm font-semibold text-black mb-1">
-            Drag & drop your resume file here
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-muted text-brand-fg">
+            <Icon icon={Upload} size="md" />
+          </span>
+          <p className="mt-3 text-sm font-semibold text-fg">
+            Drag &amp; drop your resume here
           </p>
-          <p className="text-xs text-gray-400 mb-4">
-            Only PDF formats are supported
+          <p className="mt-1 text-sm text-fg-subtle">
+            PDF only, up to 10 MB
           </p>
-          <button
-            type="button"
-            className="px-4 py-2 border border-gray-200 hover:border-gray-300 text-black text-xs font-medium rounded-lg bg-white shadow-sm transition"
-          >
+          <Button variant="secondary" size="sm" className="mt-4" tabIndex={-1}>
             Browse files
-          </button>
+          </Button>
         </div>
       )}
 
-      {/* UPLOADING STATE VIEW */}
+      {validationError && (
+        <Alert tone="danger" announce="assertive">
+          {validationError}
+        </Alert>
+      )}
+
       {status === "uploading" && (
-        <div className="border border-gray-100 bg-gray-50/40 rounded-xl p-6 space-y-4 animate-fadeIn">
-          <div className="flex items-center justify-between text-sm">
-            <span className="font-semibold text-black truncate max-w-[70%]">
-              📄 {file?.name}
+        <div className="flex flex-col gap-3 rounded-card border border-border bg-canvas-subtle p-5">
+          <div className="flex items-center justify-between gap-3">
+            <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-fg">
+              <Icon icon={FileText} size="sm" className="shrink-0 text-fg-subtle" />
+              <span className="truncate">{file?.name}</span>
             </span>
-            <span className="text-xs font-bold text-emerald-600">
-              {uploadProgress}%
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
+              aria-label="Cancel upload"
+              onClick={() => abortRef.current?.abort()}
+            >
+              <Icon icon={X} size="sm" />
+            </Button>
+          </div>
+          <Progress
+            value={progress}
+            label="Upload progress"
+            valueText={`${progress}%`}
+            showValue
+            tone="brand"
+          />
+          <Text size="sm" tone="subtle" className="text-center">
+            Uploading document to secure storage&hellip;
+          </Text>
+        </div>
+      )}
+
+      {status === "uploaded" && file && (
+        <div className="flex items-center justify-between gap-4 rounded-card border border-success-border bg-success-subtle p-5">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-success text-white">
+              <Icon icon={CheckCircle2} size="sm" />
             </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-success-fg">{file.name}</p>
+              <p className="text-sm text-success-fg/80">Uploaded successfully</p>
+            </div>
           </div>
-          <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-emerald-500 transition-all duration-150 ease-out"
-              style={{ width: `${uploadProgress}%` }}
-            />
-          </div>
-          <p className="text-xs text-center text-gray-400 font-medium">
-            Uploading document to secure storage...
-          </p>
+          <Button variant="ghost" size="sm" onClick={reset}>
+            Replace
+          </Button>
         </div>
       )}
 
-      {/* EXTRACTING / PROCESSING STATE VIEW (LAMBDA CALLOUT) */}
-      {status === "processing" && (
-        <div className="border border-emerald-100 bg-emerald-50/20 rounded-xl p-8 text-center space-y-4 animate-fadeIn">
-          <div className="inline-flex relative items-center justify-center">
-            {/* Spinning Indicator Ring */}
-            <div className="w-10 h-10 border-2 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
-            <span className="absolute text-sm">✨</span>
+      {status === "upgrade-required" && (
+        <Alert
+          tone="info"
+          announce="none"
+          title="CV review is part of the paid plan"
+        >
+          You can skip this for now and add your CV anytime from your
+          profile — it won&apos;t block matching or your checklist.
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button size="sm" onClick={() => onComplete({ fileName: "", skipped: true })}>
+              Skip for now
+            </Button>
+            <Button variant="secondary" size="sm" onClick={reset}>
+              Choose a different file
+            </Button>
           </div>
-          <div className="space-y-1">
-            <h4 className="text-sm font-bold text-black">
-              Processing Document...
-            </h4>
-            <p className="text-xs text-gray-500 max-w-sm mx-auto">
-              Our AI engine is parsing your credentials and structuring your
-              career milestones.
-            </p>
-          </div>
-        </div>
+        </Alert>
       )}
 
-      {/* DONE STATE VIEW */}
-      {status === "done" && (
-        <div className="border border-gray-100 bg-white rounded-xl p-8 text-center space-y-2 animate-fadeIn">
-          <div className="w-10 h-10 bg-emerald-500 text-white rounded-full flex items-center justify-center mx-auto text-lg shadow-sm">
-            ✓
+      {status === "error" && uploadError && (
+        <Alert tone="danger" announce="assertive">
+          {uploadError}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button size="sm" variant="secondary" onClick={reset}>
+              Try again
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => onComplete({ fileName: "", skipped: true })}>
+              Skip and finish
+            </Button>
           </div>
-          <h4 className="text-sm font-bold text-black pt-1">
-            Success! Profile Synchronized
-          </h4>
-        </div>
+        </Alert>
       )}
 
-      {/* NAVIGATION FOOTER */}
-      {status === "idle" && (
-        <div className="flex gap-3 pt-2">
-          <button
+      <div className="flex gap-3">
+        <Button
+          type="button"
+          variant="secondary"
+          size="lg"
+          leadingIcon={ArrowLeft}
+          onClick={onBack}
+          disabled={status === "uploading"}
+        >
+          Back
+        </Button>
+        {status === "uploaded" && (
+          <Button
             type="button"
-            onClick={onBack}
-            className="w-full border border-gray-300 text-black font-medium py-2.5 px-4 rounded-lg hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-200"
+            size="lg"
+            fullWidth
+            loading={finishing}
+            onClick={() => onComplete(file ? { fileName: file.name, skipped: false } : null)}
           >
-            Back to Targets
-          </button>
-        </div>
-      )}
+            Finish
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

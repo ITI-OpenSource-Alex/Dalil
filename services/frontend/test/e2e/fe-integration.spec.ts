@@ -18,6 +18,12 @@ test.describe("Frontend E2E & Browser Integration Tests (FE-01 to FE-06)", () =>
     await expect(page.locator("#login-password")).toBeVisible();
 
     // 3. Complete Onboarding Wizard Step 1: Academic
+    // Skipping this wizard now persists via PUT /api/profile (Phase 3); mocked
+    // here so the test doesn't need a live Gateway + User service.
+    await page.route("**/api/profile", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: "{}" }),
+    );
+
     await page.goto("/onboarding");
     await expect(page.locator("text=Tell us about your education")).toBeVisible();
 
@@ -31,13 +37,16 @@ test.describe("Frontend E2E & Browser Integration Tests (FE-01 to FE-06)", () =>
 
     // Step 2: Languages
     await expect(page.locator("text=How's your English?")).toBeVisible();
-    await page.click('button:has-text("Not yet")');
-    await page.click('button:has-text("Not sure yet")');
+    await page.click('label:has-text("Not yet")');
+    await page.click('label:has-text("Not sure yet")');
     await page.click('button[type="submit"]');
 
     // Step 3: Targets
     await expect(page.getByRole("heading", { name: "Where do you want to study?" })).toBeVisible();
-    await page.click('button:has-text("Germany 🇩🇪")');
+    // Country toggles are labelled checkboxes, not buttons -- and carry no
+    // emoji flag glyph, which does not reliably render on Windows (the same
+    // fix already applied to the landing page's hero demo in Phase 2).
+    await page.click('label:has-text("Germany")');
     await page.selectOption('select[name="targetDegree"]', "Masters");
     await page.fill('input[name="targetMajor"]', "Data Science");
     await page.selectOption('select[name="targetIntake"]', "Fall 2026");
@@ -92,9 +101,21 @@ test.describe("Frontend E2E & Browser Integration Tests (FE-01 to FE-06)", () =>
   /**
    * FE-03: Upload a CV via onboarding UI -> Progress bar -> Processing... -> Ready state with filename
    */
-  test("FE-03: CV upload displays upload progress, processing state, and completion status", async ({
+  test("FE-03: CV upload displays real upload progress and a completion status", async ({
     page,
   }) => {
+    // The CV step now performs a real POST /api/writing/cv/upload (Phase 3
+    // fix -- it previously faked progress and success client-side and never
+    // called the network at all). Mocked here with an artificial delay so the
+    // uploading state is observable without a live Writing service.
+    await page.route("**/api/writing/cv/upload", async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      await route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+    });
+    await page.route("**/api/profile", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: "{}" }),
+    );
+
     // Navigate directly to Onboarding Step 4
     await page.goto("/onboarding");
     await page.selectOption('select[name="degree"]', "Bachelors");
@@ -105,11 +126,11 @@ test.describe("Frontend E2E & Browser Integration Tests (FE-01 to FE-06)", () =>
     await page.fill('input[name="ECTScred"]', "180");
     await page.click('button[type="submit"]');
 
-    await page.click('button:has-text("Not yet")');
-    await page.click('button:has-text("Not sure yet")');
+    await page.click('label:has-text("Not yet")');
+    await page.click('label:has-text("Not sure yet")');
     await page.click('button[type="submit"]');
 
-    await page.click('button:has-text("Germany 🇩🇪")');
+    await page.click('label:has-text("Germany")');
     await page.selectOption('select[name="targetDegree"]', "Masters");
     await page.fill('input[name="targetMajor"]', "AI");
     await page.selectOption('select[name="targetIntake"]', "Fall 2026");
@@ -128,15 +149,16 @@ test.describe("Frontend E2E & Browser Integration Tests (FE-01 to FE-06)", () =>
       buffer: Buffer.from("%PDF-1.4 sample pdf content"),
     });
 
-    // 1. Uploading state with progress percentage
+    // 1. Uploading state
     await expect(page.locator("text=sample_cv.pdf")).toBeVisible();
     await expect(page.locator("text=Uploading document to secure storage")).toBeVisible();
 
-    // 2. Processing state with spinner
-    await expect(page.locator("text=Processing Document...")).toBeVisible({ timeout: 5000 });
+    // 2. Uploaded state
+    await expect(page.locator("text=Uploaded successfully")).toBeVisible({ timeout: 5000 });
 
-    // 3. Done state
-    await expect(page.locator("text=Success! Profile Synchronized")).toBeVisible({ timeout: 5000 });
+    // 3. Finish persists the profile and reaches /chat
+    await page.click('button:has-text("Finish")');
+    await expect(page).toHaveURL(/\/chat/, { timeout: 5000 });
   });
 
   /**

@@ -1,28 +1,33 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
-import api from "@/lib/api";
 import { useRouter } from "next/navigation";
+import { authApi, apiErrorMessage } from "@/lib/api";
+import { Alert, Button, Field, Icon, Input } from "@/components/ui";
 
 export default function LoginForm() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError("");
+    setError(null);
     setLoading(true);
 
     try {
-      await api.post("/auth/login", { email, password });
+      await authApi.login(email, password);
       router.push("/chat");
-    } catch {
-      setError("Invalid email or password. Please try again.");
+    } catch (err) {
+      // Surfaces the backend's own message where it has one (e.g. an
+      // unverified account) rather than always showing the same generic
+      // string regardless of cause.
+      setError(apiErrorMessage(err) ?? "Invalid email or password. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -30,71 +35,69 @@ export default function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-      {/* Email */}
-      <div className="flex flex-col gap-1.5">
-        <label
-          htmlFor="login-email"
-          className="text-sm font-medium text-slate-700"
-        >
-          Email
-        </label>
-        <input
-          id="login-email"
+      <Field label="Email" required id="login-email">
+        <Input
           type="email"
+          name="email"
+          autoComplete="email"
           placeholder="you@university.edu"
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
         />
-      </div>
+      </Field>
 
-      {/* Password */}
-      <div className="flex flex-col gap-1.5">
-        <div className="flex items-center justify-between">
-          <label
-            htmlFor="login-password"
-            className="text-sm font-medium text-slate-700"
-          >
+      <Field
+        id="login-password"
+        label={
+          <span className="flex items-center justify-between gap-3">
             Password
-          </label>
-          <Link
-            href="/reset-password"
-            className="text-sm text-slate-500 transition hover:text-emerald-700"
-          >
-            Forgot password?
-          </Link>
-        </div>
-        <input
-          id="login-password"
-          type="password"
-          placeholder="Your password"
+            <Link
+              href="/forgot-password"
+              className="text-sm font-medium text-fg-subtle hover:text-brand-fg"
+            >
+              Forgot password?
+            </Link>
+          </span>
+        }
+        required
+      >
+        <Input
+          type={showPassword ? "text" : "password"}
+          name="password"
+          autoComplete="current-password"
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+          trailing={
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              className="rounded-chip p-1 text-fg-subtle transition-colors duration-120 ease-out hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted"
+            >
+              <Icon icon={showPassword ? EyeOff : Eye} size="sm" />
+            </button>
+          }
         />
-      </div>
+      </Field>
 
-      {/* Error */}
       {error && (
-        <p className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
+        <Alert tone="danger" announce="assertive">
           {error}
-        </p>
+        </Alert>
       )}
 
-      {/* Submit */}
-      <button
+      <Button
         type="submit"
-        disabled={loading}
         id="login-submit-btn"
-        className="mt-1 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:opacity-60"
+        size="lg"
+        fullWidth
+        loading={loading}
+        trailingIcon={ArrowRight}
       >
-        {loading ? "Signing in…" : "Sign in"}
-        {!loading && <ArrowRight size={16} />}
-      </button>
-
-
+        Sign in
+      </Button>
     </form>
   );
 }

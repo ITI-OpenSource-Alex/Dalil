@@ -217,7 +217,7 @@ class EvaluationCoordinator:
         # needs no structural change: pass a key and chart context flows again.
         chart_context: str | None = None
         if is_academic_task1 and stimulus_s3_key:
-            chart_context = await extract_chart_context(stimulus_s3_key)
+            chart_context = await extract_chart_context(stimulus_s3_key, trace=trace)
 
         async def run_one(criterion: Criterion) -> AgentExecution:
             child_span = _span(

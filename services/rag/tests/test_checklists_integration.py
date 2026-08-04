@@ -135,7 +135,15 @@ def new_user_id() -> str:
 # ---------------------------------------------------------------------------
 
 
-def test_migration_027_schema_changes_are_idempotent():
+def test_migration_027_schema_changes_are_idempotent(live_client):
+    # `live_client` is unused directly, but entering it as a context manager is
+    # what triggers the app's real lifespan startup (db.connect() ->
+    # run_migrations()) -- see its docstring above. Without it, this is the
+    # alphabetically-first test in the whole suite to touch the database, and
+    # against a freshly created CI Postgres with no prior migrations applied,
+    # `checklists`/`checklist_item_states` don't exist yet: every other test in
+    # this file only works because an earlier live_client-using test happened
+    # to run first and apply the schema as a side effect.
     async def _apply_twice():
         conn = await _connect()
         try:

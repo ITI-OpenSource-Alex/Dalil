@@ -236,11 +236,66 @@ async def _fetch_chart_bytes(s3_key: str) -> bytes:
     return await asyncio.to_thread(_get)
 
 
-async def extract_chart_context(s3_key: str) -> str:
+def _vision_span(
+    trace: Any,
+    *,
+    model: str,
+    s3_key: str,
+    media_type: str,
+) -> Any:
+    if trace is None:
+        return None
+    try:
+        return trace.start_observation(
+            name="writing-vision-stimulus",
+            as_type="generation",
+            model=model,
+            input={"s3_key": s3_key, "media_type": media_type},
+        )
+    except Exception:
+        return None
+
+
+def _end_vision_span(span: Any, *, description: str, usage: Any) -> None:
+    if span is None:
+        return
+    try:
+        span.update(
+            output=description,
+            usage_details={
+                "input": getattr(usage, "input_tokens", 0),
+                "output": getattr(usage, "output_tokens", 0),
+            },
+        )
+        span.end()
+    except Exception:
+        pass
+
+
+def _fail_vision_span(span: Any, exc: BaseException) -> None:
+    if span is None:
+        return
+    try:
+        span.update(
+            level="ERROR",
+            status_message=str(exc),
+            output={"error": str(exc)},
+        )
+        span.end()
+    except Exception:
+        pass
+
+
+async def extract_chart_context(s3_key: str, *, trace: Any = None) -> str:
     """
-    Fetches an IELTS Task 1 (Academic) stimulus image from S3 and asks claude-opus-4-8
-    for a neutral, factual description, so the Claude-based examiner can verify
-    the candidate's data accuracy without needing vision input itself.
+    Fetches an IELTS Task 1 (Academic) stimulus image from S3 and asks the
+    configured Claude vision model for a neutral, factual description, so the
+    Claude-based examiner can verify the candidate's data accuracy without
+    needing vision input itself.
+
+    `trace` is the caller's Langfuse observation. When supplied, the vision call
+    gets its own generation child span so the single multimodal request is
+    attributed separately from the four criterion agents (GOA-093).
     """
     import logging
     import base64
@@ -270,37 +325,51 @@ async def extract_chart_context(s3_key: str) -> str:
         **({"base_url": settings.anthropic_base_url} if settings.anthropic_base_url else {}),
     )
 
-    response = await client.messages.create(
-        model="claude-opus-4-8",
-        # No `temperature`. The gateway fronts Bedrock, which rejects the parameter
-        # outright for this model:
-        #   ValidationException: `temperature` is deprecated for this model
-        # It surfaced as an intermittent 502 ("2 of 4 writing agents failed") because
-        # only some requests land on the backend that enforces it — the same erratic
-        # routing seen elsewhere on this gateway. Determinism now comes from the
-        # rubric and the JSON schema, not from a sampling parameter.
-        max_tokens=500,
-        messages=[
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "image",
-                        "source": {
-                            "type": "base64",
-                            "media_type": media_type,
-                            "data": encoded_image,
-                        },
-                    },
-                    {
-                        "type": "text",
-                        "text": "You objectively describe IELTS Writing Task 1 (Academic) stimulus images (line/bar charts, pie charts, tables, or process diagrams) so an examiner who cannot see the image can verify the candidate's data accuracy. List the exact axis labels, units, categories, and key data points/trends visible in the image. Do not evaluate or judge; describe only, factually and neutrally.\n\nDescribe this IELTS Task 1 chart/graph/table/diagram.",
-                    },
-                ],
-            }
-        ],
+    span = _vision_span(
+        trace,
+        model=settings.vision_model,
+        s3_key=s3_key,
+        media_type=media_type,
     )
-    return response.content[0].text.strip()
+
+    try:
+        response = await client.messages.create(
+            model=settings.vision_model,
+            # No `temperature`. The gateway fronts Bedrock, which rejects the parameter
+            # outright for this model:
+            #   ValidationException: `temperature` is deprecated for this model
+            # It surfaced as an intermittent 502 ("2 of 4 writing agents failed") because
+            # only some requests land on the backend that enforces it — the same erratic
+            # routing seen elsewhere on this gateway. Determinism now comes from the
+            # rubric and the JSON schema, not from a sampling parameter.
+            max_tokens=500,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": media_type,
+                                "data": encoded_image,
+                            },
+                        },
+                        {
+                            "type": "text",
+                            "text": "You objectively describe IELTS Writing Task 1 (Academic) stimulus images (line/bar charts, pie charts, tables, or process diagrams) so an examiner who cannot see the image can verify the candidate's data accuracy. List the exact axis labels, units, categories, and key data points/trends visible in the image. Do not evaluate or judge; describe only, factually and neutrally.\n\nDescribe this IELTS Task 1 chart/graph/table/diagram.",
+                        },
+                    ],
+                }
+            ],
+        )
+    except Exception as exc:
+        _fail_vision_span(span, exc)
+        raise
+
+    description = response.content[0].text.strip()
+    _end_vision_span(span, description=description, usage=getattr(response, "usage", None))
+    return description
 
 class WritingAgentRunner:
     def __init__(self, client: Any, *, model: str) -> None:

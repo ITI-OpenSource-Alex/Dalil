@@ -116,10 +116,15 @@ services:
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
       - LANGFUSE_HOST=${LANGFUSE_HOST}
-      - WRITING_MODEL=${WRITING_MODEL:-claude-sonnet-4-6}
-      # AgentRouter serves no channel for haiku ("无可用渠道" / 503), only
-      # claude-opus-4-8. Revert to a cheaper model if the gateway ever routes one.
+      # AgentRouter serves no channel for haiku ("无可用渠道" / 503) and none for
+      # claude-sonnet-4-6, only claude-opus-4-8 — which is why GOA-093's
+      # consolidation target moved off Sonnet. Revert to a cheaper model here if
+      # the gateway ever routes one.
+      - WRITING_MODEL=${WRITING_MODEL:-claude-opus-4-8}
       - CV_EXTRACTION_MODEL=${CV_EXTRACTION_MODEL:-claude-opus-4-8}
+      # Academic Task 1 stimulus description (GOA-093). Must be a vision-capable
+      # model; AgentRouter forwards multimodal blocks for claude-opus-4-8 (GOA-126).
+      - VISION_MODEL=${VISION_MODEL:-claude-opus-4-8}
       - ANTHROPIC_TIMEOUT_SECONDS=${ANTHROPIC_TIMEOUT_SECONDS:-120}
       - WRITING_CACHE_VERSION=${WRITING_CACHE_VERSION:-v1}
     volumes:

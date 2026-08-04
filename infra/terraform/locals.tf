@@ -227,13 +227,15 @@ locals {
       "INTERNAL_API_KEY",
     ]
 
+    # No OPENAI_API_KEY: GOA-093 consolidated Academic Task 1 vision onto Claude,
+    # leaving the Writing service with no OpenAI call of any kind. OpenAI remains
+    # only where embeddings are needed (RAG/Ingestion) or speech (Speaking).
     writing = [
       "DATABASE_URL",
       "ANTHROPIC_API_KEY",
       "LANGFUSE_PUBLIC_KEY",
       "LANGFUSE_SECRET_KEY",
       "LANGFUSE_HOST",
-      "OPENAI_API_KEY",
       "INTERNAL_API_KEY",
     ]
 

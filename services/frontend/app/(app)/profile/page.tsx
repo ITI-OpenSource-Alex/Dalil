@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCurrentUser } from "@/app/hooks/useCurrentUser";
+import { isProfileComplete } from "@/app/types/profile";
 import Skeleton from "@/components/ui/skeleton";
 import { Alert, Badge, Button, Card, Heading, PageContainer, Text } from "@/components/ui";
 
@@ -64,7 +65,7 @@ export default function ProfilePage() {
             <Text size="sm" tone="muted" className="mb-4 font-semibold">
               Application Profile
             </Text>
-            {!user.profile && (
+            {!isProfileComplete(user.profile) && (
               <Alert tone="info" announce="none" className="mb-4">
                 Your application profile is incomplete.
                 <div className="mt-3">

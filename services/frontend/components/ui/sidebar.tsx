@@ -23,6 +23,7 @@ import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { authApi } from "@/lib/api";
 import { useCurrentUser } from "@/app/hooks/useCurrentUser";
+import { isProfileComplete } from "@/app/types/profile";
 import { Badge, Button, Icon } from "@/components/ui";
 import { Wordmark } from "@/components/marketing/wordmark";
 
@@ -232,7 +233,7 @@ export function Sidebar() {
 
         {/* Bottom Pro Callout & User Menu */}
         <div className="space-y-4">
-          {!identityLoading && user && !user.profile && (
+          {!identityLoading && user && !isProfileComplete(user.profile) && (
             <Link
               href="/onboarding"
               className="flex items-start gap-2.5 rounded-panel border border-warning-border bg-warning-subtle p-4 transition-colors hover:bg-warning-subtle/80"

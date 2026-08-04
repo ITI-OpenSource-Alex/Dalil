@@ -21,3 +21,22 @@ export interface CurrentUser {
   isVerified: boolean;
   profile: UserProfileDetail | null;
 }
+
+/**
+ * True once the user has entered at least one piece of the data the
+ * onboarding wizard collects. Registration already creates a UserProfile
+ * row (users.service.ts) with every collectible field left null/empty, so
+ * `profile` itself is never null after signup -- checking for that would
+ * never route anyone into onboarding. This checks the fields onboarding
+ * actually writes (buildProfilePayload in app/onboarding/page.tsx) instead.
+ */
+export function isProfileComplete(profile: UserProfileDetail | null): boolean {
+  if (!profile) return false;
+  return (
+    profile.degreeLevel !== null ||
+    profile.fieldOfStudy !== null ||
+    profile.gpa !== null ||
+    profile.ieltsScore !== null ||
+    profile.targetCountries.length > 0
+  );
+}

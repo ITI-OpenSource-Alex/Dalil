@@ -70,10 +70,11 @@ services:
       - AWS_ACCESS_KEY_ID=test
       - AWS_SECRET_ACCESS_KEY=test
       - AWS_ENDPOINT=http://localstack:4566
-      - SQS_QUEUE_URL=http://localstack:4566/000000000000/user-events
       # GOA-083: auth emails are now published to notification-queue, which the
       # notification service already polls. See services/user/src/sqs/sqs.module.ts.
       - NOTIFICATION_QUEUE_URL=http://localstack:4566/000000000000/notification-queue
+      # GOA-091: user domain events fan out through SNS with raw delivery to
+      # per-service SQS subscriber queues.
       - USER_EVENTS_TOPIC_ARN=arn:aws:sns:us-east-1:000000000000:user-events
 
       - REDIS_HOST=redis-gateway

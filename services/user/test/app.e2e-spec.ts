@@ -9,7 +9,15 @@ import {
   DeleteMessageCommand,
   DeleteQueueCommand,
   GetQueueAttributesCommand,
+  SetQueueAttributesCommand,
 } from '@aws-sdk/client-sqs';
+import {
+  SNSClient,
+  CreateTopicCommand,
+  SubscribeCommand,
+  DeleteTopicCommand,
+  UnsubscribeCommand,
+} from '@aws-sdk/client-sns';
 
 // Environment is loaded by test/setup-e2e.ts (Jest setupFiles) before any
 // module is imported, so process.env is already populated here.
@@ -60,7 +68,10 @@ describe('User Flow Integration (e2e)', () => {
   let app: INestApplication | undefined;
   let createdUserId: string;
   let sqsClient: SQSClient;
+  let snsClient: SNSClient;
   let queueUrl: string;
+  let topicArn: string;
+  let subscriptionArn: string | undefined;
   let localstackReachable = false;
   let isolatedQueueCreated = false;
   const internalApiKey =
@@ -78,6 +89,14 @@ describe('User Flow Integration (e2e)', () => {
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || 'test',
       },
     });
+    snsClient = new SNSClient({
+      region: process.env.AWS_REGION || 'us-east-1',
+      endpoint,
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID || 'test',
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || 'test',
+      },
+    });
 
     // The running RAG service consumes the shared user-events queue. An E2E
     // assertion against that queue races the real consumer and fails whenever
@@ -85,12 +104,61 @@ describe('User Flow Integration (e2e)', () => {
     // queue so the test observes its own publish deterministically.
     try {
       await sqsClient.send(new CreateQueueCommand({ QueueName: queueName }));
+      const queueAttributes = await sqsClient.send(
+        new GetQueueAttributesCommand({
+          QueueUrl: queueUrl,
+          AttributeNames: ['QueueArn'],
+        }),
+      );
+      const topic = await snsClient.send(
+        new CreateTopicCommand({
+          Name: `user-events-e2e-${process.pid}-${Date.now()}`,
+        }),
+      );
+      topicArn = topic.TopicArn!;
+      const queueArn = queueAttributes.Attributes!.QueueArn!;
+      await sqsClient.send(
+        new SetQueueAttributesCommand({
+          QueueUrl: queueUrl,
+          Attributes: {
+            Policy: JSON.stringify({
+              Version: '2012-10-17',
+              Statement: [
+                {
+                  Effect: 'Allow',
+                  Principal: { Service: 'sns.amazonaws.com' },
+                  Action: 'sqs:SendMessage',
+                  Resource: queueArn,
+                  Condition: {
+                    ArnEquals: { 'aws:SourceArn': topicArn },
+                  },
+                },
+              ],
+            }),
+          },
+        }),
+      );
+      const subscription = await snsClient.send(
+        new SubscribeCommand({
+          TopicArn: topicArn,
+          Protocol: 'sqs',
+          Endpoint: queueArn,
+          Attributes: {
+            RawMessageDelivery: 'true',
+          },
+        }),
+      );
+      subscriptionArn = subscription.SubscriptionArn;
       process.env.SQS_QUEUE_URL = queueUrl;
+      process.env.USER_EVENTS_TOPIC_ARN = topicArn;
       localstackReachable = true;
       isolatedQueueCreated = true;
     } catch {
       queueUrl =
-        process.env.SQS_QUEUE_URL || `${endpoint}/000000000000/user-events`;
+        process.env.SQS_QUEUE_URL || `${endpoint}/000000000000/user-events-rag`;
+      process.env.USER_EVENTS_TOPIC_ARN =
+        process.env.USER_EVENTS_TOPIC_ARN ||
+        `arn:aws:sns:${process.env.AWS_REGION || 'us-east-1'}:000000000000:user-events`;
     }
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -125,10 +193,19 @@ describe('User Flow Integration (e2e)', () => {
     // This does NOT change production fire-and-forget semantics in any way.
     await new Promise<void>((resolve) => setTimeout(resolve, 1000));
     await app?.close();
+    if (subscriptionArn && subscriptionArn !== 'PendingConfirmation') {
+      await snsClient.send(
+        new UnsubscribeCommand({ SubscriptionArn: subscriptionArn }),
+      );
+    }
+    if (topicArn) {
+      await snsClient.send(new DeleteTopicCommand({ TopicArn: topicArn }));
+    }
     if (isolatedQueueCreated) {
       await sqsClient.send(new DeleteQueueCommand({ QueueUrl: queueUrl }));
     }
     sqsClient?.destroy();
+    snsClient?.destroy();
   });
 
   // 1. Happy Path: Registration

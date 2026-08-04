@@ -14,23 +14,32 @@ variable "queues" {
   validation {
     condition = (
       alltrue([
-        for required_key in ["user_events", "notification", "ingestion"] :
+        for required_key in ["notification", "ingestion"] :
         contains(keys(var.queues), required_key)
       ]) &&
-      endswith(var.queues.user_events.name, "user-events") &&
       endswith(var.queues.notification.name, "notification-queue") &&
       endswith(var.queues.ingestion.name, "ingestion-queue") &&
+      alltrue([
+        for subscriber in [
+          "user_events_rag",
+          "user_events_orchestration",
+          "user_events_exam",
+          "user_events_speaking",
+          "user_events_writing",
+          "user_events_notification",
+        ] :
+        contains(keys(var.queues), subscriber)
+      ]) &&
       alltrue([
         for key, queue in var.queues :
         startswith(key, "user_events_") ? startswith(queue.name, "${var.name_prefix}-user-events-") : true
       ])
     )
-    error_message = "GOA requires user-events, notification-queue, ingestion-queue, and AccountDeleted subscriber queues to follow the user-events-* naming contract."
+    error_message = "GOA requires notification-queue, ingestion-queue, and all user-events subscriber queues to follow the naming contract."
   }
 
   validation {
     condition = (
-      var.queues.user_events.visibility_timeout_seconds == 30 &&
       var.queues.notification.visibility_timeout_seconds == 30 &&
       var.queues.ingestion.visibility_timeout_seconds >= 900 &&
       alltrue([

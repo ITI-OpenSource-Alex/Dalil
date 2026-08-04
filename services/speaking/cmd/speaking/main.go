@@ -49,6 +49,20 @@ func main() {
 	// because it answers every session successfully and silently discards the
 	// result — which is precisely what happened while nothing ran these at all
 	// (BUG-039).
+	if len(os.Args) > 1 && os.Args[1] == "migrate" {
+		if os.Getenv("MIGRATION_DIRECTION") == "down" {
+			if err := db.RunDownMigrations(ctx, dbPool, migrations.FS); err != nil {
+				log.Fatal().Err(err).Msg("Database migration rollback failed")
+			}
+			log.Info().Msg("Speaking service migration rollback completed; exiting migrate-only task")
+			return
+		}
+		if err := db.RunMigrations(ctx, dbPool, migrations.FS); err != nil {
+			log.Fatal().Err(err).Msg("Database migrations failed")
+		}
+		log.Info().Msg("Speaking service migrations completed; exiting migrate-only task")
+		return
+	}
 	if err := db.RunMigrations(ctx, dbPool, migrations.FS); err != nil {
 		log.Fatal().Err(err).Msg("Database migrations failed")
 	}

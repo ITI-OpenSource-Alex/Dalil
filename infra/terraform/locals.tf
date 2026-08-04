@@ -114,6 +114,17 @@ locals {
     }
   }
 
+  ecs_migration_commands = {
+    gateway       = ["sh", "-c", "echo 'gateway owns no database migrations'"]
+    user          = ["npm", "run", "migration:run:prod"]
+    orchestration = ["python", "-m", "app.migrate"]
+    speaking      = ["./speaking", "migrate"]
+    writing       = ["python", "-m", "app.init_db"]
+    rag           = ["python", "-m", "app.migrate"]
+    exam          = ["python", "-m", "app.migrate"]
+    ingestion     = ["python", "-m", "app.migrate"]
+  }
+
   postgres_databases = {
     user          = "user_db"
     orchestration = "orchestration_db"

@@ -52,6 +52,10 @@ func main() {
 	if err := db.RunMigrations(ctx, dbPool, migrations.FS); err != nil {
 		log.Fatal().Err(err).Msg("Database migrations failed")
 	}
+	if len(os.Args) > 1 && os.Args[1] == "migrate" {
+		log.Info().Msg("Speaking service migrations completed; exiting migrate-only task")
+		return
+	}
 
 	// 2. Initialize Repositories and Specialist Clients
 	dbRepo := db.NewPostgresRepository(dbPool)

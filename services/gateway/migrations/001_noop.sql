@@ -1,0 +1,2 @@
+-- Gateway owns no database schema. This file exists so the CI/CD migration
+-- contract has an explicit, numbered no-op migration for the service.

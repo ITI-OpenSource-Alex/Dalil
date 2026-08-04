@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { ArrowRight, Check } from "lucide-react";
+import { ArrowRight, Check, Sparkles } from "lucide-react";
 import { Badge, Button, Heading, Icon, Text } from "@/components/ui";
+import { cn } from "@/lib/cn";
 import { Container } from "./section";
 import { Enter } from "./enter";
 import { HeroDemo } from "./hero-demo";
@@ -47,10 +48,10 @@ export function Hero() {
                 tone="brand"
                 variant="outline"
                 size="lg"
+                icon={Sparkles}
                 pill
                 className="bg-surface/80 backdrop-blur-sm"
               >
-                <span className="text-accent-fg">✦</span>
                 The AI study abroad platform
               </Badge>
             </Enter>
@@ -88,7 +89,16 @@ export function Hero() {
 
             <Enter delay={240}>
               <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
-                <Button asChild size="lg" trailingIcon={ArrowRight}>
+                <Button
+                  asChild
+                  size="lg"
+                  trailingIcon={ArrowRight}
+                  className={cn(
+                    "group transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-out",
+                    "hover:-translate-y-0.5 hover:shadow-e2",
+                    "[&_svg]:transition-transform [&_svg]:duration-200 [&_svg]:ease-out group-hover:[&_svg]:translate-x-0.5",
+                  )}
+                >
                   <Link href="/register">Get started free</Link>
                 </Button>
                 <Button asChild size="lg" variant="secondary">

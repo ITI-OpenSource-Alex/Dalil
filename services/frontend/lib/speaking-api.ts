@@ -4,11 +4,19 @@ import {
   SpeakingSessionSummary,
 } from "@/app/types/speaking";
 
-// The speaking service is reached directly from the browser, the same way
-// speaking-websocket.ts connects straight to its /ws endpoint — there's no
-// gateway route for it (see the Phase 0 report for why).
-const API_BASE =
-  process.env.NEXT_PUBLIC_SPEAKING_API_URL ?? "http://localhost:8082";
+// GOA-132: every browser-facing call now goes through the Gateway, which owns
+// JWT validation, rate limiting, correlation IDs, and keeps INTERNAL_API_KEY
+// server-side. It also sources userId from the validated token rather than from
+// the caller — which is why the userId parameters these functions used to take
+// are gone. The value was never the client's to supply: Speaking scoped
+// /sessions/{id} to a user only when a userId query parameter was present, so
+// omitting it returned any user's transcript.
+const API_BASE = `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080"}/api/speaking`;
+
+// Public share reads are unauthenticated by design (the recipient of a link has
+// no account), so they sit outside the Gateway's /api group and must not carry
+// credentials.
+const PUBLIC_BASE = `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080"}/speaking`;
 
 async function parseJSONOrThrow<T>(response: Response): Promise<T> {
   if (!response.ok) {
@@ -20,48 +28,48 @@ async function parseJSONOrThrow<T>(response: Response): Promise<T> {
   return response.json();
 }
 
-/** GET /sessions?userId=... — a user's speaking history, most recent first. */
-export async function listSpeakingSessions(
-  userId: string,
-): Promise<SpeakingSessionSummary[]> {
-  const response = await fetch(
-    `${API_BASE}/sessions?userId=${encodeURIComponent(userId)}`,
-    { cache: "no-store" },
-  );
+/**
+ * GET /api/speaking/sessions — the signed-in user's history, most recent first.
+ *
+ * credentials: "include" is not optional. Auth rides on an HttpOnly cookie and
+ * fetch does not send cookies cross-origin by default; the frontend is :3000
+ * and the Gateway is :8080, so without it every call 401s.
+ */
+export async function listSpeakingSessions(): Promise<SpeakingSessionSummary[]> {
+  const response = await fetch(`${API_BASE}/sessions`, {
+    cache: "no-store",
+    credentials: "include",
+  });
   return parseJSONOrThrow<SpeakingSessionSummary[]>(response);
 }
 
-/**
- * GET /sessions/{id} — full breakdown for a single session. Passing userId
- * lets the backend scope the lookup to the requesting user (see Phase 0
- * report for the current, auth-less limits of that check).
- */
+/** GET /api/speaking/sessions/{id} — full breakdown, scoped to the token's user. */
 export async function getSpeakingSession(
   sessionId: string,
-  userId?: string,
 ): Promise<SpeakingSessionDetail> {
-  const query = userId ? `?userId=${encodeURIComponent(userId)}` : "";
-  const response = await fetch(`${API_BASE}/sessions/${sessionId}${query}`, {
+  const response = await fetch(`${API_BASE}/sessions/${sessionId}`, {
     cache: "no-store",
+    credentials: "include",
   });
   return parseJSONOrThrow<SpeakingSessionDetail>(response);
 }
 
-/** POST /sessions/{id}/share — mints (or returns the existing) public share token. */
+/** POST /api/speaking/sessions/{id}/share — mints (or returns) the share token. */
 export async function createShareLink(
   sessionId: string,
 ): Promise<CreateShareLinkResponse> {
   const response = await fetch(`${API_BASE}/sessions/${sessionId}/share`, {
     method: "POST",
+    credentials: "include",
   });
   return parseJSONOrThrow<CreateShareLinkResponse>(response);
 }
 
-/** GET /sessions/public/{token} — unauthenticated read of a shared session. */
+/** GET /speaking/sessions/public/{token} — unauthenticated read of a shared session. */
 export async function getPublicSpeakingSession(
   shareToken: string,
 ): Promise<SpeakingSessionDetail> {
-  const response = await fetch(`${API_BASE}/sessions/public/${shareToken}`, {
+  const response = await fetch(`${PUBLIC_BASE}/sessions/public/${shareToken}`, {
     cache: "no-store",
   });
   return parseJSONOrThrow<SpeakingSessionDetail>(response);

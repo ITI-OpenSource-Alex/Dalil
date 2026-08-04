@@ -74,12 +74,23 @@ class Settings(BaseSettings):
     # ws://speaking:8082/ws and http://writing:8000/... which no browser can
     # resolve (BUG-016).
     #
-    # Writing's SSE now goes through the Gateway, so it inherits JWT auth, rate
-    # limiting and correlation IDs. Speaking's WebSocket does not yet -- the
-    # Gateway has no WS proxy (BUG-029 / GOA-094), so it is published directly
-    # for now and tracked as a follow-up.
+    # Both Writing's SSE and Speaking's WebSocket now go through the Gateway,
+    # so both inherit JWT auth, rate limiting and correlation IDs (GOA-132
+    # closed the last of BUG-029's four flows).
     public_gateway_url: str = "http://localhost:8080"
-    public_speaking_ws_url: str = "ws://localhost:8082/ws"
+
+    @property
+    def public_speaking_ws_url(self) -> str:
+        """The browser-facing Speaking socket, always on the Gateway.
+
+        Derived from public_gateway_url rather than configured separately:
+        PUBLIC_SPEAKING_WS_URL used to be its own setting, and a second address
+        for the same product is a second thing to get wrong in staging. There is
+        now one browser-facing URL and one scheme mapping.
+        """
+        scheme = "wss" if self.public_gateway_url.startswith("https") else "ws"
+        host = self.public_gateway_url.split("://", 1)[-1].rstrip("/")
+        return f"{scheme}://{host}/api/speaking/ws"
 
     model_config = SettingsConfigDict(
         env_file=".env",

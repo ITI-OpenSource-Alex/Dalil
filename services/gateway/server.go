@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/websocket/v2"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 )
@@ -70,6 +71,15 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	streamHandler := handlers.NewStreamHandler(
 		streamClient, cfg.OrchestrationServiceURL, cfg.WritingServiceURL, cfg.InternalApiKey,
 	)
+	speakingHandler := handlers.NewSpeakingHandler(httpClient, cfg.SpeakingServiceURL, cfg.InternalApiKey)
+	speakingWSHandler, err := handlers.NewSpeakingWSHandler(cfg.SpeakingServiceURL, logger)
+	if err != nil {
+		return nil, err
+	}
+	// streamClient, not httpClient: RAG's /match scores every candidate program
+	// sequentially, each with a potential LLM boost, so an uncached search does
+	// not fit the shared 10s budget.
+	opportunitiesHandler := handlers.NewOpportunitiesHandler(streamClient, cfg.RAGServiceURL, cfg.InternalApiKey)
 	awsOptions := []func(*awsconfig.LoadOptions) error{
 		awsconfig.WithRegion(cfg.AWSRegion),
 	}
@@ -183,6 +193,32 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 		middleware.AIRateLimiter(redisClient, "essay_evaluation", cfg.EssayEvalsPerHour, time.Hour, logger, metrics),
 		streamHandler.WritingEvaluate)
 	api.Get("/notifications", notificationHandler.List)
+
+	// GOA-132: the last two flows that reached their services directly from the
+	// browser (BUG-029). Speaking's socket was published as
+	// PUBLIC_SPEAKING_WS_URL and its session routes as NEXT_PUBLIC_SPEAKING_API_URL,
+	// both with no JWT check, no rate limit and no correlation ID.
+	//
+	// The session routes are the more urgent half: Speaking scopes GET
+	// /sessions/{id} to a user only when a userId query parameter is present,
+	// and the browser was supplying it -- so omitting it returned any user's
+	// transcript. Inside this group userId comes from the token instead.
+	api.Get("/speaking/sessions", speakingHandler.ListSessions)
+	api.Get("/speaking/sessions/:sessionId", speakingHandler.GetSession)
+	api.Post("/speaking/sessions/:sessionId/share", speakingHandler.CreateShareLink)
+	// Mounted in the /api group so JWT validation, rate limiting and the
+	// correlation ID all apply to the upgrade REQUEST itself. That is what
+	// "authenticated at upgrade time, not after" means in practice, and it needs
+	// no new auth code: middleware.JWT already falls back to the access_token
+	// cookie, which browsers do send on a WebSocket handshake.
+	api.Get("/speaking/ws", speakingWSHandler.Upgrade, websocket.New(speakingWSHandler.Proxy))
+	// Public share reads are unauthenticated by design -- the recipient of a
+	// share link has no account -- so this one sits outside the JWT group.
+	app.Get("/speaking/sessions/public/:token", speakingHandler.GetPublicSession)
+
+	api.Post("/opportunities/query",
+		middleware.AIRateLimiter(redisClient, "opportunity_search", cfg.OpportunitySearchesPerHour, time.Hour, logger, metrics),
+		opportunitiesHandler.Query)
 	app.Post(
 		"/cv/upload",
 		middleware.JWT(cfg.JWTSecret, redisClient, metrics),

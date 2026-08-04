@@ -243,7 +243,7 @@ test.describe("Frontend E2E & Browser Integration Tests (FE-01 to FE-06)", () =>
         `event: metadata\n` +
         `data: ${JSON.stringify({ type: "metadata", intent: "SPEAKING", confidence: 0.99 })}\n\n` +
         `event: speaking_url\n` +
-        `data: ${JSON.stringify({ type: "speaking_url", wsUrl: "ws://localhost:8082/ws" })}\n\n`;
+        `data: ${JSON.stringify({ type: "speaking_url", wsUrl: "ws://localhost:8080/api/speaking/ws" })}\n\n`;
       await route.fulfill({
         status: 200,
         contentType: "text/event-stream",

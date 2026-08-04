@@ -5,7 +5,8 @@ import { Award } from "lucide-react";
 import { SpeakingCriteriaScores } from "@/app/types/speaking";
 
 interface EvaluationBreakdownProps {
-  overallBand: number;
+  /** null when fewer than 3 of the 4 criteria completed (GOA-032, BUG-040). */
+  overallBand: number | null;
   criteria: SpeakingCriteriaScores;
   feedback?: string;
   className?: string;
@@ -50,15 +51,21 @@ export default function EvaluationBreakdown({
         transition={{ duration: 0.3, delay: 0.15 }}
         className="flex items-center gap-3 bg-emerald-50/50 p-2.5 rounded-lg mb-4"
       >
-        <div className="w-12 h-12 rounded-full bg-emerald-600 text-white flex items-center justify-center font-extrabold text-lg">
-          {overallBand}
+        <div
+          className={`w-12 h-12 rounded-full text-white flex items-center justify-center font-extrabold text-lg ${
+            overallBand === null ? "bg-gray-400" : "bg-emerald-600"
+          }`}
+        >
+          {overallBand ?? "—"}
         </div>
         <div>
           <p className="text-xs font-semibold text-[#0E3D23]">
             Estimated Overall Band
           </p>
           <p className="text-[10px] text-[#526053]">
-            Based on criterion rubrics
+            {overallBand === null
+              ? "Not enough criteria completed to score"
+              : "Based on criterion rubrics"}
           </p>
         </div>
       </motion.div>
@@ -69,12 +76,14 @@ export default function EvaluationBreakdown({
           <div key={idx}>
             <div className="flex justify-between text-[11px] font-medium text-[#1D291E]">
               <span>{item.label}</span>
-              <span className="font-bold">Band {item.score}</span>
+              <span className="font-bold">
+                {item.score === null ? "Not scored" : `Band ${item.score}`}
+              </span>
             </div>
             <div className="w-full bg-[#F0F3EF] h-1 rounded-full overflow-hidden mt-1">
               <motion.div
                 initial={{ width: 0 }}
-                animate={{ width: `${(item.score / 9) * 100}%` }}
+                animate={{ width: `${((item.score ?? 0) / 9) * 100}%` }}
                 transition={{
                   duration: 0.5,
                   delay: 0.2 + idx * 0.08,

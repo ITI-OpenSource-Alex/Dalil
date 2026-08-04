@@ -5,12 +5,9 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { useSessionHistory } from "@/app/hooks/useSessionHistory";
 import SessionHistoryList from "@/components/speaking/session-history-list";
 import BandTrendChart from "@/components/speaking/band-trend-chart";
-import { CURRENT_USER_ID } from "@/lib/current-user";
 
 export default function SpeakingHistoryPage() {
-  const { sessions, status, error, retry } = useSessionHistory(
-    CURRENT_USER_ID,
-  );
+  const { sessions, status, error, retry } = useSessionHistory();
 
   return (
     <div className="flex min-h-screen bg-[#fbfbfa] text-gray-900 font-sans">

@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/* Landing-page navbar links (#features, #how-it-works, #pricing) jump
+   instantly without this -- scoped to html rather than a single section
+   since the scrolling element is the document itself. */
+html {
+  scroll-behavior: smooth;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -37,4 +44,17 @@ body {
   --danger: #ef4444;
 
   --border: #e2e8f0;
+}
+
+/* GOA-035: checklist PDF export via the browser's print dialog. Elements outside
+   the checklist (sidebar nav, header actions) hide; phase sections avoid splitting
+   across a page break where possible. */
+@media print {
+  .print-hidden {
+    display: none !important;
+  }
+
+  .print-avoid-break {
+    break-inside: avoid;
+  }
 }

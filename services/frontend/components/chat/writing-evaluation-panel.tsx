@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import type { CriterionEvaluation } from "@/lib/writing-api";
 import EssayHighlighter, { EssayIssue } from "./essay-highlighter";
+import InlineAlert from "@/components/speaking/inline-alert";
 
 interface SimpleCriterionScore {
   band: number;
@@ -26,6 +27,8 @@ interface WritingEvaluationPanelProps {
   inlineIssues?: CriterionEvaluation[];
   improvedEssay?: string; // paid tier
   isPaidTier?: boolean;
+  /** Set when the evaluation stream failed to open or errored mid-stream. */
+  error?: string | null;
 }
 
 const labels: Record<string, string> = {
@@ -73,6 +76,7 @@ export default function WritingEvaluationPanel({
   inlineIssues = [],
   improvedEssay,
   isPaidTier = false,
+  error = null,
 }: WritingEvaluationPanelProps) {
   const [essayView, setEssayView] = useState<EssayView>("original");
 
@@ -109,6 +113,13 @@ export default function WritingEvaluationPanel({
           Download PDF
         </button>
       </div>
+
+      {error && (
+        <InlineAlert
+          title="Essay evaluation failed"
+          description={error}
+        />
+      )}
 
       <div className="space-y-4">
         <AnimatePresence>

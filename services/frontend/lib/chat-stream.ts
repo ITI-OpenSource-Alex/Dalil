@@ -3,11 +3,19 @@
 /* -------------------------------------------------------------------------- */
 
 export interface Opportunity {
+  // See components/chat/chat-shell.tsx's Opportunity type for why this was added
+  // (GOA-035): RAG's /match already returns it, this type just wasn't declaring it.
+  // `result.score` (0-100) is the real field name/scale -- see that type's
+  // comment for why this isn't a flat `confidence: number`.
+  programId: string;
   programName: string;
   university: string;
   country: string;
   deadline: string;
-  confidence: number;
+  result: {
+    score: number;
+    blocked_by: string | null;
+  };
 }
 
 export interface EvaluationDimension {
@@ -79,7 +87,13 @@ export class SSEParser {
    * Returns all COMPLETE SSE events found.
    */
   push(chunk: string): ChatEvent[] {
-    this.buffer += chunk;
+    // Orchestration's EventSourceResponse (sse-starlette) frames events with
+    // CRLF ("\r\n"), not the bare LF this parser's "\n\n" separator search
+    // expects. Left unnormalized, indexOf("\n\n") never matches, every event
+    // silently accumulates in the buffer, and flush() eventually concatenates
+    // multiple JSON payloads into one invalid blob that fails JSON.parse --
+    // the assistant's reply never renders at all, with no visible error.
+    this.buffer += chunk.replace(/\r\n/g, "\n");
 
     const events: ChatEvent[] = [];
 

@@ -9,7 +9,8 @@ export function middleware(request: NextRequest) {
   const isProtectedRoute =
     pathname.startsWith("/chat") ||
     pathname.startsWith("/profile") ||
-    pathname.startsWith("/speaking/history");
+    pathname.startsWith("/speaking/history") ||
+    pathname.startsWith("/checklist");
 
   const isAuthRoute = pathname.startsWith("/login") || pathname.startsWith("/register");
 
@@ -29,6 +30,7 @@ export const config = {
     "/chat/:path*",
     "/profile/:path*",
     "/speaking/history/:path*",
+    "/checklist/:path*",
     "/login",
     "/register",
   ],

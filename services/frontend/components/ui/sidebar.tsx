@@ -2,10 +2,28 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useCurrentUser } from "@/app/hooks/useCurrentUser";
+
+// Derives up to 2 uppercase initials from an email's local part (the
+// segment before "@") for the avatar badge -- CurrentUser carries no
+// separate display name, only an email.
+function initialsFromEmail(email: string): string {
+  const localPart = email.split("@")[0] ?? "";
+  const letters = localPart.replace(/[^a-zA-Z]/g, "");
+  return (letters.slice(0, 2) || email.slice(0, 2) || "?").toUpperCase();
+}
 
 export function Sidebar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+  // GOA-035/BUG-047: the account badge previously always showed a
+  // hardcoded "Lina Ahmadi" persona regardless of who was actually logged
+  // in. The Sidebar renders on every authenticated page, so this issues
+  // its own GET /api/profile per page load -- an accepted, cheap
+  // duplication (see doc 04) rather than a shared context provider.
+  const { user, status: profileStatus } = useCurrentUser();
+  const identityLoading =
+    profileStatus === "loading" || profileStatus === "idle";
 
   // Close the drawer whenever the route changes
   useEffect(() => {
@@ -20,14 +38,32 @@ export function Sidebar() {
     };
   }, [isOpen]);
 
-  const navItems = [
+  // href: null marks an entry as unavailable -- rendered as an inert
+  // "Soon" chip rather than a Link, instead of the previous href="#" dead
+  // link (GOA-035/BUG-047 doc 06). matchStrategy: "prefix" is opt-in, only
+  // for routes with real child routes that should share the highlight
+  // (/exam/shell, /exam/results under IELTS; /speaking/history/[id] under
+  // Speaking History) -- every other route matches exactly, so a route
+  // like /profile is never marked active while merely prefixed by another
+  // route's path.
+  const navItems: {
+    label: string;
+    icon: (props: { className?: string }) => React.ReactElement;
+    href: string | null;
+    matchStrategy?: "exact" | "prefix";
+  }[] = [
     { label: "Chat", icon: ChatIcon, href: "/chat" },
-    { label: "Opportunities", icon: OpportunitiesIcon, href: "#" },
-    { label: "Checklists", icon: ChecklistsIcon, href: "#" },
-    { label: "IELTS", icon: IELTSIcon, href: "/exam" },
-    { label: "Speaking History", icon: SpeakingHistoryIcon, href: "/speaking/history" },
-    { label: "CV Review", icon: CVReviewIcon, href: "#" },
-    { label: "Profile", icon: ProfileIcon, href: "#" },
+    { label: "Opportunities", icon: OpportunitiesIcon, href: null },
+    { label: "Checklists", icon: ChecklistsIcon, href: null },
+    { label: "IELTS", icon: IELTSIcon, href: "/exam", matchStrategy: "prefix" },
+    {
+      label: "Speaking History",
+      icon: SpeakingHistoryIcon,
+      href: "/speaking/history",
+      matchStrategy: "prefix",
+    },
+    { label: "CV Review", icon: CVReviewIcon, href: null },
+    { label: "Profile", icon: ProfileIcon, href: "/profile" },
   ];
 
   return (
@@ -106,8 +142,32 @@ export function Sidebar() {
           {/* Navigation Items */}
           <nav className="space-y-1">
             {navItems.map((item) => {
-              const isActive = pathname.startsWith(item.href);
               const Icon = item.icon;
+
+              if (!item.href) {
+                return (
+                  <div
+                    key={item.label}
+                    aria-disabled="true"
+                    title={`${item.label} — coming soon`}
+                    className="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-full text-sm font-medium text-gray-400 cursor-not-allowed select-none"
+                  >
+                    <span className="flex items-center gap-3">
+                      <Icon className="w-4 h-4 text-gray-300" />
+                      <span>{item.label}</span>
+                    </span>
+                    <span className="text-[9px] uppercase font-bold tracking-wider text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full shrink-0">
+                      Soon
+                    </span>
+                  </div>
+                );
+              }
+
+              const isActive =
+                item.matchStrategy === "prefix"
+                  ? pathname === item.href || pathname.startsWith(`${item.href}/`)
+                  : pathname === item.href;
+
               return (
                 <Link
                   key={item.label}
@@ -152,14 +212,13 @@ export function Sidebar() {
           {/* User Badge */}
           <div className="flex items-center gap-3 px-2 pt-2 border-t border-gray-100">
             <div className="w-8 h-8 rounded-full bg-[#1b4332] text-white flex items-center justify-center text-xs font-bold shrink-0">
-              LA
+              {identityLoading ? "···" : user ? initialsFromEmail(user.email) : "?"}
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-xs font-bold text-gray-900 truncate">
-                Lina Ahmadi
-              </p>
-              <p className="text-[11px] text-gray-400 truncate">
-                lina.ahmadi@goa.app
+                {identityLoading
+                  ? "Loading…"
+                  : (user?.email ?? "Not signed in")}
               </p>
             </div>
           </div>

@@ -70,3 +70,14 @@ FAQ_STALE_SUPPRESSED_TOTAL = Counter(
     "goa_faq_stale_suppressed_total",
     "FAQ matches suppressed because the entry is past its review window",
 )
+
+CHECKLIST_GENERATED_TOTAL = Counter(
+    "goa_rag_checklist_generated_total",
+    "Total number of checklists generated, by source",
+    labelnames=["source"],  # "llm" or "fallback"
+)
+CHECKLIST_GENERATION_LATENCY = Histogram(
+    "goa_rag_checklist_generation_latency_ms",
+    "Latency of checklist generation (LLM call or fallback) in milliseconds",
+    buckets=[50, 100, 250, 500, 1000, 2500, 5000, 10000, 30000],
+)

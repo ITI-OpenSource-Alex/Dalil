@@ -7,7 +7,6 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { useSessionDetail } from "@/app/hooks/useSessionDetail";
 import EvaluationBreakdown from "@/components/speaking/evaluation-breakdown";
 import ShareButton from "@/components/speaking/share-button";
-import { CURRENT_USER_ID } from "@/lib/current-user";
 import { extractCriteriaScores, formatSessionDateTime } from "@/lib/speaking-format";
 
 export default function SpeakingSessionDetailPage() {
@@ -15,10 +14,7 @@ export default function SpeakingSessionDetailPage() {
   const sessionId = params.id;
   const [transcriptOpen, setTranscriptOpen] = useState(false);
 
-  const { session, status, error, retry } = useSessionDetail(
-    sessionId,
-    CURRENT_USER_ID,
-  );
+  const { session, status, error, retry } = useSessionDetail(sessionId);
 
   return (
     <div className="flex min-h-screen bg-[#fbfbfa] text-gray-900 font-sans">

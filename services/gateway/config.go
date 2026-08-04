@@ -28,6 +28,12 @@ type Config struct {
 	// Chat is proxied rather than called from the browser, so the Gateway needs
 	// to know where Orchestration lives (BUG-029, BUG-044).
 	OrchestrationServiceURL string        `envconfig:"ORCHESTRATION_SERVICE_URL" default:"http://orchestration:8083"`
+	// GOA-132: the Gateway now proxies Speaking's session routes and its
+	// WebSocket, and exposes RAG's profile matching. SpeakingServiceURL is the
+	// http:// address; the ws:// upstream is derived from it in
+	// handlers.NewSpeakingWSHandler so the two cannot drift to different hosts.
+	SpeakingServiceURL      string        `envconfig:"SPEAKING_SERVICE_URL" default:"http://speaking:8082"`
+	RAGServiceURL           string        `envconfig:"RAG_SERVICE_URL" default:"http://rag:8084"`
 	UserServiceURL          string        `envconfig:"USER_SERVICE_URL" required:"true"`
 	InternalApiKey          string        `envconfig:"INTERNAL_API_KEY" required:"true"`
 	AdminAPIKey             string        `envconfig:"ADMIN_API_KEY"`
@@ -44,6 +50,10 @@ type Config struct {
 	// which is how the E2E suite and the load test run without weakening the
 	// shipped defaults.
 	ChatQueriesPerHour   int `envconfig:"CHAT_QUERIES_PER_HOUR" default:"20"`
+	// GOA-132: /match runs a scoring pass per program row, each with a potential
+	// LLM boost, so opportunity search is a real spend path rather than a cheap
+	// read and gets the same treatment as chat and essay evaluation.
+	OpportunitySearchesPerHour int `envconfig:"OPPORTUNITY_SEARCHES_PER_HOUR" default:"20"`
 	EssayEvalsPerHour    int `envconfig:"ESSAY_EVALS_PER_HOUR" default:"5"`
 	CVReviewsPerHour     int `envconfig:"CV_REVIEWS_PER_HOUR" default:"5"`
 	BudgetUSD           float64 `envconfig:"BUDGET_USD" default:"150.0"`

@@ -21,20 +21,27 @@ import { streamWritingEvaluation, WritingEvent } from "@/lib/writing-stream";
 // imported, so the frontend did not compile; that arrived on dev with the
 // inline-feedback work and is not something this branch introduced.
 import type { CriterionEvaluation } from "@/lib/writing-api";
-import { SpeakingEvaluationResult } from "@/app/types/speaking";
+import {
+  SpeakingDimensions,
+  SpeakingEvaluationResult,
+} from "@/app/types/speaking";
 import { extractCriteriaScores } from "@/lib/speaking-format";
 import { CURRENT_USER_ID } from "@/lib/current-user";
 import { getChatSessionId, startNewChatSession } from "@/lib/chat-session";
 
-// The speaking service is reached directly from the browser — same rationale
-// as lib/speaking-api.ts, which notes there's no gateway route for it. Derive
-// the WebSocket origin from that same env var so one setting moves both the
-// REST and WS endpoints together. http -> ws, https -> wss.
+// GOA-132: the speaking socket now goes through the Gateway like every other
+// browser call, so it picks up JWT validation at upgrade time, rate limiting
+// and a correlation ID. NEXT_PUBLIC_SPEAKING_API_URL is gone — it pointed the
+// browser straight at :8082, which had none of those.
+//
+// Derived from the single Gateway URL so the two cannot drift. http -> ws,
+// https -> wss. Orchestration also emits this URL on the speaking_url event;
+// this constant is the fallback when the socket is opened without a chat turn.
 const SPEAKING_WS_URL =
-  (process.env.NEXT_PUBLIC_SPEAKING_API_URL ?? "http://localhost:8082").replace(
+  (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080").replace(
     /^http/,
     "ws",
-  ) + "/ws";
+  ) + "/api/speaking/ws";
 
 // Chat goes through the Gateway. These two calls used relative paths, i.e. to
 // the Next.js server itself, where no route handler was ever written — both
@@ -361,8 +368,10 @@ export default function ChatShell() {
             role: "assistant",
             content: "Speaking evaluation completed.",
             evaluation: {
-              overallScore: evaluation.overall_band,
-              criteria: extractCriteriaScores(evaluation.dimensions),
+              overallScore: evaluation.overall_band ?? null,
+              criteria: extractCriteriaScores(
+                evaluation.dimensions as SpeakingDimensions,
+              ),
               feedback: evaluation.overall_feedback,
             },
           },

@@ -64,6 +64,16 @@ export default function ProfilePage() {
             <Text size="sm" tone="muted" className="mb-4 font-semibold">
               Application Profile
             </Text>
+            {!user.profile && (
+              <Alert tone="info" announce="none" className="mb-4">
+                Your application profile is incomplete.
+                <div className="mt-3">
+                  <Button size="sm" asChild>
+                    <Link href="/onboarding">Complete Profile</Link>
+                  </Button>
+                </div>
+              </Alert>
+            )}
             {user.profile ? (
               <dl className="grid grid-cols-2 gap-4 text-sm">
                 <Field label="Degree level" value={user.profile.degreeLevel} />

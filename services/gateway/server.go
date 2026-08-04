@@ -286,6 +286,11 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	// GOA-035/BUG-047: the authenticated user's own profile, proxied to the User
 	// service's existing GET /users/:id (no new User-service endpoint needed).
 	api.Get("/profile", profileHandler.GetProfile)
+	// GOA frontend Phase 3: exposes profiles.controller.ts's existing PUT
+	// :id/profile so the onboarding wizard can persist academic/language/target
+	// data instead of discarding it (BUG onboarding-handleFinish). Routing only --
+	// same proxy shape as GetProfile above, no User-service change.
+	api.Put("/profile", profileHandler.UpdateProfile)
 	app.Post(
 		"/cv/upload",
 		middleware.JWT(cfg.JWTSecret, redisClient, metrics),

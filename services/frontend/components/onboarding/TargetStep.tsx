@@ -1,215 +1,140 @@
 "use client";
 
 import { useState } from "react";
-
-interface TargetsData {
-  destinations: string[];
-  targetDegree: string;
-  targetMajor: string;
-  targetIntake: string;
-}
+import { ArrowLeft, ArrowRight } from "lucide-react";
+import { cn } from "@/lib/cn";
+import { Button, Field, Heading, Input, Select, Text } from "@/components/ui";
+import { DESTINATION_COUNTRIES, type TargetsData } from "./types";
 
 interface TargetsStepProps {
   onNext: (data: TargetsData) => void;
   onBack: () => void;
-  initialData?: TargetsData;
+  initialData: TargetsData;
 }
 
-const AVAILABLE_COUNTRIES = [
-  { id: "us", name: "United States 🇺🇸" },
-  { id: "uk", name: "United Kingdom 🇬🇧" },
-  { id: "ca", name: "Canada 🇨🇦" },
-  { id: "de", name: "Germany 🇩🇪" },
-  { id: "au", name: "Australia 🇦🇺" },
-  { id: "eu", name: "Other Europe 🇪🇺" },
-];
+type Errors = Partial<Record<keyof TargetsData, string>>;
 
-export default function TargetsStep({
-  onNext,
-  onBack,
-  initialData,
-}: TargetsStepProps) {
-  const [formData, setFormData] = useState<TargetsData>({
-    destinations: initialData?.destinations || [],
-    targetDegree: initialData?.targetDegree || "",
-    targetMajor: initialData?.targetMajor || "",
-    targetIntake: initialData?.targetIntake || "",
-  });
+export default function TargetsStep({ onNext, onBack, initialData }: TargetsStepProps) {
+  const [formData, setFormData] = useState<TargetsData>(initialData);
+  const [errors, setErrors] = useState<Errors>({});
 
-  const [errors, setErrors] = useState<Record<string, string>>({});
-
-  const validate = (): boolean => {
-    const newErrors: Record<string, string> = {};
+  function validate(): Errors {
+    const next: Errors = {};
     if (formData.destinations.length === 0)
-      newErrors.destinations = "Select at least one destination country";
-    if (!formData.targetDegree)
-      newErrors.targetDegree = "Please select your target degree level";
-    if (!formData.targetMajor.trim())
-      newErrors.targetMajor = "Please enter your intended field of study";
-    if (!formData.targetIntake)
-      newErrors.targetIntake = "Please select your preferred start term";
+      next.destinations = "Select at least one destination country.";
+    if (!formData.targetDegree) next.targetDegree = "Select your target degree level.";
+    if (!formData.targetMajor.trim()) next.targetMajor = "Enter your intended field of study.";
+    if (!formData.targetIntake) next.targetIntake = "Select your preferred start term.";
+    return next;
+  }
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (validate()) {
-      onNext(formData);
-    }
-  };
+    const nextErrors = validate();
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length === 0) onNext(formData);
+  }
 
-  const handleCountryToggle = (countryName: string) => {
+  function toggleCountry(countryId: string) {
     setFormData((prev) => {
-      const exists = prev.destinations.includes(countryName);
-      const updatedDestinations = exists
-        ? prev.destinations.filter((d) => d !== countryName)
-        : [...prev.destinations, countryName];
-      return { ...prev, destinations: updatedDestinations };
+      const exists = prev.destinations.includes(countryId);
+      return {
+        ...prev,
+        destinations: exists
+          ? prev.destinations.filter((d) => d !== countryId)
+          : [...prev.destinations, countryId],
+      };
     });
-    if (errors.destinations)
-      setErrors((prev) => ({ ...prev, destinations: "" }));
-  };
+    if (errors.destinations) setErrors((prev) => ({ ...prev, destinations: undefined }));
+  }
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
-  ) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
-  };
+  function set<K extends keyof TargetsData>(key: K, value: TargetsData[K]) {
+    setFormData((prev) => ({ ...prev, [key]: value }));
+    if (errors[key]) setErrors((prev) => ({ ...prev, [key]: undefined }));
+  }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="space-y-1">
-        <h2 className="text-xl font-bold text-black">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+      <div>
+        <Heading as="h2" size="md">
           Where do you want to study?
-        </h2>
-        <p className="text-sm text-gray-500">
-          These are starting points. GOA will broaden the search as you chat.
-        </p>
+        </Heading>
+        <Text size="sm" tone="muted" className="mt-1">
+          These are starting points — GOA will broaden the search as you
+          chat.
+        </Text>
       </div>
 
-      {/* Target Destinations (Multi-Select Pills) */}
-      <div className="space-y-2">
-        <label className="text-sm font-semibold text-black">
-          Where do you want to study? (Select all that apply)
-        </label>
-        <div className="grid grid-cols-2 gap-2">
-          {AVAILABLE_COUNTRIES.map((country) => {
-            const isSelected = formData.destinations.includes(country.name);
+      <Field label="Destination countries" hint="Select all that apply." error={errors.destinations}>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" role="group">
+          {DESTINATION_COUNTRIES.map((country) => {
+            const selected = formData.destinations.includes(country.id);
             return (
-              <button
+              <label
                 key={country.id}
-                type="button"
-                onClick={() => handleCountryToggle(country.name)}
-                className={`p-3 border rounded-xl text-left transition text-sm font-medium ${
-                  isSelected
-                    ? "border-emerald-600 bg-emerald-50/30 text-black ring-1 ring-emerald-600"
-                    : "border-gray-200 text-gray-700 hover:border-gray-300 bg-yellow-50"
-                }`}
+                className={cn(
+                  "cursor-pointer rounded-control border p-3 text-center text-sm font-medium transition-colors duration-120 ease-out",
+                  selected
+                    ? "border-brand bg-brand-subtle text-fg ring-1 ring-brand"
+                    : "border-border text-fg-muted hover:border-border-strong hover:bg-canvas-subtle",
+                )}
               >
+                <input
+                  type="checkbox"
+                  checked={selected}
+                  onChange={() => toggleCountry(country.id)}
+                  className="sr-only"
+                />
                 {country.name}
-              </button>
+              </label>
             );
           })}
         </div>
-        {errors.destinations && (
-          <p className="text-xs font-medium text-red-500">
-            {errors.destinations}
-          </p>
-        )}
-      </div>
+      </Field>
 
-      {/* Target Degree Level */}
-      <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-semibold text-black">
-          Target Degree
-        </label>
-        <select
+      <Field label="Target degree" required error={errors.targetDegree}>
+        <Select
           name="targetDegree"
+          placeholder="Select your target degree"
           value={formData.targetDegree}
-          onChange={handleChange}
-          className={`w-full p-2.5 bg-yellow-50 border rounded-lg text-black text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition ${
-            errors.targetDegree ? "border-red-500" : "border-gray-300"
-          }`}
+          onChange={(e) => set("targetDegree", e.target.value)}
         >
-          <option value="">Select your target degree</option>
-          <option value="Bachelors">Bachelor's Degree</option>
-          <option value="Masters">Master's Degree</option>
+          <option value="Bachelors">Bachelor&apos;s degree</option>
+          <option value="Masters">Master&apos;s degree</option>
           <option value="PhD">Ph.D. / Doctorate</option>
-        </select>
-        {errors.targetDegree && (
-          <span className="text-xs font-medium text-red-500">
-            {errors.targetDegree}
-          </span>
-        )}
-      </div>
+        </Select>
+      </Field>
 
-      {/* Target Major / Field */}
-      <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-semibold text-black">
-          Intended Major / Research Field
-        </label>
-        <input
-          type="text"
+      <Field label="Intended major / research field" required error={errors.targetMajor}>
+        <Input
           name="targetMajor"
           placeholder="e.g. Data Science, Mechanical Engineering"
           value={formData.targetMajor}
-          onChange={handleChange}
-          className={`w-full p-2.5 bg-yellow-50 border rounded-lg text-black text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition ${
-            errors.targetMajor ? "border-red-500" : "border-gray-300"
-          }`}
+          onChange={(e) => set("targetMajor", e.target.value)}
         />
-        {errors.targetMajor && (
-          <span className="text-xs font-medium text-red-500">
-            {errors.targetMajor}
-          </span>
-        )}
-      </div>
+      </Field>
 
-      {/* Intended Term / Intake */}
-      <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-semibold text-black">
-          Target Intake Term
-        </label>
-        <select
+      <Field label="Target intake term" required error={errors.targetIntake}>
+        <Select
           name="targetIntake"
+          placeholder="Select an intake term"
           value={formData.targetIntake}
-          onChange={handleChange}
-          className={`w-full p-2.5 bg-yellow-50 border rounded-lg text-black text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition ${
-            errors.targetIntake ? "border-red-500" : "border-gray-300"
-          }`}
+          onChange={(e) => set("targetIntake", e.target.value)}
         >
-          <option value="">Select an intake term</option>
           <option value="Fall 2026">Fall 2026</option>
           <option value="Spring 2027">Spring 2027</option>
           <option value="Fall 2027">Fall 2027</option>
           <option value="Later">Later</option>
-        </select>
-        {errors.targetIntake && (
-          <span className="text-xs font-medium text-red-500">
-            {errors.targetIntake}
-          </span>
-        )}
-      </div>
+        </Select>
+      </Field>
 
-      {/* Navigation Row */}
-      <div className="flex gap-3 pt-2">
-        <button
-          type="button"
-          onClick={onBack}
-          className="w-1/3 border border-gray-300 text-black font-medium py-2.5 px-4 rounded-lg hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-200"
-        >
+      <div className="flex gap-3">
+        <Button type="button" variant="secondary" size="lg" leadingIcon={ArrowLeft} onClick={onBack}>
           Back
-        </button>
-        <button
-          type="submit"
-          className="w-2/3 bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 px-4 rounded-lg shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
-        >
+        </Button>
+        <Button type="submit" size="lg" fullWidth trailingIcon={ArrowRight}>
           Continue
-        </button>
+        </Button>
       </div>
     </form>
   );

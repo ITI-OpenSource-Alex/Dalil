@@ -17,8 +17,10 @@ type sessionSummaryResponse struct {
 	ID             string    `json:"id"`
 	QuestionPrompt string    `json:"question_prompt"`
 	QuestionType   string    `json:"question_type"`
-	OverallBand    float64   `json:"overall_band"`
-	CreatedAt      time.Time `json:"created_at"`
+	// Null when fewer than 3 criteria completed, so a client can render "not
+	// scored" rather than a fabricated 0.0 (GOA-032, BUG-040).
+	OverallBand *float64  `json:"overall_band"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 // sessionDetailResponse is the JSON shape returned by GET /sessions/{id} and
@@ -31,7 +33,7 @@ type sessionDetailResponse struct {
 	QuestionType   string          `json:"question_type"`
 	Transcript     string          `json:"transcript"`
 	Evaluation     json.RawMessage `json:"evaluation"`
-	OverallBand    float64         `json:"overall_band"`
+	OverallBand    *float64        `json:"overall_band"`
 	CreatedAt      time.Time       `json:"created_at"`
 }
 

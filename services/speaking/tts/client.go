@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/internal/httpx"
 	"github.com/rs/zerolog/log"
 )
 
@@ -20,10 +21,11 @@ type Client struct {
 // NewClient initializes the TTS client helper
 func NewClient(url string) *Client {
 	return &Client{
-		url:  url,
-		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
-		},
+		url: url,
+		// Shared pooled transport (GOA-032). Piper is local, so the win here is
+		// keep-alive rather than TLS reuse -- but it is the same two upstreams as
+		// STT, and one pool is what makes MaxIdleConnsPerHost mean anything.
+		httpClient: httpx.NewClient(30 * time.Second),
 	}
 }
 

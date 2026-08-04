@@ -32,7 +32,7 @@ func TestPostgresRepository_Create(t *testing.T) {
 		QuestionType:   "IELTS Part 2",
 		Transcript:     "This is a book description...",
 		Evaluation:     json.RawMessage(`{"fluency": {"band": 7.0}}`),
-		OverallBand:    7.0,
+		OverallBand:    bandPtr(7.0),
 		CreatedAt:      createdAt,
 	}
 
@@ -75,8 +75,8 @@ func TestPostgresRepository_ListByUser_ReturnsSummariesMostRecentFirst(t *testin
 	older := newer.Add(-24 * time.Hour)
 
 	rows := pgxmock.NewRows([]string{"id", "question_prompt", "question_type", "overall_band", "created_at"}).
-		AddRow(uuid.New().String(), "Describe a memorable journey.", "part2", 7.5, newer).
-		AddRow(uuid.New().String(), "Talk about your hometown.", "part1", 6.0, older)
+		AddRow(uuid.New().String(), "Describe a memorable journey.", "part2", bandPtr(7.5), newer).
+		AddRow(uuid.New().String(), "Talk about your hometown.", "part1", bandPtr(6.0), older)
 
 	mock.ExpectQuery("SELECT id, question_prompt, question_type, overall_band, created_at").
 		WithArgs("user-123").
@@ -89,7 +89,7 @@ func TestPostgresRepository_ListByUser_ReturnsSummariesMostRecentFirst(t *testin
 	if len(sessions) != 2 {
 		t.Fatalf("expected 2 sessions, got %d", len(sessions))
 	}
-	if sessions[0].OverallBand != 7.5 || sessions[1].OverallBand != 6.0 {
+	if derefBand(sessions[0].OverallBand) != 7.5 || derefBand(sessions[1].OverallBand) != 6.0 {
 		t.Errorf("unexpected session ordering/content: %+v", sessions)
 	}
 
@@ -145,7 +145,7 @@ func TestPostgresRepository_GetByID_Success(t *testing.T) {
 		"id", "user_id", "question_prompt", "question_type", "transcript", "evaluation", "overall_band", "created_at",
 	}).AddRow(
 		sessionID, "user-123", "Describe a book you read.", "part2", "This is a book description...",
-		json.RawMessage(`{"Fluency and Coherence": {"band": 7.0}}`), 7.0, createdAt,
+		json.RawMessage(`{"Fluency and Coherence": {"band": 7.0}}`), bandPtr(7.0), createdAt,
 	)
 
 	mock.ExpectQuery("SELECT id, user_id, question_prompt, question_type, transcript, evaluation, overall_band, created_at").
@@ -156,7 +156,7 @@ func TestPostgresRepository_GetByID_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	if session.ID != sessionID || session.UserID != "user-123" || session.OverallBand != 7.0 {
+	if session.ID != sessionID || session.UserID != "user-123" || derefBand(session.OverallBand) != 7.0 {
 		t.Errorf("unexpected session content: %+v", session)
 	}
 
@@ -293,7 +293,7 @@ func TestPostgresRepository_GetByShareToken_Success(t *testing.T) {
 		"id", "user_id", "question_prompt", "question_type", "transcript", "evaluation", "overall_band", "created_at",
 	}).AddRow(
 		sessionID, "user-123", "Describe a book you read.", "part2", "This is a book description...",
-		json.RawMessage(`{"Fluency and Coherence": {"band": 7.0}}`), 7.0, createdAt,
+		json.RawMessage(`{"Fluency and Coherence": {"band": 7.0}}`), bandPtr(7.0), createdAt,
 	)
 
 	mock.ExpectQuery("SELECT id, user_id, question_prompt, question_type, transcript, evaluation, overall_band, created_at").
@@ -383,4 +383,16 @@ func TestPostgresRepository_DeleteOlderThan(t *testing.T) {
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled database expectations: %s", err)
 	}
+}
+
+// bandPtr and derefBand keep the nullable overall_band (GOA-032) readable in
+// assertions. OverallBand is a *float64 so "no band was computed" stays
+// distinguishable from a genuine score of 0.0.
+func bandPtr(v float64) *float64 { return &v }
+
+func derefBand(v *float64) float64 {
+	if v == nil {
+		return -1 // never a valid IELTS band, so a nil never accidentally matches
+	}
+	return *v
 }

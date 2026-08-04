@@ -1,0 +1,142 @@
+{
+    "root_group": {
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {},
+        "checks": {
+                "band present iff >=3 criteria completed": {
+                    "name": "band present iff >=3 criteria completed",
+                    "path": "::band present iff >=3 criteria completed",
+                    "id": "1692107be488d3424f827bdbf383ee35",
+                    "passes": 8,
+                    "fails": 0
+                },
+                "upgrade accepted (101)": {
+                    "fails": 0,
+                    "name": "upgrade accepted (101)",
+                    "path": "::upgrade accepted (101)",
+                    "id": "a1be1719b83c42c3dad3ce9757996741",
+                    "passes": 50
+                }
+            },
+        "name": "",
+        "path": ""
+    },
+    "metrics": {
+        "ws_sessions": {
+            "count": 50,
+            "rate": 0.27728069232887337
+        },
+        "checks": {
+            "passes": 58,
+            "fails": 0,
+            "value": 1
+        },
+        "ws_connecting": {
+            "avg": 311.56491411999997,
+            "min": 298.963068,
+            "med": 308.6689935,
+            "max": 326.935171,
+            "p(90)": 325.3499484,
+            "p(95)": 326.41618195
+        },
+        "iteration_duration": {
+            "avg": 166550.52437357997,
+            "min": 48058.017725,
+            "med": 180316.4411785,
+            "max": 180330.778207,
+            "p(90)": 180329.1810848,
+            "p(95)": 180330.0390957
+        },
+        "iterations": {
+            "count": 50,
+            "rate": 0.27728069232887337
+        },
+        "ws_msgs_received": {
+            "count": 48,
+            "rate": 0.26618946463571846
+        },
+        "speaking_time_to_evaluation_ms": {
+            "avg": 93945,
+            "min": 47725,
+            "med": 87099,
+            "max": 151385,
+            "p(90)": 140060.4,
+            "p(95)": 145722.69999999998,
+            "thresholds": {
+                "p(95)<90000": true
+            }
+        },
+        "speaking_overall_band_present": {
+            "passes": 1,
+            "fails": 7,
+            "thresholds": {
+                "rate>0.9": true
+            },
+            "value": 0.125
+        },
+        "data_sent": {
+            "count": 48129141,
+            "rate": 266905.6307534793
+        },
+        "speaking_time_to_first_criterion_ms": {
+            "min": 21600,
+            "med": 67860,
+            "max": 121532,
+            "p(90)": 121249.2,
+            "p(95)": 121390.6,
+            "avg": 72732.625,
+            "thresholds": {
+                "p(95)<30000": true
+            }
+        },
+        "ws_session_duration": {
+            "avg": 166550.0835969,
+            "min": 48056.214609,
+            "med": 180315.7833355,
+            "max": 180330.430888,
+            "p(90)": 180328.873613,
+            "p(95)": 180329.60630685
+        },
+        "data_received": {
+            "count": 56005,
+            "rate": 310.5821034775711
+        },
+        "ws_msgs_sent": {
+            "count": 3050,
+            "rate": 16.914122232061278
+        },
+        "speaking_time_to_transcript_ms": {
+            "avg": 65031.875,
+            "min": 16015,
+            "med": 62212,
+            "max": 115310,
+            "p(90)": 106782.59999999999,
+            "p(95)": 111046.29999999999
+        },
+        "speaking_session_errors": {
+            "count": 42,
+            "rate": 0.23291578155625364,
+            "thresholds": {
+                "count==0": true
+            }
+        },
+        "vus": {
+            "min": 42,
+            "max": 50,
+            "value": 42
+        },
+        "vus_max": {
+            "value": 50,
+            "min": 50,
+            "max": 50
+        },
+        "speaking_criteria_received": {
+            "count": 32,
+            "rate": 0.17745964309047896
+        },
+        "speaking_sessions_completed": {
+            "rate": 0.04436491077261974,
+            "count": 8
+        }
+    }
+}

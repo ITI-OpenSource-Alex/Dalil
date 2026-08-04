@@ -72,6 +72,26 @@ func main() {
 		examModel = "claude-opus-4-8"
 	}
 
+	// Log the EFFECTIVE provider, not the intended one.
+	//
+	// docker compose gives shell environment variables precedence over .env, so
+	// a stray `ANTHROPIC_BASE_URL` exported in the operator's shell silently
+	// overrides the project's configuration. That happened: an AgentRouter key
+	// was posted to api.anthropic.com and every agent came back 401, with
+	// nothing anywhere in the logs naming the host actually being called.
+	// One line here turns a half-hour of bisecting into a glance.
+	effectiveBaseURL := baseURL
+	if effectiveBaseURL == "" {
+		effectiveBaseURL = "https://api.anthropic.com (SDK default)"
+	}
+	log.Info().
+		Str("llm_base_url", effectiveBaseURL).
+		Str("practice_model", practiceModel).
+		Str("exam_model", examModel).
+		Bool("credential_present", anthropicAPIKey != "").
+		Str("speech_service_url", cfg.SpeechServiceURL).
+		Msg("Speaking upstreams resolved")
+
 	practiceLLMClient := llm.NewClient(practiceModel, anthropicAPIKey, baseURL)
 	examLLMClient := llm.NewClient(examModel, anthropicAPIKey, baseURL)
 	ttsClient := tts.NewClient(cfg.SpeechServiceURL)

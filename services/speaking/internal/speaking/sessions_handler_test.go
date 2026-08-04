@@ -73,7 +73,7 @@ func TestHandleListSessions_Success(t *testing.T) {
 				t.Errorf("expected userID 'user-lina', got %q", userID)
 			}
 			return []*db.SpeakingSessionSummary{
-				{ID: "s1", QuestionPrompt: "Describe a journey.", QuestionType: "part2", OverallBand: 7.0, CreatedAt: time.Now()},
+				{ID: "s1", QuestionPrompt: "Describe a journey.", QuestionType: "part2", OverallBand: bandPtr(7.0), CreatedAt: time.Now()},
 			}, nil
 		},
 	}
@@ -91,7 +91,7 @@ func TestHandleListSessions_Success(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
-	if len(got) != 1 || got[0].ID != "s1" || got[0].OverallBand != 7.0 {
+	if len(got) != 1 || got[0].ID != "s1" || derefBand(got[0].OverallBand) != 7.0 {
 		t.Errorf("unexpected response body: %+v", got)
 	}
 }
@@ -185,7 +185,7 @@ func TestHandleGetSession_Success(t *testing.T) {
 				QuestionType:   "part2",
 				Transcript:     "It was a great book...",
 				Evaluation:     json.RawMessage(`{"Fluency and Coherence": {"band": 7.0}}`),
-				OverallBand:    7.0,
+				OverallBand:    bandPtr(7.0),
 				CreatedAt:      time.Now(),
 			}, nil
 		},
@@ -307,7 +307,7 @@ func TestHandleGetPublicSession_Success_OmitsUserID(t *testing.T) {
 				QuestionType:   "part2",
 				Transcript:     "It was a great book...",
 				Evaluation:     json.RawMessage(`{"Fluency and Coherence": {"band": 7.0}}`),
-				OverallBand:    7.0,
+				OverallBand:    bandPtr(7.0),
 				CreatedAt:      time.Now(),
 			}, nil
 		},
@@ -347,4 +347,15 @@ func TestWithCORS_HandlesPreflight(t *testing.T) {
 	if rec.Header().Get("Access-Control-Allow-Origin") != "*" {
 		t.Errorf("expected Access-Control-Allow-Origin header, got %q", rec.Header().Get("Access-Control-Allow-Origin"))
 	}
+}
+
+// bandPtr and derefBand keep the nullable overall_band (GOA-032) readable in
+// assertions.
+func bandPtr(v float64) *float64 { return &v }
+
+func derefBand(v *float64) float64 {
+	if v == nil {
+		return -1 // never a valid IELTS band
+	}
+	return *v
 }

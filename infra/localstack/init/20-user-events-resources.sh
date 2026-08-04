@@ -24,10 +24,7 @@ create_queue_with_dlq() {
 
 topic_arn="$(awslocal sns create-topic --name "$TOPIC" --query TopicArn --output text)"
 
-# Keep the original queue for older local flows, and add one real subscriber
-# queue per AccountDeleted consumer so LocalStack mirrors SNS fan-out.
 for queue in \
-  user-events \
   user-events-rag \
   user-events-orchestration \
   user-events-exam \
@@ -47,9 +44,15 @@ for queue in \
   user-events-notification
 do
   queue_arn="arn:aws:sqs:${REGION}:${ACCOUNT_ID}:${queue}"
+  queue_url="$(awslocal sqs get-queue-url --queue-name "$queue" --query QueueUrl --output text)"
+  awslocal sqs set-queue-attributes \
+    --queue-url "$queue_url" \
+    --attributes "{\"Policy\":\"{\\\"Version\\\":\\\"2012-10-17\\\",\\\"Statement\\\":[{\\\"Effect\\\":\\\"Allow\\\",\\\"Principal\\\":{\\\"Service\\\":\\\"sns.amazonaws.com\\\"},\\\"Action\\\":\\\"sqs:SendMessage\\\",\\\"Resource\\\":\\\"${queue_arn}\\\",\\\"Condition\\\":{\\\"ArnEquals\\\":{\\\"aws:SourceArn\\\":\\\"${topic_arn}\\\"}}}]}\"}"
+
   awslocal sns subscribe \
     --topic-arn "$topic_arn" \
     --protocol sqs \
     --notification-endpoint "$queue_arn" \
+    --attributes RawMessageDelivery=true \
     >/dev/null
 done

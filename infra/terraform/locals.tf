@@ -80,7 +80,6 @@ locals {
         } : service == "user" ? {
         REDIS_HOST            = module.elasticache.primary_endpoint_address
         REDIS_PORT            = tostring(module.elasticache.port)
-        SQS_QUEUE_URL         = module.sqs.queue_urls["user_events"]
         USER_EVENTS_TOPIC_ARN = aws_sns_topic.user_events.arn
         } : service == "orchestration" ? {
         REDIS_URL            = "redis://${module.elasticache.primary_endpoint_address}:${module.elasticache.port}/1"
@@ -142,12 +141,6 @@ locals {
   }
 
   sqs_queues = {
-    user_events = {
-      name                       = "${local.name_prefix}-user-events"
-      visibility_timeout_seconds = 30
-      max_receive_count          = 3
-    }
-
     notification = {
       name                       = "${local.name_prefix}-notification-queue"
       visibility_timeout_seconds = 30

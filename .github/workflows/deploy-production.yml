@@ -4,36 +4,254 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
-  id-token: write
   contents: read
+  id-token: write
+  statuses: write
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
 
 env:
-  AWS_REGION: us-east-1
-  # After running `terraform apply`, replace with output value of production_deploy_role_arn
-  ROLE_TO_ASSUME: arn:aws:iam::114403655381:role/goa-production-deploy
+  AWS_REGION: ${{ vars.AWS_REGION || 'eu-west-1' }}
+  PRODUCTION_ROLE_TO_ASSUME: ${{ vars.PRODUCTION_AWS_ROLE_TO_ASSUME || 'arn:aws:iam::114403655381:role/goa-production-deploy' }}
+  STAGING_CLUSTER: ${{ vars.STAGING_ECS_CLUSTER || 'goa-staging' }}
+  PRODUCTION_CLUSTER: ${{ vars.PRODUCTION_ECS_CLUSTER || 'goa-production' }}
+  PRODUCTION_BASE_URL: ${{ vars.PRODUCTION_BASE_URL }}
+  SERVICES: gateway user orchestration speaking writing rag exam ingestion
+  GH_TOKEN: ${{ github.token }}
+
 jobs:
   deploy:
+    name: Promote tested staging images to production
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     environment:
-      name: production # Requires named reviewer approval in GitHub
+      name: production
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out source
+        uses: actions/checkout@v4
 
-      - name: Configure AWS Credentials via OIDC
+      - name: Mark production deploy pending
+        run: |
+          set -euo pipefail
+          gh api -X POST "repos/${{ github.repository }}/statuses/${{ github.sha }}" \
+            -f state=pending \
+            -f context="deploy/production" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            -f description="Production deploy waiting/running behind approval gate" \
+            --silent
+
+      - name: Configure production AWS credentials with OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ env.ROLE_TO_ASSUME }}
+          role-to-assume: ${{ env.PRODUCTION_ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
+          role-session-name: goa-production-${{ github.run_id }}
+          role-duration-seconds: 2700
+          mask-aws-account-id: true
 
-      - name: Verify AWS Identity
-        run: aws sts get-caller-identity
+      - name: Promote staging image SHAs and deploy ECS services
+        id: deploy-production
+        run: |
+          set -euo pipefail
+          : "${PRODUCTION_BASE_URL:?Set repository variable PRODUCTION_BASE_URL before production deploys.}"
 
-      # TODO (GOA-070): Uncomment once ECS cluster and ECR repos exist
-      # - name: Login to Amazon ECR
-      #   uses: aws-actions/amazon-ecr-login@v2
-      #
-      # - name: Deploy to ECS
-      #   run: aws ecs update-service --cluster goa-production --service goa-gateway --force-new-deployment
+          : > previous-task-definitions.tsv
+          : > promoted-images.tsv
+
+          for service in $SERVICES; do
+            staging_service="goa-staging-${service}"
+            production_service="goa-production-${service}"
+            staging_repo="goa-staging-${service}"
+            production_repo="goa-production-${service}"
+
+            staging_task_definition="$(aws ecs describe-services \
+              --cluster "$STAGING_CLUSTER" \
+              --services "$staging_service" \
+              --query 'services[0].taskDefinition' \
+              --output text)"
+            if [[ -z "$staging_task_definition" || "$staging_task_definition" == "None" ]]; then
+              echo "::error::No staging task definition found for ${staging_service}."
+              exit 1
+            fi
+
+            staging_image="$(aws ecs describe-task-definition \
+              --task-definition "$staging_task_definition" \
+              --query "taskDefinition.containerDefinitions[?name=='${service}'].image | [0]" \
+              --output text)"
+            if [[ -z "$staging_image" || "$staging_image" == "None" ]]; then
+              echo "::error::No staging image found for ${service} in ${staging_task_definition}."
+              exit 1
+            fi
+
+            image_tag="${staging_image##*:}"
+            if [[ "$image_tag" == "$staging_image" || "$image_tag" == *"/"* ]]; then
+              echo "::error::Expected ${staging_image} to be tagged with the tested git SHA."
+              exit 1
+            fi
+
+            staging_digest="$(aws ecr describe-images \
+              --repository-name "$staging_repo" \
+              --image-ids imageTag="$image_tag" \
+              --query 'imageDetails[0].imageDigest' \
+              --output text)"
+            production_digest="$(aws ecr describe-images \
+              --repository-name "$production_repo" \
+              --image-ids imageTag="$image_tag" \
+              --query 'imageDetails[0].imageDigest' \
+              --output text 2>/dev/null || true)"
+
+            if [[ "$production_digest" != "$staging_digest" ]]; then
+              manifest="$(aws ecr batch-get-image \
+                --repository-name "$staging_repo" \
+                --image-ids imageTag="$image_tag" \
+                --query 'images[0].imageManifest' \
+                --output text)"
+              aws ecr put-image \
+                --repository-name "$production_repo" \
+                --image-tag "$image_tag" \
+                --image-manifest "$manifest" >/dev/null
+            fi
+
+            production_image="${staging_image/goa-staging-${service}/goa-production-${service}}"
+            active_production_task_definition="$(aws ecs describe-services \
+              --cluster "$PRODUCTION_CLUSTER" \
+              --services "$production_service" \
+              --query 'services[0].taskDefinition' \
+              --output text)"
+            printf '%s\t%s\n' "$production_service" "$active_production_task_definition" >> previous-task-definitions.tsv
+            printf '%s\t%s\t%s\n' "$service" "$production_image" "$staging_digest" >> promoted-images.tsv
+
+            aws ecs describe-task-definition \
+              --task-definition "$active_production_task_definition" \
+              --include TAGS \
+              --output json > "described-${service}.json"
+
+            jq --arg container "$service" --arg image "$production_image" '
+              .taskDefinition
+              | del(
+                  .taskDefinitionArn,
+                  .revision,
+                  .status,
+                  .requiresAttributes,
+                  .compatibilities,
+                  .registeredAt,
+                  .registeredBy
+                )
+              | .containerDefinitions = (.containerDefinitions | map(if .name == $container then .image = $image else . end))
+            ' "described-${service}.json" > "clean-${service}.json"
+
+            jq -s '.[0] + (if ((.[1].tags // []) | length) > 0 then {tags: .[1].tags} else {} end)' \
+              "clean-${service}.json" \
+              "described-${service}.json" > "task-${service}.json"
+
+            new_task_definition="$(aws ecs register-task-definition \
+              --cli-input-json "file://task-${service}.json" \
+              --query 'taskDefinition.taskDefinitionArn' \
+              --output text)"
+            aws ecs update-service \
+              --cluster "$PRODUCTION_CLUSTER" \
+              --service "$production_service" \
+              --task-definition "$new_task_definition" >/dev/null
+          done
+
+          for service in $SERVICES; do
+            aws ecs wait services-stable \
+              --cluster "$PRODUCTION_CLUSTER" \
+              --services "goa-production-${service}"
+          done
+
+      - name: Run production smoke tests
+        id: smoke
+        run: |
+          set -euo pipefail
+          deadline=$((SECONDS + 300))
+          until curl -fsS "${PRODUCTION_BASE_URL%/}/health" >/dev/null; do
+            if (( SECONDS >= deadline )); then
+              echo "::error::Production smoke test failed for ${PRODUCTION_BASE_URL%/}/health within 5 minutes."
+              exit 1
+            fi
+            sleep 10
+          done
+          curl -fsS "${PRODUCTION_BASE_URL%/}/" >/dev/null
+          echo "Production smoke tests passed."
+
+      - name: Roll back ECS task definitions after failed smoke tests
+        if: failure() && steps.deploy-production.outcome == 'success'
+        run: |
+          set -euo pipefail
+          while IFS=$'\t' read -r service task_definition; do
+            [[ -z "$service" ]] && continue
+            aws ecs update-service \
+              --cluster "$PRODUCTION_CLUSTER" \
+              --service "$service" \
+              --task-definition "$task_definition" >/dev/null
+          done < previous-task-definitions.tsv
+
+          while IFS=$'\t' read -r service _task_definition; do
+            [[ -z "$service" ]] && continue
+            aws ecs wait services-stable \
+              --cluster "$PRODUCTION_CLUSTER" \
+              --services "$service"
+          done < previous-task-definitions.tsv
+
+      - name: Report production deploy status
+        if: always()
+        run: |
+          set -euo pipefail
+          case "${{ job.status }}" in
+            success) state=success; description="Production deploy and smoke tests passed" ;;
+            cancelled) state=error; description="Production deploy cancelled" ;;
+            *) state=failure; description="Production deploy failed or smoke rollback ran" ;;
+          esac
+          gh api -X POST "repos/${{ github.repository }}/statuses/${{ github.sha }}" \
+            -f state="$state" \
+            -f context="deploy/production" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            -f description="$description" \
+            --silent
+
+      - name: Notify Slack
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${SLACK_WEBHOOK_URL}" ]]; then
+            echo "SLACK_WEBHOOK_URL is not configured; skipping Slack notification."
+            exit 0
+          fi
+          payload="$(jq -nc \
+            --arg status "${{ job.status }}" \
+            --arg sha "${{ github.sha }}" \
+            --arg url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            '{text: ("GOA production deploy " + $status + " for " + $sha + " " + $url)}')"
+          curl -fsS -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
+
+      - name: Deployment summary
+        if: always()
+        run: |
+          {
+            echo "### Production deploy"
+            echo ""
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Commit | \`${{ github.sha }}\` |"
+            echo "| Result | \`${{ job.status }}\` |"
+            echo "| Source | staging ECS task definitions |"
+            echo ""
+            echo "#### Promoted images"
+            echo ""
+            echo "| Service | Production image | Staging digest |"
+            echo "| --- | --- | --- |"
+            if [[ -f promoted-images.tsv ]]; then
+              while IFS=$'\t' read -r service image digest; do
+                echo "| \`${service}\` | \`${image}\` | \`${digest}\` |"
+              done < promoted-images.tsv
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

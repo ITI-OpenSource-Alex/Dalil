@@ -23,6 +23,8 @@ type GatewayServer struct {
 	App             *fiber.App
 	redisClient     *redis.Client
 	shutdownTimeout time.Duration
+	costMonitor     *handlers.CostMonitor
+	stopCostMonitor context.CancelFunc
 }
 
 func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error) {
@@ -168,6 +170,23 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 		cfg.CostPromptPer1M,
 		cfg.CostCompletionPer1M,
 	))
+
+	// GOA-046. Same pricing configuration as the endpoint above, evaluated on a
+	// timer so a runaway user is noticed without anyone asking.
+	costMonitor, err := handlers.NewCostMonitor(
+		redisClient,
+		logger,
+		metrics,
+		cfg.LLMPricingJSON,
+		cfg.CostPromptPer1M,
+		cfg.CostCompletionPer1M,
+		cfg.UserDailyCostAlertUSD,
+		cfg.CostMonitorInterval,
+		cfg.BudgetUSD,
+	)
+	if err != nil {
+		return nil, err
+	}
 	// Subscription policy is default-allow: only the Writing, CV and exam prep
 	// routes named as paid features attach RequirePaid. Chat, chat history,
 	// notifications and any future unnamed route remain free unless explicitly
@@ -304,6 +323,7 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 		App:             app,
 		redisClient:     redisClient,
 		shutdownTimeout: cfg.ShutdownTimeout,
+		costMonitor:     costMonitor,
 	}, nil
 }
 func NewServer(cfg Config, logger zerolog.Logger) (*fiber.App, error) {
@@ -314,9 +334,23 @@ func NewServer(cfg Config, logger zerolog.Logger) (*fiber.App, error) {
 	return server.App, nil
 }
 func (s *GatewayServer) Listen(addr string) error {
+	// The monitor is started here rather than in the constructor so that tests
+	// and tooling can build a server without spawning a goroutine that outlives
+	// them. Anything that actually serves traffic also wants the budget watched.
+	if s.costMonitor != nil && s.stopCostMonitor == nil {
+		ctx, cancel := context.WithCancel(context.Background())
+		s.stopCostMonitor = cancel
+		go s.costMonitor.Run(ctx)
+	}
+
 	return s.App.Listen(addr)
 }
 func (s *GatewayServer) Shutdown() error {
+	if s.stopCostMonitor != nil {
+		s.stopCostMonitor()
+		s.stopCostMonitor = nil
+	}
+
 	var shutdownErr error
 	if err := s.App.ShutdownWithTimeout(s.shutdownTimeout); err != nil {
 		shutdownErr = err

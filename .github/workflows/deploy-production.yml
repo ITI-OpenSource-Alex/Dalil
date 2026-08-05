@@ -166,20 +166,40 @@ jobs:
               --services "goa-production-${service}"
           done
 
-      - name: Run production smoke tests
-        id: smoke
+      - name: Wait for the Gateway to answer at all
         run: |
           set -euo pipefail
           deadline=$((SECONDS + 300))
           until curl -fsS "${PRODUCTION_BASE_URL%/}/health" >/dev/null; do
             if (( SECONDS >= deadline )); then
-              echo "::error::Production smoke test failed for ${PRODUCTION_BASE_URL%/}/health within 5 minutes."
+              echo "::error::Gateway did not answer at ${PRODUCTION_BASE_URL%/}/health within 5 minutes."
               exit 1
             fi
             sleep 10
           done
-          curl -fsS "${PRODUCTION_BASE_URL%/}/" >/dev/null
-          echo "Production smoke tests passed."
+
+      - name: Set up Python for the smoke suite
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run production smoke suite
+        id: smoke
+        timeout-minutes: 3
+        env:
+          GOA_GATEWAY_URL: ${{ env.PRODUCTION_BASE_URL }}
+          GOA_FRONTEND_URL: ${{ vars.PRODUCTION_FRONTEND_URL }}
+          GOA_INGESTION_DB: ${{ secrets.PRODUCTION_INGESTION_DB_URL }}
+          GOA_SMOKE_EMAIL: ${{ vars.GOA_SMOKE_EMAIL }}
+          GOA_SMOKE_PASSWORD: ${{ secrets.GOA_SMOKE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          # GOA-044. The previous version of this step curled /health and the
+          # site root. Both return 200 from the *old* task definition, so a
+          # deploy that never took effect passed the gate. The suite below
+          # asserts on content read through real dependencies instead.
+          pip install --quiet pytest httpx psycopg[binary]
+          python -m pytest tests/smoke -v --tb=short --durations=0
 
       - name: Roll back ECS task definitions after failed smoke tests
         if: failure() && steps.deploy-production.outcome == 'success'
@@ -199,6 +219,33 @@ jobs:
               --cluster "$PRODUCTION_CLUSTER" \
               --services "$service"
           done < previous-task-definitions.tsv
+
+      - name: Open a GitHub issue for the failed deploy
+        if: failure() && steps.deploy-production.outcome == 'success'
+        run: |
+          set -euo pipefail
+          # GOA-044 requires the team to be alerted on failure. The issue is
+          # created after the rollback step above, so its body can state that
+          # production is already back on the previous task definition — the
+          # first thing anyone reading the alert at 2am needs to know.
+          gh issue create \
+            --repo "${{ github.repository }}" \
+            --title "Production smoke suite failed — deploy ${{ github.sha }} rolled back" \
+            --label "incident,production" \
+            --body "$(cat <<EOF
+          The production smoke suite failed after deploying \`${{ github.sha }}\`.
+          ECS services have been rolled back to their previous task definitions.
+
+          - Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          - Commit: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+          - Cluster: \`${{ env.PRODUCTION_CLUSTER }}\`
+
+          The failing assertion in the run log names which check broke. Each
+          check in \`tests/smoke/\` maps to a defect class that previously
+          shipped green, so a failure here is a real regression rather than
+          flakiness until proven otherwise.
+          EOF
+          )" || echo "::warning::Could not create the incident issue; the rollback still ran."
 
       - name: Report production deploy status
         if: always()

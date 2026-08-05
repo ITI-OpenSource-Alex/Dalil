@@ -8,6 +8,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 import structlog
 
+import httpx
+
 from app.core.config import settings
 from app.core.database import db
 from app.services.account_deletion import export_user_data, purge_user_data
@@ -61,7 +63,17 @@ class CriterionDetail(BaseModel):
 class EvaluationResponse(BaseModel):
     status: str
     partial: bool
-    overall_band: float
+    # GOA-134. Optional, and absent-by-default rather than required.
+    #
+    # The speaking service emits `overall_band` with `omitempty` and drops the key
+    # entirely when fewer than 3 of 4 criteria completed, so a required `float`
+    # here raises ValidationError and breaks the exam speaking flow outright. The
+    # two services must agree that "not scored" is representable; before this it
+    # was representable on neither side, so a band was fabricated instead.
+    overall_band: float | None = None
+    # How many criteria produced a real score. Lets a reader tell 4-of-4 from
+    # 1-of-4 without inferring it from `partial`.
+    completed_count: int | None = None
     dimensions: dict[str, CriterionDetail]
     overall_feedback: str
 
@@ -162,27 +174,63 @@ async def submit_transcript(session_id: UUID, payload: TranscriptPayload):
             settings.speaking_service_url, settings.internal_api_key
         )
         start_time = time.time()
-        result = await speaking_client.evaluate_holistic(
-            session_id, {"concatenated_transcript": text, "user_id": str(sessions_res["user_id"])}
-        )
-        duration_ms = (time.time() - start_time) * 1000
-        goa_speaking_exam_evaluation_ms.observe(duration_ms)
-        goa_speaking_exam_evaluations_total.labels(status="success").inc()
 
-        eval_data = EvaluationResponse.model_validate(result)
-        section_scores = {k: v.band for k, v in eval_data.dimensions.items()}
+        # GOA-134. try_submit above has already flipped the session to
+        # 'submitted'. If anything below raises, the session is left submitted
+        # with no result row and the guard at the top of this endpoint refuses
+        # every retry -- the candidate's exam is gone and the endpoint returns
+        # 200. Revert the submission on any failure so the part-3 post can be
+        # retried, and re-raise so the caller learns the evaluation failed.
+        try:
+            result = await speaking_client.evaluate_holistic(
+                session_id,
+                {"concatenated_transcript": text, "user_id": str(sessions_res["user_id"])},
+            )
+            duration_ms = (time.time() - start_time) * 1000
+            goa_speaking_exam_evaluation_ms.observe(duration_ms)
 
-        result_repo = ResultRepository(db.pool)
-        await result_repo.create(
-            result_id=uuid4(),
-            session_id=session_id,
-            user_id=sessions_res["user_id"],
-            skill_area=sessions_res["skill_area"],
-            raw_score=0,
-            band_score=eval_data.overall_band,
-            section_scores=section_scores,
-            agent_responses=eval_data.model_dump(),
-        )
+            eval_data = EvaluationResponse.model_validate(result)
+            section_scores = {k: v.band for k, v in eval_data.dimensions.items()}
+
+            result_repo = ResultRepository(db.pool)
+            await result_repo.create(
+                result_id=uuid4(),
+                session_id=session_id,
+                user_id=sessions_res["user_id"],
+                skill_area=sessions_res["skill_area"],
+                raw_score=0,
+                # May be None when fewer than 3 criteria completed. Persisted as
+                # NULL rather than 0.0 -- see migration 00X and the speaking
+                # service's own 003_overall_band_nullable, which made the same
+                # change for the same reason.
+                band_score=eval_data.overall_band,
+                section_scores=section_scores,
+                agent_responses=eval_data.model_dump(),
+            )
+        except Exception as exc:
+            reverted = await session_repo.revert_submission(session_id)
+            outcome = (
+                "timeout"
+                if isinstance(exc, (httpx.TimeoutException, httpx.TransportError))
+                else "error"
+            )
+            goa_speaking_exam_evaluations_total.labels(status=outcome).inc()
+            logger.error(
+                "speaking_holistic_evaluation_failed",
+                session_id=str(session_id),
+                outcome=outcome,
+                reverted_to_in_progress=reverted,
+                error=str(exc),
+            )
+            raise
+
+        # Labelled by what actually came back. `success` alone could not
+        # distinguish a full band from a partial evaluation, and the partial case
+        # is the one that used to be invisible because a band was fabricated for it.
+        goa_speaking_exam_evaluations_total.labels(
+            status="success" if eval_data.overall_band is not None else "partial_unscored"
+        ).inc()
+
         await session_repo.mark_scored(session_id)
 
         return {}

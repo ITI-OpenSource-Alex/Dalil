@@ -11,7 +11,10 @@ class ExamHistoryItem(BaseModel):
 
     skill: str
     exam_type: str = Field(alias="examType")
-    band_score: float = Field(alias="bandScore")
+    # GOA-134: nullable. A speaking session where fewer than 3 of 4 criteria
+    # completed has no band, and NULL is how that is represented now that
+    # exam_results.band_score no longer forces a fabricated 0.0.
+    band_score: float | None = Field(default=None, alias="bandScore")
     date: datetime
     duration: Optional[int] = None
     feedback_summary: Optional[str] = None

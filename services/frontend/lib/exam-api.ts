@@ -71,7 +71,10 @@ export interface ExamResultResponse {
   user_id: string;
   skill_area: string;
   raw_score: number;
-  band_score: number;
+  // GOA-134: nullable. A speaking session where fewer than 3 of 4 criteria
+  // completed carries no band, and the exam service now sends null rather than
+  // a fabricated 0. Rendering must handle it -- `.toFixed()` on null throws.
+  band_score: number | null;
   section_scores: Record<string, unknown>;
   graded_at: string;
   answer_key: Record<string, unknown>;

@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 // TranscriptExample represents a specific quote from a part of the exam.
@@ -17,6 +20,10 @@ type TranscriptExample struct {
 }
 
 // HolisticAgentResult is the extended result from a single criterion's agent.
+//
+// KEEP IN SYNC WITH AgentResult in swarm.go. The two describe the same thing for
+// two execution paths, and GOA-134 exists because they drifted: this one had no
+// Error field and no way to distinguish a provider failure from a deadline.
 type HolisticAgentResult struct {
 	Criterion       string              `json:"criterion"`
 	Band            float64             `json:"band"`
@@ -25,13 +32,30 @@ type HolisticAgentResult struct {
 	Examples        []TranscriptExample `json:"examples"`
 	ImprovementTip  string              `json:"improvement_tip"`
 	TimedOut        bool                `json:"timed_out"`
+	// Error is a short breadcrumb for a criterion that did not complete, matching
+	// AgentResult.Error. json:"-" for the same reason: Dimensions is serialised
+	// wholesale to the browser and persisted as JSONB, so a tagged field would
+	// ship raw provider error text everywhere and store it forever.
+	Error string `json:"-"`
 }
 
 // HolisticSwarmResult aggregates the holistic agent results.
+//
+// KEEP IN SYNC WITH SwarmResult in swarm.go — see TestSwarmAndHolisticAgreeOnBandContract,
+// which drives both through the same fault matrix and fails when they disagree.
 type HolisticSwarmResult struct {
-	Status          string                         `json:"status"` // "completed" or "failed"
-	Partial         bool                           `json:"partial"`
-	OverallBand     float64                        `json:"overall_band"`
+	Status  string `json:"status"` // "completed" or "failed"
+	Partial bool   `json:"partial"`
+	// CompletedCount is how many criteria produced a real score, so a client can
+	// render "2 of 4 criteria" without recounting the map. Its absence is why
+	// `partial` -- a boolean no consumer is obliged to read -- was the only signal.
+	CompletedCount int `json:"completed_count"`
+	// OverallBand is a pointer for the reason spelled out at SwarmResult.OverallBand:
+	// with a plain float64, "no aggregate was computed" and "the aggregate is 0.0"
+	// are the same value. This path had the plain float64 and returned 0.0 when
+	// every agent failed -- and services/exam persists that number to
+	// exam_results.band_score as the candidate's official IELTS band.
+	OverallBand     *float64                       `json:"overall_band,omitempty"`
 	Dimensions      map[string]HolisticAgentResult `json:"dimensions"`
 	OverallFeedback string                         `json:"overall_feedback"`
 }
@@ -79,6 +103,8 @@ func evaluateHolisticCriterion(ctx context.Context, client LLMClient, criterion,
 
 // EvaluateHolisticSwarm orchestrates parallel evaluations for the full exam.
 func EvaluateHolisticSwarm(ctx context.Context, client LLMClient, concatenatedTranscript string) (HolisticSwarmResult, error) {
+	start := time.Now()
+
 	var wg sync.WaitGroup
 	wg.Add(4)
 
@@ -100,36 +126,61 @@ func EvaluateHolisticSwarm(ctx context.Context, client LLMClient, concatenatedTr
 			resChan <- res
 		}()
 
+		var outcome HolisticAgentResult
 		select {
 		case res := <-resChan:
-			mu.Lock()
-			results[criterionName] = res
-			mu.Unlock()
-		case <-errChan:
-			mu.Lock()
-			results[criterionName] = HolisticAgentResult{
+			outcome = res
+		case err := <-errChan:
+			// The error is LOGGED and carried, not discarded. It used to be
+			// dropped on the floor with TimedOut set to true, so an expired
+			// credential, a malformed response (BUG-057's shape) and a genuinely
+			// slow provider produced identical output -- and raising the deadline
+			// could never fix two of the three. swarm.go learned this in GOA-032;
+			// the lesson did not reach this file.
+			log.Error().
+				Err(err).
+				Str("criterion", criterionName).
+				Dur("failed_after", time.Since(start)).
+				Msg("Holistic evaluation agent failed")
+			outcome = HolisticAgentResult{
 				Criterion:       criterionName,
 				Band:            0.0,
 				OverallFeedback: "Evaluation unavailable due to an internal error.",
-				TimedOut:        true,
+				Error:           errorSummary(err),
+				// TimedOut stays true, matching swarm.go: despite its name the
+				// field means "produced no score", and it is the flag both the
+				// aggregation below and the exam service's CriterionDetail read.
+				// Error is what distinguishes a provider failure from a deadline.
+				// Renaming the field would be clearer and would break the wire
+				// contract with services/exam; that belongs in the follow-up that
+				// merges the two paths.
+				TimedOut: true,
 			}
-			mu.Unlock()
 		case <-ctx.Done():
-			mu.Lock()
-			results[criterionName] = HolisticAgentResult{
+			log.Warn().
+				Str("criterion", criterionName).
+				Dur("failed_after", time.Since(start)).
+				Msg("Holistic evaluation agent exceeded the swarm deadline")
+			outcome = HolisticAgentResult{
 				Criterion:       criterionName,
 				Band:            0.0,
 				OverallFeedback: "Evaluation unavailable due to response timeout.",
+				Error:           AgentErrorDeadline,
 				TimedOut:        true,
 			}
-			mu.Unlock()
 		}
+
+		mu.Lock()
+		results[criterionName] = outcome
+		mu.Unlock()
 	}
 
-	go runAgent("Fluency and Coherence", HolisticFluencySystemPrompt)
-	go runAgent("Lexical Resource", HolisticLexicalSystemPrompt)
-	go runAgent("Grammatical Range and Accuracy", HolisticGrammarSystemPrompt)
-	go runAgent("Pronunciation", HolisticPronunciationSystemPrompt)
+	// Indexed off CriterionOrder so the names here cannot drift from the ones
+	// swarm.go, the feedback summary and the exam service all use.
+	go runAgent(CriterionOrder[0], HolisticFluencySystemPrompt)
+	go runAgent(CriterionOrder[1], HolisticLexicalSystemPrompt)
+	go runAgent(CriterionOrder[2], HolisticGrammarSystemPrompt)
+	go runAgent(CriterionOrder[3], HolisticPronunciationSystemPrompt)
 
 	wg.Wait()
 
@@ -150,18 +201,35 @@ func EvaluateHolisticSwarm(ctx context.Context, client LLMClient, concatenatedTr
 		return HolisticSwarmResult{
 			Status:          "failed",
 			Partial:         false,
-			OverallBand:     0.0,
+			CompletedCount:  0,
+			OverallBand:     nil,
 			Dimensions:      results,
 			OverallFeedback: "Evaluation completely failed due to timeouts or internal errors on all criteria.",
 		}, fmt.Errorf("all evaluation agents timed out or failed")
 	}
 
-	avgBand := totalBand / float64(completedCount)
-	overallBand := RoundIELTSBand(avgBand)
+	// Average only once enough criteria completed for the average to describe the
+	// candidate rather than describe which agents happened to survive. The
+	// constant is imported from swarm.go, not redeclared: a second constant with
+	// the same value in the same package is how these two paths drifted.
+	var overallBand *float64
+	if completedCount >= MinCriteriaForOverallBand {
+		rounded := RoundIELTSBand(totalBand / float64(completedCount))
+		overallBand = &rounded
+	}
 
+	// CriterionOrder rather than a local slice literal, for the reason it exists:
+	// ranging a map is randomised in Go, and a duplicated order list is one more
+	// thing to keep in sync.
 	var feedbackLines []string
-	for _, name := range []string{"Fluency and Coherence", "Lexical Resource", "Grammatical Range and Accuracy", "Pronunciation"} {
+	for _, name := range CriterionOrder {
 		res := results[name]
+		if res.TimedOut {
+			// Printing "Band 0.0" for an agent that never scored restates the
+			// BUG-055 lie in prose, where no downstream type-safety can catch it.
+			feedbackLines = append(feedbackLines, fmt.Sprintf("- **%s**: %s", name, res.OverallFeedback))
+			continue
+		}
 		feedbackLines = append(feedbackLines, fmt.Sprintf("- **%s** (Band %.1f): %s", name, res.Band, res.OverallFeedback))
 	}
 	overallFeedback := "### IELTS Speaking Rubric Evaluation Summary:\n\n" + strings.Join(feedbackLines, "\n")
@@ -169,6 +237,7 @@ func EvaluateHolisticSwarm(ctx context.Context, client LLMClient, concatenatedTr
 	return HolisticSwarmResult{
 		Status:          "completed",
 		Partial:         partial,
+		CompletedCount:  completedCount,
 		OverallBand:     overallBand,
 		Dimensions:      results,
 		OverallFeedback: overallFeedback,

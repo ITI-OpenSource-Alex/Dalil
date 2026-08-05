@@ -64,8 +64,11 @@ func TestHolisticSwarm_AllSuccess(t *testing.T) {
 	if res.Partial {
 		t.Errorf("expected partial false, got true")
 	}
-	if res.OverallBand != 7.0 {
-		t.Errorf("expected overall band 7.0, got %v", res.OverallBand)
+	if res.OverallBand == nil {
+		t.Fatal("expected an overall band, got none")
+	}
+	if *res.OverallBand != 7.0 {
+		t.Errorf("expected overall band 7.0, got %v", *res.OverallBand)
 	}
 }
 
@@ -94,8 +97,11 @@ func TestHolisticSwarm_PartialTimeout(t *testing.T) {
 		t.Errorf("expected partial true because one agent timed out")
 	}
 
-	if res.OverallBand != 7.0 {
-		t.Errorf("expected overall band 7.0, got %v", res.OverallBand)
+	if res.OverallBand == nil {
+		t.Fatal("expected an overall band, got none")
+	}
+	if *res.OverallBand != 7.0 {
+		t.Errorf("expected overall band 7.0, got %v", *res.OverallBand)
 	}
 
 	gRes := res.Dimensions["Grammatical Range and Accuracy"]
@@ -125,8 +131,15 @@ func TestHolisticSwarm_AllFailed(t *testing.T) {
 	if res.Status != "failed" {
 		t.Errorf("expected status 'failed', got '%s'", res.Status)
 	}
-	if res.OverallBand != 0.0 {
-		t.Errorf("expected overall band 0.0, got %v", res.OverallBand)
+	// GOA-134: this asserted `OverallBand == 0.0` -- it demanded the defect. When
+	// every agent fails there is no band, and reporting 0.0 made "we could not
+	// score this" indistinguishable from "the candidate scored zero", which the
+	// exam service then persisted as an official IELTS band.
+	if res.OverallBand != nil {
+		t.Errorf("expected no overall band when every agent failed, got %v", *res.OverallBand)
+	}
+	if res.CompletedCount != 0 {
+		t.Errorf("expected completed_count 0, got %d", res.CompletedCount)
 	}
 }
 

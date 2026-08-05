@@ -140,16 +140,21 @@ function ResultsPageContent() {
         // Only the generic result shape reaches here: Reading and Writing both
         // return from their own branches above, and Writing's weighted
         // `overall_band` is posted by that branch (it is not on this payload).
-        await fetch("/api/profile/update-scores", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            skill,
-            bandScore: resultData.band_score,
-          }),
-        });
+        // GOA-134: an unscored session must not be posted to the profile. It
+        // would overwrite a real band with null and look like a regression in
+        // the user's progress chart, when in fact nothing was measured.
+        if (resultData.band_score !== null && resultData.band_score !== undefined) {
+          await fetch("/api/profile/update-scores", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              skill,
+              bandScore: resultData.band_score,
+            }),
+          });
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load result");
       } finally {
@@ -281,8 +286,13 @@ function ResultsPageContent() {
               Overall band
             </Text>
             <p className="font-serif text-4xl font-bold text-brand-fg">
-              {result.band_score}
+              {result.band_score ?? "—"}
             </p>
+            {result.band_score === null && (
+              <Text size="xs" tone="muted">
+                Not enough criteria completed to score
+              </Text>
+            )}
             <Text size="sm" tone="muted">
               Raw Score: {result.raw_score}
             </Text>

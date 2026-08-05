@@ -101,6 +101,38 @@ class SessionRepository:
             result = await conn.fetchval(query, session_id)
             return result is not None
 
+    async def revert_submission(
+        self,
+        session_id: UUID,
+    ) -> bool:
+        """Undo try_submit when the evaluation that followed it failed (GOA-134).
+
+        `try_submit` flips the session to 'submitted' BEFORE the speaking service
+        is called. When that call failed -- which the old 15-second holistic
+        deadline made the normal case rather than an edge case -- no result row
+        was ever written, and the guard at the top of the endpoint
+        (`status in ("submitted", "scored")`) then returned `{}` for every retry.
+        The candidate's exam was silently unrecoverable and the endpoint reported
+        success.
+
+        The revert is deliberately narrow: `AND status='submitted'` means a session
+        that reached 'scored' in a concurrent request is never dragged backwards.
+        Deleting the guard instead would have traded a lost exam for a
+        double-graded one.
+        """
+        query = """
+        UPDATE exam_sessions
+        SET
+            status='in_progress',
+            submitted_at=NULL
+        WHERE id=$1 AND status='submitted'
+        RETURNING id
+        """
+
+        async with self.pool.acquire() as conn:
+            result = await conn.fetchval(query, session_id)
+            return result is not None
+
     async def mark_scored(
         self,
         session_id: UUID,

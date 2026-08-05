@@ -40,6 +40,15 @@ CACHE_HIT_RATE = Gauge(
     "Ratio of cached writing evaluations to all writing evaluation requests",
 )
 
+# GOA-135. A model missing from the shared price table records a null cost rather
+# than 0.0, and without this counter that null looks like "no LLM calls" instead
+# of "we do not know what these cost".
+UNPRICED_MODEL_TOTAL = Counter(
+    "goa_writing_unpriced_model_total",
+    "LLM calls whose model is missing from the shared price table",
+    labelnames=["model"],
+)
+
 
 class CacheHitTracker:
     """Process-local request counters used to publish the requested ratio gauge."""

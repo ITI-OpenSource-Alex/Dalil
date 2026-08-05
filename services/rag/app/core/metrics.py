@@ -71,6 +71,23 @@ FAQ_STALE_SUPPRESSED_TOTAL = Counter(
     "FAQ matches suppressed because the entry is past its review window",
 )
 
+# GOA-135. Labelled by exception class, because an unlabelled retry counter
+# cannot tell a flaky router from a rate limit, and the two have opposite fixes:
+# one is the provider's problem, the other is ours for sending too much.
+LLM_RETRIES_TOTAL = Counter(
+    "goa_rag_llm_retries_total",
+    "LLM calls retried, by the transient failure that caused the retry",
+    labelnames=["reason"],  # APITimeoutError | RateLimitError | InternalServerError | ...
+)
+# The signal that would have caught this ticket's own defect years earlier. A
+# model absent from the price table records a null cost rather than 0.0, and
+# without this counter that null is indistinguishable from "no LLM calls today".
+UNPRICED_MODEL_TOTAL = Counter(
+    "goa_rag_unpriced_model_total",
+    "LLM calls whose model is missing from the shared price table",
+    labelnames=["model"],
+)
+
 CHECKLIST_GENERATED_TOTAL = Counter(
     "goa_rag_checklist_generated_total",
     "Total number of checklists generated, by source",

@@ -23,8 +23,14 @@ RUN pip install --no-cache-dir -r requirements.txt
 # mounts ./services/rag over /app and would hide anything copied there, so
 # the import would fail only under compose. PYTHONPATH keeps dev and prod
 # identical.
-ENV PYTHONPATH=/opt/goa
+ENV PYTHONPATH=/opt/goa:/opt/goa-pricing
 COPY packages/security/py /opt/goa
+# GOA-135: the shared LLM price table, in its OWN root rather than merged into
+# /opt/goa. docker-compose bind-mounts ./packages/security/py over /opt/goa for
+# the dev target, and a bind mount hides whatever the image put there -- so a
+# package COPYed into /opt/goa exists in the image and is invisible under
+# compose. Separate root, separate mount, dev and prod identical.
+COPY packages/pricing/py /opt/goa-pricing
 
 # Bake the cross-encoder into the image. Left to first use it is a ~90 MB download
 # from huggingface.co inside the first user request, in an environment that may have

@@ -1,13 +1,19 @@
+import asyncio
 import hashlib
 import json
+import random
 import time
 import logging
-from typing import List, Tuple, Dict, Any
+from typing import List, Tuple, Dict, Any, Optional
+
+import anthropic
+import httpx
+from anthropic import AsyncAnthropic
 from openai import AsyncOpenAI
 
-from langchain_anthropic import ChatAnthropic
 from langfuse import Langfuse
 
+from goa_pricing import cost_usd as price_call
 from goa_security import wrap_untrusted
 
 from app.core.config import settings
@@ -16,6 +22,8 @@ from app.core.metrics import (
     FAQ_BYPASS_TOTAL,
     FAQ_HITS_TOTAL,
     FAQ_STALE_SUPPRESSED_TOTAL,
+    LLM_RETRIES_TOTAL,
+    UNPRICED_MODEL_TOTAL,
 )
 from app.services.faq_policy import classify_question
 
@@ -37,17 +45,74 @@ embedding_client = AsyncOpenAI(
     base_url=settings.embedding_base_url
 )
 
-llm = ChatAnthropic(
-    model=settings.llm_model,
-    anthropic_api_key=settings.anthropic_auth_token or settings.anthropic_api_key,
-    **({"anthropic_api_url": settings.anthropic_base_url} if settings.anthropic_base_url else {}),
-    model_kwargs={"extra_headers": {"User-Agent": settings.anthropic_user_agent}},
-    # langchain_anthropic 0.1.13 has no `timeout` or `max_retries` field on
-    # ChatAnthropic; unrecognized kwargs are forwarded to AsyncMessages.create(),
-    # which rejects max_retries — that made every /query return 500. The supported
-    # field is default_request_timeout, and the retry now lives at the call site.
-    default_request_timeout=25.0,
-)
+# One client for the process, created on startup and closed on shutdown.
+#
+# It used to be constructed inline at the call site, so every /query that reached
+# the LLM opened a new TCP connection and negotiated a fresh TLS session to the
+# router, and the underlying httpx client was never closed. Measured against
+# AgentRouter over 20 sequential calls (perf/reports/GOA-135-pre-*.json):
+#
+#     fresh client per call : p50  917.6 ms, 20 TCP connections
+#     one reused client     : p50  296.7 ms,  1 TCP connection
+#
+# The handshake was costing ~620 ms per query -- three times the request itself.
+# The Go side reached the same conclusion in services/speaking/internal/httpx/pool.go;
+# this is that reasoning applied to the Python services.
+#
+# NOTE for anyone tuning the timeout: langchain's ChatAnthropic used to be built
+# here too, with a long comment about `default_request_timeout` -- and nothing
+# called it, because _invoke_via_sdk had already replaced it. It has been deleted.
+# The timeout that matters is the one on this client. (`langchain_anthropic` is
+# still a real dependency: checklist_generator.py and llm_boost.py use it for
+# with_structured_output.)
+_LLM_TIMEOUT_SECONDS = 25.0
+
+_llm_client: Optional[AsyncAnthropic] = None
+
+
+def _build_llm_client() -> AsyncAnthropic:
+    kwargs: Dict[str, Any] = {
+        "api_key": settings.anthropic_auth_token or settings.anthropic_api_key,
+        "default_headers": {"User-Agent": settings.anthropic_user_agent},
+        "timeout": _LLM_TIMEOUT_SECONDS,
+        # max_keepalive_connections is the binding constraint, not max_connections:
+        # RAG issues one LLM call per request, so what matters is that the idle
+        # connection survives between requests rather than how many can be open
+        # at once.
+        "http_client": httpx.AsyncClient(
+            limits=httpx.Limits(max_keepalive_connections=20, max_connections=50),
+            timeout=_LLM_TIMEOUT_SECONDS,
+        ),
+    }
+    if settings.anthropic_base_url:
+        kwargs["base_url"] = settings.anthropic_base_url
+    return AsyncAnthropic(**kwargs)
+
+
+def get_llm_client() -> AsyncAnthropic:
+    """The process-wide client, built lazily.
+
+    `init_llm_client()` from the lifespan is the normal path; the lazy build is
+    what keeps unit tests and scripts that import this module working without a
+    FastAPI app around them.
+    """
+    global _llm_client
+    if _llm_client is None:
+        _llm_client = _build_llm_client()
+    return _llm_client
+
+
+async def init_llm_client() -> None:
+    get_llm_client()
+
+
+async def close_llm_client() -> None:
+    global _llm_client
+    if _llm_client is not None:
+        try:
+            await _llm_client.close()
+        finally:
+            _llm_client = None
 
 
 class _LLMResponse:
@@ -71,18 +136,8 @@ async def _invoke_via_sdk(prompt) -> _LLMResponse:
     a monkeypatch for this exact version), so the fix is to bypass the wrapper for this
     one call rather than upgrade it.
     """
-    from anthropic import AsyncAnthropic
-
-    client_kwargs = {
-        "api_key": settings.anthropic_auth_token or settings.anthropic_api_key,
-        "default_headers": {"User-Agent": settings.anthropic_user_agent},
-        "timeout": 25.0,
-    }
-    if settings.anthropic_base_url:
-        client_kwargs["base_url"] = settings.anthropic_base_url
-
     text = prompt if isinstance(prompt, str) else str(prompt)
-    response = await AsyncAnthropic(**client_kwargs).messages.create(
+    response = await get_llm_client().messages.create(
         model=settings.llm_model,
         max_tokens=1024,
         messages=[{"role": "user", "content": text}],
@@ -96,21 +151,59 @@ async def _invoke_via_sdk(prompt) -> _LLMResponse:
     return _LLMResponse(answer, getattr(response, "usage", None))
 
 
+# Failures worth trying again: the call might succeed next time because the
+# condition is transient. Everything else -- 400, 401, 403, 404, 422 -- will fail
+# identically no matter how often it is re-sent, and retrying only doubles the
+# latency before the caller finds out. Measured pre-fix against a bad token:
+# 2 requests and 1,239 ms to surface an AuthenticationError that was decided by
+# the first response.
+_RETRYABLE_EXCEPTIONS = (
+    anthropic.APITimeoutError,
+    anthropic.APIConnectionError,
+    anthropic.InternalServerError,   # 5xx
+    anthropic.RateLimitError,        # 429
+    httpx.TimeoutException,
+    httpx.TransportError,
+)
+
+_RETRY_BASE_DELAY_SECONDS = 0.5
+
+
 async def _invoke_llm_with_retry(prompt, attempts: int = 2):
-    """Gateway tail latency is erratic (measured 2.5s–110s for identical calls),
-    so a timed-out or failed call is retried once before surfacing the error."""
+    """Retry transient failures only.
+
+    Gateway tail latency is erratic (measured 2.5s-110s for identical calls), so a
+    timed-out call is worth re-sending. A permanent 4xx is not, and the previous
+    bare `except Exception` treated the two the same -- including a 404 on a
+    deprecated model id, which is exactly the condition GOA-120's D4 describes.
+
+    Backoff is exponential with jitter: a 429 re-sent immediately is a 429 again,
+    and four RAG workers retrying in lockstep would synchronise into a burst.
+    """
     last_error = None
     for attempt in range(attempts):
         try:
             return await _invoke_via_sdk(prompt)
-        except Exception as e:  # noqa: BLE001 — retry any transport/timeout failure
+        except _RETRYABLE_EXCEPTIONS as e:
             last_error = e
+            reason = type(e).__name__
+            LLM_RETRIES_TOTAL.labels(reason=reason).inc()
             # NOTE: this module's logger is a stdlib logger, not structlog —
             # keyword fields raise "Logger._log() got an unexpected keyword
             # argument", which would mask the real failure behind a logging error.
             logger.warning(
-                "LLM invoke failed (attempt %d/%d): %s", attempt + 1, attempts, e
+                "LLM invoke failed, retrying (attempt %d/%d, %s): %s",
+                attempt + 1, attempts, reason, e,
             )
+            if attempt + 1 < attempts:
+                delay = _RETRY_BASE_DELAY_SECONDS * (2 ** attempt)
+                await asyncio.sleep(delay * (0.5 + random.random() / 2))
+        except Exception as e:  # noqa: BLE001 — permanent; surface immediately
+            logger.error(
+                "LLM invoke failed permanently (%s), not retrying: %s",
+                type(e).__name__, e,
+            )
+            raise
     raise last_error
 
 
@@ -551,8 +644,18 @@ Answer:"""
         input_tokens = token_usage.get("input_tokens", 0) if isinstance(token_usage, dict) else 0
         output_tokens = token_usage.get("output_tokens", 0) if isinstance(token_usage, dict) else 0
 
-    # Estimated cost calculation for claude-haiku-4-5-20251001 ($0.25/M input, $1.25/M output tokens)
-    cost_usd = (input_tokens * 0.25 + output_tokens * 1.25) / 1_000_000
+    # Priced from the shared table (goa_pricing), which reads the same
+    # LLM_PRICING_JSON the Gateway does. This line used to hardcode
+    # $0.25/$1.25 -- Haiku's prices, named in a comment that outlived the model
+    # it described. Running claude-opus-4-8 at $2/$10, every cost written to
+    # Langfuse was understated 8x. Four other services had drifted the same way
+    # in different directions; see the package docstring.
+    #
+    # None means "not priced", never 0.0: a zero here would be indistinguishable
+    # from a free call, which is how the drift went unnoticed in the first place.
+    cost_usd = price_call(settings.llm_model, input_tokens, output_tokens)
+    if cost_usd is None:
+        UNPRICED_MODEL_TOTAL.labels(model=settings.llm_model).inc()
 
     if generation is not None:
         try:

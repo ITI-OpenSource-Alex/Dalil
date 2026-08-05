@@ -6,10 +6,14 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from goa_pricing import cost_usd as price_call
+
 
 MODEL = "claude-opus-4-8"
-INPUT_COST_PER_MILLION_USD = 1.0
-OUTPUT_COST_PER_MILLION_USD = 5.0
+# GOA-135: INPUT_COST_PER_MILLION_USD = 1.0 / OUTPUT_COST_PER_MILLION_USD = 5.0
+# lived here and were half the real $2/$10, so every CV extraction cost was
+# reported at 50%. Prices now come from the shared table (packages/pricing),
+# which reads the same LLM_PRICING_JSON the Gateway does.
 
 SYSTEM_PROMPT = """Extract structured facts from the supplied CV.
 Return exactly one JSON object and no markdown or commentary. Never infer facts that are
@@ -61,7 +65,8 @@ class StructuredExecution:
     input_tokens: int
     output_tokens: int
     latency_ms: float
-    cost_usd: float
+    # None when the model is unpriced (GOA-135); never coerced to 0.0.
+    cost_usd: float | None
 
 
 def _response_text(response: Any) -> str:
@@ -121,10 +126,10 @@ class StructuredCVExtractor:
             usage = getattr(response, "usage", None)
             input_tokens = int(getattr(usage, "input_tokens", 0) or 0)
             output_tokens = int(getattr(usage, "output_tokens", 0) or 0)
-            cost_usd = (
-                input_tokens * INPUT_COST_PER_MILLION_USD
-                + output_tokens * OUTPUT_COST_PER_MILLION_USD
-            ) / 1_000_000
+            # self.model, not the MODEL constant: the extractor accepts a model
+            # override in __init__ and the request above is sent with it, so
+            # pricing the constant would bill an override at the default's rate.
+            cost_usd = price_call(self.model, input_tokens, output_tokens)
             return StructuredExecution(
                 data=data,
                 input_tokens=input_tokens,

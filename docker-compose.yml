@@ -107,7 +107,7 @@ services:
       - CV_PROCESSED_QUEUE_URL=http://localstack:4566/000000000000/goa-cv-processed
       - ACCOUNT_DELETED_QUEUE_URL=http://localstack:4566/000000000000/user-events-writing
       # /opt/goa is the shared security package (GOA-034); see the volume below.
-      - PYTHONPATH=/app:/packages/contracts/py:/opt/goa
+      - PYTHONPATH=/app:/packages/contracts/py:/opt/goa:/opt/goa-pricing
       - OTEL_SERVICE_NAME=writing-service
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - ANTHROPIC_BASE_URL=${GOA_LLM_BASE_URL:-${ANTHROPIC_BASE_URL:-}}
@@ -134,6 +134,11 @@ services:
       - ./services/writing/tests:/app/tests
       - ./packages/contracts/py:/packages/contracts/py
       - ./packages/security/py:/opt/goa
+      # GOA-135: the shared price table. It gets its OWN root rather than
+      # joining goa_security in /opt/goa, because the bind mount above hides
+      # whatever the image put at that path -- a package COPYed to /opt/goa
+      # would exist in the image and vanish under compose.
+      - ./packages/pricing/py:/opt/goa-pricing
     depends_on:
       postgres:
         condition: service_healthy
@@ -172,7 +177,7 @@ services:
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
       - LANGFUSE_HOST=${LANGFUSE_HOST}
-      - PYTHONPATH=/app:/packages/contracts/py:/opt/goa
+      - PYTHONPATH=/app:/packages/contracts/py:/opt/goa:/opt/goa-pricing
       - OTEL_SERVICE_NAME=cv-processor
     volumes:
       - ./services/writing/app:/app/app
@@ -180,6 +185,11 @@ services:
       - ./services/writing/migrations:/app/migrations
       - ./packages/contracts/py:/packages/contracts/py
       - ./packages/security/py:/opt/goa
+      # GOA-135: the shared price table. It gets its OWN root rather than
+      # joining goa_security in /opt/goa, because the bind mount above hides
+      # whatever the image put at that path -- a package COPYed to /opt/goa
+      # would exist in the image and vanish under compose.
+      - ./packages/pricing/py:/opt/goa-pricing
     depends_on:
       postgres:
         condition: service_healthy
@@ -370,6 +380,11 @@ services:
     volumes:
       - ./services/rag:/app
       - ./packages/security/py:/opt/goa
+      # GOA-135: the shared price table. It gets its OWN root rather than
+      # joining goa_security in /opt/goa, because the bind mount above hides
+      # whatever the image put at that path -- a package COPYed to /opt/goa
+      # would exist in the image and vanish under compose.
+      - ./packages/pricing/py:/opt/goa-pricing
     depends_on:
       postgres:
         condition: service_healthy
@@ -459,6 +474,11 @@ services:
       # Shared security package (GOA-034). Mounted so a change to it is
       # live in dev the same way a change to the service is.
       - ./packages/security/py:/opt/goa
+      # GOA-135: the shared price table. It gets its OWN root rather than
+      # joining goa_security in /opt/goa, because the bind mount above hides
+      # whatever the image put at that path -- a package COPYed to /opt/goa
+      # would exist in the image and vanish under compose.
+      - ./packages/pricing/py:/opt/goa-pricing
     depends_on:
       postgres:
         condition: service_healthy
@@ -509,6 +529,11 @@ services:
     volumes:
       - ./services/ingestion:/app
       - ./packages/contracts/py/contracts:/app/contracts:ro
+      # GOA-135: same shape as `contracts` above. The Dockerfile COPYs the price
+      # table into /app/goa_pricing, and the /app mount on the first line hides
+      # it -- the run summary's cost import then fails under compose while
+      # working perfectly in the built image.
+      - ./packages/pricing/py/goa_pricing:/app/goa_pricing:ro
       # The schema-parity test compares the independently deployed ingestion and
       # RAG models. Mount RAG read-only so that check also runs in the service image.
       - ./services/rag:/rag:ro

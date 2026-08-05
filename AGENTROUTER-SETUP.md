@@ -134,6 +134,26 @@ bills in CNY).
 `claude-opus-4-8` is 4× cheaper than 4-6/4-7 for a newer model — it's the default
 here for that reason.
 
+### Where these prices live in the code (GOA-135)
+
+**One variable, `LLM_PRICING_JSON`. Do not add a second copy anywhere.**
+
+| Reader | How |
+|---|---|
+| Gateway (Go) | `services/gateway/config.go` → `LLMPricingJSON`; the billing authority behind `/admin/costs` and the budget alert |
+| Python services | `packages/pricing/py/goa_pricing` → `cost_usd(model, in, out)` |
+
+Before GOA-135 five call sites priced the same model five different ways —
+$0.25/$1.25, $1/$5, $2/$10, $3/$15 and $8/$40 — so one call reported anywhere
+from 12% to 400% of its real cost depending on which service you asked. Measured
+in `perf/reports/GOA-135-delta.md`.
+
+If you switch models: add it to `LLM_PRICING_JSON` **and** check
+`packages/pricing/py/tests/test_goa_pricing.py` still passes — it parses the Go
+struct tag and asserts the two readers agree, so the tables cannot drift silently.
+An unpriced model records a **null** cost, never `0.0`, and increments
+`goa_*_unpriced_model_total`.
+
 ---
 
 ## How a call actually flows

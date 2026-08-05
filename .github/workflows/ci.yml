@@ -198,7 +198,7 @@ jobs:
           ANTHROPIC_API_KEY: dummy-key
           REDIS_URL: redis://127.0.0.1:6379/0
           REDIS_GATEWAY_URL: redis://127.0.0.1:6379/0
-          PYTHONPATH: ${{ github.workspace }}/packages/contracts/py:${{ github.workspace }}/packages/security/py
+          PYTHONPATH: ${{ github.workspace }}/packages/contracts/py:${{ github.workspace }}/packages/security/py:${{ github.workspace }}/packages/pricing/py
         # [RESILIENCE FIX 1]: Gracefully skip Pytest if no tests folder exists to avoid Exit Code 5
         run: |
           if [ -d "tests" ]; then
@@ -212,7 +212,7 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           RUN_WRITING_EVAL: "1"
-          PYTHONPATH: ${{ github.workspace }}/packages/contracts/py:${{ github.workspace }}/packages/security/py
+          PYTHONPATH: ${{ github.workspace }}/packages/contracts/py:${{ github.workspace }}/packages/security/py:${{ github.workspace }}/packages/pricing/py
         run: pytest tests/evaluation -m evaluation -q
 
       ####################################################

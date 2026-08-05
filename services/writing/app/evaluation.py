@@ -151,7 +151,7 @@ class EvaluationCoordinator:
             total_tokens=sum(
                 item.prompt_tokens + item.completion_tokens for item in ordered
             ),
-            total_cost_usd=sum(item.cost_usd for item in ordered),
+            total_cost_usd=sum(item.cost_usd or 0.0 for item in ordered),
         )
 
     async def replay_cached(
@@ -277,7 +277,7 @@ class EvaluationCoordinator:
             total_tokens=sum(
                 item.prompt_tokens + item.completion_tokens for item in ordered
             ),
-            total_cost_usd=sum(item.cost_usd for item in ordered),
+            total_cost_usd=sum(item.cost_usd or 0.0 for item in ordered),
         )
 
 

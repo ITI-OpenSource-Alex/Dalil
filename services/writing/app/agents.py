@@ -16,9 +16,11 @@ from fastapi import HTTPException, status
 
 from pydantic import BaseModel, Field, ValidationError
 
+from goa_pricing import cost_usd as price_call
 from goa_security import wrap_untrusted
 
 from app.config import get_settings
+from app.metrics import UNPRICED_MODEL_TOTAL
 from app.schemas import CriterionEvaluation, InlineIssue
 
 logger = logging.getLogger(__name__)
@@ -155,7 +157,11 @@ class AgentExecution:
     prompt_tokens: int
     completion_tokens: int
     latency_ms: float
-    cost_usd: float
+    # None when the model is absent from the shared price table (GOA-135).
+    # Deliberately not defaulted to 0.0: "we could not price this call" and "this
+    # call was free" must stay distinguishable, or a pricing gap looks like an
+    # idle service. Aggregators skip None rather than coercing it.
+    cost_usd: float | None
 
 
 def _round_to_half(value: float) -> float:
@@ -546,8 +552,16 @@ class WritingAgentRunner:
         usage = getattr(response, "usage", None)
         prompt_tokens = int(getattr(usage, "input_tokens", 0) or 0)
         completion_tokens = int(getattr(usage, "output_tokens", 0) or 0)
-        cost_usd = (prompt_tokens * 3 + completion_tokens * 15) / 1_000_000
-        
+        # GOA-135: priced from the shared table, not a literal. This was
+        # `prompt_tokens * 3 + completion_tokens * 15` -- Sonnet's prices against
+        # a claude-opus-4-8 deployment at $2/$10, so writing costs were
+        # overstated 1.5x while RAG's were understated 8x. Five sites, five
+        # different answers for one model; see packages/pricing.
+        cost_usd = price_call(self.model, prompt_tokens, completion_tokens)
+        if cost_usd is None:
+            UNPRICED_MODEL_TOTAL.labels(model=self.model).inc()
+
+
         try:
             from app.telemetry import record_llm_cost
             record_llm_cost(user_id, self.model, prompt_tokens, completion_tokens)

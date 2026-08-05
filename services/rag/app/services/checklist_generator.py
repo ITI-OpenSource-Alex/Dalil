@@ -139,8 +139,12 @@ async def generate_checklist(
             ),
             model_kwargs={"extra_headers": {"User-Agent": settings.anthropic_user_agent}},
             temperature=0.0,
-            # langchain_anthropic 0.1.13 has no `timeout`/`max_retries` field; see
-            # rag_service.py's llm construction for the same constraint.
+            # langchain_anthropic 0.1.13 has no `timeout`/`max_retries` field on
+            # ChatAnthropic: unrecognised kwargs are forwarded to
+            # AsyncMessages.create(), which rejects max_retries. The supported
+            # field is default_request_timeout. (This note used to point at
+            # rag_service.py, whose ChatAnthropic was deleted in GOA-135 as dead
+            # code -- llm_boost.py carries the same constraint.)
             default_request_timeout=25.0,
         )
         structured_llm = llm.with_structured_output(GeneratedChecklist, include_raw=True)

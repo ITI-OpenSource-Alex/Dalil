@@ -15,7 +15,7 @@ services:
       - AWS_ENDPOINT_URL=http://localstack:4566
       - INGESTION_QUEUE_URL=http://localstack:4566/000000000000/ingestion-queue
       - BUDGET_USD=${BUDGET_USD:-150}
-      - LLM_PRICING_JSON=${LLM_PRICING_JSON:-{"claude-opus-4-8":{"prompt_per_1m":2,"completion_per_1m":10},"glm-5.2":{"prompt_per_1m":6,"completion_per_1m":9},"gpt-5.5":{"prompt_per_1m":7,"completion_per_1m":14},"claude-opus-4-6":{"prompt_per_1m":8,"completion_per_1m":40},"claude-opus-4-7":{"prompt_per_1m":8,"completion_per_1m":40}}}
+      - LLM_PRICING_JSON=${LLM_PRICING_JSON:-{"claude-opus-4-8":{"prompt_per_1m":6,"completion_per_1m":30},"claude-opus-5":{"prompt_per_1m":2,"completion_per_1m":10},"gpt-5.6-sol":{"prompt_per_1m":6,"completion_per_1m":36}}}
       - REDIS_URL=redis://redis-gateway:6379/0
       - JWT_SECRET=supersecret_dev_key
       - WRITING_SERVICE_URL=http://writing:8000

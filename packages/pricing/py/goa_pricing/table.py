@@ -11,14 +11,12 @@ from typing import Dict, Optional
 logger = logging.getLogger("goa_pricing")
 
 # Byte-for-byte the default on services/gateway/config.go:76 LLMPricingJSON.
-# Kept in sync by tests/test_gateway_parity.py, which parses the Go source and
+# Kept in sync by tests/test_goa_pricing.py, which parses the Go source and
 # compares -- a comment asking two files to agree is not a mechanism.
 DEFAULT_PRICING_JSON = (
-    '{"claude-opus-4-8":{"prompt_per_1m":2,"completion_per_1m":10},'
-    '"glm-5.2":{"prompt_per_1m":6,"completion_per_1m":9},'
-    '"gpt-5.5":{"prompt_per_1m":7,"completion_per_1m":14},'
-    '"claude-opus-4-6":{"prompt_per_1m":8,"completion_per_1m":40},'
-    '"claude-opus-4-7":{"prompt_per_1m":8,"completion_per_1m":40}}'
+    '{"claude-opus-4-8":{"prompt_per_1m":6,"completion_per_1m":30},'
+    '"claude-opus-5":{"prompt_per_1m":2,"completion_per_1m":10},'
+    '"gpt-5.6-sol":{"prompt_per_1m":6,"completion_per_1m":36}}'
 )
 
 PRICING_ENV_VAR = "LLM_PRICING_JSON"

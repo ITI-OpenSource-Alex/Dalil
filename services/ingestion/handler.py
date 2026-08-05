@@ -658,9 +658,9 @@ def handle_ingestion(
     completed = remaining == 0 and failed == 0
     finished_at = datetime.datetime.now(datetime.timezone.utc)
     # GOA-135: EXTRACTION_INPUT_COST_PER_1M / EXTRACTION_OUTPUT_COST_PER_1M
-    # defaulted to $8/$40 -- claude-opus-4-6's prices -- while extraction runs
-    # claude-opus-4-8 at $2/$10, so every ingestion run reported 4x its real
-    # cost. The per-service override is deleted rather than corrected: a service
+    # defaulted to $8/$40 -- claude-opus-4-6's prices -- while the shared table
+    # listed claude-opus-4-8 at $2/$10, so GOA-135 measured each ingestion run at
+    # 4x its then-current cost. The per-service override was deleted: a service
     # that can be priced independently is a service that will drift
     # independently, which is how five sites ended up disagreeing about one model.
     from goa_pricing import cost_usd as price_call

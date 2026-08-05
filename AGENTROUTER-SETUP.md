@@ -125,18 +125,18 @@ bills in CNY).
 
 | Model | Endpoints | Prompt | Completion |
 |---|---|---|---|
-| `claude-opus-4-8` | anthropic, openai | $2.00 | $10.00 |
-| `claude-opus-4-7` | anthropic, openai | $8.00 | $40.00 |
-| `claude-opus-4-6` | anthropic, openai | $8.00 | $40.00 |
-| `gpt-5.5` | openai | $7.00 | $14.00 |
-| `glm-5.2` | openai | $6.00 | $9.00 |
+| `claude-opus-4-8` | anthropic, openai | $6.00 | $30.00 |
+| `claude-opus-5` | anthropic, openai | $2.00 | $10.00 |
+| `gpt-5.6-sol` | openai | $6.00 | $36.00 |
 
-`claude-opus-4-8` is 4× cheaper than 4-6/4-7 for a newer model — it's the default
-here for that reason.
+`claude-opus-4-8` remains the configured model so the measured grading behavior
+does not change as part of a pricing correction. `claude-opus-5` is 3× cheaper,
+but switching requires a separate quality re-measurement.
 
 ### Where these prices live in the code (GOA-135)
 
-**One variable, `LLM_PRICING_JSON`. Do not add a second copy anywhere.**
+**One override, `LLM_PRICING_JSON`.** The Go and Python built-in defaults and the
+container/example mirrors are kept byte-for-byte equivalent by tests.
 
 | Reader | How |
 |---|---|
@@ -204,7 +204,7 @@ Worth recording, because the 401 actively misleads you into thinking the key is 
 
 All of these returned the **identical** 401:
 
-- every catalog model (`gpt-5.5`, `gpt-5`, all three Claude Opus, `glm-5.2`)
+- every catalog model available during that diagnosis (the catalogue has since changed)
 - both wire formats (`/v1/chat/completions`, Anthropic `/v1/messages`)
 - both auth styles (`Authorization: Bearer`, `x-api-key`)
 - with and without `/v1` on the base URL

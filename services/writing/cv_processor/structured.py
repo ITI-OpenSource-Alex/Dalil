@@ -11,9 +11,9 @@ from goa_pricing import cost_usd as price_call
 
 MODEL = "claude-opus-4-8"
 # GOA-135: INPUT_COST_PER_MILLION_USD = 1.0 / OUTPUT_COST_PER_MILLION_USD = 5.0
-# lived here and were half the real $2/$10, so every CV extraction cost was
-# reported at 50%. Prices now come from the shared table (packages/pricing),
-# which reads the same LLM_PRICING_JSON the Gateway does.
+# lived here and were half the $2/$10 table current during GOA-135, so every CV
+# extraction cost was reported at 50%. Current prices come from the shared table
+# (packages/pricing), which reads the same LLM_PRICING_JSON the Gateway does.
 
 SYSTEM_PROMPT = """Extract structured facts from the supplied CV.
 Return exactly one JSON object and no markdown or commentary. Never infer facts that are

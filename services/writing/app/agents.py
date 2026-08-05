@@ -554,9 +554,9 @@ class WritingAgentRunner:
         completion_tokens = int(getattr(usage, "output_tokens", 0) or 0)
         # GOA-135: priced from the shared table, not a literal. This was
         # `prompt_tokens * 3 + completion_tokens * 15` -- Sonnet's prices against
-        # a claude-opus-4-8 deployment at $2/$10, so writing costs were
-        # overstated 1.5x while RAG's were understated 8x. Five sites, five
-        # different answers for one model; see packages/pricing.
+        # the $2/$10 claude-opus-4-8 table current during GOA-135, so writing
+        # costs were overstated 1.5x while RAG's were understated 8x. Current
+        # rates come from packages/pricing rather than this historical comment.
         cost_usd = price_call(self.model, prompt_tokens, completion_tokens)
         if cost_usd is None:
             UNPRICED_MODEL_TOTAL.labels(model=self.model).inc()

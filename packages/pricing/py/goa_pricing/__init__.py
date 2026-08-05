@@ -4,7 +4,7 @@ One copy, deliberately -- and this package exists because the alternative was
 measured rather than imagined. Before it, five call sites priced the same model
 five different ways:
 
-    services/gateway/config.go:76        $2.00 / $10.00   correct
+    services/gateway/config.go:76        $2.00 / $10.00   then-current
     services/rag/.../rag_service.py:555  $0.25 / $1.25    8x under  (Haiku prices)
     services/writing/app/agents.py:549   $3.00 / $15.00   1.5x over (Sonnet prices)
     services/writing/cv_processor/...    $1.00 / $5.00    2x under
@@ -27,8 +27,9 @@ Go parser and remains the authority for billing roll-ups; this module is the
 Python reader of the same configuration. One variable, one set of numbers, two
 readers -- not two tables that happen to agree today.
 
-Prices themselves are from the provider table in
-Docs/GOA-117-129-agentrouter-migration-plan.md.
+Prices themselves are manually synchronized from AgentRouter's live catalogue;
+the router exposes no pricing API. Parity tests keep every shipped mirror equal,
+but provider freshness remains an explicit operational check.
 
 UNPRICED MODELS RETURN None, NEVER 0.0
 --------------------------------------

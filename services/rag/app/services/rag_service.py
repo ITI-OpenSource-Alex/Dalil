@@ -647,9 +647,9 @@ Answer:"""
     # Priced from the shared table (goa_pricing), which reads the same
     # LLM_PRICING_JSON the Gateway does. This line used to hardcode
     # $0.25/$1.25 -- Haiku's prices, named in a comment that outlived the model
-    # it described. Running claude-opus-4-8 at $2/$10, every cost written to
-    # Langfuse was understated 8x. Four other services had drifted the same way
-    # in different directions; see the package docstring.
+    # it described. Against the $2/$10 table current when GOA-135 was measured,
+    # every cost written to Langfuse was understated 8x. Four other services had
+    # drifted in different directions; current rates live only in the shared table.
     #
     # None means "not priced", never 0.0: a zero here would be indistinguishable
     # from a free call, which is how the drift went unnoticed in the first place.

@@ -1,0 +1,80 @@
+{
+  "ticket": "GOA-135",
+  "phase": "pre",
+  "captured_at": "2026-08-05T19:21:58+00:00",
+  "git_sha": "ac5d0c6",
+  "host": {
+    "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.41",
+    "python": "3.11.15"
+  },
+  "providers": {
+    "llm": {
+      "base_url": "https://agentrouter.org",
+      "model": "claude-opus-4-8",
+      "real": false
+    }
+  },
+  "metrics": {
+    "C1_cost_ratios": {
+      "model": "claude-opus-4-8",
+      "input_tokens": 2000,
+      "output_tokens": 300,
+      "true_cost_usd": 0.021,
+      "sites": {
+        "rag": {
+          "source": "services/rag/app/services/rag_service.py:555",
+          "reported_cost_usd": 0.007,
+          "cost_ratio": 0.333333,
+          "checked": true,
+          "imports_goa_pricing": true,
+          "old_literals_present": []
+        },
+        "writing": {
+          "source": "services/writing/app/agents.py:549",
+          "reported_cost_usd": 0.007,
+          "cost_ratio": 0.333333,
+          "checked": true,
+          "imports_goa_pricing": true,
+          "old_literals_present": []
+        },
+        "cv_processor": {
+          "source": "services/writing/cv_processor/structured.py:124",
+          "reported_cost_usd": 0.007,
+          "cost_ratio": 0.333333,
+          "checked": true,
+          "imports_goa_pricing": true,
+          "old_literals_present": []
+        },
+        "ingestion": {
+          "source": "services/ingestion/handler.py:682",
+          "reported_cost_usd": 0.007,
+          "cost_ratio": 0.333333,
+          "checked": true,
+          "imports_goa_pricing": true,
+          "old_literals_present": []
+        }
+      }
+    },
+    "C1b_gateway_cost_ratio": {
+      "available": true,
+      "source": "services/gateway/config.go LLMPricingJSON default",
+      "models_priced": [
+        "claude-opus-4-6",
+        "claude-opus-4-7",
+        "claude-opus-4-8",
+        "glm-5.2",
+        "gpt-5.5"
+      ],
+      "reported_cost_usd": 0.007,
+      "cost_ratio": 0.333333
+    },
+    "C3_C4_client_behaviour": {
+      "available": false,
+      "reason": "--skip-provider"
+    },
+    "C7_auth_failure": {
+      "available": false,
+      "reason": "--skip-provider"
+    }
+  }
+}

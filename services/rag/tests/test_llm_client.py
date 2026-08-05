@@ -1,7 +1,8 @@
 """GOA-135 — cost accounting, client lifecycle and retry policy in the RAG service.
 
 The defects these cover, all measured in perf/reports/GOA-135-pre-*.json:
-  * cost priced at Haiku's $0.25/$1.25 against a $2/$10 model  -> 8x understated
+  * cost priced at Haiku's $0.25/$1.25 against the then-current $2/$10 table
+    -> 8x understated before the later AgentRouter pricing refresh
   * a fresh AsyncAnthropic per call, never closed              -> 20 TCP connects
     and p50 917.6ms where one reused client gives 1 and 296.7ms
   * `except Exception` retrying a permanent 401                -> 2 requests, 1.2s
@@ -27,11 +28,11 @@ def _reset_client():
 # --- pricing --------------------------------------------------------------
 
 def test_cost_uses_configured_model_pricing():
-    """2,000 prompt + 300 completion on claude-opus-4-8 is $0.007, not $0.0009."""
+    """2,000 prompt + 300 completion on claude-opus-4-8 is $0.021, not $0.0009."""
     from goa_pricing import cost_usd
 
     with patch.object(rag_service.settings, "llm_model", "claude-opus-4-8"):
-        assert cost_usd(rag_service.settings.llm_model, 2000, 300) == pytest.approx(0.007)
+        assert cost_usd(rag_service.settings.llm_model, 2000, 300) == pytest.approx(0.021)
 
 
 def test_cost_is_not_the_old_haiku_arithmetic():

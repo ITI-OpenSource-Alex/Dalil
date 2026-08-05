@@ -34,17 +34,16 @@ for _extra in ("packages/pricing/py", "packages/security/py", "packages/contract
     if _candidate not in sys.path:
         sys.path.insert(0, _candidate)
 
-# The canonical prices, from gateway/config.go:76 LLMPricingJSON's default, which
-# matches the provider table in GOA-117-129-agentrouter-migration-plan.md.
+# The live AgentRouter prices, independently captured from its catalogue. This
+# must not import the shipped table: a wrong shared table must produce a ratio
+# other than 1.000 instead of certifying itself.
 # Hardcoded HERE on purpose: this is the benchmark's independent yardstick. If it
 # imported the same module the services use, a wrong shared table would produce a
 # ratio of 1.000 and the harness would certify its own bug.
 TRUE_PRICES = {
-    "claude-opus-4-8": (2.00, 10.00),
-    "glm-5.2": (6.00, 9.00),
-    "gpt-5.5": (7.00, 14.00),
-    "claude-opus-4-6": (8.00, 40.00),
-    "claude-opus-4-7": (8.00, 40.00),
+    "claude-opus-4-8": (6.00, 30.00),
+    "claude-opus-5": (2.00, 10.00),
+    "gpt-5.6-sol": (6.00, 36.00),
 }
 
 # A representative RAG query shape, from the migration plan's budget model:

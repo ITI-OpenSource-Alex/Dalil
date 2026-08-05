@@ -29,6 +29,7 @@ def _find_gateway_config() -> Path | None:
 
 
 GATEWAY_CONFIG = _find_gateway_config()
+REPO_ROOT = GATEWAY_CONFIG.parents[2] if GATEWAY_CONFIG is not None else None
 
 
 @pytest.fixture(autouse=True)
@@ -41,23 +42,29 @@ def _clear_cache():
 # --- the arithmetic -------------------------------------------------------
 
 def test_cost_matches_hand_computed_value():
-    # 2,000 prompt + 300 completion on claude-opus-4-8 at $2/$10 per 1M.
-    assert cost_usd("claude-opus-4-8", 2000, 300) == pytest.approx(0.007)
+    # 2,000 prompt + 300 completion on claude-opus-4-8 at $6/$30 per 1M.
+    assert cost_usd("claude-opus-4-8", 2000, 300) == pytest.approx(0.021)
 
 
 @pytest.mark.parametrize(
     "model,expected",
     [
-        ("claude-opus-4-8", (2.0, 10.0)),
-        ("glm-5.2", (6.0, 9.0)),
-        ("gpt-5.5", (7.0, 14.0)),
-        ("claude-opus-4-6", (8.0, 40.0)),
-        ("claude-opus-4-7", (8.0, 40.0)),
+        ("claude-opus-4-8", (6.0, 30.0)),
+        ("claude-opus-5", (2.0, 10.0)),
+        ("gpt-5.6-sol", (6.0, 36.0)),
     ],
 )
 def test_every_router_model_is_priced(model, expected):
     price = price_for(model)
     assert (price.prompt_per_1m, price.completion_per_1m) == expected
+
+
+def test_default_table_contains_only_live_router_models():
+    assert known_models() == (
+        "claude-opus-4-8",
+        "claude-opus-5",
+        "gpt-5.6-sol",
+    )
 
 
 def test_zero_tokens_costs_zero():
@@ -99,14 +106,14 @@ def test_malformed_env_falls_back_to_default_and_logs(monkeypatch, caplog):
     monkeypatch.setenv("LLM_PRICING_JSON", "{not json")
     pricing_table.reset_cache()
     # Still serves the shipped default rather than dying at import.
-    assert cost_usd("claude-opus-4-8", 2000, 300) == pytest.approx(0.007)
+    assert cost_usd("claude-opus-4-8", 2000, 300) == pytest.approx(0.021)
     assert any(r.levelname == "ERROR" for r in caplog.records)
 
 
 def test_entry_missing_a_field_falls_back(monkeypatch, caplog):
     monkeypatch.setenv("LLM_PRICING_JSON", '{"m":{"prompt_per_1m":1}}')
     pricing_table.reset_cache()
-    assert cost_usd("claude-opus-4-8", 2000, 300) == pytest.approx(0.007)
+    assert cost_usd("claude-opus-4-8", 2000, 300) == pytest.approx(0.021)
     assert any(r.levelname == "ERROR" for r in caplog.records)
 
 
@@ -127,6 +134,21 @@ def _gateway_default_pricing() -> dict:
     return json.loads(match.group(1).replace('\\"', '"'))
 
 
+def _env_example_pricing(relative_path: str) -> dict:
+    source = (REPO_ROOT / relative_path).read_text(encoding="utf-8")
+    line = next(ln for ln in source.splitlines() if ln.startswith("LLM_PRICING_JSON="))
+    return json.loads(line.split("=", 1)[1])
+
+
+def _compose_default_pricing() -> dict:
+    source = (REPO_ROOT / "docker-compose.yml").read_text(encoding="utf-8")
+    line = next(ln.strip() for ln in source.splitlines() if "LLM_PRICING_JSON=" in ln)
+    raw = line.split("=", 1)[1]
+    prefix = "${LLM_PRICING_JSON:-"
+    assert raw.startswith(prefix) and raw.endswith("}"), raw
+    return json.loads(raw[len(prefix):-1])
+
+
 @pytest.mark.skipif(GATEWAY_CONFIG is None, reason="gateway source not reachable from this location")
 def test_default_table_matches_gateway_exactly():
     """The one test that makes 'one source of truth' true rather than aspirational.
@@ -141,6 +163,17 @@ def test_default_table_matches_gateway_exactly():
         "goa_pricing.DEFAULT_PRICING_JSON has drifted from "
         "services/gateway/config.go LLMPricingJSON"
     )
+
+
+@pytest.mark.skipif(REPO_ROOT is None, reason="repository config mirrors are not reachable")
+@pytest.mark.parametrize("relative_path", [".env.example", "services/gateway/.env.example"])
+def test_env_example_tables_match_gateway_default(relative_path):
+    assert _env_example_pricing(relative_path) == _gateway_default_pricing()
+
+
+@pytest.mark.skipif(REPO_ROOT is None, reason="docker-compose.yml is not reachable")
+def test_compose_table_matches_gateway_default():
+    assert _compose_default_pricing() == _gateway_default_pricing()
 
 
 @pytest.mark.skipif(GATEWAY_CONFIG is None, reason="gateway source not reachable from this location")
@@ -170,6 +203,7 @@ def test_gateway_fallback_price_matches_our_primary_model():
 @pytest.mark.parametrize(
     "wrong_prompt,wrong_completion,label",
     [
+        (2.0, 10.0, "stale AgentRouter price, 3x under"),
         (0.25, 1.25, "rag: Haiku prices, 8x under"),
         (3.0, 15.0, "writing: Sonnet prices, 1.5x over"),
         (1.0, 5.0, "cv_processor: 2x under"),

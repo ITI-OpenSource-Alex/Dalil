@@ -1,3 +1,5 @@
+import { throwForResponse } from "@/lib/subscription";
+
 // Writing is reached through the Gateway, not directly on :8000 — same reason as
 // exam-api.ts: calling the service directly published INTERNAL_API_KEY to every
 // browser via a NEXT_PUBLIC_ variable (BUG-046).
@@ -51,7 +53,7 @@ export async function evaluateEssay(
   });
 
   if (!response.ok) {
-    throw new Error(await response.text());
+    await throwForResponse(response, "essay-evaluation");
   }
 
   return response.json();

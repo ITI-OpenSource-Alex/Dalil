@@ -30,6 +30,17 @@ import { CURRENT_USER_ID } from "@/lib/current-user";
 import { getChatSessionId, startNewChatSession } from "@/lib/chat-session";
 import { useCurrentUser } from "@/app/hooks/useCurrentUser";
 import InlineAlert from "@/components/speaking/inline-alert";
+import {
+  CONNECTION_ERROR,
+  GENERIC_ASSISTANT_ERROR,
+  sanitizeAssistantText,
+  sanitizeErrorMessage,
+} from "@/lib/chat-sanitize";
+import {
+  isSubscriptionRequiredMessage,
+  SubscriptionRequiredError,
+} from "@/lib/subscription";
+import { useUpgradePrompt } from "@/components/subscription/upgrade-dialog";
 
 // GOA-132: the speaking socket now goes through the Gateway like every other
 // browser call, so it picks up JWT validation at upgrade time, rate limiting
@@ -62,7 +73,9 @@ export type Opportunity = {
   programName: string;
   university: string;
   country: string;
-  deadline: string;
+  // Nullable: the column is optional in program_requirements and RAG
+  // passes None straight through, which the UI rendered as "Deadline: null".
+  deadline: string | null;
   // The real /match response nests the score under `result.score` on a 0-100
   // scale (services/rag/app/services/scoring.py's match_programs) -- this type
   // previously declared a flat `confidence: number` on a 0-1 scale that never
@@ -90,6 +103,20 @@ export type Message = {
 
 type ChatMode = "chat" | "writing";
 
+/**
+ * Message ids used to be `assistant-${Date.now()}`. Two sends inside the same
+ * millisecond -- which is exactly what a double-fired submit produces -- gave
+ * two messages the same id, so `<AnimatePresence>` saw duplicate React keys and
+ * every `messages.map(m => m.id === assistantMessageId ? ... : m)` update wrote
+ * tokens into *both* bubbles. That is one of the ways the same answer appeared
+ * to be streamed twice. A monotonic counter cannot collide.
+ */
+let messageSequence = 0;
+function nextMessageId(prefix: string): string {
+  messageSequence += 1;
+  return `${prefix}-${messageSequence}-${Date.now()}`;
+}
+
 export default function ChatShell() {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -104,6 +131,24 @@ export default function ChatShell() {
   const audioPlayerRef = useRef<AudioContext | null>(null);
 
   const [isTyping, setIsTyping] = useState(false);
+  const upgrade = useUpgradePrompt();
+  /*
+   * The single-flight lock on sending.
+   *
+   * handleSendMessage had no guard at all, and there are three ways to invoke
+   * it in quick succession: Enter in the textarea, the Send button, and the
+   * Writing composer's submit. Each invocation appended its own assistant
+   * bubble and opened its own POST /api/chat, so two replies really did stream
+   * side by side for one apparent question -- the "two assistants answering"
+   * report. A ref, not state: the second call happens in the same tick as the
+   * first, before any re-render could have propagated a state flag.
+   */
+  const sendingRef = useRef(false);
+  const [isSending, setIsSending] = useState(false);
+  /** True once anything has been sent, so history can no longer clobber. */
+  const hasSentRef = useRef(false);
+  /** Aborts an in-flight turn when the conversation is reset or unmounted. */
+  const chatAbortRef = useRef<AbortController | null>(null);
   const [speakingOpen, setSpeakingOpen] = useState(false);
   const [speakingState, setSpeakingState] = useState<SpeakingState>("idle");
   const [speakingEvaluation, setSpeakingEvaluation] =
@@ -137,6 +182,12 @@ export default function ChatShell() {
   const identityLoading =
     profileStatus === "loading" || profileStatus === "idle";
   const userId = user?.id ?? CURRENT_USER_ID;
+  // Replaces the hardcoded "LA" on the user avatar — a leftover from the
+  // "Lina Ahmadi" demo persona that showed the same two letters to everyone.
+  const userInitials = (user?.email?.split("@")[0] ?? "")
+    .replace(/[^a-zA-Z]/g, "")
+    .slice(0, 2)
+    .toUpperCase();
   const [memoryNotice, setMemoryNotice] = useState<string | null>(null);
   const [forgetting, setForgetting] = useState(false);
   const speakingQuestion = {
@@ -195,13 +246,34 @@ export default function ChatShell() {
     // request /chat/sessions//history, which is a different route entirely.
     if (!sessionId) return;
 
+    // Two guards, for two different ways this effect used to corrupt the
+    // transcript:
+    //
+    // 1. AbortController + the `cancelled` flag. In development React mounts
+    //    effects twice, so this fired two overlapping history requests whose
+    //    responses both called setMessages. It is also what keeps a response
+    //    from a session the user has already left (New conversation, Forget
+    //    me) from landing in the new one.
+    //
+    // 2. hasSentRef. loadHistory *replaces* the whole message list. If the
+    //    user typed and sent before this slow GET resolved, the replacement
+    //    wiped the user's message and the assistant bubble that was actively
+    //    streaming into it -- after which every token update targeted an id
+    //    that no longer existed, and the reply appeared to restart from
+    //    nothing. History is only ever applied to an untouched transcript.
+    const controller = new AbortController();
+    let cancelled = false;
+
     async function loadHistory() {
       try {
         const res = await fetch(`${CHAT_API_BASE}/chat/sessions/${sessionId}/history`, {
           credentials: "include",
+          signal: controller.signal,
         });
+        if (cancelled || hasSentRef.current) return;
         if (res.ok) {
           const history = await res.json();
+          if (cancelled || hasSentRef.current) return;
 
           // doc 10: history was assumed to always be an array of
           // {role, content} entries and mapped over unguarded -- a
@@ -222,23 +294,35 @@ export default function ChatShell() {
                 typeof entry.content === "string"
               ) {
                 validMessages.push({
-                  id: `hist-${idx}`,
+                  // Namespaced by session id: `hist-0` from a previous
+                  // conversation could otherwise collide with `hist-0` from
+                  // this one if both ended up in the list.
+                  id: `hist-${sessionId}-${idx}`,
                   role: entry.role,
-                  content: entry.content,
+                  content:
+                    entry.role === "assistant"
+                      ? sanitizeAssistantText(entry.content)
+                      : entry.content,
                 });
               }
             });
 
-            if (validMessages.length > 0) {
+            if (validMessages.length > 0 && !cancelled && !hasSentRef.current) {
               setMessages(validMessages);
             }
           }
         }
       } catch (err) {
+        if (controller.signal.aborted) return;
         console.error("Failed to fetch session history:", err);
       }
     }
     loadHistory();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
   }, [sessionId]);
 
   /**
@@ -249,10 +333,23 @@ export default function ChatShell() {
    * know your degree. Wiping them is the separate, explicit control below.
    */
   const handleNewConversation = () => {
+    // Cut any in-flight turn loose first. Without this, a reply still
+    // streaming from the abandoned conversation kept appending tokens into
+    // the new one's (empty) transcript, which looked exactly like an
+    // unprompted second assistant message.
+    chatAbortRef.current?.abort();
+    chatAbortRef.current = null;
+    sendingRef.current = false;
+    setIsSending(false);
+    setIsTyping(false);
+
     setSessionId(startNewChatSession());
     setMessages([]);
     setMemoryNotice(null);
     setChatMode("chat");
+    // Lets the new session's history load apply again — it is a different
+    // conversation, and nothing has been sent in it yet.
+    hasSentRef.current = false;
   };
 
   /**
@@ -282,6 +379,12 @@ export default function ChatShell() {
       // A new session id too: the old thread was just deleted server-side, so
       // continuing to post against it would recreate a conversation the user
       // asked to be rid of.
+      chatAbortRef.current?.abort();
+      chatAbortRef.current = null;
+      sendingRef.current = false;
+      setIsSending(false);
+      setIsTyping(false);
+      hasSentRef.current = false;
       setSessionId(startNewChatSession());
       setMessages([]);
       setMemoryNotice(
@@ -516,12 +619,22 @@ export default function ChatShell() {
         // in-stream "error" event does (see handleWritingEvent above).
         streamWritingEvaluation(event.sseUrl, handleWritingEvent).catch(
           (err) => {
-            console.error(err);
             setWritingLoading(false);
+            // A 403 here is the paid-tier gate on
+            // /api/writing/essays/:id/evaluate, not a fault. It used to render
+            // as "Unable to start writing evaluation (status 403)." in the
+            // panel; it now opens the upgrade dialog and says so plainly.
+            if (upgrade.handle(err, "essay-evaluation")) {
+              setWritingError(
+                "Essay evaluation is part of GOA Pro — see the upgrade details.",
+              );
+              return;
+            }
+            console.error(err);
             setWritingError(
-              err instanceof Error
-                ? err.message
-                : "Something went wrong while evaluating your essay. Please try again.",
+              sanitizeErrorMessage(
+                err instanceof Error ? err.message : undefined,
+              ),
             );
           },
         );
@@ -535,15 +648,25 @@ export default function ChatShell() {
 
         break;
 
-      case "error":
+      case "error": {
+        // Orchestration sends the bare marker "subscription_required" for an
+        // intent the account's tier doesn't cover (app/api/chat.py). Printing
+        // that token was the chat-side version of the raw 403 the exam page
+        // used to show; it now opens the same upgrade dialog as everywhere
+        // else. Every other error is passed through the sanitiser so a
+        // stringified backend exception can never reach the transcript.
+        const isPaywall = isSubscriptionRequiredMessage(event.error);
+        if (isPaywall) upgrade.show();
+
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantMessageId
               ? {
                   ...m,
                   error: event.error,
-                  content:
-                    "Sorry, something went wrong while generating the response.",
+                  content: isPaywall
+                    ? "That one needs GOA Pro — I've opened the details for you."
+                    : sanitizeErrorMessage(event.error),
                   isStreaming: false,
                 }
               : m,
@@ -555,6 +678,7 @@ export default function ChatShell() {
         // leaves an unrelated in-progress/connected session alone.
         setSpeakingState((prev) => (prev === "connecting" ? "idle" : prev));
         break;
+      }
     }
   };
 
@@ -597,17 +721,30 @@ export default function ChatShell() {
   const handleSendMessage = async (text: string) => {
     if (!text.trim()) return;
 
+    // Exactly one turn may be in flight. A second submit while a reply is
+    // streaming is dropped here rather than producing a second bubble and a
+    // second POST -- see sendingRef's declaration for why this is a ref.
+    if (sendingRef.current) return;
+    sendingRef.current = true;
+    hasSentRef.current = true;
+    setIsSending(true);
+
+    const controller = new AbortController();
+    // Supersede rather than accumulate: if a previous turn somehow survived
+    // (a reset raced the stream), its reader is cut loose here so it cannot
+    // keep writing tokens into a transcript that has moved on.
+    chatAbortRef.current?.abort();
+    chatAbortRef.current = controller;
+
     const userMessage: Message = {
-      id: `user-${Date.now()}`,
+      id: nextMessageId("user"),
       role: "user",
       content: text,
     };
 
-    setMessages((prev) => [...prev, userMessage]);
-
     setIsTyping(true);
 
-    const assistantMessageId = `assistant-${Date.now()}`;
+    const assistantMessageId = nextMessageId("assistant");
 
     const assistantMessage: Message = {
       id: assistantMessageId,
@@ -616,12 +753,15 @@ export default function ChatShell() {
       isStreaming: true,
     };
 
-    setMessages((prev) => [...prev, assistantMessage]);
+    // Both messages appended in one update. As two separate setMessages calls
+    // they could interleave with an event handler's own update between them.
+    setMessages((prev) => [...prev, userMessage, assistantMessage]);
 
     try {
       const response = await fetch(`${CHAT_API_BASE}/chat`, {
         method: "POST",
         credentials: "include",
+        signal: controller.signal,
         headers: {
           "Content-Type": "application/json",
         },
@@ -634,7 +774,12 @@ export default function ChatShell() {
       });
 
       if (!response.ok) {
-        throw new Error("Service unavailable");
+        // Chat itself is a free-tier route, but the intents it dispatches to
+        // are not all free. Surface the paywall as the paywall.
+        if (response.status === 403) {
+          throw new SubscriptionRequiredError(null);
+        }
+        throw new Error(`Chat request failed with status ${response.status}`);
       }
 
       await streamChatResponse(response, (event) =>
@@ -647,12 +792,18 @@ export default function ChatShell() {
             ? {
                 ...m,
                 isStreaming: false,
+                // A turn that produced no text at all (every event was an
+                // attachment, or the stream closed early) previously left an
+                // empty bubble with a blinking cursor forever.
+                content:
+                  m.content.trim() ||
+                  (m.opportunities?.length || m.sources?.length
+                    ? m.content
+                    : GENERIC_ASSISTANT_ERROR),
               }
             : m,
         ),
       );
-
-      setIsTyping(false);
 
       // The message that triggered this request may not have classified as
       // SPEAKING intent (e.g. supervisor routed it elsewhere), so no
@@ -661,9 +812,13 @@ export default function ChatShell() {
       // forever with nothing left to un-stick it.
       setSpeakingState((prev) => (prev === "connecting" ? "idle" : prev));
     } catch (error) {
-      console.error(error);
+      // An aborted turn is not a failure: the user reset the conversation or
+      // left the page. Writing an error into a bubble that no longer exists
+      // (or is about to be discarded) would be noise.
+      if (controller.signal.aborted) return;
 
-      setIsTyping(false);
+      const wasPaywall = upgrade.handle(error, "writing-practice");
+      if (!wasPaywall) console.error(error);
 
       setSpeakingState((prev) => (prev === "connecting" ? "idle" : prev));
 
@@ -672,13 +827,19 @@ export default function ChatShell() {
           m.id === assistantMessageId
             ? {
                 ...m,
-                content:
-                  "Sorry, I am having trouble connecting right now. Please try again later.",
+                content: wasPaywall
+                  ? "That one needs GOA Pro — I've opened the details for you."
+                  : CONNECTION_ERROR,
                 isStreaming: false,
               }
             : m,
         ),
       );
+    } finally {
+      if (chatAbortRef.current === controller) chatAbortRef.current = null;
+      sendingRef.current = false;
+      setIsSending(false);
+      setIsTyping(false);
     }
   };
 
@@ -751,6 +912,11 @@ export default function ChatShell() {
       clearTranscriptionTimeout();
       recorderRef.current?.stop();
       speakingSocket.current?.close();
+      // An unfinished SSE read left running past unmount kept calling
+      // setMessages on a dead component, and — because sessionStorage keeps
+      // the session id — its tokens reappeared in the transcript when the
+      // page was navigated back to.
+      chatAbortRef.current?.abort();
     };
   }, []);
 
@@ -814,7 +980,11 @@ export default function ChatShell() {
         transition={{ duration: 0.4, delay: 0.1 }}
         className="flex-1 overflow-y-auto px-8 py-6"
       >
-        <MessageList messages={messages} isTyping={isTyping} />
+        <MessageList
+          messages={messages}
+          isTyping={isTyping}
+          userInitials={userInitials}
+        />
       </motion.section>
 
       {/* Inputs Wrapper */}
@@ -867,6 +1037,7 @@ export default function ChatShell() {
             onOpenWriting={() => setChatMode("writing")}
             activePractice={activePractice}
             disabled={identityLoading}
+            sending={isSending}
           />
         ) : (
           <div className="space-y-4">

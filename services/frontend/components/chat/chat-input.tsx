@@ -21,6 +21,13 @@ interface ChatInputProps {
    * CURRENT_USER_ID fallback instead of the logged-in user's real id.
    */
   disabled?: boolean;
+  /**
+   * True while a reply is streaming. The shell already refuses a second
+   * concurrent turn, but a Send button that silently does nothing is a worse
+   * answer than one that visibly cannot be pressed — and pressing it twice is
+   * how the duplicate-reply bug was reproduced in the first place.
+   */
+  sending?: boolean;
 }
 
 export default function ChatInput({
@@ -29,9 +36,11 @@ export default function ChatInput({
   onOpenWriting,
   activePractice,
   disabled = false,
+  sending = false,
 }: ChatInputProps) {
   const [inputText, setInputText] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const locked = disabled || sending;
 
   useEffect(() => {
     if (!textareaRef.current) return;
@@ -44,7 +53,7 @@ export default function ChatInput({
   }, [inputText]);
 
   const handleSubmit = () => {
-    if (!inputText.trim() || disabled) return;
+    if (!inputText.trim() || locked) return;
 
     onSendMessage(inputText);
     setInputText("");
@@ -57,8 +66,8 @@ export default function ChatInput({
     }
   };
 
-  const writingLocked = activePractice === "speaking" || disabled;
-  const speakingLocked = activePractice === "writing" || disabled;
+  const writingLocked = activePractice === "speaking" || locked;
+  const speakingLocked = activePractice === "writing" || locked;
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -73,7 +82,7 @@ export default function ChatInput({
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask GOA anything..."
+          placeholder={sending ? "Waiting for a reply…" : "Ask GOA anything..."}
           className="flex-1 resize-none bg-transparent py-1 px-1 text-sm outline-none placeholder-[#899C8B] text-[#1D291E] max-h-40 min-h-6"
         />
 
@@ -114,8 +123,10 @@ export default function ChatInput({
           data-testid="send-message-button"
           whileTap={{ scale: 0.92 }}
           onClick={handleSubmit}
-          disabled={!inputText.trim() || disabled}
-          className="p-2 bg-[#0E3D23] text-white rounded-lg hover:bg-[#0A2E1A] disabled:opacity-50"
+          disabled={!inputText.trim() || locked}
+          aria-busy={sending || undefined}
+          title={sending ? "Waiting for the current reply to finish" : "Send"}
+          className="p-2 bg-[#0E3D23] text-white rounded-lg hover:bg-[#0A2E1A] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Send size={18} />
         </motion.button>

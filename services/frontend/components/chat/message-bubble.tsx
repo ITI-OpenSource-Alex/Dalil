@@ -1,21 +1,32 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Sparkles } from "lucide-react";
 import StreamingMessage from "./streaming-message";
 
 interface MessageBubbleProps {
   role: "user" | "assistant";
   content: string;
   isStreaming?: boolean;
-  intent?: string;
+  /** Initials for the user avatar, derived from the signed-in account. */
+  userInitials?: string;
 }
 
+/*
+ * The "Route: RAG" chip that used to render under every assistant reply is
+ * gone. `intent` is the supervisor's internal classification label -- the name
+ * of the downstream service the message was dispatched to -- and putting it on
+ * screen told the user nothing they could act on while exposing the shape of
+ * the backend. It is still carried on the Message and still traced to
+ * Langfuse; it is simply not something the reader is shown.
+ *
+ * The user avatar's hardcoded "LA" (a leftover from the "Lina Ahmadi" demo
+ * persona, BUG-047) is likewise replaced by the real account's initials.
+ */
 export default function MessageBubble({
   role,
   content,
   isStreaming = false,
-  intent,
+  userInitials,
 }: MessageBubbleProps) {
   const isUser = role === "user";
 
@@ -39,25 +50,13 @@ export default function MessageBubble({
           }`}
         >
           <StreamingMessage content={content} isStreaming={isStreaming} />
-
-          {!isUser && intent && (
-            <motion.span
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.25 }}
-              className="inline-flex items-center gap-1 mt-3 text-[10px] font-medium bg-[#F0F5F1] text-[#2C623C] px-2 py-0.5 rounded-full"
-            >
-              <Sparkles size={10} />
-              Route: {intent}
-            </motion.span>
-          )}
         </motion.div>
       </div>
 
       {/* User Avatar */}
       {isUser && (
         <div className="w-8 h-8 rounded-full bg-[#E5E9E4] flex items-center justify-center text-[#2F4432] text-xs font-semibold shrink-0">
-          LA
+          {userInitials || "You"}
         </div>
       )}
     </>

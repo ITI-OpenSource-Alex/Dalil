@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Sidebar } from "@/components/ui/sidebar";
+import { UpgradeProvider } from "@/components/subscription/upgrade-dialog";
 
 /*
  * The shared shell for every authenticated route (chat, exam, profile,
@@ -8,12 +9,19 @@ import { Sidebar } from "@/components/ui/sidebar";
  * wrapper -- exam/results/page.tsx did it 5 times, once per early return.
  * This route group (invisible in the URL) renders the Sidebar once; pages
  * keep full control over their own inner content and scroll behaviour.
+ *
+ * UpgradeProvider wraps the whole shell so any page can turn a paid-tier
+ * refusal into one consistent dialog (see lib/subscription.ts) instead of
+ * each surface inventing its own banner -- or, as the exam landing page did,
+ * printing the Gateway's raw 403 body.
  */
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-screen bg-canvas text-fg">
-      <Sidebar />
-      <div className="min-w-0 flex-1">{children}</div>
-    </div>
+    <UpgradeProvider>
+      <div className="flex min-h-screen bg-canvas text-fg">
+        <Sidebar />
+        <div className="min-w-0 flex-1">{children}</div>
+      </div>
+    </UpgradeProvider>
   );
 }

@@ -139,8 +139,12 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	app.Post("/auth/reset-password", authHandler.ResetPassword)
 	app.Get("/auth/verify-email/:token", authHandler.VerifyEmail)
 
+	// Logout takes OptionalJWT deliberately -- see that middleware's doc comment.
+	// Behind the mandatory JWT check, an expired or already-blacklisted token
+	// meant the handler never ran and the auth cookies were never cleared, so
+	// the Log out button left the user logged in.
+	app.Post("/auth/logout", middleware.OptionalJWT(cfg.JWTSecret), authHandler.Logout)
 	// Protected auth endpoints (gated by JWT middleware containing the Redis blacklist check)
-	app.Post("/auth/logout", middleware.JWT(cfg.JWTSecret, redisClient, metrics), authHandler.Logout)
 	app.Post("/auth/logout-all", middleware.JWT(cfg.JWTSecret, redisClient, metrics), authHandler.LogoutAll)
 
 	app.Delete("/users/:id/account", middleware.JWT(cfg.JWTSecret, redisClient, metrics), authHandler.DeleteAccount)

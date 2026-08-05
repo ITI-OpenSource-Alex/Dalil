@@ -1,4 +1,5 @@
 import { ExamType, SkillArea } from "@/app/types/exam";
+import { throwForResponse } from "@/lib/subscription";
 
 // Exam is reached through the Gateway, not directly on :8085.
 //
@@ -9,6 +10,15 @@ import { ExamType, SkillArea } from "@/app/types/exam";
 // rate limiting and correlation IDs on the way through.
 //
 // credentials: "include" is required: auth rides on HttpOnly cookies.
+//
+// Every non-OK response goes through throwForResponse rather than
+// `throw new Error(await response.text())`. The whole /api/exam group carries
+// the Gateway's paid-tier gate (GOA-059), which answers a free-tier caller
+// with 403 {"error":"subscription_required"} -- so the old line put that raw
+// JSON body on screen when a Free user clicked "Take Exam" on the Reading
+// card. throwForResponse turns it into a SubscriptionRequiredError the UI can
+// answer with the upgrade dialog, and leaves every other failure behaving
+// exactly as before.
 const API_BASE = `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080"}/api/exam`;
 
 const headers = {
@@ -173,7 +183,7 @@ export async function createSession(
   });
 
   if (!response.ok) {
-    throw new Error(await response.text());
+    await throwForResponse(response, "exam");
   }
 
   return response.json();
@@ -188,7 +198,7 @@ export async function getExamProgress(): Promise<ExamProgress> {
   });
 
   if (!response.ok) {
-    throw new Error(await response.text());
+    await throwForResponse(response, "exam");
   }
 
   return response.json();
@@ -204,7 +214,7 @@ export async function getSession(
   });
 
   if (!response.ok) {
-    throw new Error(await response.text());
+    await throwForResponse(response, "exam");
   }
 
   return response.json();
@@ -224,7 +234,7 @@ export async function submitSession(
   });
 
   if (!response.ok) {
-    throw new Error(await response.text());
+    await throwForResponse(response, "exam");
   }
 
   return response.json();
@@ -264,7 +274,7 @@ export async function submitWritingTask(
   });
 
   if (!response.ok) {
-    throw new Error(await response.text());
+    await throwForResponse(response, "exam");
   }
 
   return response.json();
@@ -287,7 +297,7 @@ export async function getWritingResult(
   });
 
   if (!response.ok) {
-    throw new Error(await response.text());
+    await throwForResponse(response, "exam");
   }
 
   return response.json();
@@ -327,7 +337,7 @@ export async function getResult(
   });
 
   if (!response.ok) {
-    throw new Error(await response.text());
+    await throwForResponse(response, "exam");
   }
 
   return response.json();

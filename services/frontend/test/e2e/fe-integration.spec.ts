@@ -43,10 +43,11 @@ test.describe("Frontend E2E & Browser Integration Tests (FE-01 to FE-06)", () =>
 
     // Step 3: Targets
     await expect(page.getByRole("heading", { name: "Where do you want to study?" })).toBeVisible();
-    // Country toggles are labelled checkboxes, not buttons -- and carry no
-    // emoji flag glyph, which does not reliably render on Windows (the same
-    // fix already applied to the landing page's hero demo in Phase 2).
-    await page.click('label:has-text("Germany")');
+    // Destinations are a searchable multi-select now, not six fixed
+    // checkboxes -- and they store the full country NAME, which is what RAG
+    // filters programmes on. Typing plus Enter commits the highlighted option.
+    await page.getByLabel("Destination countries").fill("Germany");
+    await page.getByRole("option", { name: "Germany" }).first().click();
     await page.selectOption('select[name="targetDegree"]', "Masters");
     await page.fill('input[name="targetMajor"]', "Data Science");
     await page.selectOption('select[name="targetIntake"]', "Fall 2026");
@@ -56,9 +57,8 @@ test.describe("Frontend E2E & Browser Integration Tests (FE-01 to FE-06)", () =>
     await expect(page.locator("text=Upload your latest CV")).toBeVisible();
     await page.click('button:has-text("Skip step")');
 
-    // Wizard reaches /chat
-    await expect(page).toHaveURL(/\/chat/);
-    await expect(page.locator("h1")).toContainText("GOA Assistant");
+    // Wizard reaches /opportunities -- the whole point of completing it.
+    await expect(page).toHaveURL(/\/opportunities/, { timeout: 5000 });
   });
 
   /**
@@ -130,7 +130,8 @@ test.describe("Frontend E2E & Browser Integration Tests (FE-01 to FE-06)", () =>
     await page.click('label:has-text("Not sure yet")');
     await page.click('button[type="submit"]');
 
-    await page.click('label:has-text("Germany")');
+    await page.getByLabel("Destination countries").fill("Germany");
+    await page.getByRole("option", { name: "Germany" }).first().click();
     await page.selectOption('select[name="targetDegree"]', "Masters");
     await page.fill('input[name="targetMajor"]', "AI");
     await page.selectOption('select[name="targetIntake"]', "Fall 2026");
@@ -158,7 +159,7 @@ test.describe("Frontend E2E & Browser Integration Tests (FE-01 to FE-06)", () =>
 
     // 3. Finish persists the profile and reaches /chat
     await page.click('button:has-text("Finish")');
-    await expect(page).toHaveURL(/\/chat/, { timeout: 5000 });
+    await expect(page).toHaveURL(/\/opportunities/, { timeout: 5000 });
   });
 
   /**

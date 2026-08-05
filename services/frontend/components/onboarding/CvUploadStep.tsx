@@ -4,6 +4,8 @@ import { useRef, useState } from "react";
 import { ArrowLeft, CheckCircle2, FileText, Upload, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { authApi, apiErrorMessage, isSubscriptionRequired } from "@/lib/api";
+import { subscriptionErrorFromAxios } from "@/lib/subscription";
+import { useUpgradePrompt } from "@/components/subscription/upgrade-dialog";
 import { Alert, Button, Heading, Icon, Progress, Text } from "@/components/ui";
 
 interface CvUploadStepProps {
@@ -27,6 +29,7 @@ export default function CvUploadStep({ onComplete, onBack, finishing }: CvUpload
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const upgrade = useUpgradePrompt();
 
   function validate(candidate: File): string | null {
     if (candidate.type !== "application/pdf") return "Only PDF files are supported.";
@@ -60,6 +63,11 @@ export default function CvUploadStep({ onComplete, onBack, finishing }: CvUpload
       }
       if (isSubscriptionRequired(err)) {
         setStatus("upgrade-required");
+        // The inline panel below still explains that this step is optional --
+        // the dialog is what makes the paywall itself read the same here as it
+        // does everywhere else in the app.
+        const paid = subscriptionErrorFromAxios(err, "cv-review");
+        if (paid) upgrade.handle(paid);
       } else {
         setUploadError(apiErrorMessage(err) ?? "Upload failed. Please try again.");
         setStatus("error");
@@ -244,28 +252,40 @@ export default function CvUploadStep({ onComplete, onBack, finishing }: CvUpload
         </Alert>
       )}
 
-      <div className="flex gap-3">
+      {/* Finish is always present, not only after a successful upload.
+          The CV is explicitly optional, yet the only path off this step
+          without one was a small ghost "Skip step" link in the header --
+          so a user who simply had no CV to hand saw a wizard with no
+          primary action and no obvious way to save the three steps of
+          answers they had already given. */}
+      <div className="flex flex-col-reverse gap-3 sm:flex-row">
         <Button
           type="button"
           variant="secondary"
           size="lg"
           leadingIcon={ArrowLeft}
           onClick={onBack}
-          disabled={status === "uploading"}
+          disabled={status === "uploading" || finishing}
         >
           Back
         </Button>
-        {status === "uploaded" && (
-          <Button
-            type="button"
-            size="lg"
-            fullWidth
-            loading={finishing}
-            onClick={() => onComplete(file ? { fileName: file.name, skipped: false } : null)}
-          >
-            Finish
-          </Button>
-        )}
+        <Button
+          type="button"
+          size="lg"
+          fullWidth
+          loading={finishing}
+          loadingLabel="Saving your profile"
+          disabled={status === "uploading"}
+          onClick={() =>
+            onComplete(
+              status === "uploaded" && file
+                ? { fileName: file.name, skipped: false }
+                : { fileName: "", skipped: true },
+            )
+          }
+        >
+          {status === "uploaded" ? "Finish" : "Finish without a CV"}
+        </Button>
       </div>
     </div>
   );

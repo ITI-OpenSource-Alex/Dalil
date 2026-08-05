@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { Sparkles } from "lucide-react";
 import { ExamType, SkillArea } from "@/app/types/exam";
 import { createSession, getExamProgress, type ExamProgress } from "@/lib/exam-api";
 import { useCurrentUser } from "@/app/hooks/useCurrentUser";
+import { useUpgradePrompt } from "@/components/subscription/upgrade-dialog";
 import { PageContainer } from "@/components/ui";
 
 export default function ExamLandingPage() {
@@ -15,6 +17,7 @@ export default function ExamLandingPage() {
     error: profileError,
     retry: retryProfile,
   } = useCurrentUser();
+  const upgrade = useUpgradePrompt();
   const [examType, setExamType] = useState<ExamType>("Academic");
   const [progress, setProgress] = useState<ExamProgress | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -91,6 +94,15 @@ export default function ExamLandingPage() {
 
     setStartError(null);
 
+    // Short-circuit on a known Free account rather than spending a request to
+    // be told what the profile already says. The catch below still handles the
+    // case where the tier changed under us -- the server stays authoritative,
+    // this only saves a round trip and shows the dialog instantly.
+    if (user.subscriptionTier !== "paid") {
+      upgrade.show("exam");
+      return;
+    }
+
     try {
       setStartingExam(skill);
 
@@ -111,6 +123,16 @@ export default function ExamLandingPage() {
 
       router.push(`/exam/shell?session=${session.session_id}`);
     } catch (error) {
+      // A paid-tier refusal is a product decision, not a fault. The whole
+      // /api/exam group is gated (GOA-059), so on a Free account this is the
+      // *expected* outcome of pressing "Take Exam" -- and it used to print
+      // the Gateway's raw 403 JSON into the amber banner below. It now opens
+      // the same upgrade dialog every other paid feature uses, with no error
+      // banner at all.
+      if (upgrade.handle(error, "exam")) {
+        setLastAttemptedSkill(null);
+        return;
+      }
       console.error(error);
       // doc 11: a native alert() here was one of the most jarring failure
       // modes available on a shared screen -- replaced with the same
@@ -249,6 +271,10 @@ export default function ExamLandingPage() {
     .map((card) => ({ skill: card.key, band: latestBand(card.key) }))
     .filter((item): item is { skill: SkillArea; band: number } => item.band !== null)
     .sort((a, b) => a.band - b.band)[0];
+
+  // Only once identity has actually resolved: assuming Free while the profile
+  // is still loading would flash a paywall badge at a paying subscriber.
+  const isFreeTier = profileStatus === "success" && user?.subscriptionTier !== "paid";
 
   return (
     <PageContainer
@@ -397,15 +423,27 @@ export default function ExamLandingPage() {
 
                 {/* Card Action Controls */}
                 <div className="flex justify-between items-center pt-4">
-                  <div className="flex gap-1.5">
+                  <div className="flex items-center gap-1.5">
                     {card.available ? (
-                      <button
-                        disabled={startingExam !== null}
-                        onClick={() => startExam(card.key)}
-                        className="bg-white/80 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 text-l font-medium px-3 py-1 rounded-full border border-black/5 transition"
-                      >
-                        {startingExam === card.key ? "Starting..." : "Take Exam"}
-                      </button>
+                      <>
+                        <button
+                          disabled={startingExam !== null}
+                          onClick={() => startExam(card.key)}
+                          className="bg-white/80 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 text-l font-medium px-3 py-1 rounded-full border border-black/5 transition"
+                        >
+                          {startingExam === card.key ? "Starting..." : "Take Exam"}
+                        </button>
+                        {/* The gate is stated up front rather than discovered
+                            by pressing the button. Clicking still works — it
+                            opens the upgrade dialog — so this is information,
+                            not a second disabled state. */}
+                        {isFreeTier && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-white/60 px-2 py-0.5 text-[11px] font-semibold text-gray-600">
+                            <Sparkles size={11} />
+                            Pro
+                          </span>
+                        )}
+                      </>
                     ) : (
                       <span
                         title={`${card.title} simulation is not available yet.`}

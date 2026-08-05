@@ -1,4 +1,5 @@
 import { HighlightedIssue, CriterionEvaluation } from "@/lib/writing-api";
+import { throwForResponse } from "@/lib/subscription";
 
 export type { HighlightedIssue, CriterionEvaluation };
 
@@ -47,9 +48,12 @@ export async function streamWritingEvaluation(
   const response = await fetch(sseUrl, { credentials: "include" });
 
   if (!response.ok) {
-    throw new Error(
-      `Unable to start writing evaluation (status ${response.status}).`,
-    );
+    // The Gateway gates this route with RequirePaid, so a Free account's
+    // essay submission lands here with a 403 marker rather than a fault.
+    // throwForResponse turns that into a SubscriptionRequiredError the chat
+    // shell answers with the upgrade dialog; anything else keeps producing a
+    // plain Error with the status, exactly as before.
+    await throwForResponse(response, "essay-evaluation");
   }
 
   if (!response.body) {

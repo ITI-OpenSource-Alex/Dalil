@@ -11,7 +11,9 @@ export interface Opportunity {
   programName: string;
   university: string;
   country: string;
-  deadline: string;
+  // Nullable: the column is optional in program_requirements and RAG
+  // passes None straight through, which the UI rendered as "Deadline: null".
+  deadline: string | null;
   result: {
     score: number;
     blocked_by: string | null;

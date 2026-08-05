@@ -9,8 +9,14 @@ export function middleware(request: NextRequest) {
   const isProtectedRoute =
     pathname.startsWith("/chat") ||
     pathname.startsWith("/profile") ||
+    pathname.startsWith("/opportunities") ||
+    // /speaking/share/:token is deliberately excluded: a share link is meant
+    // to be opened by someone with no account.
+    pathname === "/speaking" ||
     pathname.startsWith("/speaking/history") ||
+    // Covers both /checklist/:programId and the /checklists index.
     pathname.startsWith("/checklist") ||
+    pathname.startsWith("/exam") ||
     pathname.startsWith("/onboarding");
 
   const isAuthRoute = pathname.startsWith("/login") || pathname.startsWith("/register");
@@ -39,8 +45,12 @@ export const config = {
   matcher: [
     "/chat/:path*",
     "/profile/:path*",
+    "/opportunities/:path*",
+    "/speaking",
     "/speaking/history/:path*",
     "/checklist/:path*",
+    "/checklists/:path*",
+    "/exam/:path*",
     "/onboarding/:path*",
     "/login",
     "/register",

@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import { useChecklist } from "@/app/hooks/useChecklist";
+import { rememberChecklist } from "@/lib/checklist-index";
 import { phaseForItem } from "@/lib/checklist-phases";
 import type { ChecklistItem, Phase } from "@/app/types/checklist";
 import PhaseSection from "./PhaseSection";
@@ -24,9 +26,37 @@ function groupByPhase(items: ChecklistItem[]) {
   return groups;
 }
 
-export default function ChecklistView({ programId }: { programId: string }) {
+export default function ChecklistView({
+  programId,
+  programName,
+  university,
+  country,
+}: {
+  programId: string;
+  /** Programme metadata for the /checklists index, when the caller knows it. */
+  programName?: string;
+  university?: string | null;
+  country?: string | null;
+}) {
   const { checklist, financialItems, status, error, toggleError, retry, toggleItem } =
     useChecklist(programId);
+
+  // Records this checklist (and its live progress) in the local index that
+  // backs /checklists -- see lib/checklist-index.ts for why that page cannot
+  // simply ask the backend for a list. Re-runs on every toggle, so the
+  // percentage shown on the index is never stale by more than a page visit.
+  const items = checklist?.items;
+  useEffect(() => {
+    if (!items) return;
+    rememberChecklist({
+      programId,
+      programName: programName || programId,
+      university: university ?? null,
+      country: country ?? null,
+      totalItems: items.length,
+      completedItems: items.filter((item) => item.checked).length,
+    });
+  }, [items, programId, programName, university, country]);
 
   if (status === "loading" || status === "idle") {
     return (

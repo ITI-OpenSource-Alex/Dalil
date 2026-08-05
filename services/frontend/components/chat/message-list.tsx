@@ -12,9 +12,15 @@ import EvaluationBreakdown from "@/components/speaking/evaluation-breakdown";
 interface MessageListProps {
   messages: Message[];
   isTyping: boolean;
+  /** Initials for the user avatar, from the signed-in account. */
+  userInitials?: string;
 }
 
-export default function MessageList({ messages, isTyping }: MessageListProps) {
+export default function MessageList({
+  messages,
+  isTyping,
+  userInitials,
+}: MessageListProps) {
   const endRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -49,8 +55,8 @@ export default function MessageList({ messages, isTyping }: MessageListProps) {
                 <MessageBubble
                   role={msg.role}
                   content={msg.content}
-                  intent={msg.intent}
                   isStreaming={msg.isStreaming}
+                  userInitials={userInitials}
                 />
               </div>
 
@@ -144,7 +150,13 @@ function OpportunityCard({
           </p>
           <p className="flex items-center gap-1.5">
             <Calendar size={13} className="text-[#899C8B]" />
-            <span>Deadline: {opp.deadline}</span>
+            {/* RAG returns null for a programme with no published deadline
+                (scoring.py), which rendered here as "Deadline: null". */}
+            <span>
+              {opp.deadline
+                ? `Deadline: ${opp.deadline}`
+                : "No published deadline"}
+            </span>
           </p>
         </div>
       </div>
@@ -165,7 +177,7 @@ function OpportunityCard({
       </div>
       {/* GOA-035 entry point: generates/opens this program's application checklist. */}
       <Link
-        href={`/checklist/${opp.programId}`}
+        href={`/checklist/${encodeURIComponent(opp.programId)}`}
         className="mt-3 inline-block text-center rounded-full bg-[#0D3820] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[#0a2c19]"
       >
         Get Checklist

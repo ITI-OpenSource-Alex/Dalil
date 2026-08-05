@@ -528,12 +528,18 @@ locals {
     }
   )
 
+  # Cost attribution (GOA-046). Every resource carries a Service tag so Cost
+  # Explorer can split spend per service. Resources with no single owning
+  # service — VPC, NAT, ALB, RDS, Redis — are deliberately tagged "shared"
+  # rather than left untagged, so an unattributed line in the cost report is a
+  # real tagging gap rather than shared infrastructure that nobody labelled.
   common_tags = merge(
     var.tags,
     {
       Project     = var.project_name
       Environment = var.environment
       ManagedBy   = "terraform"
+      Service     = "shared"
     }
   )
 }

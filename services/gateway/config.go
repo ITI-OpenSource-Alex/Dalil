@@ -74,6 +74,13 @@ type Config struct {
 	CostPromptPer1M     float64 `envconfig:"COST_PROMPT_PER_1M" default:"2.0"`
 	CostCompletionPer1M float64 `envconfig:"COST_COMPLETION_PER_1M" default:"10.0"`
 	LLMPricingJSON      string  `envconfig:"LLM_PRICING_JSON" default:"{\"claude-opus-4-8\":{\"prompt_per_1m\":2,\"completion_per_1m\":10},\"glm-5.2\":{\"prompt_per_1m\":6,\"completion_per_1m\":9},\"gpt-5.5\":{\"prompt_per_1m\":7,\"completion_per_1m\":14},\"claude-opus-4-6\":{\"prompt_per_1m\":8,\"completion_per_1m\":40},\"claude-opus-4-7\":{\"prompt_per_1m\":8,\"completion_per_1m\":40}}"`
+
+	// GOA-046 budget guardrail. The threshold is per user per UTC day; the
+	// interval is how often the roll-up is swept. Five minutes is chosen against
+	// the shape of the spend: a single swarm evaluation costs roughly $0.028, so
+	// no realistic burst crosses $1 inside one interval unattended.
+	UserDailyCostAlertUSD float64       `envconfig:"USER_DAILY_COST_ALERT_USD" default:"1.0"`
+	CostMonitorInterval   time.Duration `envconfig:"COST_MONITOR_INTERVAL" default:"5m"`
 }
 
 func LoadConfig() (Config, error) {

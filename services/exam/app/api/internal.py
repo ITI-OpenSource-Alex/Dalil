@@ -23,6 +23,7 @@ from app.repositories.result_repository import ResultRepository
 from app.repositories.session_repository import SessionRepository
 from app.repositories.transcript_repository import TranscriptRepository
 from app.services.speaking_client import SpeakingServiceClient
+from app.services.transcript_prosody import merge_part_timings
 
 
 logger = structlog.get_logger(__name__)
@@ -37,11 +38,23 @@ def get_question_repository() -> QuestionRepository:
     return QuestionRepository(db.pool)
 
 
+class WordTiming(BaseModel):
+    word: str
+    start: float
+    end: float
+    probability: float = 0.0
+
+
 class TranscriptPayload(BaseModel):
     part: int
     transcript_text: str
     duration_s: int
     question_text: str
+    # GOA-133. Optional, so a producer that has not been updated keeps working.
+    # When absent the evaluator omits the measured-feature block and the Fluency
+    # and Pronunciation prompts say so, rather than inferring delivery from text.
+    words: list[WordTiming] | None = None
+    audio_duration_s: float | None = None
 
 
 class Example(BaseModel):
@@ -156,6 +169,8 @@ async def submit_transcript(session_id: UUID, payload: TranscriptPayload):
         payload.transcript_text,
         payload.duration_s,
         payload.question_text,
+        words=[w.model_dump() for w in payload.words] if payload.words else None,
+        audio_duration_s=payload.audio_duration_s,
     )
 
     if payload.part in (1, 2):
@@ -169,6 +184,13 @@ async def submit_transcript(session_id: UUID, payload: TranscriptPayload):
         text = "\n".join(
             [f"Part {t['part']}:\n{t['transcript_text']}" for t in transcripts]
         )
+
+        # GOA-133: stitch each part's word timings onto one continuous timeline so
+        # the Fluency and Pronunciation agents judge delivery from measurement
+        # rather than from spelling. Empty when no part carried timings, in which
+        # case the speaking service omits the feature block entirely rather than
+        # rendering it as zeros.
+        merged_words, merged_duration_s = merge_part_timings(transcripts)
 
         speaking_client = SpeakingServiceClient(
             settings.speaking_service_url, settings.internal_api_key
@@ -184,7 +206,12 @@ async def submit_transcript(session_id: UUID, payload: TranscriptPayload):
         try:
             result = await speaking_client.evaluate_holistic(
                 session_id,
-                {"concatenated_transcript": text, "user_id": str(sessions_res["user_id"])},
+                {
+                    "concatenated_transcript": text,
+                    "user_id": str(sessions_res["user_id"]),
+                    "duration_s": merged_duration_s,
+                    "words": merged_words,
+                },
             )
             duration_ms = (time.time() - start_time) * 1000
             goa_speaking_exam_evaluation_ms.observe(duration_ms)

@@ -108,7 +108,7 @@ func TestSwarm_AllSuccess(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	res, err := EvaluateSwarm(ctx, mockClient, "Describe a standard day.", "IELTS Part 2", "I wake up early...", nil)
+	res, err := EvaluateSwarm(ctx, mockClient, "Describe a standard day.", "IELTS Part 2", "I wake up early...", nil, nil)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -160,7 +160,7 @@ func TestSwarm_PartialTimeout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 
-	res, err := EvaluateSwarm(ctx, mockClient, "Describe a book.", "IELTS Part 2", "I read a book...", nil)
+	res, err := EvaluateSwarm(ctx, mockClient, "Describe a book.", "IELTS Part 2", "I read a book...", nil, nil)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -200,7 +200,7 @@ func TestSwarm_AllFailed(t *testing.T) {
 		},
 	}
 
-	res, err := EvaluateSwarm(ctx, mockClient, "Prompt", "Type", "Transcript", nil)
+	res, err := EvaluateSwarm(ctx, mockClient, "Prompt", "Type", "Transcript", nil, nil)
 	if err == nil {
 		t.Fatal("expected error since all agents failed, got nil")
 	}
@@ -226,7 +226,7 @@ func TestSwarm_GoroutineLeak(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 
-	_, _ = EvaluateSwarm(ctx, mockClient, "Prompt", "Type", "Transcript", nil)
+	_, _ = EvaluateSwarm(ctx, mockClient, "Prompt", "Type", "Transcript", nil, nil)
 
 	// 3. Poll to verify goroutines settle back (allowing short buffer for teardown)
 	success := false
@@ -262,7 +262,7 @@ func TestSwarm_EmitsBeforeSlowestReturns(t *testing.T) {
 	done := make(chan SwarmResult, 1)
 
 	go func() {
-		res, _ := EvaluateSwarm(ctx, mockClient, "Prompt", "Type", "Transcript", func(ev CriterionEvent) {
+		res, _ := EvaluateSwarm(ctx, mockClient, "Prompt", "Type", "Transcript", nil, func(ev CriterionEvent) {
 			events <- ev
 		})
 		done <- res
@@ -327,7 +327,7 @@ func TestSwarm_EmitsExactlyOncePerCriterionIncludingFailures(t *testing.T) {
 	var mu sync.Mutex
 	counts := map[string]int{}
 
-	res, err := EvaluateSwarm(ctx, mockClient, "Prompt", "Type", "Transcript", func(ev CriterionEvent) {
+	res, err := EvaluateSwarm(ctx, mockClient, "Prompt", "Type", "Transcript", nil, func(ev CriterionEvent) {
 		mu.Lock()
 		counts[ev.Criterion]++
 		mu.Unlock()
@@ -373,7 +373,7 @@ func TestSwarm_OverallBandGating(t *testing.T) {
 			defer cancel()
 
 			res, err := EvaluateSwarm(ctx, &FailingCriteriaMock{FailCriteria: tt.fail},
-				"Prompt", "Type", "Transcript", nil)
+				"Prompt", "Type", "Transcript", nil, nil)
 			if err != nil {
 				t.Fatalf("expected no error, got %v", err)
 			}
@@ -404,7 +404,7 @@ func TestSwarm_OverallBandOmittedFromJSON(t *testing.T) {
 
 	res, err := EvaluateSwarm(ctx,
 		&FailingCriteriaMock{FailCriteria: []string{"Pronunciation", "Lexical Resource"}},
-		"Prompt", "Type", "Transcript", nil)
+		"Prompt", "Type", "Transcript", nil, nil)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -423,7 +423,7 @@ func TestSwarm_OverallBandOmittedFromJSON(t *testing.T) {
 	}
 
 	// And present when it should be.
-	full, err := EvaluateSwarm(ctx, &FailingCriteriaMock{}, "Prompt", "Type", "Transcript", nil)
+	full, err := EvaluateSwarm(ctx, &FailingCriteriaMock{}, "Prompt", "Type", "Transcript", nil, nil)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -442,7 +442,7 @@ func TestSwarm_FeedbackOmitsBandForTimedOutCriteria(t *testing.T) {
 	defer cancel()
 
 	res, err := EvaluateSwarm(ctx, &FailingCriteriaMock{FailCriteria: []string{"Pronunciation"}},
-		"Prompt", "Type", "Transcript", nil)
+		"Prompt", "Type", "Transcript", nil, nil)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -468,7 +468,7 @@ func TestSwarm_CallbackDoesNotSerialiseAgents(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		_, _ = EvaluateSwarm(ctx, &FailingCriteriaMock{}, "Prompt", "Type", "Transcript",
+		_, _ = EvaluateSwarm(ctx, &FailingCriteriaMock{}, "Prompt", "Type", "Transcript", nil,
 			func(ev CriterionEvent) {
 				entered <- ev.Criterion
 				<-release // every callback blocks until the test says otherwise

@@ -112,7 +112,7 @@ func runMatrix(t *testing.T, mode failMode) []matrixRow {
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 
 		client := &matrixMockClient{failCriteria: failFirstN(failures), mode: mode}
-		res, _ := EvaluateHolisticSwarm(ctx, client, "Part 1: hello. Part 2: a story. Part 3: opinions.")
+		res, _ := EvaluateHolisticSwarm(ctx, client, "Part 1: hello. Part 2: a story. Part 3: opinions.", nil)
 		cancel()
 
 		encoded, err := json.Marshal(res)
@@ -241,6 +241,7 @@ func TestSwarmAndHolisticAgreeOnBandContract(t *testing.T) {
 			hCtx,
 			&matrixMockClient{failCriteria: failFirstN(failures), mode: failProviderError},
 			"transcript",
+			nil,
 		)
 		hCancel()
 
@@ -248,7 +249,7 @@ func TestSwarmAndHolisticAgreeOnBandContract(t *testing.T) {
 		sRes, _ := EvaluateSwarm(
 			sCtx,
 			&streamingMatrixMockClient{failCriteria: failFirstN(failures)},
-			"question", "part1", "transcript", nil,
+			"question", "part1", "transcript", nil, nil,
 		)
 		sCancel()
 

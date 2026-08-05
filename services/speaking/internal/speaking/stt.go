@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/agents"
 	"github.com/gorilla/websocket"
 	"github.com/rs/zerolog/log"
 )
@@ -26,7 +27,7 @@ func (c *Client) transcribeAudio(audio []byte) {
 		atomic.StoreInt64(&c.lastTransMs, apiDuration.Milliseconds())
 
 		// Trigger evaluation swarm directly using the mock transcript
-		c.runEvaluationAndTTS("Mock transcript (Speech URL missing)", apiDuration.Milliseconds())
+		c.runEvaluationAndTTS("Mock transcript (Speech URL missing)", apiDuration.Milliseconds(), nil)
 		return
 	}
 	log.Info().
@@ -94,8 +95,17 @@ func (c *Client) transcribeAudio(audio []byte) {
 			// services/speech/app/main.py. Decoding `text` yielded an empty string
 			// on every successful call, so the swarm graded an empty transcript
 			// and the client received an empty transcript event (BUG-035).
+			// GOA-133: the sidecar also returns the audio duration, per-segment
+			// and per-word timings, and per-word recognition confidence. Two of
+			// the four IELTS criteria are defined over exactly that, and none of
+			// it was requested, parsed or forwarded -- so Fluency and
+			// Pronunciation scored delivery from text that cannot express it.
+			// Measured: 18.87s and 33.67s renderings of one script produced
+			// byte-identical transcripts.
 			var sttResp struct {
-				Transcript string `json:"transcript"`
+				Transcript string        `json:"transcript"`
+				DurationS  float64       `json:"duration_s"`
+				Words      []agents.Word `json:"words"`
 			}
 			err = json.NewDecoder(resp.Body).Decode(&sttResp)
 			if err != nil {
@@ -108,8 +118,25 @@ func (c *Client) transcribeAudio(audio []byte) {
 			// 1. Send text transcript to client
 			c.sendTranscript(sttResp.Transcript)
 
+			// Derive the features once per session and share them between the two
+			// agents that need them. `ok` is false when the sidecar returned no
+			// word timings -- an older deployment, say -- and the feature block is
+			// then OMITTED rather than rendered as zeros.
+			var features *agents.ProsodyFeatures
+			if f, ok := agents.ComputeProsody(sttResp.Words, sttResp.DurationS); ok {
+				features = &f
+				recordProsodyMetrics(f)
+			} else {
+				prosodyUnavailableTotal.Inc()
+				log.Warn().
+					Str("session_id", c.id).
+					Int("words", len(sttResp.Words)).
+					Float64("duration_s", sttResp.DurationS).
+					Msg("No prosody features; Fluency and Pronunciation scored without them")
+			}
+
 			// 2. Trigger evaluation swarm and TTS voice streaming pipeline
-			c.runEvaluationAndTTS(sttResp.Transcript, apiDuration.Milliseconds())
+			c.runEvaluationAndTTS(sttResp.Transcript, apiDuration.Milliseconds(), features)
 			return
 		}
 		if resp != nil {

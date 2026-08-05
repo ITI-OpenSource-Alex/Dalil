@@ -51,6 +51,14 @@ func HandleHolisticEvaluation(w http.ResponseWriter, r *http.Request, cfg *Confi
 	var payload struct {
 		ConcatenatedTranscript string `json:"concatenated_transcript"`
 		UserID                 string `json:"user_id"`
+		// GOA-133. Optional: the exam service concatenates three parts recorded in
+		// separate sessions, so unlike the streaming path there is no single audio
+		// stream here to derive features from. When the caller supplies them, the
+		// Fluency and Pronunciation agents get the same measured evidence they get
+		// on the streaming path; when it does not, the block is omitted and those
+		// prompts say so rather than inferring delivery from text.
+		DurationS float64       `json:"duration_s"`
+		Words     []agents.Word `json:"words"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
@@ -81,7 +89,13 @@ func HandleHolisticEvaluation(w http.ResponseWriter, r *http.Request, cfg *Confi
 	ctx = context.WithValue(ctx, "userID", payload.UserID)
 	defer cancel()
 
-	res, err := agents.EvaluateHolisticSwarm(ctx, llmClient, payload.ConcatenatedTranscript)
+	var features *agents.ProsodyFeatures
+	if f, ok := agents.ComputeProsody(payload.Words, payload.DurationS); ok {
+		features = &f
+		recordProsodyMetrics(f)
+	}
+
+	res, err := agents.EvaluateHolisticSwarm(ctx, llmClient, payload.ConcatenatedTranscript, features)
 
 	holisticCompletedCriteria.Observe(float64(res.CompletedCount))
 	switch {

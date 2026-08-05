@@ -108,6 +108,7 @@ func EvaluateSwarm(
 	ctx context.Context,
 	client LLMClient,
 	questionPrompt, questionType, transcript string,
+	features *ProsodyFeatures,
 	onCriterion func(CriterionEvent),
 ) (SwarmResult, error) {
 	start := time.Now()
@@ -119,14 +120,14 @@ func EvaluateSwarm(
 	results := make(map[string]AgentResult)
 
 	// Helper to coordinate parallel execution and individual timeout fallback
-	runAgent := func(criterionName string, evalFn func(context.Context, LLMClient, string, string, string) (AgentResult, error)) {
+	runAgent := func(criterionName string, evalFn func(context.Context, LLMClient, string, string, string, *ProsodyFeatures) (AgentResult, error)) {
 		defer wg.Done()
 
 		resChan := make(chan AgentResult, 1)
 		errChan := make(chan error, 1)
 
 		go func() {
-			res, err := evalFn(ctx, client, questionPrompt, questionType, transcript)
+			res, err := evalFn(ctx, client, questionPrompt, questionType, transcript, features)
 			if err != nil {
 				errChan <- err
 				return

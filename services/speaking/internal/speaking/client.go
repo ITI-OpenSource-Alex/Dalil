@@ -505,7 +505,7 @@ func (c *Client) onCriterionComplete(ev agents.CriterionEvent) {
 }
 
 // runEvaluationAndTTS coordinates evaluation, telemetry, audio streaming, and async persistence
-func (c *Client) runEvaluationAndTTS(transcript string, transcriptionMs int64) {
+func (c *Client) runEvaluationAndTTS(transcript string, transcriptionMs int64, features *agents.ProsodyFeatures) {
 	// 1. Run the parallel evaluation swarm under a deadline. Agents that finish
 	// contribute; stragglers are marked TimedOut and excluded from the average.
 	//
@@ -527,6 +527,7 @@ func (c *Client) runEvaluationAndTTS(transcript string, transcriptionMs int64) {
 	// before showing the user something.
 	swarmRes, swarmErr := agents.EvaluateSwarm(
 		swarmCtx, c.llmClient, c.questionPrompt, c.questionType, transcript,
+		features,
 		c.onCriterionComplete,
 	)
 	swarmDuration := time.Since(swarmStart)

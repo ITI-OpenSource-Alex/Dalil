@@ -60,9 +60,15 @@ type HolisticSwarmResult struct {
 	OverallFeedback string                         `json:"overall_feedback"`
 }
 
-func evaluateHolisticCriterion(ctx context.Context, client LLMClient, criterion, systemPrompt, concatenatedTranscript string) (HolisticAgentResult, error) {
-	// Build prompt
-	userPrompt := fmt.Sprintf("Candidate Transcript (All Parts):\n%s", concatenatedTranscript)
+func evaluateHolisticCriterion(ctx context.Context, client LLMClient, criterion, systemPrompt, concatenatedTranscript string, features *ProsodyFeatures) (HolisticAgentResult, error) {
+	// GOA-133: the measured feature block, for the criteria defined over
+	// acoustics. nil renders nothing at all -- never zeros. See evaluateCriterion
+	// in agents.go for why that distinction matters.
+	var prosody string
+	if features != nil {
+		prosody = features.Render() + "\n"
+	}
+	userPrompt := fmt.Sprintf("%sCandidate Transcript (All Parts):\n%s", prosody, concatenatedTranscript)
 	res, err := client.StreamCompletion(ctx, systemPrompt, userPrompt)
 	if err != nil {
 		return HolisticAgentResult{}, err
@@ -102,7 +108,7 @@ func evaluateHolisticCriterion(ctx context.Context, client LLMClient, criterion,
 }
 
 // EvaluateHolisticSwarm orchestrates parallel evaluations for the full exam.
-func EvaluateHolisticSwarm(ctx context.Context, client LLMClient, concatenatedTranscript string) (HolisticSwarmResult, error) {
+func EvaluateHolisticSwarm(ctx context.Context, client LLMClient, concatenatedTranscript string, features *ProsodyFeatures) (HolisticSwarmResult, error) {
 	start := time.Now()
 
 	var wg sync.WaitGroup
@@ -111,14 +117,14 @@ func EvaluateHolisticSwarm(ctx context.Context, client LLMClient, concatenatedTr
 	var mu sync.Mutex
 	results := make(map[string]HolisticAgentResult)
 
-	runAgent := func(criterionName string, systemPrompt string) {
+	runAgent := func(criterionName string, systemPrompt string, agentFeatures *ProsodyFeatures) {
 		defer wg.Done()
 
 		resChan := make(chan HolisticAgentResult, 1)
 		errChan := make(chan error, 1)
 
 		go func() {
-			res, err := evaluateHolisticCriterion(ctx, client, criterionName, systemPrompt, concatenatedTranscript)
+			res, err := evaluateHolisticCriterion(ctx, client, criterionName, systemPrompt, concatenatedTranscript, agentFeatures)
 			if err != nil {
 				errChan <- err
 				return
@@ -177,10 +183,12 @@ func EvaluateHolisticSwarm(ctx context.Context, client LLMClient, concatenatedTr
 
 	// Indexed off CriterionOrder so the names here cannot drift from the ones
 	// swarm.go, the feedback summary and the exam service all use.
-	go runAgent(CriterionOrder[0], HolisticFluencySystemPrompt)
-	go runAgent(CriterionOrder[1], HolisticLexicalSystemPrompt)
-	go runAgent(CriterionOrder[2], HolisticGrammarSystemPrompt)
-	go runAgent(CriterionOrder[3], HolisticPronunciationSystemPrompt)
+	// Only Fluency and Pronunciation receive the feature block. Lexical and
+	// Grammar have no use for it and it is pure token cost on every call.
+	go runAgent(CriterionOrder[0], HolisticFluencySystemPrompt, features)
+	go runAgent(CriterionOrder[1], HolisticLexicalSystemPrompt, nil)
+	go runAgent(CriterionOrder[2], HolisticGrammarSystemPrompt, nil)
+	go runAgent(CriterionOrder[3], HolisticPronunciationSystemPrompt, features)
 
 	wg.Wait()
 

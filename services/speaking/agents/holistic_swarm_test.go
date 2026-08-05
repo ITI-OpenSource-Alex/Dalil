@@ -53,7 +53,7 @@ func TestHolisticSwarm_AllSuccess(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	res, err := EvaluateHolisticSwarm(ctx, mockClient, "Part 1: Hi...")
+	res, err := EvaluateHolisticSwarm(ctx, mockClient, "Part 1: Hi...", nil)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -85,7 +85,7 @@ func TestHolisticSwarm_PartialTimeout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 
-	res, err := EvaluateHolisticSwarm(ctx, mockClient, "Part 1: Hi...")
+	res, err := EvaluateHolisticSwarm(ctx, mockClient, "Part 1: Hi...", nil)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -123,7 +123,7 @@ func TestHolisticSwarm_AllFailed(t *testing.T) {
 		},
 	}
 
-	res, err := EvaluateHolisticSwarm(ctx, mockClient, "Transcript")
+	res, err := EvaluateHolisticSwarm(ctx, mockClient, "Transcript", nil)
 	if err == nil {
 		t.Fatal("expected error since all agents failed, got nil")
 	}
@@ -154,7 +154,7 @@ func TestHolisticSwarm_GoroutineLeak(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 
-	_, _ = EvaluateHolisticSwarm(ctx, mockClient, "Transcript")
+	_, _ = EvaluateHolisticSwarm(ctx, mockClient, "Transcript", nil)
 
 	success := false
 	for i := 0; i < 10; i++ {
@@ -190,7 +190,7 @@ func TestHolisticSwarm_LoadTest(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 			defer cancel()
 
-			_, err := EvaluateHolisticSwarm(ctx, mockClient, "Transcript")
+			_, err := EvaluateHolisticSwarm(ctx, mockClient, "Transcript", nil)
 			if err != nil {
 				t.Errorf("evaluation failed during load test: %v", err)
 			}

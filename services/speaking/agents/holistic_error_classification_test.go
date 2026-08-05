@@ -22,7 +22,7 @@ func TestHolisticErrorIsNotReportedAsTimeout(t *testing.T) {
 	defer cancel()
 
 	client := &matrixMockClient{failCriteria: failFirstN(1), mode: failProviderError}
-	res, _ := EvaluateHolisticSwarm(ctx, client, "transcript")
+	res, _ := EvaluateHolisticSwarm(ctx, client, "transcript", nil)
 
 	failed := res.Dimensions[CriterionOrder[0]]
 	// TimedOut stays true for both causes -- it means "produced no score", and
@@ -42,7 +42,7 @@ func TestHolisticDeadlineIsReportedAsTimeout(t *testing.T) {
 	defer cancel()
 
 	client := &matrixMockClient{failCriteria: failFirstN(1), mode: failDeadline}
-	res, _ := EvaluateHolisticSwarm(ctx, client, "transcript")
+	res, _ := EvaluateHolisticSwarm(ctx, client, "transcript", nil)
 
 	failed := res.Dimensions[CriterionOrder[0]]
 	if !failed.TimedOut {
@@ -58,7 +58,7 @@ func TestHolisticParseFailureIsAnError(t *testing.T) {
 	defer cancel()
 
 	client := &matrixMockClient{failCriteria: failFirstN(1), mode: failParseError}
-	res, _ := EvaluateHolisticSwarm(ctx, client, "transcript")
+	res, _ := EvaluateHolisticSwarm(ctx, client, "transcript", nil)
 
 	failed := res.Dimensions[CriterionOrder[0]]
 	if failed.Error == AgentErrorDeadline {

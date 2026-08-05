@@ -24,10 +24,30 @@ export default function EvaluationBreakdown({
   className,
 }: EvaluationBreakdownProps) {
   const criteriaList = [
-    { label: "Fluency & Coherence", score: criteria.fluency },
-    { label: "Lexical Resource", score: criteria.lexical },
-    { label: "Grammatical Range", score: criteria.grammar },
-    { label: "Pronunciation Accuracy", score: criteria.pronunciation },
+    { label: "Fluency & Coherence", score: criteria.fluency, note: null },
+    { label: "Lexical Resource", score: criteria.lexical, note: null },
+    { label: "Grammatical Range", score: criteria.grammar, note: null },
+    {
+      // GOA-133. Was "Pronunciation Accuracy" -- and accuracy is precisely what
+      // this system cannot judge. Assessing phoneme accuracy, word stress or
+      // intonation needs acoustic analysis (forced alignment / GOP scoring) that
+      // we do not perform. What we measure is speech-recognition confidence and
+      // the pause structure, which supports intelligibility and phrasing only.
+      //
+      // Measured after wiring the real features through: this criterion's band
+      // correlates with speech RATE at rho = 0.77, while mean recognition
+      // confidence was effectively flat (0.979 vs 0.972). It is a rate-and-
+      // chunking judgement, and the old label claimed far more than that.
+      //
+      // The internal criterion key stays "Pronunciation" -- it is the map key in
+      // the swarm payload, the exam service's CriterionDetail, and persisted
+      // agent_responses JSONB. Renaming it end to end is a wire and data
+      // migration, filed as a follow-up; the user-facing overclaim is the part
+      // that had to stop now.
+      label: "Intelligibility & Phrasing",
+      score: criteria.pronunciation,
+      note: "From speech clarity and pausing. Does not assess accent or individual sounds.",
+    },
   ];
 
   return (
@@ -92,6 +112,11 @@ export default function EvaluationBreakdown({
                 className="bg-emerald-500 h-full rounded-full"
               />
             </div>
+            {item.note && (
+              <p className="text-[10px] text-[#7A8A7D] leading-snug mt-1">
+                {item.note}
+              </p>
+            )}
           </div>
         ))}
       </div>

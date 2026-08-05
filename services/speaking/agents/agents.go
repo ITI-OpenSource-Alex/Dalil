@@ -57,9 +57,23 @@ func cleanJSONResponse(raw string) string {
 	return cleanedText
 }
 
-func evaluateCriterion(ctx context.Context, client LLMClient, criterion, systemPrompt, questionPrompt, questionType, transcript string) (AgentResult, error) {
-	// Build prompt containing prompt context and transcript
-	userPrompt := fmt.Sprintf("Question Prompt: %s\nQuestion Type: %s\nCandidate Transcript: %s", questionPrompt, questionType, transcript)
+func evaluateCriterion(ctx context.Context, client LLMClient, criterion, systemPrompt, questionPrompt, questionType, transcript string, features *ProsodyFeatures) (AgentResult, error) {
+	// GOA-133. The measured feature block goes FIRST, ahead of the transcript, and
+	// only for the criteria that are defined over acoustics.
+	//
+	// A nil `features` renders nothing at all. It must never render zeros: a block
+	// reading "0 words per minute, 0 pauses" describes a candidate who said
+	// nothing, which is a worse lie than an absent block -- the BUG-055 shape
+	// applied to prosody.
+	//
+	// Deliberately not fenced as untrusted input: these are our own computed
+	// numbers, and fencing them would tell the model to distrust the one part of
+	// the prompt it should trust most. The transcript's fencing is unchanged.
+	var prosody string
+	if features != nil {
+		prosody = features.Render() + "\n"
+	}
+	userPrompt := fmt.Sprintf("%sQuestion Prompt: %s\nQuestion Type: %s\nCandidate Transcript: %s", prosody, questionPrompt, questionType, transcript)
 	res, err := client.StreamCompletion(ctx, systemPrompt, userPrompt)
 	if err != nil {
 		return AgentResult{}, err
@@ -126,21 +140,23 @@ func evaluateCriterion(ctx context.Context, client LLMClient, criterion, systemP
 }
 
 // EvaluateFluency evaluates Fluency and Coherence
-func EvaluateFluency(ctx context.Context, client LLMClient, questionPrompt, questionType, transcript string) (AgentResult, error) {
-	return evaluateCriterion(ctx, client, "Fluency and Coherence", FluencySystemPrompt, questionPrompt, questionType, transcript)
+func EvaluateFluency(ctx context.Context, client LLMClient, questionPrompt, questionType, transcript string, features *ProsodyFeatures) (AgentResult, error) {
+	return evaluateCriterion(ctx, client, "Fluency and Coherence", FluencySystemPrompt, questionPrompt, questionType, transcript, features)
 }
 
 // EvaluateLexical evaluates Lexical Resource
-func EvaluateLexical(ctx context.Context, client LLMClient, questionPrompt, questionType, transcript string) (AgentResult, error) {
-	return evaluateCriterion(ctx, client, "Lexical Resource", LexicalSystemPrompt, questionPrompt, questionType, transcript)
+func EvaluateLexical(ctx context.Context, client LLMClient, questionPrompt, questionType, transcript string, features *ProsodyFeatures) (AgentResult, error) {
+	// nil: this criterion has no use for prosody and the block is pure token cost.
+	return evaluateCriterion(ctx, client, "Lexical Resource", LexicalSystemPrompt, questionPrompt, questionType, transcript, nil)
 }
 
 // EvaluateGrammar evaluates Grammatical Range and Accuracy
-func EvaluateGrammar(ctx context.Context, client LLMClient, questionPrompt, questionType, transcript string) (AgentResult, error) {
-	return evaluateCriterion(ctx, client, "Grammatical Range and Accuracy", GrammarSystemPrompt, questionPrompt, questionType, transcript)
+func EvaluateGrammar(ctx context.Context, client LLMClient, questionPrompt, questionType, transcript string, features *ProsodyFeatures) (AgentResult, error) {
+	// nil: this criterion has no use for prosody and the block is pure token cost.
+	return evaluateCriterion(ctx, client, "Grammatical Range and Accuracy", GrammarSystemPrompt, questionPrompt, questionType, transcript, nil)
 }
 
 // EvaluatePronunciation evaluates Pronunciation
-func EvaluatePronunciation(ctx context.Context, client LLMClient, questionPrompt, questionType, transcript string) (AgentResult, error) {
-	return evaluateCriterion(ctx, client, "Pronunciation", PronunciationSystemPrompt, questionPrompt, questionType, transcript)
+func EvaluatePronunciation(ctx context.Context, client LLMClient, questionPrompt, questionType, transcript string, features *ProsodyFeatures) (AgentResult, error) {
+	return evaluateCriterion(ctx, client, "Pronunciation", PronunciationSystemPrompt, questionPrompt, questionType, transcript, features)
 }

@@ -27,7 +27,7 @@ func TestSwarm_ProviderErrorIsCapturedNotSwallowed(t *testing.T) {
 
 	res, err := EvaluateSwarm(ctx,
 		&erroringLLMClient{err: errors.New(`anthropic stream failed: 401 {"type":"authentication_error"}`)},
-		"Prompt", "Type", "Transcript", nil)
+		"Prompt", "Type", "Transcript", nil, nil)
 	if err == nil {
 		t.Fatal("expected an error when every agent fails")
 	}
@@ -57,7 +57,7 @@ func TestSwarm_DeadlineIsDistinguishableFromProviderError(t *testing.T) {
 
 	res, _ := EvaluateSwarm(ctx,
 		&SelectiveDelayMockClient{DelayCriteria: "", DelayDuration: 2 * time.Second},
-		"Prompt", "Type", "Transcript", nil)
+		"Prompt", "Type", "Transcript", nil, nil)
 
 	for _, name := range CriterionOrder {
 		if got := res.Dimensions[name].Error; got != AgentErrorDeadline {
@@ -77,7 +77,7 @@ func TestSwarm_ErrorBreadcrumbNeverReachesTheWire(t *testing.T) {
 	const secretish = "internal-host-9f2a.example.invalid"
 	res, _ := EvaluateSwarm(ctx,
 		&erroringLLMClient{err: errors.New("dial tcp " + secretish + ": refused")},
-		"Prompt", "Type", "Transcript", nil)
+		"Prompt", "Type", "Transcript", nil, nil)
 
 	// It is present in the Go value, for logs and metrics.
 	if res.Dimensions[CriterionOrder[0]].Error == "" {

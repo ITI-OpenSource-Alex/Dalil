@@ -328,6 +328,16 @@ export class UsersService {
           workExperienceYears: user.profile?.workExperienceYears || 0,
           extracurricularsScore: user.profile?.extracurricularsScore || 0,
           targetCountries: user.profile?.targetCountries || [],
+          // RAG pre-filters candidate programmes by discipline, which it derives
+          // from this field (discipline_for_field_of_study in
+          // services/rag/app/services/scoring.py). Omitting it here left
+          // local_user_profiles.field_of_study NULL for every replicated user,
+          // so the filter could never activate outside the seeded demo rows --
+          // matching silently ranked Mechanical Engineering programmes for a
+          // Computer Science applicant. Null, not '', because RAG treats an
+          // absent field of study as "do not filter" and an empty string the
+          // same way only by accident.
+          fieldOfStudy: user.profile?.fieldOfStudy || null,
         },
       };
 
@@ -819,6 +829,11 @@ export class UsersService {
       workExperienceYears: u.profile?.workExperienceYears || 0,
       extracurricularsScore: u.profile?.extracurricularsScore || 0,
       targetCountries: u.profile?.targetCountries || [],
+      // RAG's backfill funnels this straight into the same upsert the SQS
+      // consumer uses, so leaving it out here reintroduced the NULL
+      // field_of_study that disables discipline pre-filtering -- see
+      // publishUserUpdatedEvent.
+      fieldOfStudy: u.profile?.fieldOfStudy || null,
     }));
     return {
       users: mappedUsers,

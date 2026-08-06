@@ -9,6 +9,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"time"
@@ -221,6 +222,95 @@ func (h *WritingHandler) UploadCV(c *fiber.Ctx) error {
 	}
 	c.Status(resp.StatusCode)
 	c.Set(fiber.HeaderContentType, resp.Header.Get("Content-Type"))
+	return c.Send(responseBody)
+}
+
+// ListEssays proxies GET /api/writing/essays to the Writing service's new
+// GET /essays -- a paged, user-scoped summary list. The essays table already
+// held every submission a user has ever made (chat practice and exam tasks
+// alike, distinguished by submission_type) with no way for the browser to
+// list them; this is the read side of that data. userId comes from the JWT,
+// never the query string, so a caller cannot list another user's essays by
+// editing the request; page and submission_type pass through unchanged.
+func (h *WritingHandler) ListEssays(c *fiber.Ctx) error {
+	userID, err := authenticatedUserID(c)
+	if err != nil {
+		return err
+	}
+
+	target, err := url.Parse(h.writingServiceURL + "/essays")
+	if err != nil {
+		return err
+	}
+	query := target.Query()
+	query.Set("user_id", userID)
+	if page := c.Query("page"); page != "" {
+		query.Set("page", page)
+	}
+	if submissionType := c.Query("submission_type"); submissionType != "" {
+		query.Set("submission_type", submissionType)
+	}
+	target.RawQuery = query.Encode()
+
+	req, err := downstream.NewRequest(c, http.MethodGet, target.String(), nil)
+	if err != nil {
+		return err
+	}
+	c.Locals(middleware.ContextKeyUpstream, "writing")
+
+	resp, err := h.httpClient.Do(req)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadGateway, "failed to contact writing service")
+	}
+	defer resp.Body.Close()
+
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	c.Status(resp.StatusCode)
+	c.Set(fiber.HeaderContentType, resp.Header.Get(fiber.HeaderContentType))
+	return c.Send(responseBody)
+}
+
+// LatestCV proxies GET /api/writing/cv/latest -- the signed-in user's most
+// recent upload, if any. Lets the CV Review page (Phase E,
+// docs/IA-REDESIGN-PROPOSAL.md) show upload/processing status and recover
+// cvS3Key across a reload without keeping that state only on the client.
+// Free-tier, same as ListEssays: reading your own upload status is not the
+// paid step, POST /cv/review is.
+func (h *WritingHandler) LatestCV(c *fiber.Ctx) error {
+	userID, err := authenticatedUserID(c)
+	if err != nil {
+		return err
+	}
+
+	target, err := url.Parse(h.writingServiceURL + "/cv/latest")
+	if err != nil {
+		return err
+	}
+	query := target.Query()
+	query.Set("userId", userID)
+	target.RawQuery = query.Encode()
+
+	req, err := downstream.NewRequest(c, http.MethodGet, target.String(), nil)
+	if err != nil {
+		return err
+	}
+	c.Locals(middleware.ContextKeyUpstream, "writing")
+
+	resp, err := h.httpClient.Do(req)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadGateway, "failed to contact writing service")
+	}
+	defer resp.Body.Close()
+
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	c.Status(resp.StatusCode)
+	c.Set(fiber.HeaderContentType, resp.Header.Get(fiber.HeaderContentType))
 	return c.Send(responseBody)
 }
 

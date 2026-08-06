@@ -18,19 +18,19 @@ export default function ChecklistItemRow({
     <li
       data-testid="checklist-item"
       data-checked={item.checked}
-      className="flex items-start gap-3 rounded-xl border border-[#E4EAE4] bg-white p-3"
+      className="flex items-start gap-3 rounded-xl border border-border bg-surface p-3"
     >
       <div className="pt-0.5">
         <Checkbox checked={item.checked} onChange={onToggle} label={item.title} />
       </div>
       <div className="min-w-0">
         <p
-          className={`text-sm font-medium text-[#0D3820] ${item.checked ? "line-through text-[#899C8B]" : ""}`}
+          className={`text-sm font-medium text-brand-fg ${item.checked ? "line-through text-fg-subtle" : ""}`}
         >
           {item.title}
         </p>
         {item.description && (
-          <p className="mt-0.5 text-xs text-[#526053]">{item.description}</p>
+          <p className="mt-0.5 text-xs text-fg-muted">{item.description}</p>
         )}
       </div>
     </li>

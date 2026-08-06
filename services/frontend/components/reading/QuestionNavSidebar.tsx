@@ -40,14 +40,14 @@ export default function QuestionNavSidebar({
             onClick={() => onJump(question.number)}
             aria-label={`Question ${question.number}${answered ? ", answered" : ", unanswered"}`}
             aria-current={active ? "true" : undefined}
-            className={`flex h-8 w-8 items-center justify-center rounded-full border text-xs font-semibold transition ${
+            className={`flex h-8 w-8 items-center justify-center rounded-full border text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted ${
               active
-                ? "border-emerald-700 ring-2 ring-emerald-600/40"
-                : "border-gray-300"
+                ? "border-brand ring-2 ring-brand-muted"
+                : "border-border-strong"
             } ${
               answered
-                ? "bg-emerald-700 text-white"
-                : "bg-white text-gray-600 hover:bg-gray-50"
+                ? "bg-brand text-fg-on-brand"
+                : "bg-surface text-fg-muted hover:bg-canvas-subtle"
             }`}
           >
             {question.number}

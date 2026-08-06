@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { Sparkles } from "lucide-react";
 import { ExamType, SkillArea } from "@/app/types/exam";
 import { createSession, getExamProgress, type ExamProgress } from "@/lib/exam-api";
 import { useCurrentUser } from "@/app/hooks/useCurrentUser";
-import { PageContainer } from "@/components/ui";
+import { useUpgradePrompt } from "@/components/subscription/upgrade-dialog";
+import { Alert, Button, Card, PageContainer } from "@/components/ui";
 
 export default function ExamLandingPage() {
   const router = useRouter();
@@ -15,6 +17,7 @@ export default function ExamLandingPage() {
     error: profileError,
     retry: retryProfile,
   } = useCurrentUser();
+  const upgrade = useUpgradePrompt();
   const [examType, setExamType] = useState<ExamType>("Academic");
   const [progress, setProgress] = useState<ExamProgress | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -91,6 +94,15 @@ export default function ExamLandingPage() {
 
     setStartError(null);
 
+    // Short-circuit on a known Free account rather than spending a request to
+    // be told what the profile already says. The catch below still handles the
+    // case where the tier changed under us -- the server stays authoritative,
+    // this only saves a round trip and shows the dialog instantly.
+    if (user.subscriptionTier !== "paid") {
+      upgrade.show("exam");
+      return;
+    }
+
     try {
       setStartingExam(skill);
 
@@ -111,6 +123,16 @@ export default function ExamLandingPage() {
 
       router.push(`/exam/shell?session=${session.session_id}`);
     } catch (error) {
+      // A paid-tier refusal is a product decision, not a fault. The whole
+      // /api/exam group is gated (GOA-059), so on a Free account this is the
+      // *expected* outcome of pressing "Take Exam" -- and it used to print
+      // the Gateway's raw 403 JSON into the amber banner below. It now opens
+      // the same upgrade dialog every other paid feature uses, with no error
+      // banner at all.
+      if (upgrade.handle(error, "exam")) {
+        setLastAttemptedSkill(null);
+        return;
+      }
       console.error(error);
       // doc 11: a native alert() here was one of the most jarring failure
       // modes available on a shared screen -- replaced with the same
@@ -153,7 +175,7 @@ export default function ExamLandingPage() {
       available: true,
       icon: (
         <svg
-          className="w-5 h-5 text-gray-800"
+          className="w-5 h-5 text-fg"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -175,7 +197,7 @@ export default function ExamLandingPage() {
       available: false,
       icon: (
         <svg
-          className="w-5 h-5 text-gray-800"
+          className="w-5 h-5 text-fg"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -197,7 +219,7 @@ export default function ExamLandingPage() {
       available: true,
       icon: (
         <svg
-          className="w-5 h-5 text-gray-800"
+          className="w-5 h-5 text-fg"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -219,7 +241,7 @@ export default function ExamLandingPage() {
       available: false,
       icon: (
         <svg
-          className="w-5 h-5 text-gray-800"
+          className="w-5 h-5 text-fg"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -250,10 +272,14 @@ export default function ExamLandingPage() {
     .filter((item): item is { skill: SkillArea; band: number } => item.band !== null)
     .sort((a, b) => a.band - b.band)[0];
 
+  // Only once identity has actually resolved: assuming Free while the profile
+  // is still loading would flash a paywall badge at a paying subscriber.
+  const isFreeTier = profileStatus === "success" && user?.subscriptionTier !== "paid";
+
   return (
     <PageContainer
       size="2xl"
-      className="min-h-screen bg-linear-to-br from-emerald-50 via-white to-orange-50 text-gray-900"
+      className="min-h-screen bg-linear-to-br from-brand-subtle via-surface to-warning-subtle text-fg"
     >
         <div
           className={`transition-all duration-700 ease-out ${
@@ -263,24 +289,25 @@ export default function ExamLandingPage() {
           {/* Top Header Block */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
             <div>
-              <p className="text-xs uppercase font-bold text-emerald-800 tracking-wider mb-2">
+              <p className="text-xs uppercase font-bold text-brand-fg tracking-wider mb-2">
                 IELTS PREP
               </p>
-              <h1 className="text-4xl md:text-5xl font-serif font-normal text-gray-900 tracking-tight">
+              <h1 className="text-4xl md:text-5xl font-serif font-normal text-fg tracking-tight">
                 Close the gap to{" "}
-                <span className="italic font-serif text-amber-700">band 7</span>
+                <span className="italic font-serif text-warning-fg">band 7</span>
               </h1>
-              <p className="text-sm text-gray-500 mt-2">
+              <p className="text-sm text-fg-subtle mt-2">
                 Practice IELTS modules and review your scored results.
               </p>
             </div>
 
-            <div className="flex rounded-full border border-gray-200 bg-white p-1 text-xs font-semibold">
+            <div className="flex rounded-full border border-border bg-surface p-1 text-xs font-semibold">
               {(["Academic", "General"] as ExamType[]).map((type) => (
                 <button
                   key={type}
                   onClick={() => handleToggle(type)}
-                  className={`rounded-full px-3 py-1.5 transition ${examType === type ? "bg-[#0d4d3a] text-white" : "text-gray-600 hover:bg-gray-100"}`}
+                  aria-pressed={examType === type}
+                  className={`rounded-full px-3 py-1.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted ${examType === type ? "bg-brand text-fg-on-brand" : "text-fg-muted hover:bg-canvas-subtle"}`}
                 >
                   {type}
                 </button>
@@ -288,78 +315,69 @@ export default function ExamLandingPage() {
             </div>
 
             {/* Overall Band Card */}
-            <div className="bg-white border border-gray-200/80 rounded-2xl p-4 min-w-40 shadow-2xs">
-              <span className="text-xs text-gray-400 font-medium block mb-1">
+            <Card padding="sm" className="min-w-40">
+              <span className="text-xs text-fg-subtle font-medium block mb-1">
                 Current overall
               </span>
               <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-serif font-semibold text-gray-900">
+                <span className="text-3xl font-serif font-semibold text-fg">
                   {overallBand ?? "—"}
                 </span>
               </div>
-            </div>
+            </Card>
           </div>
 
           {resumableSessionId && (
-            <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-gray-200/80 bg-white p-4 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-gray-700">
+            <Card padding="sm" className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-fg-muted">
                 You have an exam in progress. Would you like to resume it?
               </p>
               <div className="flex shrink-0 gap-2">
-                <button
-                  type="button"
-                  onClick={handleResumeSession}
-                  className="rounded-full bg-[#0d4d3a] px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-[#09382a]"
-                >
+                <Button size="sm" onClick={handleResumeSession}>
                   Resume in-progress exam
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDiscardSession}
-                  className="rounded-full border border-gray-200 px-4 py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
-                >
+                </Button>
+                <Button size="sm" variant="secondary" onClick={handleDiscardSession}>
                   Discard
-                </button>
+                </Button>
               </div>
-            </div>
+            </Card>
           )}
 
           {profileStatus === "error" && (
-            <div className="mb-6 rounded-2xl border border-red-100 bg-red-50 p-4 text-center">
-              <p className="text-sm text-red-700">
-                {profileError ?? "Failed to load your profile."}
-              </p>
-              <button
-                type="button"
-                onClick={retryProfile}
-                className="mt-2 rounded-full bg-red-600 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-red-700"
-              >
-                Retry
-              </button>
-            </div>
+            <Alert
+              tone="danger"
+              className="mb-6"
+              actions={
+                <Button variant="danger" size="sm" onClick={retryProfile}>
+                  Retry
+                </Button>
+              }
+            >
+              {profileError ?? "Failed to load your profile."}
+            </Alert>
           )}
 
           {startError && (
-            <div className="mb-6 rounded-2xl border border-amber-100 bg-amber-50 p-4 text-center">
-              <p className="text-sm text-amber-700">{startError}</p>
-              <div className="mt-2 flex items-center justify-center gap-3">
-                <button
-                  type="button"
-                  onClick={handleRetryStartExam}
-                  disabled={startingExam !== null}
-                  className="rounded-full bg-amber-600 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Retry
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setStartError(null)}
-                  className="text-xs font-semibold text-amber-700 underline underline-offset-2"
-                >
-                  Dismiss
-                </button>
-              </div>
-            </div>
+            <Alert
+              tone="warning"
+              className="mb-6"
+              actions={
+                <>
+                  <Button
+                    size="sm"
+                    onClick={handleRetryStartExam}
+                    disabled={startingExam !== null}
+                  >
+                    Retry
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setStartError(null)}>
+                    Dismiss
+                  </Button>
+                </>
+              }
+            >
+              {startError}
+            </Alert>
           )}
 
           {/* Grid of Custom Styled Cards */}
@@ -378,38 +396,50 @@ export default function ExamLandingPage() {
                   <div className="flex justify-between items-start mb-2">
                     <div className="p-1">{card.icon}</div>
                     <div className="text-right">
-                      <span className="text-2xl font-serif font-bold text-gray-900 leading-none block">
+                      <span className="text-2xl font-serif font-bold text-fg leading-none block">
                         {latestBand(card.key)?.toFixed(1) ?? "—"}
                       </span>
-                      <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">
+                      <span className="text-[10px] uppercase font-bold text-fg-subtle tracking-wider">
                         CURRENT BAND
                       </span>
                     </div>
                   </div>
 
-                  <h3 className="text-2xl font-serif font-normal text-gray-900 mb-1">
+                  <h2 className="text-2xl font-serif font-normal text-fg mb-1">
                     {card.title}
-                  </h3>
-                  <p className="text-xs text-gray-600 leading-relaxed max-w-xs">
+                  </h2>
+                  <p className="text-xs text-fg-muted leading-relaxed max-w-xs">
                     {card.description}
                   </p>
                 </div>
 
                 {/* Card Action Controls */}
                 <div className="flex justify-between items-center pt-4">
-                  <div className="flex gap-1.5">
+                  <div className="flex items-center gap-1.5">
                     {card.available ? (
-                      <button
-                        disabled={startingExam !== null}
-                        onClick={() => startExam(card.key)}
-                        className="bg-white/80 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 text-l font-medium px-3 py-1 rounded-full border border-black/5 transition"
-                      >
-                        {startingExam === card.key ? "Starting..." : "Take Exam"}
-                      </button>
+                      <>
+                        <button
+                          disabled={startingExam !== null}
+                          onClick={() => startExam(card.key)}
+                          className="bg-white/80 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed text-fg-muted text-l font-medium px-3 py-1 rounded-full border border-black/5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted"
+                        >
+                          {startingExam === card.key ? "Starting..." : "Take Exam"}
+                        </button>
+                        {/* The gate is stated up front rather than discovered
+                            by pressing the button. Clicking still works — it
+                            opens the upgrade dialog — so this is information,
+                            not a second disabled state. */}
+                        {isFreeTier && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-white/60 px-2 py-0.5 text-[11px] font-semibold text-fg-muted">
+                            <Sparkles size={11} aria-hidden="true" />
+                            Pro
+                          </span>
+                        )}
+                      </>
                     ) : (
                       <span
                         title={`${card.title} simulation is not available yet.`}
-                        className="inline-flex items-center gap-1 bg-white/50 text-gray-400 text-l font-medium px-3 py-1 rounded-full border border-black/5 cursor-not-allowed select-none"
+                        className="inline-flex items-center gap-1 bg-white/50 text-fg-subtle text-l font-medium px-3 py-1 rounded-full border border-black/5 cursor-not-allowed select-none"
                       >
                         Coming soon
                       </span>
@@ -421,14 +451,14 @@ export default function ExamLandingPage() {
           </div>
 
           {weakestSkill && (
-            <div className="bg-white border border-gray-200/80 rounded-2xl p-4 flex items-center gap-3 text-xs text-gray-600 shadow-2xs">
-              <span className="text-emerald-600 text-base">💡</span>
+            <Card padding="sm" className="flex items-center gap-3 text-xs text-fg-muted">
+              <span className="text-brand-fg text-base" aria-hidden="true">💡</span>
               <p>
-                <strong className="text-gray-900 font-semibold">Practice focus:</strong>{" "}
+                <strong className="text-fg font-semibold">Practice focus:</strong>{" "}
                 your latest {weakestSkill.skill} score is {weakestSkill.band.toFixed(1)},
                 so it is a useful place to focus next.
               </p>
-            </div>
+            </Card>
           )}
         </div>
     </PageContainer>

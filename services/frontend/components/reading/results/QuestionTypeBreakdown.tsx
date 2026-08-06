@@ -28,9 +28,9 @@ export default function QuestionTypeBreakdown({
   return (
     <div
       data-testid="question-type-breakdown"
-      className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-2xs"
+      className="rounded-2xl border border-border bg-surface p-6 shadow-2xs"
     >
-      <h3 className="mb-4 text-sm font-bold text-gray-900">
+      <h3 className="mb-4 text-sm font-bold text-fg">
         Question Type Breakdown
       </h3>
 
@@ -44,21 +44,21 @@ export default function QuestionTypeBreakdown({
               data-weakest={isWeakest}
               className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs ${
                 isWeakest
-                  ? "border border-amber-300 bg-amber-50"
-                  : "bg-gray-50"
+                  ? "border border-warning-border bg-warning-subtle"
+                  : "bg-canvas-subtle"
               }`}
             >
               <span
-                className={`font-medium ${isWeakest ? "text-amber-800" : "text-gray-700"}`}
+                className={`font-medium ${isWeakest ? "text-warning-fg" : "text-fg-muted"}`}
               >
                 {READING_UI_TYPE_LABELS[stat.uiType]}
                 {isWeakest && (
-                  <span className="ml-2 rounded-full bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">
+                  <span className="ml-2 rounded-full bg-warning px-1.5 py-0.5 text-[9px] font-bold uppercase text-white">
                     Weakest
                   </span>
                 )}
               </span>
-              <span className="font-semibold text-gray-900">
+              <span className="font-semibold text-fg">
                 {stat.correct}/{stat.total}
               </span>
             </li>

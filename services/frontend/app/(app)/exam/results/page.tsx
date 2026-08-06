@@ -6,11 +6,7 @@ import Link from "next/link";
 import { SkillArea } from "@/app/types/exam";
 import { getResult, getSession, getWritingResult } from "@/lib/exam-api";
 import Skeleton from "@/components/ui/skeleton";
-import type {
-  ExamSessionResponse,
-  ExamResultResponse,
-  WritingResultResponse,
-} from "@/lib/exam-api";
+import type { ExamResultResponse, WritingResultResponse } from "@/lib/exam-api";
 import CombinedWritingResults from "@/components/writing/CombinedWritingResults";
 import {
   loadReadingResult,
@@ -45,7 +41,6 @@ function ResultsPageContent() {
   const skill = (searchParams.get("skill") || "Reading") as SkillArea;
   const [mounted, setMounted] = useState(false);
   const sessionId = searchParams.get("session") || "";
-  const [session, setSession] = useState<ExamSessionResponse | null>(null);
   const [result, setResult] = useState<ExamResultResponse | null>(null);
   const [readingResult, setReadingResult] =
     useState<StoredReadingResult | null>(null);
@@ -102,15 +97,6 @@ function ResultsPageContent() {
           setWritingResult(writing);
 
           sessionStorage.removeItem("active_exam_session");
-
-          fetch("/api/profile/update-scores", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ skill, bandScore: writing.overall_band }),
-          }).catch(() => {
-            // Non-fatal, matching the Reading path: a profile sync failure
-            // must not stop a candidate seeing their result.
-          });
         } catch (err) {
           setError(
             err instanceof Error ? err.message : "Failed to load result",
@@ -127,29 +113,14 @@ function ResultsPageContent() {
       try {
         setLoading(true);
 
-        const [sessionData, resultData] = await Promise.all([
+        const [, resultData] = await Promise.all([
           getSession(sessionId),
           getResult(sessionId),
         ]);
 
-        setSession(sessionData);
         setResult(resultData);
 
         sessionStorage.removeItem("active_exam_session");
-
-        // Only the generic result shape reaches here: Reading and Writing both
-        // return from their own branches above, and Writing's weighted
-        // `overall_band` is posted by that branch (it is not on this payload).
-        await fetch("/api/profile/update-scores", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            skill,
-            bandScore: resultData.band_score,
-          }),
-        });
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load result");
       } finally {
@@ -272,7 +243,7 @@ function ResultsPageContent() {
             <Badge tone="brand" pill>
               Official Simulation Result
             </Badge>
-            <Heading as="h2" size="xl" className="mt-2">
+            <Heading as="h1" size="xl" className="mt-2">
               {skill} Analytics
             </Heading>
           </div>
@@ -301,7 +272,7 @@ function ResultsPageContent() {
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               {sectionScores.map(([section, score]) => (
                 <Card key={section} padding="sm">
-                  <Heading as="h4" size="sm" className="capitalize">
+                  <Heading as="h3" size="sm" className="capitalize">
                     {section.replaceAll("_", " ")}
                   </Heading>
                   <Text size="xs" tone="muted" className="mt-2 leading-relaxed">
@@ -319,7 +290,7 @@ function ResultsPageContent() {
 
         {/* Action Engine Block */}
         <Card>
-          <Heading as="h3" size="md" className="mb-3">
+          <Heading as="h2" size="md" className="mb-3">
             Targeted Action Plan
           </Heading>
           <ul className="list-disc space-y-2 pl-4 text-xs leading-relaxed text-fg-muted">

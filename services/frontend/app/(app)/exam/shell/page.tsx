@@ -19,6 +19,7 @@ import type {
   NormalizedReadingQuestion,
   ReadingSubmitResponse,
 } from "@/app/types/reading";
+import { Alert, Button } from "@/components/ui";
 
 // useSearchParams() opts the page into client-side rendering during
 // prerendering, which Next.js requires to be wrapped in a Suspense boundary
@@ -28,7 +29,7 @@ export default function ExamShell() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#fbfbfa] p-8 font-mono text-xs text-gray-500">
+        <div className="min-h-screen bg-canvas p-8 font-mono text-xs text-fg-subtle">
           Loading active session...
         </div>
       }
@@ -227,12 +228,12 @@ function ExamShellContent() {
           }`}
         >
           {/* Header Bar */}
-          <header className="h-16 border-b border-gray-200/80 px-8 flex justify-between items-center bg-white shrink-0">
+          <header className="h-16 border-b border-border px-8 flex justify-between items-center bg-surface shrink-0">
             <div className="flex items-center gap-3">
-              <span className="font-serif text-lg font-bold text-gray-900">
+              <span className="font-serif text-lg font-bold text-fg">
                 {examConfig.skill} Module
               </span>
-              <span className="bg-[#e2f4ea] text-[#0d4d3a] px-2.5 py-0.5 text-xs font-semibold rounded-full">
+              <span className="bg-brand-subtle text-brand-fg px-2.5 py-0.5 text-xs font-semibold rounded-full">
                 {examConfig.type}
               </span>
             </div>
@@ -241,8 +242,8 @@ function ExamShellContent() {
               <div
                 className={`font-mono text-sm font-semibold px-3 py-1 rounded-full border transition-colors ${
                   isCritical
-                    ? "bg-red-50 text-red-600 border-red-300 animate-pulse"
-                    : "bg-gray-100 text-gray-800 border-gray-200"
+                    ? "bg-danger-subtle text-danger border-danger-border animate-pulse"
+                    : "bg-canvas-subtle text-fg-muted border-border"
                 }`}
               >
                 {formattedTime}
@@ -260,12 +261,9 @@ function ExamShellContent() {
                   empty payload over the top of that. */}
               {examConfig.skill !== "Reading" &&
                 examConfig.skill !== "Writing" && (
-                  <button
-                    onClick={() => setShowSubmitModal(true)}
-                    className="bg-[#0d4d3a] hover:bg-[#09382a] text-white px-4 py-1.5 rounded-full text-xs font-semibold transition"
-                  >
+                  <Button size="sm" onClick={() => setShowSubmitModal(true)}>
                     Submit Exam
-                  </button>
+                  </Button>
                 )}
             </div>
           </header>
@@ -278,8 +276,8 @@ function ExamShellContent() {
           <main
             className={
               examConfig.skill === "Reading"
-                ? "flex-1 min-h-0 overflow-hidden bg-[#fbfbfa]"
-                : "flex-1 overflow-auto p-8 bg-[#fbfbfa]"
+                ? "flex-1 min-h-0 overflow-hidden bg-canvas"
+                : "flex-1 overflow-auto p-8 bg-canvas"
             }
           >
             {examConfig.skill === "Reading" && (
@@ -310,12 +308,9 @@ function ExamShellContent() {
             )}
 
             {submissionError && (
-              <div
-                role="alert"
-                className="mt-6 max-w-3xl mx-auto rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
-              >
+              <Alert tone="danger" className="mt-6 max-w-3xl mx-auto">
                 {submissionError}
-              </div>
+              </Alert>
             )}
           </main>
         </div>
@@ -333,26 +328,20 @@ function ExamShellContent() {
       {/* Submit Confirmation Modal */}
       {showSubmitModal && (
         <div className="fixed inset-0 bg-black/40 z-150 flex items-center justify-center p-4 backdrop-blur-xs">
-          <div className="bg-white border border-gray-200 p-6 max-w-sm w-full rounded-2xl shadow-xl">
-            <h3 className="text-base font-bold text-gray-900 mb-1">
+          <div className="bg-surface border border-border p-6 max-w-sm w-full rounded-2xl shadow-xl">
+            <h3 className="text-base font-bold text-fg mb-1">
               Submit Examination?
             </h3>
-            <p className="text-xs text-gray-500 mb-6">
+            <p className="text-xs text-fg-subtle mb-6">
               Your responses will be evaluated using AI scoring guidelines.
             </p>
             <div className="flex justify-end gap-2 text-xs font-semibold">
-              <button
-                onClick={() => setShowSubmitModal(false)}
-                className="border border-gray-200 rounded-full px-4 py-2 text-gray-600 hover:bg-gray-50 transition"
-              >
+              <Button variant="secondary" size="sm" onClick={() => setShowSubmitModal(false)}>
                 Cancel
-              </button>
-              <button
-                onClick={executeSubmission}
-                className="bg-[#0d4d3a] hover:bg-[#09382a] text-white rounded-full px-4 py-2 transition"
-              >
+              </Button>
+              <Button size="sm" onClick={executeSubmission}>
                 Submit & Exit
-              </button>
+              </Button>
             </div>
           </div>
         </div>

@@ -1,7 +1,16 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("Authentication & User Flows", () => {
-  test("E2E: full registration → onboarding wizard → CV upload → /chat reached", async ({
+  // NOTE: this test predates the current onboarding implementation -- its
+  // selectors (`input[name="fullName"]`, `button:has-text("Next")`,
+  // `button:has-text("Complete Onboarding")`) don't match the real wizard
+  // (see components/onboarding/AcademicStep.tsx etc.) and it was already
+  // failing before Phase C. Phase C's only change here: the CV upload step
+  // this test exercised no longer exists in onboarding (removed per
+  // docs/IA-REDESIGN-PROPOSAL.md Phase C; CV upload will live on its own
+  // /cv-review page in Phase E). Rewriting the rest of this test to match
+  // the real wizard is out of scope for Phase C.
+  test("E2E: full registration → onboarding wizard → /chat reached", async ({
     page,
   }) => {
     // 1. Full Registration
@@ -18,19 +27,9 @@ test.describe("Authentication & User Flows", () => {
     await page.fill('input[name="fullName"]', "Jane Doe");
     await page.click('button:has-text("Next")');
 
-    // 3. CV Upload
-    const fileChooserPromise = page.waitForEvent("filechooser");
-    await page.click('button:has-text("Upload CV")');
-    const fileChooser = await fileChooserPromise;
-    await fileChooser.setFiles({
-      name: "resume.pdf",
-      mimeType: "application/pdf",
-      buffer: Buffer.from("%PDF-1.4 sample content"),
-    });
-
     await page.click('button:has-text("Complete Onboarding")');
 
-    // 4. /chat reached
+    // 3. /chat reached
     await expect(page).toHaveURL(/\/chat/);
     await expect(page.locator("h1")).toContainText("Chat");
   });

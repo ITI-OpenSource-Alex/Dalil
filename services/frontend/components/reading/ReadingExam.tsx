@@ -229,7 +229,7 @@ export default function ReadingExam({
             ))}
           </div>
 
-          <div className="min-h-0 w-44 shrink-0 overflow-y-auto border-l border-gray-200 bg-gray-50/50">
+          <div className="min-h-0 w-44 shrink-0 overflow-y-auto border-l border-border bg-canvas-subtle">
             <QuestionNavSidebar
               questions={state.questions}
               answers={state.answers}
@@ -240,11 +240,11 @@ export default function ReadingExam({
         </div>
       </div>
 
-      <div className="flex items-center justify-between border-t border-gray-200 bg-white px-6 py-3">
+      <div className="flex items-center justify-between border-t border-border bg-surface px-6 py-3">
         {state.submitError ? (
-          <p className="text-xs text-red-600">{state.submitError}</p>
+          <p className="text-xs text-danger" role="alert">{state.submitError}</p>
         ) : (
-          <span className="text-xs text-gray-400">
+          <span className="text-xs text-fg-subtle">
             {state.questions.length - unansweredCount} of{" "}
             {state.questions.length} answered
           </span>
@@ -253,7 +253,7 @@ export default function ReadingExam({
           type="button"
           data-testid="reading-submit-button"
           onClick={() => setShowSubmitModal(true)}
-          className="rounded-full bg-[#0d4d3a] px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-[#09382a]"
+          className="rounded-full bg-brand px-4 py-1.5 text-xs font-semibold text-fg-on-brand transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted"
         >
           Submit Exam
         </button>

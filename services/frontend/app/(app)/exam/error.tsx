@@ -14,7 +14,10 @@ export default function ExamError({
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#fbfbfa] p-6">
       <div className="w-full max-w-sm rounded-2xl border border-gray-200/80 bg-white p-8 text-center shadow-2xs">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-2xl">
+        <div
+          className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-2xl"
+          aria-hidden="true"
+        >
           ⚠️
         </div>
 
@@ -31,14 +34,14 @@ export default function ExamError({
           <button
             type="button"
             onClick={() => reset()}
-            className="rounded-full bg-[#0d4d3a] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#09382a]"
+            className="rounded-full bg-[#0d4d3a] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#09382a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
           >
             Try again
           </button>
 
           <a
             href="/exam"
-            className="rounded-full border border-gray-200 px-4 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
+            className="rounded-full border border-gray-200 px-4 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
           >
             Back to Skills Workspace
           </a>

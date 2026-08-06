@@ -14,7 +14,7 @@ export default function SectionTabs({ activeSection, onSectionChange }: Props) {
     <div
       role="tablist"
       aria-label="Reading sections"
-      className="flex gap-1 border-b border-gray-200 px-4"
+      className="flex gap-1 border-b border-border px-4"
     >
       {([1, 2, 3] as const).map((section) => {
         const active = section === activeSection;
@@ -26,10 +26,10 @@ export default function SectionTabs({ activeSection, onSectionChange }: Props) {
             aria-selected={active}
             data-testid={`section-tab-${section}`}
             onClick={() => onSectionChange(section)}
-            className={`px-4 py-2.5 text-xs font-semibold transition ${
+            className={`px-4 py-2.5 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted ${
               active
-                ? "border-b-2 border-emerald-700 text-emerald-800"
-                : "text-gray-500 hover:text-gray-800"
+                ? "border-b-2 border-brand text-brand-fg"
+                : "text-fg-subtle hover:text-fg-muted"
             }`}
           >
             Section {section}

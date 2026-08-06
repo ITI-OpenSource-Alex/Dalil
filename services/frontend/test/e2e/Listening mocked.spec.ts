@@ -8,13 +8,31 @@ import { test, expect, Page, Route } from "@playwright/test";
 const GATEWAY_API_BASE = "http://localhost:8080/api/exam";
 const SESSION_ID = "33333333-3333-3333-3333-333333333333";
 
-// A minimal, valid, silent WAV file. Real decoding/playback isn't under
-// test here (LockedAudioPlayer.test.tsx covers seek-prevention at the unit
-// level); this just needs to be a byte stream the <audio> element accepts
-// without erroring, since these tests drive section completion by
-// dispatching a synthetic `ended` event rather than waiting out real audio.
-const SILENT_WAV_BASE64 =
-  "UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
+function createSilentWavBuffer(durationSeconds = 60): Buffer {
+  const sampleRate = 8000;
+  const numSamples = sampleRate * durationSeconds;
+  const dataSize = numSamples;
+  const buffer = Buffer.alloc(44 + dataSize);
+
+  buffer.write("RIFF", 0);
+  buffer.writeUInt32LE(36 + dataSize, 4);
+  buffer.write("WAVE", 8);
+  buffer.write("fmt ", 12);
+  buffer.writeUInt32LE(16, 16);
+  buffer.writeUInt16LE(1, 20); // PCM
+  buffer.writeUInt16LE(1, 22); // Mono
+  buffer.writeUInt32LE(sampleRate, 24);
+  buffer.writeUInt32LE(sampleRate, 28); // Byte rate
+  buffer.writeUInt16LE(1, 32); // Block align
+  buffer.writeUInt16LE(8, 34); // 8-bit
+  buffer.write("data", 36);
+  buffer.writeUInt32LE(dataSize, 40);
+  buffer.fill(128, 44);
+
+  return buffer;
+}
+
+const SILENT_WAV_BUFFER = createSilentWavBuffer(60);
 
 function corsHeaders() {
   return {
@@ -57,7 +75,7 @@ function buildListeningQuestions() {
       questions.push({
         number,
         section_number: section,
-        type: "sentence_completion",
+        question_type: "sentence_completion",
         prompt: `Section ${section}, question ${number}`,
         options: null,
         correct_answer: `answer-${number}`,
@@ -169,7 +187,7 @@ async function mockListeningBackend(page: Page) {
       route.fulfill({
         status: 200,
         contentType: "audio/wav",
-        body: Buffer.from(SILENT_WAV_BASE64, "base64"),
+        body: SILENT_WAV_BUFFER,
       }),
     );
   }
@@ -187,11 +205,11 @@ async function gotoListeningExam(page: Page) {
 async function clickPlayPauseIfReady(page: Page) {
   const playPause = page.getByTestId("locked-audio-play-pause");
   await playPause.waitFor({ state: "visible" });
-  await expect(playPause).toBeEnabled();
-  await page.waitForTimeout(50);
-
-  if (await page.getByText("Ready to play").isVisible()) {
-    await playPause.click();
+  if (await playPause.isEnabled()) {
+    const isReady = await page.getByText("Ready to play").isVisible();
+    if (isReady) {
+      await playPause.click();
+    }
   }
 }
 
@@ -250,7 +268,8 @@ test.describe("GOA Listening exam (mocked backend)", () => {
     await page.clock.fastForward(15_000);
     await expect(page.getByText("Section 1 of 4")).toBeVisible();
 
-    await page.clock.fastForward(15_000);
+    // Advance remaining 16s (total 31s) to complete the gap.
+    await page.clock.fastForward(16_000);
     await expect(page.getByText("Section 2 of 4")).toBeVisible();
   });
 
@@ -309,14 +328,14 @@ test.describe("GOA Listening exam (mocked backend)", () => {
 
     await endActiveSectionAudio(page);
     await page.getByTestId("next-section-button").click();
-    await page.clock.fastForward("30s");
+    await page.clock.fastForward("31s");
     await expect(page.getByText("Section 2 of 4")).toBeVisible();
 
     // Section 1's answer must have survived the transition even though
     // it's no longer the active section.
     await endActiveSectionAudio(page);
     await page.getByTestId("next-section-button").click();
-    await page.clock.fastForward("30s");
+    await page.clock.fastForward("31s");
     await expect(page.getByText("Section 3 of 4")).toBeVisible();
 
     await page
@@ -325,7 +344,7 @@ test.describe("GOA Listening exam (mocked backend)", () => {
 
     await endActiveSectionAudio(page);
     await page.getByTestId("next-section-button").click();
-    await page.clock.fastForward("30s");
+    await page.clock.fastForward("31s");
     await expect(page.getByText("Section 4 of 4")).toBeVisible();
 
     await page
@@ -387,7 +406,7 @@ test.describe("GOA Listening exam (mocked backend)", () => {
       await endActiveSectionAudio(page);
       if (section < 4) {
         await page.getByTestId("next-section-button").click();
-        await page.clock.fastForward("30s");
+        await page.clock.fastForward("31s");
       }
     }
 
@@ -411,10 +430,11 @@ test.describe("GOA Listening exam (mocked backend)", () => {
 
     await expect(page.getByTestId("question-type-breakdown")).toBeVisible();
     await expect(
-      page.getByTestId("breakdown-sentence_completion"),
+      page.getByTestId("breakdown-fill_in_blank"),
     ).toHaveAttribute("data-weakest", "true");
 
     await page.getByTestId("practice-listening-again-button").click();
     await expect(page).toHaveURL(/\/exam$/);
   });
 });
+

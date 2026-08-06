@@ -1,13 +1,15 @@
 "use client";
 
-import type {
-  NormalizedReadingQuestion,
-  ReadingQuestionResult,
-} from "@/app/types/reading";
-
 interface Props {
-  question: NormalizedReadingQuestion;
-  result: ReadingQuestionResult | undefined;
+  question: {
+    number: number;
+    promptStem: string;
+    passageNumber?: number | null;
+  };
+  result:
+    | { submitted_answer: string; correct_answer: string; is_correct: boolean }
+    | undefined;
+  locationLabel?: string;
 }
 
 /**
@@ -16,7 +18,11 @@ interface Props {
  * `passage_number` is the only location signal the backend provides per
  * question (no paragraph/line reference exists in the schema).
  */
-export default function QuestionResultRow({ question, result }: Props) {
+export default function QuestionResultRow({
+  question,
+  result,
+  locationLabel = "Passage",
+}: Props) {
   if (!result) {
     return null;
   }
@@ -70,7 +76,7 @@ export default function QuestionResultRow({ question, result }: Props) {
           <p data-testid={`result-passage-hint-${question.number}`}>
             <span className="text-gray-500">Location: </span>
             <span className="font-medium text-gray-700">
-              Passage {question.passageNumber}
+              {locationLabel} {question.passageNumber}
             </span>
           </p>
         )}

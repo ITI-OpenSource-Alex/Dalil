@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ExamType, SkillArea } from "@/app/types/exam";
 import { createSession, getExamProgress, type ExamProgress } from "@/lib/exam-api";
+import { startListeningSession } from "@/lib/listening-api";
 import { Sidebar } from "@/components/ui/sidebar";
 
 export default function ExamLandingPage() {
@@ -18,7 +19,9 @@ export default function ExamLandingPage() {
   }, []);
 
   useEffect(() => {
-    getExamProgress().then(setProgress).catch(() => setProgress(null));
+    getExamProgress()
+      .then(setProgress)
+      .catch(() => setProgress(null));
   }, []);
 
   // Check sessionStorage for an existing session to resume
@@ -37,6 +40,27 @@ export default function ExamLandingPage() {
   const startExam = async (skill: SkillArea) => {
     try {
       setStartingExam(skill);
+
+      if (skill == "Listening") {
+        const listeningSession = await startListeningSession(examType);
+
+        sessionStorage.setItem(
+          "active_exam_session",
+          JSON.stringify({
+            sessionId: listeningSession.session_id,
+            examType,
+            skillArea: skill,
+          }),
+        );
+
+        sessionStorage.setItem(
+          `listening_start_${listeningSession.session_id}`,
+          JSON.stringify(listeningSession),
+        );
+
+        router.push(`/exam/shell?session=${listeningSession.session_id}`);
+        return;
+      }
 
       const session = await createSession(examType, skill);
 
@@ -159,11 +183,15 @@ export default function ExamLandingPage() {
     .map((card) => latestBand(card.key))
     .filter((band): band is number => band !== null);
   const overallBand = knownBands.length
-    ? (knownBands.reduce((sum, band) => sum + band, 0) / knownBands.length).toFixed(1)
+    ? (
+        knownBands.reduce((sum, band) => sum + band, 0) / knownBands.length
+      ).toFixed(1)
     : null;
   const weakestSkill = skillCards
     .map((card) => ({ skill: card.key, band: latestBand(card.key) }))
-    .filter((item): item is { skill: SkillArea; band: number } => item.band !== null)
+    .filter(
+      (item): item is { skill: SkillArea; band: number } => item.band !== null,
+    )
     .sort((a, b) => a.band - b.band)[0];
 
   return (
@@ -255,14 +283,14 @@ export default function ExamLandingPage() {
                     <button
                       disabled={
                         startingExam !== null ||
-                        !["Reading", "Writing"].includes(card.key)
+                        !["Reading", "Listening", "Writing"].includes(card.key)
                       }
                       onClick={() => startExam(card.key)}
                       className="bg-white/80 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 text-l font-medium px-3 py-1 rounded-full border border-black/5 transition"
                     >
                       {startingExam === card.key
                         ? "Starting..."
-                        : ["Reading", "Writing"].includes(card.key)
+                        : ["Reading", "Listening", "Writing"].includes(card.key)
                           ? "Take Exam"
                           : "Coming soon"}
                     </button>
@@ -276,9 +304,12 @@ export default function ExamLandingPage() {
             <div className="bg-white border border-gray-200/80 rounded-2xl p-4 flex items-center gap-3 text-xs text-gray-600 shadow-2xs">
               <span className="text-emerald-600 text-base">💡</span>
               <p>
-                <strong className="text-gray-900 font-semibold">Practice focus:</strong>{" "}
-                your latest {weakestSkill.skill} score is {weakestSkill.band.toFixed(1)},
-                so it is a useful place to focus next.
+                <strong className="text-gray-900 font-semibold">
+                  Practice focus:
+                </strong>{" "}
+                your latest {weakestSkill.skill} score is{" "}
+                {weakestSkill.band.toFixed(1)}, so it is a useful place to focus
+                next.
               </p>
             </div>
           )}

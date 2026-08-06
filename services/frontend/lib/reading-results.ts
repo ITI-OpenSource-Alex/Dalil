@@ -1,8 +1,4 @@
-import type {
-  NormalizedReadingQuestion,
-  ReadingQuestionResult,
-  ReadingUiType,
-} from "@/app/types/reading";
+import type { ReadingUiType } from "@/app/types/reading";
 
 export const READING_UI_TYPE_LABELS: Record<ReadingUiType, string> = {
   multiple_choice: "Multiple Choice",
@@ -13,7 +9,7 @@ export const READING_UI_TYPE_LABELS: Record<ReadingUiType, string> = {
 };
 
 export interface QuestionTypeStats {
-  uiType: ReadingUiType;
+  uiType: string;
   correct: number;
   total: number;
   /** 0-100. */
@@ -31,13 +27,14 @@ export interface QuestionTypeStats {
  * place.
  */
 export function calculateQuestionTypeBreakdown(
-  questions: NormalizedReadingQuestion[],
-  perQuestionResult: Record<string, ReadingQuestionResult>,
+  questions: Array<{ number: number; uiType?: string }>,
+  perQuestionResult: Record<string, { is_correct?: boolean }>,
 ): QuestionTypeStats[] {
-  const totals = new Map<ReadingUiType, { correct: number; total: number }>();
+  const totals = new Map<string, { correct: number; total: number }>();
 
   for (const question of questions) {
-    const entry = totals.get(question.uiType) ?? { correct: 0, total: 0 };
+    const uiType = question.uiType ?? "unknown";
+    const entry = totals.get(uiType) ?? { correct: 0, total: 0 };
     entry.total += 1;
 
     const result = perQuestionResult[String(question.number)];
@@ -45,7 +42,7 @@ export function calculateQuestionTypeBreakdown(
       entry.correct += 1;
     }
 
-    totals.set(question.uiType, entry);
+    totals.set(uiType, entry);
   }
 
   return Array.from(totals.entries()).map(([uiType, { correct, total }]) => ({

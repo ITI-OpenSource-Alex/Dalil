@@ -11,7 +11,12 @@ import {
   loadReadingResult,
   type StoredReadingResult,
 } from "@/lib/reading-result-storage";
+import {
+  loadListeningResult,
+  type StoredListeningResult,
+} from "@/lib/listening-result-storage";
 import ReadingResultsView from "@/components/reading/results/ReadingResultsView";
+import { READING_UI_TYPE_LABELS } from "@/lib/reading-results";
 
 // useSearchParams() opts the page into client-side rendering during
 // prerendering, which Next.js requires to be wrapped in a Suspense boundary
@@ -34,6 +39,8 @@ function ResultsPageContent() {
   const [result, setResult] = useState<ExamResultResponse | null>(null);
   const [readingResult, setReadingResult] =
     useState<StoredReadingResult | null>(null);
+  const [listeningResult, setListeningResult] =
+    useState<StoredListeningResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,6 +70,21 @@ function ResultsPageContent() {
       return;
     }
 
+    if (skill === "Listening") {
+      const stored = loadListeningResult(sessionId);
+      setListeningResult(stored);
+      setLoading(false);
+
+      if (!stored) {
+        setError("No Listening result found for this session.");
+        return;
+      }
+
+      sessionStorage.removeItem("active_exam_session");
+
+      return;
+    }
+
     async function loadResult() {
       try {
         setLoading(true);
@@ -76,7 +98,6 @@ function ResultsPageContent() {
         setResult(resultData);
 
         sessionStorage.removeItem("active_exam_session");
-
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load result");
       } finally {
@@ -113,6 +134,44 @@ function ResultsPageContent() {
             <ReadingResultsView
               result={readingResult.result}
               questions={readingResult.questions}
+            />
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (skill === "Listening") {
+    if (!listeningResult) {
+      return <div>No result found.</div>;
+    }
+
+    return (
+      <div className="flex min-h-screen bg-[#fbfbfa] text-gray-900 font-sans">
+        <Sidebar />
+
+        <main className="flex-1 p-8 md:p-12 max-w-5xl mx-auto">
+          <div
+            className={`transition-all duration-700 ease-out ${
+              mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+            }`}
+          >
+            <ReadingResultsView
+              result={listeningResult.result}
+              questions={listeningResult.questions}
+              title="Listening Results"
+              buttonLabel="Practice Listening Again"
+              buttonHref="/exam"
+              resultTestId="listening-results-view"
+              bandScoreTestId="listening-band-score"
+              buttonTestId="practice-listening-again-button"
+              questionTypeLabels={READING_UI_TYPE_LABELS}
+              sections={[
+                { key: "section_1", label: "Section 1" },
+                { key: "section_2", label: "Section 2" },
+                { key: "section_3", label: "Section 3" },
+                { key: "section_4", label: "Section 4" },
+              ]}
             />
           </div>
         </main>
@@ -170,7 +229,10 @@ function ResultsPageContent() {
             {sectionScores.length ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {sectionScores.map(([section, score]) => (
-                  <div key={section} className="border border-gray-200/80 p-5 rounded-2xl bg-white shadow-2xs">
+                  <div
+                    key={section}
+                    className="border border-gray-200/80 p-5 rounded-2xl bg-white shadow-2xs"
+                  >
                     <h4 className="font-serif font-bold text-gray-900 text-sm capitalize">
                       {section.replaceAll("_", " ")}
                     </h4>
@@ -181,7 +243,9 @@ function ResultsPageContent() {
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-gray-500">Detailed section feedback is not available for this result.</p>
+              <p className="text-xs text-gray-500">
+                Detailed section feedback is not available for this result.
+              </p>
             )}
           </section>
 
@@ -193,11 +257,16 @@ function ResultsPageContent() {
             <ul className="space-y-2 text-xs text-gray-600 leading-relaxed list-disc pl-4">
               {weakestSection ? (
                 <li>
-                  <strong>Focus on {weakestSection[0].replaceAll("_", " ")}:</strong>{" "}
+                  <strong>
+                    Focus on {weakestSection[0].replaceAll("_", " ")}:
+                  </strong>{" "}
                   it is the lowest reported section score ({weakestSection[1]}).
                 </li>
               ) : (
-                <li>Complete another scored exam to receive a data-backed action plan.</li>
+                <li>
+                  Complete another scored exam to receive a data-backed action
+                  plan.
+                </li>
               )}
             </ul>
             <div className="mt-6 pt-4 border-t border-gray-100">

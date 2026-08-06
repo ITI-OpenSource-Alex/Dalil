@@ -27,17 +27,17 @@ export default function EssayComposer({
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      className="rounded-xl border border-[#E4EAE4] bg-white shadow-sm p-5 space-y-4"
+      className="rounded-xl border border-border bg-surface shadow-sm p-5 space-y-4"
     >
       <div className="flex items-center gap-2">
-        <PenSquare size={18} className="text-emerald-600" />
+        <PenSquare size={18} className="text-brand-fg" aria-hidden="true" />
 
         <div>
-          <h3 className="font-semibold text-[#16351F]">
+          <h3 className="font-semibold text-brand-fg">
             IELTS Writing Practice
           </h3>
 
-          <p className="text-xs text-[#6B776D]">
+          <p className="text-xs text-fg-muted">
             Paste or write your essay below.
           </p>
         </div>
@@ -49,11 +49,11 @@ export default function EssayComposer({
         onChange={(e) => setEssay(e.target.value)}
         rows={10}
         placeholder="Write your IELTS essay here..."
-        className="w-full resize-y rounded-lg border border-[#D8E2D9] bg-white p-4 text-sm outline-none focus:ring-2 focus:ring-emerald-500"
+        className="w-full resize-y rounded-lg border border-border bg-surface p-4 text-sm outline-none focus:ring-2 focus:ring-brand-muted"
       />
 
       <div className="flex justify-between items-center">
-        <span className="text-xs text-[#6B776D]">
+        <span className="text-xs text-fg-muted">
           {essay.length} characters
         </span>
 
@@ -62,7 +62,7 @@ export default function EssayComposer({
             <button
               type="button"
               onClick={onCancel}
-              className="px-4 py-2 rounded-lg border border-[#D8E2D9] hover:bg-gray-50"
+              className="px-4 py-2 rounded-lg border border-border hover:bg-canvas-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted"
             >
               Cancel
             </button>
@@ -73,7 +73,7 @@ export default function EssayComposer({
             type="button"
             disabled={loading || essay.trim().length === 0}
             onClick={submitEssay}
-            className="rounded-lg bg-emerald-700 px-5 py-2 text-white disabled:opacity-50"
+            className="rounded-lg bg-brand px-5 py-2 text-fg-on-brand disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted"
           >
             {loading ? "Submitting..." : "Evaluate Essay"}
           </button>

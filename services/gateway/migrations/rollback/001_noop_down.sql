@@ -1,0 +1,1 @@
+-- Gateway owns no database schema, so there is nothing to roll back.

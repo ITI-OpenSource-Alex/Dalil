@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures/auth";
 
 // These prove the history pages render their error states gracefully instead
 // of crashing. They deliberately do NOT exercise real data — the happy paths
@@ -20,7 +20,7 @@ test.describe("GOA Speaking History", () => {
       (route) => route.abort("failed"),
     );
 
-    await page.goto("/speaking/history");
+    await page.goto("/practice/speaking/history");
 
     await expect(page.getByText("Session History")).toBeVisible();
     await expect(page.getByRole("button", { name: "Retry" })).toBeVisible();
@@ -29,7 +29,7 @@ test.describe("GOA Speaking History", () => {
   test("session detail page shows an error state for an unknown session", async ({
     page,
   }) => {
-    await page.goto("/speaking/history/does-not-exist");
+    await page.goto("/practice/speaking/history/does-not-exist");
 
     await expect(
       page.getByRole("link", { name: /back to session history/i }),
@@ -45,5 +45,32 @@ test.describe("GOA Speaking History", () => {
     await expect(page.getByText("Shared Speaking Result")).toBeVisible();
     // Public page must not render the authenticated app's nav.
     await expect(page.getByRole("link", { name: "IELTS" })).toHaveCount(0);
+  });
+
+  // Phase D (docs/IA-REDESIGN-PROPOSAL.md) moved Speaking under Practice.
+  // The old /speaking/* routes are kept as redirects rather than deleted, so
+  // any existing bookmark or external link keeps working -- these three
+  // guard that.
+  test.describe("old /speaking routes redirect to /practice/speaking", () => {
+    test("/speaking redirects to /practice/speaking", async ({ page }) => {
+      await page.goto("/speaking");
+      await expect(page).toHaveURL(/\/practice\/speaking$/);
+    });
+
+    test("/speaking/history redirects to /practice/speaking/history", async ({
+      page,
+    }) => {
+      await page.goto("/speaking/history");
+      await expect(page).toHaveURL(/\/practice\/speaking\/history$/);
+    });
+
+    test("/speaking/history/:id redirects to /practice/speaking/history/:id", async ({
+      page,
+    }) => {
+      await page.goto("/speaking/history/does-not-exist");
+      await expect(page).toHaveURL(
+        /\/practice\/speaking\/history\/does-not-exist$/,
+      );
+    });
   });
 });

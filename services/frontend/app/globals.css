@@ -1,40 +1,551 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ==========================================================================
+   GOA DESIGN TOKENS
+
+   Structure (do not reorder):
+     1. Primitive ramps      @theme          raw scales, never used directly
+     2. Non-colour scales    @theme          type, radius, elevation, motion
+     3. Semantic aliases     :root / [data-theme]   what components consume
+     4. Utility mapping      @theme inline   semantic -> Tailwind utilities
+     5. Base layer           @layer base     element defaults
+     6. Preferences          reduced-motion, print
+
+   Rule: components use SEMANTIC tokens (bg-surface, text-fg-muted,
+   border-border). Primitive ramps (forest-600, sage-200) are an escape
+   hatch for one-off design decisions, not the default. Raw hex values in
+   components are a defect.
+
+   Full reference: docs/DESIGN-TOKENS.md
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. PRIMITIVE RAMPS
+   -------------------------------------------------------------------------- */
+
+@theme {
+  /* Brand — deep forest green. Anchored on #0d4d3a (forest-800), the colour
+     already used across the authenticated app. ~9.8:1 against white, so it
+     is safe for body-size text as well as for solid buttons. */
+  --color-forest-50: #effbf7;
+  --color-forest-100: #dbf5ed;
+  --color-forest-200: #bae8da;
+  --color-forest-300: #89d1bc;
+  --color-forest-400: #4fba9a;
+  --color-forest-500: #2e9e7c;
+  --color-forest-600: #1e8063;
+  --color-forest-700: #14674e;
+  --color-forest-800: #0d4d3a;
+  --color-forest-900: #0a382b;
+  --color-forest-950: #07221b;
+
+  /* Accent — warm sand/amber. Reserved for the single most important action
+     or datum in a view. Never used for large background areas. */
+  --color-sand-50: #fdf8ed;
+  --color-sand-100: #faeed3;
+  --color-sand-200: #f5dca3;
+  --color-sand-300: #efc470;
+  --color-sand-400: #e9a93f;
+  --color-sand-500: #de8e1b;
+  --color-sand-600: #be7113;
+  --color-sand-700: #985412;
+  --color-sand-800: #7c4315;
+  --color-sand-900: #683915;
+  --color-sand-950: #3b1d07;
+
+  /* Neutral — the ONE neutral ramp. Faintly green-tinted so it sits with the
+     brand instead of fighting it, and so the existing #fbfbfa app canvas
+     survives the migration. Replaces all use of gray-* and slate-*. */
+  --color-sage-50: #fafcfb;
+  --color-sage-100: #f3f6f5;
+  --color-sage-200: #e6ebe8;
+  --color-sage-300: #d0d8d4;
+  --color-sage-400: #9daaa3;
+  --color-sage-500: #6f8078;
+  --color-sage-600: #57665e;
+  --color-sage-700: #43514a;
+  --color-sage-800: #303b36;
+  --color-sage-900: #1f2824;
+  --color-sage-950: #121714;
+
+  /* Typography families. --font-sans is restored to Geist here; the previous
+     `body { font-family: Arial }` rule silently discarded the font that
+     layout.tsx loads. --font-serif is the display face (Fraunces). */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-fraunces), ui-serif, Georgia, serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+/* --------------------------------------------------------------------------
+   2. NON-COLOUR SCALES
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+   Tailwind's built-in --text-*, --radius-* and --shadow-* scales are left
+   intact so that existing markup keeps rendering exactly as it does today.
+   What we add are SEMANTIC aliases with an assigned meaning, which pages
+   adopt as each redesign phase reaches them.
+   -------------------------------------------------------------------------- */
+
+@theme {
+  /* Radius by role, not by size. Four values, each with one job. */
+  --radius-chip: 0.375rem; /*  6px — badges, tags, inline markers        */
+  --radius-control: 0.625rem; /* 10px — buttons, inputs, selects, menu items */
+  --radius-card: 1rem; /* 16px — cards, panels, alerts, popovers    */
+  --radius-panel: 1.5rem; /* 24px — hero surfaces, modals, marketing   */
+
+  /* Elevation. Four levels, forest-tinted rather than pure black — untinted
+     black shadows over a warm canvas are what make a UI look cheap.
+     e0 is deliberately absent: the default separator is a border, not a
+     shadow. */
+  --shadow-e1: 0 1px 2px 0 rgb(7 34 27 / 0.04), 0 1px 3px 0 rgb(7 34 27 / 0.06);
+  --shadow-e2: 0 2px 4px -1px rgb(7 34 27 / 0.05),
+    0 8px 16px -4px rgb(7 34 27 / 0.08);
+  --shadow-e3: 0 4px 8px -2px rgb(7 34 27 / 0.06),
+    0 24px 48px -12px rgb(7 34 27 / 0.14);
+  --shadow-e4: 0 8px 16px -4px rgb(7 34 27 / 0.08),
+    0 40px 80px -16px rgb(7 34 27 / 0.2);
+
+  /* Easing. --ease-out is the house curve: fast start, long settle. */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Shared animations. Durations mirror the --duration-* scale below. */
+  --animate-fade-in: fade-in 200ms var(--ease-out) both;
+  --animate-fade-up: fade-up 320ms var(--ease-out) both;
+  --animate-scale-in: scale-in 200ms var(--ease-out) both;
+  --animate-shimmer: shimmer 1.6s linear infinite;
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(1rem);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes scale-in {
+    from {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @keyframes shimmer {
+    from {
+      background-position: -200% 0;
+    }
+    to {
+      background-position: 200% 0;
+    }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
+/* --------------------------------------------------------------------------
+   3. SEMANTIC ALIASES
+
+   The only layer components should reference. Because every semantic token
+   is defined here and only here, enabling dark mode later is a matter of
+   flipping [data-theme] on <html> — no component changes.
+   -------------------------------------------------------------------------- */
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
 
-  --primary: #2563eb;
-  --secondary: #64748b;
+  /* Surfaces, back to front */
+  --canvas: var(--color-sage-50); /* page background            */
+  --canvas-subtle: var(--color-sage-100); /* alternating sections       */
+  --canvas-inset: var(--color-sage-200); /* wells, track backgrounds   */
+  --surface: #ffffff; /* cards, inputs, menus       */
+  --surface-raised: #ffffff; /* modals, popovers           */
+  --surface-inverse: var(--color-forest-900); /* CTA bands, tooltips        */
 
-  --success: #22c55e;
-  --warning: #f59e0b;
-  --danger: #ef4444;
+  /* Lines */
+  --border: var(--color-sage-200);
+  --border-strong: var(--color-sage-300);
+  --border-inverse: var(--color-forest-800);
 
-  --border: #e2e8f0;
+  /* Text. All three pass WCAG AA on --surface and --canvas:
+     fg 15.9:1 · fg-muted 8.3:1 · fg-subtle 6.0:1
+     This retires text-gray-400 (2.8:1), which fails AA and is currently used
+     for metadata across profile, reading and chat. */
+  --fg: var(--color-sage-900);
+  --fg-muted: var(--color-sage-700);
+  --fg-subtle: var(--color-sage-600);
+  --fg-on-brand: #ffffff;
+  --fg-on-accent: var(--color-sand-950);
+  --fg-inverse: var(--color-sage-50);
+  --fg-inverse-muted: var(--color-forest-100);
+
+  /* Brand */
+  --brand: var(--color-forest-800);
+  --brand-hover: var(--color-forest-900);
+  --brand-active: var(--color-forest-950);
+  --brand-subtle: var(--color-forest-50); /* tinted backgrounds  */
+  --brand-muted: var(--color-forest-100); /* icon tiles, chips   */
+  --brand-border: var(--color-forest-200);
+  --brand-fg: var(--color-forest-800); /* brand-coloured text */
+
+  /* Accent */
+  --accent: var(--color-sand-500);
+  --accent-hover: var(--color-sand-600);
+  --accent-subtle: var(--color-sand-50);
+  --accent-border: var(--color-sand-200);
+  --accent-fg: var(--color-sand-800);
+
+  /* Status. Each is a four-part set: solid / tinted bg / border / text-on-tint.
+     `success` stays green despite the green brand because users expect it —
+     it is reserved strictly for state feedback and never for branding or
+     calls to action, which keeps the two readings apart. */
+  --success: #1f7a3d;
+  --success-subtle: #ecf8ef;
+  --success-border: #c3e6cc;
+  --success-fg: #17612f;
+
+  --warning: #a66a08;
+  --warning-subtle: #fdf6e7;
+  --warning-border: #f2dda9;
+  --warning-fg: #855307;
+
+  --danger: #b3341f;
+  --danger-subtle: #fdf2f0;
+  --danger-border: #f7d5ce;
+  --danger-fg: #96291a;
+
+  --info: #1f5fa6;
+  --info-subtle: #eff5fc;
+  --info-border: #c8dcf2;
+  --info-fg: #1a4e88;
+
+  /* Focus. One ring for the whole product. On inverse/brand surfaces,
+     components override with focus-visible:outline-sand-300. */
+  --focus-ring: var(--color-forest-600);
+
+  /* Motion durations. Not a Tailwind namespace — `duration-200` utilities
+     accept any ms value directly. These exist for framer-motion (lib/motion.ts)
+     and for hand-written CSS. */
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 320ms;
+  --duration-slower: 500ms;
+
+  /* Z-index scale. Documented here as the single ordering authority;
+     consumed as z-1000 … z-1400 utilities. */
+  --z-dropdown: 1000;
+  --z-sticky: 1100;
+  --z-overlay: 1200;
+  --z-modal: 1300;
+  --z-toast: 1400;
+}
+
+/* Dark theme — authored now so it cannot rot, deliberately not activated.
+   There is no toggle and <html> never receives data-theme="dark" yet.
+   The previous prefers-color-scheme block was removed: it darkened only the
+   page background while every component stayed light, which was worse than
+   having no dark mode at all. */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --canvas: var(--color-sage-950);
+  --canvas-subtle: var(--color-sage-900);
+  --canvas-inset: var(--color-sage-800);
+  --surface: var(--color-sage-900);
+  --surface-raised: var(--color-sage-800);
+  --surface-inverse: var(--color-sage-100);
+
+  --border: var(--color-sage-800);
+  --border-strong: var(--color-sage-700);
+  --border-inverse: var(--color-sage-300);
+
+  --fg: var(--color-sage-50);
+  --fg-muted: var(--color-sage-300);
+  --fg-subtle: var(--color-sage-400);
+  --fg-on-brand: var(--color-forest-950);
+  --fg-on-accent: var(--color-sand-950);
+  --fg-inverse: var(--color-sage-900);
+  --fg-inverse-muted: var(--color-sage-700);
+
+  --brand: var(--color-forest-400);
+  --brand-hover: var(--color-forest-300);
+  --brand-active: var(--color-forest-200);
+  --brand-subtle: var(--color-forest-950);
+  --brand-muted: var(--color-forest-900);
+  --brand-border: var(--color-forest-800);
+  --brand-fg: var(--color-forest-300);
+
+  --accent: var(--color-sand-400);
+  --accent-hover: var(--color-sand-300);
+  --accent-subtle: var(--color-sand-950);
+  --accent-border: var(--color-sand-800);
+  --accent-fg: var(--color-sand-300);
+
+  --success: #3fa45f;
+  --success-subtle: #10241a;
+  --success-border: #1f4a30;
+  --success-fg: #7fd39a;
+
+  --warning: #d99a2b;
+  --warning-subtle: #2a1d08;
+  --warning-border: #57400f;
+  --warning-fg: #f0c274;
+
+  --danger: #d9563c;
+  --danger-subtle: #2a1210;
+  --danger-border: #5a2820;
+  --danger-fg: #f0917d;
+
+  --info: #4a90d9;
+  --info-subtle: #0f1c2a;
+  --info-border: #1f3b57;
+  --info-fg: #8bbcea;
+
+  --focus-ring: var(--color-forest-400);
+}
+
+/* --------------------------------------------------------------------------
+   4. UTILITY MAPPING
+
+   `inline` is what makes theming work: the generated utilities point at the
+   semantic custom property itself rather than at a resolved value, so a
+   [data-theme] switch re-points every utility at once.
+   -------------------------------------------------------------------------- */
+
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-canvas-subtle: var(--canvas-subtle);
+  --color-canvas-inset: var(--canvas-inset);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-inverse: var(--surface-inverse);
+
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-border-inverse: var(--border-inverse);
+
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+  --color-fg-on-brand: var(--fg-on-brand);
+  --color-fg-on-accent: var(--fg-on-accent);
+  --color-fg-inverse: var(--fg-inverse);
+  --color-fg-inverse-muted: var(--fg-inverse-muted);
+
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-active: var(--brand-active);
+  --color-brand-subtle: var(--brand-subtle);
+  --color-brand-muted: var(--brand-muted);
+  --color-brand-border: var(--brand-border);
+  --color-brand-fg: var(--brand-fg);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-subtle: var(--accent-subtle);
+  --color-accent-border: var(--accent-border);
+  --color-accent-fg: var(--accent-fg);
+
+  --color-success: var(--success);
+  --color-success-subtle: var(--success-subtle);
+  --color-success-border: var(--success-border);
+  --color-success-fg: var(--success-fg);
+
+  --color-warning: var(--warning);
+  --color-warning-subtle: var(--warning-subtle);
+  --color-warning-border: var(--warning-border);
+  --color-warning-fg: var(--warning-fg);
+
+  --color-danger: var(--danger);
+  --color-danger-subtle: var(--danger-subtle);
+  --color-danger-border: var(--danger-border);
+  --color-danger-fg: var(--danger-fg);
+
+  --color-info: var(--info);
+  --color-info-subtle: var(--info-subtle);
+  --color-info-border: var(--info-border);
+  --color-info-fg: var(--info-fg);
+
+  --color-focus-ring: var(--focus-ring);
+}
+
+/* --------------------------------------------------------------------------
+   5. BASE LAYER
+   -------------------------------------------------------------------------- */
+
+@layer base {
+  /* Tailwind v4 defaults an unqualified `border` to currentColor, which is
+     almost never what is wanted. Default it to the semantic border token so
+     `border` alone produces the correct hairline. */
+  *,
+  ::before,
+  ::after {
+    border-color: var(--color-border);
+  }
+
+  html {
+    /* Landing-page navbar links (#features, #how-it-works, #pricing) jump
+       instantly without this — scoped to html rather than a single section
+       since the scrolling element is the document itself. Overridden for
+       users who ask for reduced motion, in section 6. */
+    scroll-behavior: smooth;
+    /* Keeps in-page anchor targets clear of the sticky navbar. */
+    scroll-padding-top: 5rem;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* One focus ring for the entire product, replacing the mix of default
+     outlines and eleven bespoke focus-visible treatments. Components on
+     inverse surfaces override the colour, never the shape. */
+  :focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
+    /* Deliberately no border-radius here: modern browsers already follow the
+       element's own radius when drawing the outline. Setting one would
+       reshape pills and cards the moment they take focus. */
+  }
+
+  ::selection {
+    background-color: var(--color-brand-muted);
+    color: var(--color-brand-fg);
+  }
+
+  /* Form controls do not inherit the body font by default. */
+  input,
+  textarea,
+  select,
+  button {
+    font: inherit;
+    color: inherit;
+  }
+
+  ::placeholder {
+    color: var(--color-fg-subtle);
+    opacity: 1;
+  }
+
+  [hidden] {
+    display: none !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   5b. MARKETING UTILITIES
+
+   Kept here rather than in components because they are pattern fills and a
+   scroll-reveal contract -- things CSS expresses far better than utility
+   soup, and which several marketing sections share.
+   -------------------------------------------------------------------------- */
+
+/* Faint blueprint grid. Always paired with a radial mask so it fades out
+   rather than tiling to the edges, which is what separates a designed
+   background from a wallpaper. */
+@utility bg-grid {
+  background-image: linear-gradient(
+      to right,
+      var(--color-sage-200) 1px,
+      transparent 1px
+    ),
+    linear-gradient(to bottom, var(--color-sage-200) 1px, transparent 1px);
+  background-size: 64px 64px;
+}
+
+@utility bg-grid-inverse {
+  background-image: linear-gradient(
+      to right,
+      color-mix(in srgb, var(--color-forest-400) 12%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--color-forest-400) 12%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 64px 64px;
+}
+
+/* Scroll reveal.
+   The hidden state is served in the HTML so there is no flash of unrevealed
+   content; components/marketing/reveal.tsx flips data-reveal to "visible" via
+   IntersectionObserver. Chosen over framer-motion for the marketing pages
+   specifically: this is ~1kB of behaviour against framer-motion's ~34kB, on
+   the highest-traffic surface in the product. */
+[data-reveal] {
+  opacity: 0;
+  transform: translateY(1rem);
+  transition:
+    opacity var(--duration-slow) var(--ease-out),
+    transform var(--duration-slow) var(--ease-out);
+  transition-delay: var(--reveal-delay, 0ms);
+  will-change: opacity, transform;
+}
+
+[data-reveal="visible"] {
+  opacity: 1;
+  transform: none;
+  will-change: auto;
+}
+
+/* --------------------------------------------------------------------------
+   6. USER PREFERENCES
+   -------------------------------------------------------------------------- */
+
+/* Global motion kill switch. Individual framer-motion components additionally
+   check useReducedMotion() so they fall back to opacity-only transitions
+   rather than snapping. Previously the codebase honoured this preference
+   nowhere at all. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  /* Scroll reveals are movement, so they are removed entirely rather than
+     sped up -- content is simply present from the start. */
+  [data-reveal] {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* GOA-035: checklist PDF export via the browser's print dialog. Elements outside
+   the checklist (sidebar nav, header actions) hide; phase sections avoid splitting
+   across a page break where possible. */
+@media print {
+  .print-hidden {
+    display: none !important;
+  }
+
+  .print-avoid-break {
+    break-inside: avoid;
+  }
 }

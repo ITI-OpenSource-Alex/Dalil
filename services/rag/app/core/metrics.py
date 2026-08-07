@@ -44,3 +44,40 @@ LLM_BOOST_VALUE = Histogram(
     "Distribution of the LLM boost values applied",
     buckets=list(range(-10, 12)),  # Creates buckets: [-10, -9, ... 10, 11]
 )
+
+# GOA-045: the curated FAQ short-circuit.
+#
+# Three counters rather than one, because "the FAQ is working" and "the FAQ is
+# being bypassed correctly" are different questions and only one of them is
+# visible from a hit count. A sudden collapse in hits with a matching rise in
+# bypasses means the volatility classifier got broader; a collapse with no rise
+# means matching itself broke.
+FAQ_HITS_TOTAL = Counter(
+    "goa_faq_hits_total",
+    "Curated FAQ answers served without embedding, retrieval, or an LLM call",
+    labelnames=["category"],
+)
+FAQ_BYPASS_TOTAL = Counter(
+    "goa_faq_bypass_total",
+    "Questions routed past the FAQ because their answer is source-sensitive",
+    labelnames=["reason"],  # amount | proof_of_funds | deadline | eligibility | processing_time
+)
+# A stale entry is a silent failure: the answer is still there and still
+# plausible, it has just aged past the point anyone vouched for it. Counting
+# suppressions is what turns "nobody has reviewed the FAQ in a year" from an
+# invisible state into an alertable one.
+FAQ_STALE_SUPPRESSED_TOTAL = Counter(
+    "goa_faq_stale_suppressed_total",
+    "FAQ matches suppressed because the entry is past its review window",
+)
+
+CHECKLIST_GENERATED_TOTAL = Counter(
+    "goa_rag_checklist_generated_total",
+    "Total number of checklists generated, by source",
+    labelnames=["source"],  # "llm" or "fallback"
+)
+CHECKLIST_GENERATION_LATENCY = Histogram(
+    "goa_rag_checklist_generation_latency_ms",
+    "Latency of checklist generation (LLM call or fallback) in milliseconds",
+    buckets=[50, 100, 250, 500, 1000, 2500, 5000, 10000, 30000],
+)

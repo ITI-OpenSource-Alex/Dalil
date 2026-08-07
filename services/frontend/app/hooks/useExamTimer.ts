@@ -18,13 +18,16 @@ export function useExamTimer(initialSeconds: number, onTimeUp: () => void) {
     setSecondsLeft(initialSeconds);
 
     if (initialSeconds <= 0) {
+      onTimeUpRef.current();
       return;
     }
 
     const interval = window.setInterval(() => {
       setSecondsLeft((current) => {
         const next = Math.max(0, current - 1);
-        if (next === 0) onTimeUpRef.current();
+        if (next === 0) {
+          onTimeUpRef.current();
+        }
         return next;
       });
     }, 1000);

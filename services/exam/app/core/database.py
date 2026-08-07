@@ -35,9 +35,13 @@ class Database:
             await conn.execute("""
                 CREATE TABLE IF NOT EXISTS migrations_log (
                     migration_file VARCHAR(255) PRIMARY KEY,
-                    executed_at TIMESTAMP DEFAULT NOW()
+                    executed_at TIMESTAMP DEFAULT NOW(),
+                    migration_batch_id VARCHAR(255)
                 );
             """)
+            await conn.execute(
+                "ALTER TABLE migrations_log ADD COLUMN IF NOT EXISTS migration_batch_id VARCHAR(255)"
+            )
 
             current_dir = os.path.dirname(os.path.abspath(__file__))
             migrations_dir = os.path.join(os.path.dirname(current_dir), "migrations")
@@ -73,12 +77,59 @@ class Database:
                     async with conn.transaction():
                         await conn.execute(sql)
                         await conn.execute(
-                            "INSERT INTO migrations_log (migration_file) VALUES ($1)",
+                            "INSERT INTO migrations_log (migration_file, migration_batch_id) VALUES ($1, $2)",
                             filename,
+                            os.getenv("MIGRATION_BATCH_ID"),
                         )
                     logger.info("Migration %s executed successfully", filename)
                 else:
                     logger.debug("Migration %s already executed, skipping", filename)
+
+    async def run_down_migrations(self):
+        batch_id = os.getenv("MIGRATION_BATCH_ID")
+        if not batch_id:
+            raise RuntimeError("MIGRATION_BATCH_ID is required for down migrations")
+
+        if not self.pool:
+            self.pool = await asyncpg.create_pool(
+                dsn=settings.database_url, min_size=1, max_size=2
+            )
+
+        async with self.pool.acquire() as conn:
+            await conn.execute(
+                "ALTER TABLE migrations_log ADD COLUMN IF NOT EXISTS migration_batch_id VARCHAR(255)"
+            )
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            migrations_dir = os.path.join(os.path.dirname(current_dir), "migrations")
+            migration_files = await conn.fetch(
+                """
+                SELECT migration_file
+                FROM migrations_log
+                WHERE migration_batch_id = $1
+                ORDER BY migration_file DESC
+                """,
+                batch_id,
+            )
+
+            for row in migration_files:
+                filename = row["migration_file"]
+                stem, _ = os.path.splitext(filename)
+                rollback_path = os.path.join(migrations_dir, "rollback", f"{stem}_down.sql")
+                if not os.path.exists(rollback_path):
+                    raise RuntimeError(f"Missing rollback migration: {rollback_path}")
+
+                with open(rollback_path, "r", encoding="utf-8") as f:
+                    sql = f.read().strip()
+                if not sql:
+                    continue
+
+                async with conn.transaction():
+                    await conn.execute(sql)
+                    await conn.execute(
+                        "DELETE FROM migrations_log WHERE migration_file = $1",
+                        filename,
+                    )
+                logger.info("Migration %s rolled back successfully", filename)
 
     async def seed_band_tables(self):
         seeds = [

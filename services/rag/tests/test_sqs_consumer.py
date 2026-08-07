@@ -2,7 +2,7 @@ import pytest
 import asyncio
 from unittest.mock import AsyncMock, patch, MagicMock
 import json
-from botocore.exceptions import NoCredentialsError
+from botocore.exceptions import ClientError, NoCredentialsError
 from app.services.sqs_consumer import consume_sqs_messages
 
 
@@ -126,6 +126,69 @@ async def test_sqs_consumer_upsert_failure_nacks(monkeypatch):
 async def test_sqs_consumer_stops_cleanly_without_aws_credentials():
     mock_sqs_client = AsyncMock()
     mock_sqs_client.get_queue_url.side_effect = NoCredentialsError()
+
+    with patch("app.services.sqs_consumer.get_session") as mock_get_session:
+        mock_session = MagicMock()
+        mock_client_ctx = MagicMock()
+        mock_client_ctx.__aenter__ = AsyncMock(return_value=mock_sqs_client)
+        mock_client_ctx.__aexit__ = AsyncMock()
+        mock_session.create_client.return_value = mock_client_ctx
+        mock_get_session.return_value = mock_session
+
+        await consume_sqs_messages()
+
+    mock_sqs_client.receive_message.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_sqs_consumer_retries_a_queue_that_does_not_exist_yet(monkeypatch):
+    """The other half of the credential fix, and the reason it is narrow.
+
+    A missing queue is transient: compose's LocalStack health check passes
+    before the user-events topology is created, so the first lookup on a cold
+    start legitimately fails and must be retried. Returning here instead would
+    restore the original defect -- profile replication dead for the life of the
+    process, /match answering 425 forever.
+
+    Only unrecoverable *auth* faults stop the consumer; everything else keeps
+    backing off. asyncio.sleep is patched out so the backoff costs no wall time.
+    """
+    mock_sqs_client = AsyncMock()
+    mock_sqs_client.get_queue_url.side_effect = [
+        ClientError(
+            {"Error": {"Code": "AWS.SimpleQueueService.NonExistentQueue"}},
+            "GetQueueUrl",
+        ),
+        {"QueueUrl": "http://mock-queue-url"},
+    ]
+    # Stop after the queue resolves so the receive loop does not run forever.
+    mock_sqs_client.receive_message.side_effect = asyncio.CancelledError("Break loop")
+
+    monkeypatch.setattr("asyncio.sleep", AsyncMock())
+
+    with patch("app.services.sqs_consumer.get_session") as mock_get_session:
+        mock_session = MagicMock()
+        mock_client_ctx = MagicMock()
+        mock_client_ctx.__aenter__ = AsyncMock(return_value=mock_sqs_client)
+        mock_client_ctx.__aexit__ = AsyncMock()
+        mock_session.create_client.return_value = mock_client_ctx
+        mock_get_session.return_value = mock_session
+
+        await consume_sqs_messages()
+
+    # Retried past the missing queue rather than giving up on it.
+    assert mock_sqs_client.get_queue_url.await_count == 2
+    mock_sqs_client.receive_message.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_sqs_consumer_stops_on_rejected_credentials():
+    """A ClientError can also be terminal. Bad keys produce InvalidClientTokenId
+    rather than NoCredentialsError, and retrying those spins just as forever."""
+    mock_sqs_client = AsyncMock()
+    mock_sqs_client.get_queue_url.side_effect = ClientError(
+        {"Error": {"Code": "InvalidClientTokenId"}}, "GetQueueUrl"
+    )
 
     with patch("app.services.sqs_consumer.get_session") as mock_get_session:
         mock_session = MagicMock()

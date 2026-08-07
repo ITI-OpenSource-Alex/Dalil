@@ -24,7 +24,17 @@ type MarkSegment = {
 
 type Segment = PlainSegment | MarkSegment;
 
-const CRITERION_COLOURS: Record<
+/**
+ * The one criterion → colour mapping in the app: grammar red, cohesion orange,
+ * vocabulary blue, task response purple.
+ *
+ * Exported (GOA-058) so the Writing exam UI can colour its band bars and
+ * criterion chips from the same source the inline highlights use. A second
+ * copy of these values would drift, and the whole point of the colour coding is
+ * that a student learns one vocabulary and it means the same thing everywhere.
+ * Export only — the values and the chat behaviour are unchanged.
+ */
+export const CRITERION_COLOURS: Record<
   string,
   { bg: string; border: string; text: string; className: string }
 > = {
@@ -54,7 +64,7 @@ const CRITERION_COLOURS: Record<
   },
 };
 
-const DEFAULT_COLOUR = {
+export const DEFAULT_CRITERION_COLOUR = {
   bg: "rgba(107, 114, 128, 0.16)",
   border: "rgba(107, 114, 128, 0.45)",
   text: "#374151",
@@ -127,7 +137,8 @@ function buildSegments(text: string, issues: EssayIssue[]): Segment[] {
 }
 
 function HighlightMark({ segment }: { segment: MarkSegment }) {
-  const colours = CRITERION_COLOURS[segment.issue.criterion] ?? DEFAULT_COLOUR;
+  const colours =
+    CRITERION_COLOURS[segment.issue.criterion] ?? DEFAULT_CRITERION_COLOUR;
 
   return (
     <Tooltip.Root delayDuration={150}>
@@ -154,7 +165,7 @@ function HighlightMark({ segment }: { segment: MarkSegment }) {
           side="top"
           align="start"
           sideOffset={6}
-          className="z-50 w-64 rounded-md border border-[#E4EAE4] bg-white shadow-md p-2.5 space-y-1"
+          className="z-50 w-64 rounded-md border border-border bg-surface shadow-md p-2.5 space-y-1"
         >
           <span
             className="text-[10px] font-semibold uppercase tracking-wide"
@@ -163,14 +174,14 @@ function HighlightMark({ segment }: { segment: MarkSegment }) {
             {criterionLabels[segment.issue.criterion] ??
               segment.issue.criterion}
           </span>
-          <p className="text-xs text-[#1D291E] leading-relaxed">
+          <p className="text-xs text-fg leading-relaxed">
             {segment.issue.issue}
           </p>
-          <p className="text-xs text-[#667267] leading-relaxed">
-            <span className="font-medium text-[#3A463B]">Suggestion: </span>
+          <p className="text-xs text-fg-muted leading-relaxed">
+            <span className="font-medium text-fg">Suggestion: </span>
             {segment.issue.suggestion}
           </p>
-          <Tooltip.Arrow className="fill-white" />
+          <Tooltip.Arrow className="fill-surface" />
         </Tooltip.Content>
       </Tooltip.Portal>
     </Tooltip.Root>
@@ -185,7 +196,7 @@ export default function EssayHighlighter({
 
   return (
     <Tooltip.Provider delayDuration={150}>
-      <div className="text-sm text-[#1D291E] leading-relaxed whitespace-pre-wrap">
+      <div className="text-sm text-fg leading-relaxed whitespace-pre-wrap">
         {segments.map((segment, segmentIdx) =>
           segment.type === "text" ? (
             <span key={`text-${segmentIdx}`}>{segment.content}</span>

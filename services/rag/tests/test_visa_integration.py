@@ -338,7 +338,10 @@ def test_exact_faq_question_short_circuits(live_client, mock_ai_apis):
     res = live_client.post("/query", json=req)
     assert res.status_code == 200
     data = res.json()
-    assert data["answer"] == "A Studienkolleg is a preparatory college for foreign students whose school-leaving certificate is not equivalent to the German Abitur. It lasts one year."
+    # GOA-045 re-curated the seed answers, so this asserts the substance rather
+    # than a verbatim string that any future wording change would break.
+    assert "preparatory college" in data["answer"]
+    assert "Feststellungspr" in data["answer"] or "Abitur" in data["answer"]
     
     _, mock_llm = mock_ai_apis
     assert mock_llm.call_count == 0
@@ -350,7 +353,7 @@ def test_paraphrased_faq_question_short_circuits(live_client, mock_ai_apis):
     }
     res = live_client.post("/query", json=req)
     assert res.status_code == 200
-    assert "A Studienkolleg is a preparatory college" in res.json()["answer"]
+    assert "preparatory college" in res.json()["answer"]
     
     _, mock_llm = mock_ai_apis
     assert mock_llm.call_count == 0
@@ -383,6 +386,10 @@ def test_below_threshold_question_is_refused(live_client, mock_ai_apis):
     """Retrieval below the confidence floor refuses instead of answering weakly."""
     _, mock_llm = mock_ai_apis
 
+    # This one doubles as a false-positive guard: it shares every word but the
+    # country with a curated entry about Germany, and scores 0.862 -- which the
+    # pre-GOA-045 threshold of 0.85 would have accepted, answering a question
+    # about France with German requirements.
     res_below = live_client.post("/query", json={
         "question": "Is the Egyptian Thanaweya Amma certificate recognized for university admission in France?",
         "userId": "test-user"
@@ -407,13 +414,17 @@ def test_faq_hit_bypasses_the_confidence_threshold(live_client, mock_ai_apis):
     """
     _, mock_llm = mock_ai_apis
 
+    # Uses a curated alias rather than an ad-hoc paraphrase. GOA-045 raised the
+    # match threshold to 0.90 after finding that the looser bar answered a
+    # question about FRANCE from the Germany entry (0.862) -- so recall now comes
+    # from explicit aliases, and this asserts the FAQ path with one of them.
     res = live_client.post("/query", json={
-        "question": "Is the Egyptian Thanaweya Amma certificate recognized for uni admission in Germany?",
+        "question": "is thanaweya amma accepted in Germany",
         "userId": "test-user"
     })
     assert res.status_code == 200
-    assert "The Thanaweya Amma" in res.json()["answer"]
     assert res.json()["answer"] is not None
+    assert "Abitur" in res.json()["answer"]
     assert mock_llm.call_count == 0  # FAQ short-circuit, zero tokens
 
 

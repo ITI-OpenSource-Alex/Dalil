@@ -18,7 +18,22 @@ type AgentResult struct {
 	PromptTokens     int      `json:"prompt_tokens"`
 	CompletionTokens int      `json:"completion_tokens"`
 	LatencyMs        int64    `json:"latency_ms"`
-	TimedOut         bool     `json:"timed_out"`
+	// FirstTokenMs is time-to-first-token, distinct from LatencyMs (total
+	// completion). llm.CompletionResult has always measured it; nothing carried
+	// it up, so goa_speaking_llm_first_token_ms was fed LatencyMs and reported
+	// something other than what its name claims (GOA-032).
+	FirstTokenMs int64 `json:"first_token_ms"`
+	TimedOut     bool  `json:"timed_out"`
+	// Error is a short breadcrumb for a criterion that did not complete. Empty
+	// on success. It exists because "unavailable" alone cannot distinguish a
+	// dead credential from a slow provider, and that distinction is the whole
+	// point of the instrumentation this ticket adds.
+	//
+	// json:"-" deliberately: this is for logs and metrics, not for the wire.
+	// Dimensions is serialised wholesale into the evaluation frame AND into the
+	// persisted evaluation JSONB, so a tagged field would ship raw provider
+	// error text to every browser and store it forever.
+	Error string `json:"-"`
 }
 
 // LLMClient abstracts our Anthropic wrapper to enable offline unit testing
@@ -105,6 +120,7 @@ func evaluateCriterion(ctx context.Context, client LLMClient, criterion, systemP
 		PromptTokens:     res.PromptTokens,
 		CompletionTokens: res.CompletionTokens,
 		LatencyMs:        res.LatencyMs,
+		FirstTokenMs:     res.FirstTokenMs,
 		TimedOut:         false,
 	}, nil
 }

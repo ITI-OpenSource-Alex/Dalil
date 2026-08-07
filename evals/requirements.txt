@@ -3,6 +3,7 @@ pydantic
 anthropic
 boto3
 jinja2
+beautifulsoup4
 pytest
 pytest-asyncio
 pytest-mock

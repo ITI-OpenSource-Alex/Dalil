@@ -20,6 +20,9 @@
         .error { color: #ef4444; font-weight: bold; }
         .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; }
         .stat-val { font-size: 1.875rem; font-weight: bold; margin-top: 0.5rem; }
+        .accuracy-caveat { margin-top: 0.5rem; padding: 0.75rem; border-left: 4px solid #f59e0b; background: #422006; color: #fef3c7; font-weight: 700; }
+        .muted { color: #94a3b8; }
+        .reason { margin-top: 0.75rem; color: #cbd5e1; }
     </style>
 </head>
 <body>
@@ -28,7 +31,8 @@
     <div class="card">
         <h2>Run Summary</h2>
         <p><strong>Run ID:</strong> {{ report.run_id }} | <strong>Git SHA:</strong> {{ report.git_sha }} | <strong>Timestamp:</strong> {{ report.timestamp }}</p>
-        <p><strong>Judge Model:</strong> {{ judge_model }}</p>
+        <p><strong>Independent judge:</strong> {{ judge_model }}</p>
+        <p><strong>Grader models:</strong> {{ grader_models | join(', ') }}</p>
     </div>
 
     <div class="grid">
@@ -38,18 +42,78 @@
             {% set acc = domain_stats.get(domain, {}).get('accuracy') %}
             {% if acc is not none and acc is defined %}
                 <div class="stat-val">{{ "%.1f"|format(acc * 100) }}%</div>
+                {% if domain == 'writing' and report.metrics.accuracy_caveat %}
+                    <div class="accuracy-caveat">{{ report.metrics.accuracy_caveat }}</div>
+                {% endif %}
                 {% if acc >= 0.80 %}
                     <span class="badge badge-pass">PASS (Target: 80%)</span>
                 {% else %}
                     <span class="badge badge-fail">FAIL (Below 80%)</span>
                 {% endif %}
+                {% if domain == 'writing' %}
+                    <div class="muted">n_validated: {{ report.metrics.writing_n_validated }}</div>
+                {% endif %}
             {% else %}
                 <div class="stat-val">N/A</div>
                 <span class="badge badge-unmeasured">NOT MEASURED</span>
+                {% if domain == 'speaking' and report.metrics.speaking_reason %}
+                    <div class="reason">{{ report.metrics.speaking_reason }}</div>
+                {% endif %}
             {% endif %}
         </div>
         {% endfor %}
     </div>
+
+    {% if report.provenance %}
+    <div class="card">
+        <h2>Label Provenance</h2>
+        <table>
+            <thead><tr><th>Domain</th><th>Total</th><th>Validated</th><th>Synthetic</th><th>Band source</th></tr></thead>
+            <tbody>
+            {% for domain, source in report.provenance.items() %}
+                <tr>
+                    <td>{{ domain }}</td>
+                    <td>{{ source.n_total }}</td>
+                    <td>{{ source.n_validated }}</td>
+                    <td>{{ source.n_synthetic }}</td>
+                    <td>{{ source.band_source | join('; ') }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    {% if report.judge_family_delta %}
+    <div class="card">
+        <h2>Judge Family Delta</h2>
+        <p>Accuracy delta: {{ report.judge_family_delta.accuracy_delta if report.judge_family_delta.accuracy_delta is not none else 'N/A' }} |
+           MAE delta: {{ report.judge_family_delta.mae_delta if report.judge_family_delta.mae_delta is not none else 'N/A' }} |
+           Verdicts changed: {{ report.judge_family_delta.verdicts_changed }}</p>
+    </div>
+    {% endif %}
+
+    {% if report.consistency %}
+    <div class="card">
+        <h2>Self-Consistency</h2>
+        <table>
+            <thead><tr><th>Domain</th><th>Repeats</th><th>Mean</th><th>Std dev</th><th>Max spread</th><th>Unanimous rate</th><th>Cost (USD)</th></tr></thead>
+            <tbody>
+            {% for domain, result in report.consistency.items() %}
+                <tr>
+                    <td>{{ domain }}</td>
+                    <td>{{ result.domain.repeats }}</td>
+                    <td>{{ result.domain.mean }}</td>
+                    <td>{{ result.domain.std_dev }}</td>
+                    <td>{{ result.domain.max_spread }}</td>
+                    <td>{{ "%.1f%%"|format(result.domain.unanimous_rate * 100) if result.domain.unanimous_rate is not none else 'N/A' }}</td>
+                    <td>{{ result.cost.cost_usd if result.cost.cost_usd is not none else 'N/A — ' ~ result.cost.reason }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
 
     {% if writing_mae and writing_mae.per_criterion %}
     <div class="card">
@@ -70,7 +134,7 @@
                 {% endfor %}
                 <tr>
                     <td><strong>Overall MAE</strong></td>
-                    <td><strong>{{ "%.3f"|format(writing_mae.overall) if writing_mae.overall else "N/A" }}</strong></td>
+                    <td><strong>{{ "%.3f"|format(writing_mae.overall) if writing_mae.overall is not none else "N/A" }}</strong></td>
                 </tr>
             </tbody>
         </table>

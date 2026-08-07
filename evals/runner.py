@@ -3,14 +3,22 @@ import json
 import os
 import sys
 import datetime
+import uuid
 import httpx
 import boto3
 from urllib.parse import urlparse
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field, ValidationError
 from anthropic import Anthropic
 
-from evals.judge import judge_evaluation, judge_all, JudgeVerdict, CRITERIA
+from evals.consistency import run_consistency
+from evals.judge import (
+    CRITERIA,
+    JudgeVerdict,
+    get_model,
+    judge_evaluation,
+    judge_all,
+)
 
 class RagItem(BaseModel):
     question: str
@@ -26,6 +34,8 @@ class SpeakingItem(BaseModel):
     expected_band: float
     expected_criteria: Optional[Dict[str, float]] = None
     id: Optional[str] = None
+    band_source: str
+    label_validated: bool
 
 class WritingItem(BaseModel):
     essay: str
@@ -35,22 +45,29 @@ class WritingItem(BaseModel):
     # so every judged item and every report row was labelled "<unknown>" — a report
     # whose rows cannot be traced back to an essay.
     id: Optional[str] = None
+    band_source: str
+    label_validated: bool
 
 class GoldenDataset(BaseModel):
     rag: List[RagItem]
     scoring: List[ScoringItem]
     speaking: List[SpeakingItem]
     writing: List[WritingItem]
+    writing_synthetic_unvalidated: List[WritingItem] = Field(default_factory=list)
 
 class ReportMetrics(BaseModel):
     rag_accuracy: Optional[float] = None
     gate_accuracy: Optional[float] = None
     scoring_mae: Optional[float] = None
     speaking_accuracy: Optional[float] = None
+    speaking_reason: Optional[str] = None
+    speaking_pipeline_exercised: bool = False
     writing_accuracy: Optional[float] = None
-    writing_input_tokens: Optional[int] = 0
-    writing_output_tokens: Optional[int] = 0
-    writing_cached_count: Optional[int] = 0
+    writing_n_validated: int = 0
+    accuracy_caveat: Optional[str] = None
+    writing_input_tokens: Optional[int] = None
+    writing_output_tokens: Optional[int] = None
+    writing_cached_count: Optional[int] = None
 
 class RegressionDeltas(BaseModel):
     delta_rag: Optional[float] = None
@@ -66,9 +83,15 @@ class ReportSchema(BaseModel):
     # and in the HTML, so the JSON artifact CI uploads carried an accuracy number
     # with no breakdown behind it — and --compare-with had nothing to compare, which
     # silently disabled the regression half of the gate.
-    domain_stats: Dict[str, Any] = {}
-    mae: Dict[str, Any] = {}
-    items: List[Dict[str, Any]] = []
+    domain_stats: Dict[str, Any] = Field(default_factory=dict)
+    mae: Dict[str, Any] = Field(default_factory=dict)
+    items: List[Dict[str, Any]] = Field(default_factory=list)
+    judge_model: str
+    grader_models: List[str]
+    judge_arms: Dict[str, Any] = Field(default_factory=dict)
+    judge_family_delta: Dict[str, Any] = Field(default_factory=dict)
+    provenance: Dict[str, Any] = Field(default_factory=dict)
+    consistency: Dict[str, Any] = Field(default_factory=dict)
     regression_vs_previous: RegressionDeltas
     timestamp: str
     git_sha: str
@@ -80,7 +103,9 @@ MIN_JUDGED_RATIO = 0.80
 
 # Four criterion agents run per essay, each a full model call. The old 30s budget
 # timed out under normal latency and the timeout was then scored as a band of 0.0.
-WRITING_REQUEST_TIMEOUT = 180.0
+WRITING_REQUEST_TIMEOUT = float(
+    os.environ.get("EVAL_WRITING_REQUEST_TIMEOUT_SECONDS", "600")
+)
 
 
 def compute_accuracy(verdicts: List[JudgeVerdict]) -> Dict[str, Any]:
@@ -159,7 +184,12 @@ def compute_mae(verdicts: List[JudgeVerdict], domain: str = "writing") -> Dict[s
     }
 
 
-def check_regression_gate(current: dict, previous: dict | None) -> tuple[bool, list]:
+def check_regression_gate(
+    current: dict,
+    previous: dict | None,
+    current_consistency: dict | None = None,
+    previous_consistency: dict | None = None,
+) -> tuple[bool, list]:
     """Return (passed, messages).
 
     `current` maps DOMAIN NAME -> accuracy stats, and nothing else. It used to be
@@ -205,7 +235,49 @@ def check_regression_gate(current: dict, previous: dict | None) -> tuple[bool, l
                     f"({prior:.1%} -> {accuracy:.1%}), limit is {MAX_ACCURACY_DROP:.0%}"
                 )
 
+    for domain, stats in (current_consistency or {}).items():
+        n_calls = stats.get("n_calls")
+        expected_calls = stats.get("expected_calls")
+        if (
+            n_calls is not None
+            and expected_calls is not None
+            and n_calls != expected_calls
+        ):
+            failures.append(
+                f"CONSISTENCY COVERAGE: {domain} completed {n_calls}/"
+                f"{expected_calls} repeat calls"
+            )
+        current_std_dev = (stats.get("domain") or {}).get("std_dev")
+        prior_std_dev = (
+            ((previous_consistency or {}).get(domain) or {}).get("domain") or {}
+        ).get("std_dev")
+        if (
+            current_std_dev is not None
+            and prior_std_dev is not None
+            and current_std_dev > prior_std_dev
+        ):
+            failures.append(
+                f"CONSISTENCY REGRESSION: {domain} std_dev rose from "
+                f"{prior_std_dev:.4f} to {current_std_dev:.4f}"
+            )
+
     return (len(failures) == 0), failures
+
+
+def compute_provenance(data: dict) -> dict[str, Any]:
+    provenance: dict[str, Any] = {}
+    for domain, rows in data.items():
+        if not isinstance(rows, list) or not rows:
+            continue
+        if not all(isinstance(row, dict) and "band_source" in row for row in rows):
+            continue
+        provenance[domain] = {
+            "n_total": len(rows),
+            "n_validated": sum(row.get("label_validated") is True for row in rows),
+            "n_synthetic": sum(row.get("label_validated") is False for row in rows),
+            "band_source": sorted({row["band_source"] for row in rows}),
+        }
+    return provenance
 
 
 def load_golden_dataset(path: str) -> dict:
@@ -213,7 +285,9 @@ def load_golden_dataset(path: str) -> dict:
         with open(path, 'r', encoding='utf-8') as file:
             data = json.load(file)
             dataset = GoldenDataset(**data)
-            return dataset.model_dump()
+            loaded = dataset.model_dump()
+            loaded["provenance"] = compute_provenance(loaded)
+            return loaded
     except FileNotFoundError:
         print(f"Error: The file {path} was not found.")
         return None
@@ -320,8 +394,17 @@ def run_scoring_eval(data: dict) -> dict:
 
 
 def run_speaking_eval(data: dict) -> dict:
-    print("Warning: Speaking Eval is WS-only. Skipping bare-LLM execution.")
-    return {"speaking_accuracy": None}
+    reason = (
+        "not measured: the available speaking rows contain synthetic transcripts "
+        "but no audio, while the production Gateway WebSocket requires binary PCM "
+        "audio; fabricating acoustic evidence would make the score invalid"
+    )
+    print(f"Warning: Speaking accuracy {reason}.")
+    return {
+        "speaking_accuracy": None,
+        "speaking_reason": reason,
+        "speaking_pipeline_exercised": False,
+    }
 
 
 # The writing service and the eval vocabulary disagree on two of the four criterion
@@ -346,49 +429,215 @@ def _normalise_agent_result(payload: dict) -> dict:
         "overall_band": payload.get("overall_band"),
         "criteria": criteria,
         "justification": payload.get("justification"),
+        "from_cache": payload.get("from_cache"),
     }
 
 
-def run_writing_eval(data: dict, judge_client=None) -> dict:
+def _request_writing(
+    item: dict,
+    *,
+    user_id: str,
+    submission_type: str,
+) -> dict:
     writing_url = os.environ.get("WRITING_SERVICE_URL", "http://localhost:8000")
-    items = data.get('writing', [])
+    response = httpx.post(
+        f"{writing_url}/essays/evaluate",
+        json={
+            "userId": user_id,
+            "essayText": item["essay"],
+            "submissionType": submission_type,
+            "examType": "IELTS Writing",
+        },
+        timeout=WRITING_REQUEST_TIMEOUT,
+    )
+    response.raise_for_status()
+    body = response.json()
+    if body.get("overall_band") is None:
+        raise ValueError(f"response carried no overall_band: {str(body)[:200]}")
+    return _normalise_agent_result(body)
+
+
+def _serialise_verdict(verdict: JudgeVerdict) -> dict[str, Any]:
+    return {
+        "item_id": verdict.item_id,
+        "verdict": verdict.verdict,
+        "agent_band": None if verdict.is_error else verdict.agent_band,
+        "expert_band": verdict.expert_band,
+        "judged_band": verdict.judged_band,
+        "delta": None if verdict.is_error else verdict.delta,
+        "reason": verdict.reason,
+        "error": verdict.error,
+    }
+
+
+def _judge_arm(model: str, verdicts: list[JudgeVerdict]) -> dict[str, Any]:
+    accuracy = compute_accuracy(verdicts)
+    mae = compute_mae(verdicts, domain="writing")
+    try:
+        from goa_pricing import cost_usd
+
+        cost = cost_usd(model, accuracy["input_tokens"], accuracy["output_tokens"])
+    except Exception:
+        cost = None
+    return {
+        "model": model,
+        "accuracy": accuracy,
+        "mae": mae,
+        "cost_usd": cost,
+        "verdicts": [_serialise_verdict(verdict) for verdict in verdicts],
+    }
+
+
+def compute_judge_family_delta(
+    same_family: dict[str, Any], independent: dict[str, Any]
+) -> dict[str, Any]:
+    same_by_id = {row["item_id"]: row for row in same_family["verdicts"]}
+    independent_by_id = {
+        row["item_id"]: row for row in independent["verdicts"]
+    }
+    changed = [
+        item_id
+        for item_id in sorted(same_by_id)
+        if same_by_id[item_id]["verdict"]
+        != independent_by_id[item_id]["verdict"]
+    ]
+    judged_band_deltas = {}
+    for item_id in sorted(same_by_id):
+        left = same_by_id[item_id]["judged_band"]
+        right = independent_by_id[item_id]["judged_band"]
+        judged_band_deltas[item_id] = (
+            round(right - left, 3)
+            if left is not None and right is not None
+            else None
+        )
+    same_accuracy = same_family["accuracy"]["accuracy"]
+    independent_accuracy = independent["accuracy"]["accuracy"]
+    same_mae = same_family["mae"]["overall"]
+    independent_mae = independent["mae"]["overall"]
+    return {
+        "accuracy_delta": (
+            independent_accuracy - same_accuracy
+            if independent_accuracy is not None and same_accuracy is not None
+            else None
+        ),
+        "mae_delta": (
+            independent_mae - same_mae
+            if independent_mae is not None and same_mae is not None
+            else None
+        ),
+        "verdicts_changed": len(changed),
+        "changed_item_ids": changed,
+        "judged_band_deltas": judged_band_deltas,
+    }
+
+
+def run_writing_eval(
+    data: dict,
+    judge_client=None,
+    judge_clients: Optional[Dict[str, Any]] = None,
+) -> dict:
+    items = [
+        item
+        for item in data.get("writing", [])
+        if item.get("label_validated") is True
+    ]
     agent_results = []
+    run_nonce = uuid.uuid4().hex
 
     for item in items:
-        payload = {
-            "userId": "eval_test_user",
-            "essayText": item["essay"],
-            "submissionType": "typed_text",
-            "examType": "IELTS Writing"
-        }
         try:
-            response = httpx.post(f"{writing_url}/essays/evaluate", json=payload,
-                                  timeout=WRITING_REQUEST_TIMEOUT)
-            response.raise_for_status()
-            body = response.json()
-            if body.get("overall_band") is None:
-                # A response without a band is a broken call, not a candidate who
-                # scored zero. Recording 0.0 here is what made a dead port look like
-                # 0% agent accuracy: every item came back UNDERSCORED against a band
-                # the agent never actually produced.
-                raise ValueError(f"response carried no overall_band: {str(body)[:200]}")
-            agent_results.append(_normalise_agent_result(body))
+            agent_results.append(
+                _request_writing(
+                    item,
+                    user_id=f"eval-writing-{run_nonce}",
+                    submission_type=f"typed_text_eval_{run_nonce}_{item.get('id')}",
+                )
+            )
         except Exception as e:
             agent_results.append({"agent_error": f"{type(e).__name__}: {e}"})
 
-    verdicts = judge_all("writing", items, agent_results, client=judge_client, max_workers=4)
-    accuracy_stats = compute_accuracy(verdicts)
-    mae_stats = compute_mae(verdicts, domain="writing")
+    independent_model = get_model()
+    grader_models = sorted(
+        {os.environ.get("WRITING_MODEL", "claude-opus-4-8")}
+    )
+    same_family_model = grader_models[0]
+    clients = judge_clients or {}
+    if judge_client is not None:
+        clients = {**clients, independent_model: judge_client}
+    same_verdicts = judge_all(
+        "writing",
+        items,
+        agent_results,
+        client=clients.get(same_family_model),
+        max_workers=4,
+        model=same_family_model,
+    )
+    independent_verdicts = judge_all(
+        "writing",
+        items,
+        agent_results,
+        client=clients.get(independent_model),
+        max_workers=4,
+        model=independent_model,
+    )
+    same_arm = _judge_arm(same_family_model, same_verdicts)
+    independent_arm = _judge_arm(independent_model, independent_verdicts)
+    accuracy_stats = independent_arm["accuracy"]
+    mae_stats = independent_arm["mae"]
+    n_validated = len(items)
+    caveat = (
+        f"n={n_validated} — not a validation; see band_source"
+        if n_validated < 10
+        else None
+    )
     
     return {
         "writing_accuracy": accuracy_stats["accuracy"],
+        "writing_n_validated": n_validated,
+        "accuracy_caveat": caveat,
         "writing_stats": accuracy_stats,
         "writing_mae": mae_stats,
-        "writing_verdicts": verdicts,
+        "writing_verdicts": independent_verdicts,
         "writing_input_tokens": accuracy_stats["input_tokens"],
         "writing_output_tokens": accuracy_stats["output_tokens"],
         "writing_cached_count": accuracy_stats["cached_count"],
+        "judge_model": independent_model,
+        "grader_models": grader_models,
+        "judge_arms": {
+            "same_family": same_arm,
+            "independent": independent_arm,
+        },
+        "judge_family_delta": compute_judge_family_delta(
+            same_arm, independent_arm
+        ),
     }
+
+
+def run_writing_consistency(data: dict, repeats: int = 5) -> dict[str, Any]:
+    items = [
+        item
+        for item in data.get("writing", [])
+        if item.get("label_validated") is True
+    ]
+    user_id = f"eval-consistency-{uuid.uuid4().hex}"
+
+    def evaluate(item: dict, repeat: int, telemetry_user_id: str) -> dict:
+        return _request_writing(
+            item,
+            user_id=telemetry_user_id,
+            submission_type=(
+                f"c_{uuid.uuid4().hex[:12]}_"
+                f"{item.get('id')}_{repeat}"
+            ),
+        )
+
+    return run_consistency(
+        items,
+        evaluate,
+        repeats=repeats,
+        user_id=user_id,
+        model=os.environ.get("WRITING_MODEL", "claude-opus-4-8"),
+    )
 
 
 def upload_report(report_path: str, s3_upload_path: str) -> bool:
@@ -488,6 +737,12 @@ def main():
     parser.add_argument("--domains", type=str, default="writing,speaking", help="Comma-separated domains to evaluate")
     parser.add_argument("--compare-with", type=str, default=None)
     parser.add_argument("--s3-upload-path", type=str, default=None)
+    parser.add_argument(
+        "--consistency",
+        action="store_true",
+        help="Run repeated real grader calls and publish self-consistency",
+    )
+    parser.add_argument("--repeats", type=int, default=5)
     args = parser.parse_args()
 
     active_domains = set(args.domains.split(","))
@@ -510,6 +765,12 @@ def main():
         metrics.update(run_speaking_eval(dataset))
     if "writing" in active_domains:
         metrics.update(run_writing_eval(dataset))
+
+    consistency = {}
+    if args.consistency and "writing" in active_domains:
+        consistency["writing"] = run_writing_consistency(
+            dataset, repeats=args.repeats
+        )
 
     # Only real domains reach the gate.
     domain_stats = {}
@@ -552,14 +813,29 @@ def main():
             gate_accuracy=metrics.get("gate_accuracy"),
             scoring_mae=metrics.get("scoring_mae"),
             speaking_accuracy=metrics.get("speaking_accuracy"),
+            speaking_reason=metrics.get("speaking_reason"),
+            speaking_pipeline_exercised=metrics.get(
+                "speaking_pipeline_exercised", False
+            ),
             writing_accuracy=metrics.get("writing_accuracy"),
-            writing_input_tokens=metrics.get("writing_input_tokens", 0),
-            writing_output_tokens=metrics.get("writing_output_tokens", 0),
-            writing_cached_count=metrics.get("writing_cached_count", 0),
+            writing_n_validated=metrics.get("writing_n_validated", 0),
+            accuracy_caveat=metrics.get("accuracy_caveat"),
+            writing_input_tokens=metrics.get("writing_input_tokens"),
+            writing_output_tokens=metrics.get("writing_output_tokens"),
+            writing_cached_count=metrics.get("writing_cached_count"),
         ),
         domain_stats=domain_stats,
         mae=mae_by_domain,
         items=item_rows,
+        judge_model=metrics.get("judge_model", get_model()),
+        grader_models=metrics.get(
+            "grader_models",
+            [os.environ.get("WRITING_MODEL", "claude-opus-4-8")],
+        ),
+        judge_arms=metrics.get("judge_arms", {}),
+        judge_family_delta=metrics.get("judge_family_delta", {}),
+        provenance=dataset.get("provenance", {}),
+        consistency=consistency,
         regression_vs_previous=RegressionDeltas(**deltas),
         timestamp=datetime.datetime.utcnow().isoformat() + "Z",
         git_sha=os.environ.get("GITHUB_SHA", "unknown")
@@ -582,7 +858,7 @@ def main():
         from evals.report_generator import render_html_report
         html_content = render_html_report(
             report_dict=report.model_dump(),
-            domain_stats=metrics,
+            domain_stats=domain_stats,
             writing_mae=metrics.get("writing_mae"),
             writing_verdicts=metrics.get("writing_verdicts")
         )
@@ -598,7 +874,10 @@ def main():
 
     # Check regression gate across evaluated domains
     gate_passed, gate_failures = check_regression_gate(
-        domain_stats, prev_reports.get("domain_stats")
+        domain_stats,
+        prev_reports.get("domain_stats"),
+        consistency,
+        prev_reports.get("consistency"),
     )
 
     write_pr_summary(domain_stats, mae_by_domain, gate_failures, gate_passed)

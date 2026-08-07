@@ -171,6 +171,62 @@ def _build_exam_prep_response(message: str, exam_context: Optional[Dict] = None)
     return " ".join(parts)
 
 
+_GENERAL_SYSTEM_PROMPT = (
+    "You are GOA, the Global Opportunity Assistant — a friendly, concise AI "
+    "helper for students exploring Master's programmes abroad and preparing "
+    "for the IELTS exam. You can help with:\n"
+    "- Finding Master's programmes and scholarships\n"
+    "- IELTS preparation (reading, writing, listening, speaking practice)\n"
+    "- Visa and application requirements\n"
+    "- CV review\n"
+    "- Building application checklists\n\n"
+    "Respond naturally and helpfully to the user's message. Keep your answer "
+    "brief (1-3 sentences). Do NOT make up facts about specific programmes or "
+    "requirements — for those, tell the user to ask you directly so you can "
+    "look them up."
+)
+
+
+async def _build_general_response(message: str) -> str:
+    """Generate a brief conversational reply for GENERAL-intent messages.
+
+    Uses the same Anthropic SDK as the rest of orchestration. The call is
+    lightweight: short system prompt, short user message, short reply — well
+    under a second on the gateway.
+    """
+    from anthropic import AsyncAnthropic
+
+    client_kwargs = {
+        "api_key": settings.anthropic_auth_token or settings.anthropic_api_key,
+        "default_headers": {"User-Agent": settings.anthropic_user_agent},
+        "timeout": 15.0,
+    }
+    if settings.anthropic_base_url:
+        client_kwargs["base_url"] = settings.anthropic_base_url
+
+    try:
+        response = await AsyncAnthropic(**client_kwargs).messages.create(
+            model=settings.llm_model,
+            max_tokens=256,
+            system=_GENERAL_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": message}],
+        )
+        # Take the first text block, skipping any thinking blocks.
+        answer = next(
+            (b.text for b in response.content if getattr(b, "text", None)),
+            "",
+        )
+        return answer or "Hi! I'm GOA, your study-abroad assistant. How can I help you today?"
+    except Exception as e:
+        logger.warning("GENERAL intent LLM call failed, using fallback", error=str(e))
+        return (
+            "Hi there! 👋 I'm GOA, your Global Opportunity Assistant. "
+            "I can help you find Master's programmes, prepare for IELTS, "
+            "review your CV, or answer questions about visas and applications. "
+            "What would you like to know?"
+        )
+
+
 async def forward_downstream_stream(
         client: httpx.AsyncClient,
         intent: str,
@@ -222,6 +278,14 @@ async def forward_downstream_stream(
             await asyncio.sleep(0.02)
             yield ChatStreamEvent(type="token", content=answer[i:i + chunk_size])
         yield ChatStreamEvent(type="exam_prep", content="/exam")
+        return
+
+    if intent == "GENERAL":
+        answer = await _build_general_response(message)
+        chunk_size = 5
+        for i in range(0, len(answer), chunk_size):
+            await asyncio.sleep(0.02)
+            yield ChatStreamEvent(type="token", content=answer[i:i + chunk_size])
         return
 
     service_name = ""

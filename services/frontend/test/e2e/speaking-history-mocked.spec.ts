@@ -5,11 +5,13 @@ import { test, expect, Page } from "@playwright/test";
 // real, known data without requiring `docker compose up` (unlike the
 // waveform-animation and other backend-gated tests in speaking-system.spec.ts).
 //
-// The Speaking Service is called from a different origin than the frontend
-// (localhost:8082 vs localhost:3000 — see lib/speaking-api.ts), so mocked
-// responses must include CORS headers or the browser will reject them just
-// like it would a real cross-origin response missing them.
-const SPEAKING_API_BASE = "http://localhost:8082";
+// Speaking is reached through the Gateway now (GOA-132), not directly on
+// :8082 — so these routes must match /api/speaking/*, and the requests carry
+// no userId: the Gateway takes it from the JWT. Still a different origin than
+// the frontend (localhost:8080 vs localhost:3000), so mocked responses need
+// CORS headers or the browser rejects them exactly as it would a real
+// cross-origin response missing them.
+const SPEAKING_API_BASE = "http://localhost:8080/api/speaking";
 
 function withCors(body: unknown, status = 200) {
   return {
@@ -50,7 +52,7 @@ function makeSessions(count: number) {
 }
 
 async function mockListSessions(page: Page, sessions: unknown[]) {
-  await page.route(`${SPEAKING_API_BASE}/sessions?**`, (route) =>
+  await page.route(`${SPEAKING_API_BASE}/sessions`, (route) =>
     route.fulfill(withCors(sessions)),
   );
 }
@@ -61,7 +63,7 @@ test.describe("GOA Speaking History (mocked backend)", () => {
   }) => {
     await mockListSessions(page, [SESSION_SUMMARY]);
     await page.route(
-      `${SPEAKING_API_BASE}/sessions/${SESSION_DETAIL.id}?**`,
+      `${SPEAKING_API_BASE}/sessions/${SESSION_DETAIL.id}`,
       (route) => route.fulfill(withCors(SESSION_DETAIL)),
     );
 
@@ -118,7 +120,7 @@ test.describe("GOA Speaking History (mocked backend)", () => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
 
     await page.route(
-      `${SPEAKING_API_BASE}/sessions/${SESSION_DETAIL.id}?**`,
+      `${SPEAKING_API_BASE}/sessions/${SESSION_DETAIL.id}`,
       (route) => route.fulfill(withCors(SESSION_DETAIL)),
     );
     await page.route(
@@ -152,7 +154,7 @@ test.describe("GOA Speaking History (mocked backend)", () => {
     });
 
     await page.route(
-      `${SPEAKING_API_BASE}/sessions/${SESSION_DETAIL.id}?**`,
+      `${SPEAKING_API_BASE}/sessions/${SESSION_DETAIL.id}`,
       (route) => route.fulfill(withCors(SESSION_DETAIL)),
     );
     await page.route(
@@ -173,7 +175,7 @@ test.describe("GOA Speaking History (mocked backend)", () => {
   test("history list is keyboard-navigable", async ({ page }) => {
     await mockListSessions(page, [SESSION_SUMMARY]);
     await page.route(
-      `${SPEAKING_API_BASE}/sessions/${SESSION_DETAIL.id}?**`,
+      `${SPEAKING_API_BASE}/sessions/${SESSION_DETAIL.id}`,
       (route) => route.fulfill(withCors(SESSION_DETAIL)),
     );
 

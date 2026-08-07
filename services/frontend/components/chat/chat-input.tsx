@@ -15,6 +15,12 @@ interface ChatInputProps {
    * click open a second, conflicting session.
    */
   activePractice: "speaking" | "writing" | null;
+  /**
+   * True while the real user identity (useCurrentUser) hasn't resolved yet.
+   * Disables Send/Speaking/Writing so a message can't go out carrying the
+   * CURRENT_USER_ID fallback instead of the logged-in user's real id.
+   */
+  disabled?: boolean;
 }
 
 export default function ChatInput({
@@ -22,6 +28,7 @@ export default function ChatInput({
   onOpenSpeaking,
   onOpenWriting,
   activePractice,
+  disabled = false,
 }: ChatInputProps) {
   const [inputText, setInputText] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -37,7 +44,7 @@ export default function ChatInput({
   }, [inputText]);
 
   const handleSubmit = () => {
-    if (!inputText.trim()) return;
+    if (!inputText.trim() || disabled) return;
 
     onSendMessage(inputText);
     setInputText("");
@@ -50,8 +57,8 @@ export default function ChatInput({
     }
   };
 
-  const writingLocked = activePractice === "speaking";
-  const speakingLocked = activePractice === "writing";
+  const writingLocked = activePractice === "speaking" || disabled;
+  const speakingLocked = activePractice === "writing" || disabled;
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -107,7 +114,7 @@ export default function ChatInput({
           data-testid="send-message-button"
           whileTap={{ scale: 0.92 }}
           onClick={handleSubmit}
-          disabled={!inputText.trim()}
+          disabled={!inputText.trim() || disabled}
           className="p-2 bg-[#0E3D23] text-white rounded-lg hover:bg-[#0A2E1A] disabled:opacity-50"
         >
           <Send size={18} />

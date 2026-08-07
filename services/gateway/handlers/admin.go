@@ -57,57 +57,18 @@ func AdminCosts(
 		}
 
 		date := time.Now().UTC().Format(time.DateOnly)
-		prefix := "llm:tokens:" + date + ":user:"
-		keys, err := scanKeys(c.UserContext(), redisClient, prefix+"*")
+		users, err := computeDailyUserCosts(
+			c.UserContext(),
+			redisClient,
+			date,
+			prices,
+			fallbackPromptPer1M,
+			fallbackCompletionPer1M,
+		)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "failed to scan cost data",
+				"error": "failed to read cost data",
 			})
-		}
-
-		users := make(map[string]*userCost)
-		for _, key := range keys {
-			parsed, ok := parseUserCostKey(key, prefix)
-			if !ok {
-				continue
-			}
-			values, err := redisClient.HGetAll(c.UserContext(), key).Result()
-			if err != nil {
-				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-					"error": "failed to read cost data",
-				})
-			}
-			inputTokens := parseTokenCount(values["input"])
-			outputTokens := parseTokenCount(values["output"])
-			entry := users[parsed.userID]
-			if entry == nil {
-				entry = &userCost{UserID: parsed.userID}
-				users[parsed.userID] = entry
-			}
-
-			if parsed.model == "" {
-				totalTokens := inputTokens + outputTokens
-				switch parsed.service {
-				case "rag":
-					entry.Breakdown.RAGTokens += totalTokens
-				case "writing":
-					entry.Breakdown.WritingTokens += totalTokens
-				case "speaking":
-					entry.Breakdown.SpeakingTokens += totalTokens
-				}
-				continue
-			}
-
-			price, found := prices[parsed.model]
-			if !found {
-				price = modelPrice{
-					PromptPer1M:     fallbackPromptPer1M,
-					CompletionPer1M: fallbackCompletionPer1M,
-				}
-			}
-			entry.TotalCostUSD +=
-				(float64(inputTokens)*price.PromptPer1M +
-					float64(outputTokens)*price.CompletionPer1M) / 1_000_000
 		}
 
 		responseUsers := make([]userCost, 0, len(users))
@@ -130,6 +91,73 @@ func AdminCosts(
 			Budget:         budget,
 		})
 	}
+}
+
+// computeDailyUserCosts rolls the per-user token hashes for one UTC date up
+// into priced totals.
+//
+// Both GET /admin/costs and the GOA-046 budget monitor read through here on
+// purpose. Two copies of this arithmetic would drift, and the failure would be
+// silent in the worst way: an alert threshold measuring something subtly
+// different from the figure an operator sees when they go looking.
+func computeDailyUserCosts(
+	ctx context.Context,
+	redisClient *redis.Client,
+	date string,
+	prices map[string]modelPrice,
+	fallbackPromptPer1M float64,
+	fallbackCompletionPer1M float64,
+) (map[string]*userCost, error) {
+	prefix := "llm:tokens:" + date + ":user:"
+	keys, err := scanKeys(ctx, redisClient, prefix+"*")
+	if err != nil {
+		return nil, err
+	}
+
+	users := make(map[string]*userCost)
+	for _, key := range keys {
+		parsed, ok := parseUserCostKey(key, prefix)
+		if !ok {
+			continue
+		}
+		values, err := redisClient.HGetAll(ctx, key).Result()
+		if err != nil {
+			return nil, err
+		}
+		inputTokens := parseTokenCount(values["input"])
+		outputTokens := parseTokenCount(values["output"])
+		entry := users[parsed.userID]
+		if entry == nil {
+			entry = &userCost{UserID: parsed.userID}
+			users[parsed.userID] = entry
+		}
+
+		if parsed.model == "" {
+			totalTokens := inputTokens + outputTokens
+			switch parsed.service {
+			case "rag":
+				entry.Breakdown.RAGTokens += totalTokens
+			case "writing":
+				entry.Breakdown.WritingTokens += totalTokens
+			case "speaking":
+				entry.Breakdown.SpeakingTokens += totalTokens
+			}
+			continue
+		}
+
+		price, found := prices[parsed.model]
+		if !found {
+			price = modelPrice{
+				PromptPer1M:     fallbackPromptPer1M,
+				CompletionPer1M: fallbackCompletionPer1M,
+			}
+		}
+		entry.TotalCostUSD +=
+			(float64(inputTokens)*price.PromptPer1M +
+				float64(outputTokens)*price.CompletionPer1M) / 1_000_000
+	}
+
+	return users, nil
 }
 
 type parsedCostKey struct {

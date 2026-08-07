@@ -1,9 +1,10 @@
 import logging
+import os
 from typing import Literal
 from uuid import UUID
 
 import httpx
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -24,15 +25,43 @@ class ExamTaskEvaluationRequest(BaseModel):
     taskPrompt: str | None = Field(default=None, max_length=2000)
 
 
-class HighlightedIssue(BaseModel):
+class InlineIssue(BaseModel):
+    """
+    One underlined span in the candidate's response.
+
+    The field names here are the Writing service's own
+    (services/writing/app/schemas.py InlineIssue). They used to be modelled as
+    `issue`/`start`/`end`, which no Writing service response has ever contained:
+    the model emits `issue_type`/`start_char`/`end_char`. AliasChoices keeps the
+    older spelling accepted so any caller or fixture still sending it validates,
+    while serialisation is canonical on the names the service actually uses.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
     text: str
-    issue: str
+    issue_type: str = Field(validation_alias=AliasChoices("issue_type", "issue"))
     suggestion: str
-    start: int = Field(ge=0)
-    end: int = Field(ge=0)
+    start_char: int = Field(
+        ge=0, validation_alias=AliasChoices("start_char", "start")
+    )
+    end_char: int = Field(ge=0, validation_alias=AliasChoices("end_char", "end"))
 
 
 class CriterionEvaluation(BaseModel):
+    """
+    One criterion's mark.
+
+    `inline_issues` previously had no default and was spelled
+    `highlighted_issues`, so validating a genuine Writing service response
+    raised ValidationError — which `evaluate_exam_essay` does not catch, so it
+    surfaced as an unhandled 500 on every writing submit rather than as a
+    WritingServiceError. Defaulting to an empty list additionally means a
+    criterion that produced no underlines can never fail the whole submit.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
     criterion: Literal[
         "task_response",
         "cohesion",
@@ -41,7 +70,14 @@ class CriterionEvaluation(BaseModel):
     ]
     band_score: float = Field(ge=0.0, le=9.0)
     feedback: str
-    highlighted_issues: list[HighlightedIssue]
+    # Present on the Writing service's payload; carried through so the exam
+    # result can show it without a second call.
+    improvement_tip: str | None = None
+    word_count: int | None = None
+    inline_issues: list[InlineIssue] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices("inline_issues", "highlighted_issues"),
+    )
 
 
 class ExamTaskEvaluationResponse(BaseModel):
@@ -61,12 +97,33 @@ class WritingClient:
     def __init__(
         self,
         base_url: str,
-        timeout_s: float = 30.0,
-        max_retries: int = 1,
+        timeout_s: float | None = None,
+        max_retries: int | None = None,
     ):
         self.base_url = base_url.rstrip("/")
-        self.timeout_s = timeout_s
-        self.max_retries = max_retries
+        # A single exam task runs four criterion agents against the LLM. Measured
+        # against AgentRouter that takes ~50s end to end, so the previous 30s
+        # default timed out every real evaluation and the call failed as
+        # "Failed to reach Writing service after 2 attempt(s)" — an upstream
+        # timeout wearing a connectivity error's costume.
+        # Measured worst case against AgentRouter with claude-opus-4-8: ~200s for
+        # one task (four criterion agents, extended thinking, one re-ask when an
+        # agent answers unparseably). 300s leaves headroom without letting a
+        # genuinely wedged call hang forever.
+        self.timeout_s = (
+            timeout_s
+            if timeout_s is not None
+            else float(os.getenv("WRITING_CLIENT_TIMEOUT_SECONDS", "300"))
+        )
+        # Retries are off by default. Retrying a timed-out evaluation does not
+        # help: the first attempt is usually still running upstream, so a retry
+        # doubles LLM cost and load while the caller waits twice as long for the
+        # same outcome. Genuine connection errors fail fast and are surfaced.
+        self.max_retries = (
+            max_retries
+            if max_retries is not None
+            else int(os.getenv("WRITING_CLIENT_MAX_RETRIES", "0"))
+        )
 
     async def evaluate_exam_essay(
         self,
@@ -106,7 +163,19 @@ class WritingClient:
                         json=request_payload.model_dump(),
                     )
                 response.raise_for_status()
-                return ExamTaskEvaluationResponse.model_validate(response.json())
+                try:
+                    return ExamTaskEvaluationResponse.model_validate(
+                        response.json()
+                    )
+                except ValidationError as exc:
+                    # A 2xx whose body this client cannot read is an upstream
+                    # contract problem, not a transient one, so it is not
+                    # retried. It is raised as WritingServiceError so the caller
+                    # turns it into a 502 (an upstream failure) instead of
+                    # letting a raw ValidationError escape as an unhandled 500.
+                    raise WritingServiceError(
+                        f"Writing service returned an unreadable evaluation: {exc}"
+                    ) from exc
 
             except httpx.HTTPStatusError as exc:
                 if exc.response.status_code == 502:

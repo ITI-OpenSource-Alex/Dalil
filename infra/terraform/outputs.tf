@@ -180,6 +180,16 @@ output "ecs_task_definition_arns" {
   value       = { for service, service_module in module.ecs_service : service => service_module.task_definition_arn }
 }
 
+output "ecs_migration_task_definition_arns" {
+  description = "Migration task definition ARNs keyed by ECS service."
+  value       = { for service, task_definition in aws_ecs_task_definition.migration : service => task_definition.arn }
+}
+
+output "ecs_migration_task_role_arns" {
+  description = "Migration-only ECS runtime role ARNs keyed by ECS service."
+  value       = { for service, role in aws_iam_role.ecs_migration_task : service => role.arn }
+}
+
 output "ecs_autoscaling_resource_ids" {
   description = "Application Auto Scaling resource IDs keyed by ECS service."
   value       = { for service, service_module in module.ecs_service : service => service_module.autoscaling_resource_id }

@@ -18,18 +18,23 @@ const DIMENSION_KEY_MAP: Record<keyof SpeakingCriteriaScores, string> = {
 export function extractCriteriaScores(
   dimensions: SpeakingDimensions | null | undefined,
 ): SpeakingCriteriaScores {
+  // null, not 0. A missing or timed-out criterion has no band, and 0 is a
+  // valid IELTS score — defaulting to it reported an evaluation that never
+  // happened as a very bad one (GOA-032, BUG-055).
   const scores: SpeakingCriteriaScores = {
-    fluency: 0,
-    lexical: 0,
-    grammar: 0,
-    pronunciation: 0,
+    fluency: null,
+    lexical: null,
+    grammar: null,
+    pronunciation: null,
   };
 
   if (!dimensions) return scores;
 
   (Object.keys(DIMENSION_KEY_MAP) as (keyof SpeakingCriteriaScores)[]).forEach(
     (key) => {
-      scores[key] = dimensions[DIMENSION_KEY_MAP[key]]?.band ?? 0;
+      const dimension = dimensions[DIMENSION_KEY_MAP[key]];
+      scores[key] =
+        dimension && !dimension.timed_out ? (dimension.band ?? null) : null;
     },
   );
 

@@ -20,7 +20,7 @@ resource "aws_sns_topic_subscription" "user_events_sqs" {
   topic_arn            = aws_sns_topic.user_events.arn
   protocol             = "sqs"
   endpoint             = module.sqs.queue_arns[each.key]
-  raw_message_delivery = false
+  raw_message_delivery = true
 }
 
 data "aws_iam_policy_document" "user_events_sqs" {

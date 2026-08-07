@@ -21,6 +21,8 @@
     "typeorm": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js -d src/database/data-source.ts",
     "migration:generate": "npm run typeorm -- migration:generate src/database/migrations/InitialUserSchema",
     "migration:run": "npm run typeorm -- migration:run",
+    "migration:run:prod": "node dist/database/migrate-prod.js",
+    "migration:revert:prod": "node dist/database/migrate-prod.js",
     "migration:revert": "npm run typeorm -- migration:revert"
   },
   "dependencies": {

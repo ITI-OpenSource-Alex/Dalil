@@ -1,0 +1,44 @@
+{
+  "audio_duration_ms": 68371,
+  "e2e_evaluation_ms": {
+    "max": 49699,
+    "med": 34554,
+    "min": 28830,
+    "n": 8,
+    "p95": 49699
+  },
+  "e2e_first_audio_ms": {
+    "max": 60715,
+    "med": 43578,
+    "min": 38050,
+    "n": 8,
+    "p95": 60715
+  },
+  "measured_at": "2026-08-04T00:28:14Z",
+  "note": "Small sample. These are a starting point from one machine, not a contract -- exactly as GOA-032 says of its own figures.",
+  "providers": "real faster-whisper + Piper sidecar; real Anthropic endpoint",
+  "sample_transcript": "I would like to talk about a journey that I took last summer with my family to the mountains in the north of the country. We had been planning the trip for several months, mostly because my younger sister had never seen snow before and she was extremely excited about it. We left very early in the morning, around five o'clock, and the drive itself took almost seven hours, which sounds exhausting but was actually one of the best parts of the whole experience. The scenery gradually changed from flat farmland to steep valleys covered in pine trees and every half an hour or so somebody would ask the driver to stop so that we could take photographs. What made the journey particularly memorable for me was not the destination itself, but the conversations we had along the way. My grandfather told us stories about the village, where he grew up, stories that I had honestly never heard before despite knowing him my entire life. When we finally arrived the weather was much colder than we had anticipated and none of us had packed properly. So we spent the first evening buying scarves and gloves in a small shop near the hotel, laughing at how badly prepared we were. Looking back, I think the trip taught me that the unplanned moments are usually the ones you remember most clearly.",
+  "sessions_completed": 8,
+  "sessions_requested": 8,
+  "time_to_first_criterion_ms": {
+    "max": 28728,
+    "med": 28388,
+    "min": 28029,
+    "n": 8,
+    "p95": 28728
+  },
+  "transcription_ms": {
+    "max": 22530,
+    "med": 22270,
+    "min": 22043,
+    "n": 8,
+    "p95": 22530
+  },
+  "transcription_ratio": {
+    "max": 0.329,
+    "med": 0.325,
+    "min": 0.322,
+    "n": 8,
+    "p95": 0.329
+  }
+}

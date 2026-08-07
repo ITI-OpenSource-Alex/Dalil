@@ -247,6 +247,52 @@ def _writing_question_general() -> dict[str, Any]:
     }
 
 
+def _writing_question_ingested_list_shape(
+    exam_type: str = "academic",
+) -> dict[str, Any]:
+    """
+    A writing question in the shape real ingestion produces.
+
+    app/ingestion/writing_parser.py emits `questions` as a LIST of
+    {number, prompt, question_type, instructions} — never the task1/task2 dict
+    the fixtures above use. Every session created from a seeded Cambridge book
+    therefore looks like this, and nothing in the suite covered it, which is how
+    an AttributeError in _resolve_task_context reached production as a 500 on
+    every writing submit.
+
+    Note there is no image key anywhere: stimulus images are not ingested, which
+    is why image-based evaluation is postponed.
+    """
+    return {
+        "id": uuid4(),
+        "book_ref": "IELTS-14",
+        "test_number": 1,
+        "exam_type": exam_type,
+        "skill_area": "writing",
+        "passage_text": None,
+        "audio_s3_key": None,
+        "questions": [
+            {
+                "number": 1,
+                "prompt": "The charts below show the average percentages in typical meals.",
+                "question_type": "Writing Task 1",
+                "instructions": "Write at least 150 words.",
+                "passage_number": None,
+                "section_number": None,
+            },
+            {
+                "number": 2,
+                "prompt": "Some people believe it is best to accept a bad situation.",
+                "question_type": "Writing Task 2",
+                "instructions": "Write an essay of at least 250 words.",
+                "passage_number": None,
+                "section_number": None,
+            },
+        ],
+        "answer_key": {},
+    }
+
+
 def _speaking_question() -> dict[str, Any]:
     return {
         "id": uuid4(),
@@ -268,6 +314,13 @@ def _speaking_question() -> dict[str, Any]:
 def _writing_eval_response(
     session_id: UUID, task_number: int, overall_band: float
 ) -> ExamTaskEvaluationResponse:
+    """
+    Mirrors the shape the Writing service genuinely returns:
+    `inline_issues` with `issue_type`/`start_char`/`end_char`
+    (services/writing/app/schemas.py). This fixture previously used
+    `highlighted_issues`, a spelling the Writing service has never emitted,
+    which is why the real contract mismatch went unnoticed by these tests.
+    """
     return ExamTaskEvaluationResponse(
         essay_id=1,
         exam_session_id=str(session_id),
@@ -277,25 +330,41 @@ def _writing_eval_response(
                 "criterion": "task_response",
                 "band_score": overall_band,
                 "feedback": "Good response.",
-                "highlighted_issues": [],
+                "improvement_tip": "Address every bullet point.",
+                "word_count": 160,
+                "inline_issues": [],
             },
             {
                 "criterion": "cohesion",
                 "band_score": overall_band,
                 "feedback": "Well structured.",
-                "highlighted_issues": [],
+                "improvement_tip": "Vary your linking phrases.",
+                "word_count": 160,
+                "inline_issues": [],
             },
             {
                 "criterion": "vocabulary",
                 "band_score": overall_band,
                 "feedback": "Good range.",
-                "highlighted_issues": [],
+                "improvement_tip": "Avoid repeating 'important'.",
+                "word_count": 160,
+                "inline_issues": [],
             },
             {
                 "criterion": "grammar",
                 "band_score": overall_band,
                 "feedback": "Accurate usage.",
-                "highlighted_issues": [],
+                "improvement_tip": "Check article use.",
+                "word_count": 160,
+                "inline_issues": [
+                    {
+                        "text": "have went",
+                        "issue_type": "Incorrect past participle",
+                        "suggestion": "have gone",
+                        "start_char": 0,
+                        "end_char": 9,
+                    }
+                ],
             },
         ],
         overall_band=overall_band,
@@ -789,6 +858,29 @@ class TestWritingEngine:
         assert data["overall_band"] == 7.0
         assert data["task_number"] == 1
 
+        # GOA-058: the per-criterion breakdown must come back on the submit
+        # response itself. GET /{id}/result cannot serve the Task 1 card
+        # because it 404s until both tasks exist, so without this the UI has
+        # no way to show Task 1 feedback while Task 2 is still being written.
+        assert "evaluations" in data
+        assert {item["criterion"] for item in data["evaluations"]} == {
+            "task_response",
+            "cohesion",
+            "vocabulary",
+            "grammar",
+        }
+
+        grammar = next(
+            item for item in data["evaluations"] if item["criterion"] == "grammar"
+        )
+        # Inline issues must survive with the field names the Writing service
+        # actually emits, or the colour-coded highlighting has no data.
+        assert grammar["inline_issues"][0]["issue_type"] == (
+            "Incorrect past participle"
+        )
+        assert grammar["inline_issues"][0]["start_char"] == 0
+        assert grammar["inline_issues"][0]["end_char"] == 9
+
     @pytest.mark.asyncio
     async def test_exm10_writing_submit_task2_final_band(self) -> None:
         """EXM-10: Submit Task 1 + Task 2 → final band = round((T1 + 2*T2)/3 * 2) / 2."""
@@ -888,6 +980,184 @@ class TestWritingEngine:
         assert len(writing_client.calls) == 1
         call = writing_client.calls[0]
         assert call.get("stimulus_s3_key") is None
+
+    # ------------------------------------------------------------------
+    # Regression: writing submit returned HTTP 500 on real ingested data
+    # ------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("task_number", [1, 2])
+    async def test_writing_submit_succeeds_on_ingested_list_shape(
+        self, task_number: int
+    ) -> None:
+        """
+        Regression: submitting a writing task against a question stored in the
+        shape real ingestion produces (a LIST of tasks) must return 200.
+
+        _resolve_task_context assumed the task1/task2 dict shape and called
+        .get() on the decoded value. A non-empty list is truthy, so it stayed a
+        list and .get raised AttributeError — uncaught, so FastAPI returned
+        HTTP 500 for BOTH tasks on every real session.
+
+        Parametrized over both tasks because the reported symptom was that
+        "submitting either Task 1 or Task 2 returns Internal Server Error".
+        """
+        question = _writing_question_ingested_list_shape()
+        session_id = uuid4()
+        writing_client = FakeWritingClient(
+            {
+                1: _writing_eval_response(session_id, 1, 6.5),
+                2: _writing_eval_response(session_id, 2, 7.0),
+            }
+        )
+
+        service, _, _ = self._make_service(question, writing_client)
+        app = self._make_app(service)
+
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url=BASE_URL
+        ) as client:
+            create_resp = await client.post(
+                "/sessions",
+                headers=INTERNAL_HEADERS,
+                json={
+                    "user_id": str(uuid4()),
+                    "exam_type": "academic",
+                    "skill_area": "writing",
+                },
+            )
+            actual_session_id = create_resp.json()["session_id"]
+
+            submit_resp = await client.put(
+                f"/sessions/{actual_session_id}/submit",
+                headers=INTERNAL_HEADERS,
+                json={
+                    "answers": {},
+                    "essay_text": "This is a sufficiently long response. " * 20,
+                    "task_number": task_number,
+                },
+            )
+
+        assert submit_resp.status_code == 200, submit_resp.text
+        assert submit_resp.json()["task_number"] == task_number
+
+        # The right prompt must reach the Writing service — returning 200 with a
+        # None prompt would be a silent regression, not a fix.
+        call = writing_client.calls[0]
+        expected_prompt = question["questions"][task_number - 1]["prompt"]
+        assert call["task_prompt"] == expected_prompt
+
+    @pytest.mark.asyncio
+    async def test_writing_full_flow_on_ingested_shape_produces_weighted_band(
+        self,
+    ) -> None:
+        """
+        Both tasks submitted against real-shaped data → session scored and the
+        combined result carries the 33/67 weighted band.
+        """
+        question = _writing_question_ingested_list_shape()
+        session_id = uuid4()
+        writing_client = FakeWritingClient(
+            {
+                1: _writing_eval_response(session_id, 1, 6.5),
+                2: _writing_eval_response(session_id, 2, 7.0),
+            }
+        )
+
+        service, _, _ = self._make_service(question, writing_client)
+        app = self._make_app(service)
+
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url=BASE_URL
+        ) as client:
+            create_resp = await client.post(
+                "/sessions",
+                headers=INTERNAL_HEADERS,
+                json={
+                    "user_id": str(uuid4()),
+                    "exam_type": "academic",
+                    "skill_area": "writing",
+                },
+            )
+            actual_session_id = create_resp.json()["session_id"]
+
+            first = await client.put(
+                f"/sessions/{actual_session_id}/submit",
+                headers=INTERNAL_HEADERS,
+                json={
+                    "answers": {},
+                    "essay_text": "Task one response. " * 40,
+                    "task_number": 1,
+                },
+            )
+            second = await client.put(
+                f"/sessions/{actual_session_id}/submit",
+                headers=INTERNAL_HEADERS,
+                json={
+                    "answers": {},
+                    "essay_text": "Task two response. " * 60,
+                    "task_number": 2,
+                },
+            )
+            result = await client.get(
+                f"/sessions/{actual_session_id}/result",
+                headers=INTERNAL_HEADERS,
+            )
+
+        assert first.status_code == 200, first.text
+        assert first.json()["status"] == "task_submitted"
+        assert second.status_code == 200, second.text
+        assert second.json()["status"] == "submitted"
+
+        assert result.status_code == 200, result.text
+        # round((6.5 + 2 * 7.0) / 3 * 2) / 2 == 7.0
+        assert result.json()["overall_band"] == 7.0
+
+    @pytest.mark.asyncio
+    async def test_academic_task1_sends_no_stimulus_key(self) -> None:
+        """
+        Image-based evaluation is postponed, so Academic Task 1 must submit
+        successfully with no stimulus key rather than being rejected.
+
+        The plumbing stays in place (the Writing service still accepts an
+        optional stimulusS3Key), so this asserts the current contract: the key
+        is simply absent, and that is not an error.
+        """
+        question = _writing_question_ingested_list_shape(exam_type="academic")
+        session_id = uuid4()
+        writing_client = FakeWritingClient(
+            {1: _writing_eval_response(session_id, 1, 6.5)}
+        )
+
+        service, _, _ = self._make_service(question, writing_client)
+        app = self._make_app(service)
+
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url=BASE_URL
+        ) as client:
+            create_resp = await client.post(
+                "/sessions",
+                headers=INTERNAL_HEADERS,
+                json={
+                    "user_id": str(uuid4()),
+                    "exam_type": "academic",
+                    "skill_area": "writing",
+                },
+            )
+            actual_session_id = create_resp.json()["session_id"]
+
+            submit_resp = await client.put(
+                f"/sessions/{actual_session_id}/submit",
+                headers=INTERNAL_HEADERS,
+                json={
+                    "answers": {},
+                    "essay_text": "The chart shows a clear upward trend. " * 20,
+                    "task_number": 1,
+                },
+            )
+
+        assert submit_resp.status_code == 200, submit_resp.text
+        assert writing_client.calls[0].get("stimulus_s3_key") is None
 
 
 # ---------------------------------------------------------------------------

@@ -10,7 +10,7 @@ test.describe("GOA Chat System", () => {
 
     await expect(page.getByTestId("chat-input")).toBeVisible();
 
-    await expect(page.getByText("Hi Lina")).toBeVisible();
+    await expect(page.getByText("Hi 👋 I can help you find")).toBeVisible();
   });
 
   test("should send a message and display conversation", async ({ page }) => {

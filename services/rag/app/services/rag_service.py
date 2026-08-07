@@ -1,4 +1,5 @@
 import hashlib
+import json
 import time
 import logging
 from typing import List, Tuple, Dict, Any
@@ -11,6 +12,12 @@ from goa_security import wrap_untrusted
 
 from app.core.config import settings
 from app.core.database import db
+from app.core.metrics import (
+    FAQ_BYPASS_TOTAL,
+    FAQ_HITS_TOTAL,
+    FAQ_STALE_SUPPRESSED_TOTAL,
+)
+from app.services.faq_policy import classify_question
 
 logger = logging.getLogger("rag_service.rag_service")
 
@@ -116,20 +123,79 @@ async def generate_embedding(text: str) -> List[float]:
     return response.data[0].embedding
 
 
-# Fuzzy-match threshold for the FAQ short-circuit below, per the architecture doc's
-# documented design ("A match above 0.85 similarity returns the FAQ answer directly").
-FAQ_SIMILARITY_THRESHOLD = 0.85
+# Fuzzy-match threshold for the FAQ short-circuit, per the architecture doc's
+# documented design ("A match above 0.85 similarity returns the FAQ answer
+# directly").
+#
+# GOA-045 required verifying that number empirically rather than inheriting it,
+# and doing so exposed that the threshold was fine but the FUNCTION was wrong.
+#
+# pg_trgm's similarity() is symmetric: it divides shared trigrams by the union
+# of both strings' trigrams, so a short question scored against a longer curated
+# pattern is penalised for the words it did not say. The ticket's own canonical
+# example -- "how do I register for IELTS" against "How do I register for the
+# IELTS exam in Egypt?" -- scores 0.63 that way, so the documented 0.85 could
+# never have matched it, and the feature was quietly reaching almost nothing.
+#
+# word_similarity() asks the question the FAQ actually wants: is the user's
+# question a good match for some contiguous run of words inside the pattern?
+# The same pair scores 0.871.
+#
+# The threshold is then raised from the documented 0.85 to 0.90, because
+# word_similarity has one dangerous failure mode on this corpus and the
+# calibration found a live instance of it.
+#
+# Scoring the best CONTIGUOUS EXTENT means a question that shares a long prefix
+# with an entry scores high even when the word that changes the answer differs:
+#
+#   "...Thanaweya Amma certificate recognized for university admission in FRANCE?"
+#   vs the curated entry ending "...in GERMANY?"          -> 0.862
+#
+# At 0.85 that question would have been answered with German requirements. The
+# entries most exposed to this are exactly the ones users most need to be right:
+# country names, IELTS Academic vs General, public vs private insurance --
+# entries that differ by a single decisive token.
+#
+# With aliases carrying recall, every genuine match in the calibration set lands
+# at 1.000, so the gate's only remaining job is rejecting near-misses. 0.90 does
+# that with a 0.138 margin below and 0.10 above. The ticket's own DoD is still
+# met: "how do I register for IELTS" scores 1.000, comfortably >0.85.
+#
+# Full calibration, including the rejected alternatives, in
+# docs/faq_threshold_calibration.md.
+FAQ_SIMILARITY_THRESHOLD = 0.90
 
 
 async def _find_faq_match(question: str):
     """Fuzzy-matches `question` against faq_entries.question_pattern using pg_trgm's
     similarity() (extension already enabled by migration 005). Returns the
-    best-matching row if it meets FAQ_SIMILARITY_THRESHOLD, else None."""
+    best-matching row if it meets FAQ_SIMILARITY_THRESHOLD and is still inside
+    its review window, else None.
+
+    Staleness is filtered in SQL rather than after the fact, and the ordering
+    matters: `ORDER BY sim DESC LIMIT 1` picks exactly one row, so an expired
+    entry that happened to be the closest match would shadow a fresh entry just
+    behind it and the whole query would return nothing. Excluding expired rows
+    first lets the next-best live entry win (GOA-045).
+    """
     async with db.pool.acquire() as conn:
         row = await conn.fetchrow(
             """
-            SELECT id, answer_markdown, similarity(question_pattern, $1) AS sim
+            SELECT id,
+                   answer_markdown,
+                   source_url,
+                   sources,
+                   category,
+                   GREATEST(
+                       word_similarity($1, question_pattern),
+                       COALESCE(
+                           (SELECT MAX(word_similarity($1, alias))
+                            FROM unnest(aliases) AS alias),
+                           0
+                       )
+                   ) AS sim
             FROM faq_entries
+            WHERE reviewed_at + make_interval(days => review_interval_days) > NOW()
             ORDER BY sim DESC
             LIMIT 1
             """,
@@ -137,7 +203,78 @@ async def _find_faq_match(question: str):
         )
     if row and row["sim"] >= FAQ_SIMILARITY_THRESHOLD:
         return row
+
+    # Nothing live matched. Check whether something STALE would have, so a
+    # review backlog shows up as its own signal instead of looking like a
+    # coverage gap -- the two have opposite fixes.
+    async with db.pool.acquire() as conn:
+        stale_hit = await conn.fetchval(
+            """
+            SELECT 1
+            FROM faq_entries
+            WHERE reviewed_at + make_interval(days => review_interval_days) <= NOW()
+              AND GREATEST(
+                      word_similarity($1, question_pattern),
+                      COALESCE(
+                          (SELECT MAX(word_similarity($1, alias))
+                           FROM unnest(aliases) AS alias),
+                          0
+                      )
+                  ) >= $2
+            LIMIT 1
+            """,
+            question,
+            FAQ_SIMILARITY_THRESHOLD,
+        )
+    if stale_hit:
+        FAQ_STALE_SUPPRESSED_TOTAL.inc()
+        logger.info(
+            "FAQ match suppressed: entry is past its review window (question=%r)",
+            question[:80],
+        )
     return None
+
+
+
+def _faq_sources(faq_row) -> List[Dict[str, Any]]:
+    """Shapes a curated FAQ entry's citation like a retrieved document source.
+
+    The API serialises sources through one model, so a FAQ answer and a
+    retrieved answer look the same to the client -- a user should not have to
+    know which path produced their answer in order to check it. `similarity` is
+    reported as 1.0 because a curated entry is an exact, human-written answer to
+    that question rather than an approximate retrieval.
+    """
+    seen: set[str] = set()
+    out: List[Dict[str, Any]] = []
+
+    def add(url: str | None, title: str | None) -> None:
+        if not url or url in seen:
+            return
+        seen.add(url)
+        out.append({
+            "id": str(faq_row["id"]),
+            "title": title or "Curated FAQ",
+            "content": faq_row["answer_markdown"],
+            "source_url": url,
+            "similarity": 1.0,
+        })
+
+    add(faq_row["source_url"], "Curated FAQ")
+
+    # `sources` is JSONB; asyncpg hands it back as a string unless a codec is
+    # registered, so accept both shapes rather than assuming one.
+    extra = faq_row["sources"]
+    if isinstance(extra, str):
+        try:
+            extra = json.loads(extra)
+        except (TypeError, ValueError):
+            extra = []
+    for item in extra or []:
+        if isinstance(item, dict):
+            add(item.get("source_url"), item.get("title"))
+
+    return out
 
 
 async def _record_faq_hit(faq_id) -> None:
@@ -165,9 +302,64 @@ async def query_rag(
 
     # 1b. FAQ short-circuit -- a close match returns the curated answer directly,
     # without embedding the question, querying documents, or invoking the LLM.
-    faq_match = await _find_faq_match(question)
+    #
+    # The eligibility check comes FIRST, before any matching. A question whose
+    # answer is a figure an authority can change must reach live retrieval even
+    # when it is lexically almost identical to a curated entry -- pg_trgm cannot
+    # tell "how do I open a blocked account" from "how much do I need in one",
+    # and only one of those is safe to freeze. See app/services/faq_policy.py.
+    eligibility = classify_question(question)
+    if not eligibility.allowed:
+        FAQ_BYPASS_TOTAL.labels(reason=eligibility.reason).inc()
+        logger.info(
+            "FAQ bypassed as source-sensitive (reason=%s)", eligibility.reason
+        )
+        if trace is not None:
+            try:
+                bypass_span = trace.start_observation(
+                    name="faq-bypass",
+                    as_type="span",
+                    input={"question": question},
+                    metadata={"type": "faq_bypass", "reason": eligibility.reason},
+                )
+                bypass_span.end()
+            except Exception as exc:
+                logger.warning("Failed to record Langfuse faq-bypass span: %s", exc)
+
+    faq_match = await _find_faq_match(question) if eligibility.allowed else None
     if faq_match:
         await _record_faq_hit(faq_match["id"])
+        FAQ_HITS_TOTAL.labels(category=faq_match["category"] or "uncategorised").inc()
+
+        # A hit skips the LLM, so without an explicit observation the trace shows
+        # a query that answered itself from nowhere. GOA-045 requires the trace to
+        # name it, with the zero token cost that makes it worth having.
+        if trace is not None:
+            try:
+                faq_span = trace.start_observation(
+                    name="faq-hit",
+                    as_type="span",
+                    input={"question": question},
+                    output={"answer": faq_match["answer_markdown"]},
+                    metadata={
+                        "type": "faq_hit",
+                        "faq_id": str(faq_match["id"]),
+                        "category": faq_match["category"],
+                        "similarity": float(faq_match["sim"]),
+                        "source_url": faq_match["source_url"],
+                        "input_tokens": 0,
+                        "output_tokens": 0,
+                    },
+                )
+                faq_span.end()
+            except Exception as exc:
+                logger.warning("Failed to record Langfuse faq-hit span: %s", exc)
+
+        # The curated citation is returned as a source, so a FAQ answer is as
+        # checkable as a retrieved one. Answering with no citation at all is
+        # what made the old FAQ path indistinguishable from a hallucination.
+        faq_sources = _faq_sources(faq_match)
+
         metrics_summary = {
             "question_hash": question_hash,
             "top_similarity": float(faq_match["sim"]),
@@ -175,8 +367,9 @@ async def query_rag(
             "answer_tokens": 0,
             "latency_ms": (time.time() - start_time) * 1000,
             "faq_hit": True,
+            "faq_category": faq_match["category"],
         }
-        return faq_match["answer_markdown"], [], metrics_summary
+        return faq_match["answer_markdown"], faq_sources, metrics_summary
 
     retrieval_span = None
     if trace is not None:

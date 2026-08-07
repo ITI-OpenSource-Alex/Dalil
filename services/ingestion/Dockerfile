@@ -21,6 +21,7 @@ RUN playwright install --with-deps chromium
 
 # 3. Copy the rest of the application code
 COPY services/ingestion/ .
+COPY services/ingestion/app/migrations ./app/migrations
 
 # 4. The shared event contracts.
 #

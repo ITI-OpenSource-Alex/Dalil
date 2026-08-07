@@ -80,7 +80,6 @@ locals {
         } : service == "user" ? {
         REDIS_HOST            = module.elasticache.primary_endpoint_address
         REDIS_PORT            = tostring(module.elasticache.port)
-        SQS_QUEUE_URL         = module.sqs.queue_urls["user_events"]
         USER_EVENTS_TOPIC_ARN = aws_sns_topic.user_events.arn
         } : service == "orchestration" ? {
         REDIS_URL            = "redis://${module.elasticache.primary_endpoint_address}:${module.elasticache.port}/1"
@@ -114,6 +113,17 @@ locals {
     }
   }
 
+  ecs_migration_commands = {
+    gateway       = ["sh", "-c", "echo 'gateway owns no database migrations'"]
+    user          = ["sh", "-c", "if [ \"$MIGRATION_DIRECTION\" = \"down\" ]; then npm run migration:revert:prod; else npm run migration:run:prod; fi"]
+    orchestration = ["python", "-m", "app.migrate"]
+    speaking      = ["./speaking", "migrate"]
+    writing       = ["python", "-m", "app.init_db"]
+    rag           = ["python", "-m", "app.migrate"]
+    exam          = ["python", "-m", "app.migrate"]
+    ingestion     = ["python", "-m", "app.migrate"]
+  }
+
   postgres_databases = {
     user          = "user_db"
     orchestration = "orchestration_db"
@@ -131,12 +141,6 @@ locals {
   }
 
   sqs_queues = {
-    user_events = {
-      name                       = "${local.name_prefix}-user-events"
-      visibility_timeout_seconds = 30
-      max_receive_count          = 3
-    }
-
     notification = {
       name                       = "${local.name_prefix}-notification-queue"
       visibility_timeout_seconds = 30
@@ -223,13 +227,15 @@ locals {
       "INTERNAL_API_KEY",
     ]
 
+    # No OPENAI_API_KEY: GOA-093 consolidated Academic Task 1 vision onto Claude,
+    # leaving the Writing service with no OpenAI call of any kind. OpenAI remains
+    # only where embeddings are needed (RAG/Ingestion) or speech (Speaking).
     writing = [
       "DATABASE_URL",
       "ANTHROPIC_API_KEY",
       "LANGFUSE_PUBLIC_KEY",
       "LANGFUSE_SECRET_KEY",
       "LANGFUSE_HOST",
-      "OPENAI_API_KEY",
       "INTERNAL_API_KEY",
     ]
 
@@ -542,12 +548,18 @@ locals {
     }
   )
 
+  # Cost attribution (GOA-046). Every resource carries a Service tag so Cost
+  # Explorer can split spend per service. Resources with no single owning
+  # service — VPC, NAT, ALB, RDS, Redis — are deliberately tagged "shared"
+  # rather than left untagged, so an unattributed line in the cost report is a
+  # real tagging gap rather than shared infrastructure that nobody labelled.
   common_tags = merge(
     var.tags,
     {
       Project     = var.project_name
       Environment = var.environment
       ManagedBy   = "terraform"
+      Service     = "shared"
     }
   )
 }

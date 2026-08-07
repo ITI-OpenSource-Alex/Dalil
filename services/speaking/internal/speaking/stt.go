@@ -38,7 +38,7 @@ func (c *Client) transcribeAudio(audio []byte) {
 	for attempt := 0; attempt < 2; attempt++ {
 		body := &bytes.Buffer{}
 		writer := multipart.NewWriter(body)
-		
+
 		h := make(textproto.MIMEHeader)
 		h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, "audio", "audio.pcm"))
 		h.Set("Content-Type", "audio/pcm;rate=16000")
@@ -57,7 +57,7 @@ func (c *Client) transcribeAudio(audio []byte) {
 			log.Error().Err(err).Str("session_id", c.id).Msg("Failed to close multipart writer")
 			return
 		}
-		
+
 		url := fmt.Sprintf("%s/stt", c.speechURL)
 		req, errReq := http.NewRequestWithContext(c.ctx, "POST", url, body)
 		if errReq != nil {
@@ -65,7 +65,7 @@ func (c *Client) transcribeAudio(audio []byte) {
 			return
 		}
 		req.Header.Set("Content-Type", writer.FormDataContentType())
-		
+
 		// Time the local STT sidecar latency
 		apiStart := time.Now()
 		resp, err = httpClient.Do(req)
@@ -74,6 +74,19 @@ func (c *Client) transcribeAudio(audio []byte) {
 			// Record metrics on success
 			transcriptionLatencyMetric.Observe(float64(apiDuration.Milliseconds()))
 			atomic.StoreInt64(&c.lastTransMs, apiDuration.Milliseconds())
+
+			// GOA-032: the transcription SLO is a *ratio*, because CPU Whisper
+			// scales with utterance length -- an absolute millisecond budget is
+			// meaningless across a 30s Part 1 answer and a two-minute Part 2 one.
+			//
+			// Skipped entirely (not recorded as zero) when the duration is
+			// unknown: a recorded 0 is a claim that STT was instantaneous, which
+			// drags P95 down and hides real breaches.
+			if audioMs := pcmDurationMs(len(audio)); audioMs > 0 {
+				ratio := float64(apiDuration.Milliseconds()) / float64(audioMs)
+				transcriptionRatioMetric.Observe(ratio)
+				c.checkSLO(budgetTranscriptionRatio, ratio)
+			}
 
 			// Decode response
 			defer resp.Body.Close()
@@ -87,7 +100,7 @@ func (c *Client) transcribeAudio(audio []byte) {
 			err = json.NewDecoder(resp.Body).Decode(&sttResp)
 			if err != nil {
 				log.Error().Err(err).Str("session_id", c.id).Msg("Failed to decode STT response JSON")
-				c.outcome = "error"
+				c.setOutcome("error")
 				c.sendError("Could not read the transcription result.")
 				return
 			}
@@ -116,7 +129,7 @@ func (c *Client) transcribeAudio(audio []byte) {
 	}
 	if err != nil {
 		log.Error().Err(err).Str("session_id", c.id).Msg("STT HTTP request failed after retries")
-		c.outcome = "error"
+		c.setOutcome("error")
 		// Tell the client. Without this the socket stayed open and silent after a
 		// failed transcription -- observed as a 180s hang with zero events, which
 		// a UI can only render as a spinner that never resolves (BUG-036).
@@ -128,7 +141,7 @@ func (c *Client) transcribeAudio(audio []byte) {
 // sendError delivers a terminal error to the client over the same channel as
 // every other frame. It deliberately does not touch c.conn directly: writePump
 // owns the socket, and this runs on the transcription goroutine, so a direct
-// write would race it.
+// write would race it. See Client.sendFrame.
 func (c *Client) sendError(reason string) {
 	payload, err := json.Marshal(map[string]interface{}{
 		"type":    "error",
@@ -137,34 +150,18 @@ func (c *Client) sendError(reason string) {
 	if err != nil {
 		return
 	}
-	sendTimer := time.NewTimer(2 * time.Second)
-	defer sendTimer.Stop()
-	select {
-	case <-c.ctx.Done():
-	case c.send <- WSMessage{Type: websocket.TextMessage, Payload: payload}:
-	case <-sendTimer.C:
-		log.Error().Str("session_id", c.id).Msg("Timed out sending error frame to client")
-	}
+	c.sendFrame(websocket.TextMessage, payload)
 }
 
 func (c *Client) sendTranscript(text string) {
-	response := map[string]interface{}{
+	resBytes, err := json.Marshal(map[string]interface{}{
 		"type":    "transcript",
 		"text":    text,
 		"isFinal": true,
-	}
-	resBytes, err := json.Marshal(response)
+	})
 	if err != nil {
 		log.Error().Err(err).Str("session_id", c.id).Msg("Failed to marshal transcription response")
 		return
 	}
-	sendTimer := time.NewTimer(2 * time.Second)
-	defer sendTimer.Stop()
-	select {
-	case <-c.ctx.Done():
-		return
-	case c.send <- WSMessage{Type: websocket.TextMessage, Payload: resBytes}: // Wrapped in WSMessage
-	case <-sendTimer.C:
-		log.Error().Str("session_id", c.id).Msg("Timed out trying to send transcript back to client")
-	}
+	c.sendFrame(websocket.TextMessage, resBytes)
 }

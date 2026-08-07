@@ -77,8 +77,88 @@ export interface ExamResultResponse {
   answer_key: Record<string, unknown>;
 }
 
+export type ExamProgress = Partial<Record<
+  "reading" | "listening" | "speaking" | "writing",
+  { date: string; band: number }[]
+>>;
+
+// ---------------------------------------------------------------------------
+// Writing exam (GOA-053 backend, surfaced by GOA-058)
+// ---------------------------------------------------------------------------
+
+/**
+ * One underlined span inside the candidate's response.
+ *
+ * These field names are the writing service's, not the chat path's: the service
+ * emits `issue_type`/`start_char`/`end_char` (services/writing/app/schemas.py)
+ * whereas lib/writing-api.ts models the older `issue`/`start`/`end` shape used
+ * by the chat evaluation stream. They are mapped onto EssayHighlighter's shape
+ * by `toEssayIssues` in lib/writing-exam.ts rather than being renamed on either
+ * side, because the chat path (GOA-043) is unit-tested against its own shape.
+ *
+ * Offsets are computed server-side by exact substring search against the
+ * submitted text (services/writing/app/agents.py `_annotate_issues`), so they
+ * are only valid against the response text exactly as it was submitted.
+ */
+export interface WritingInlineIssue {
+  text: string;
+  issue_type: string;
+  suggestion: string;
+  start_char: number;
+  end_char: number;
+}
+
+export interface WritingCriterionEvaluation {
+  criterion: "task_response" | "cohesion" | "vocabulary" | "grammar";
+  band_score: number;
+  feedback: string;
+  improvement_tip?: string;
+  word_count?: number;
+  inline_issues: WritingInlineIssue[];
+}
+
+/**
+ * Response to a single-task writing submit.
+ *
+ * `status` is "task_submitted" while only one task has landed and "submitted"
+ * once both have — the exam service deliberately leaves the session
+ * `in_progress` after Task 1 so the timer keeps running and Task 2 stays
+ * submittable.
+ */
+export interface WritingSubmitResponse {
+  session_id: string;
+  task_number: number;
+  status: "task_submitted" | "submitted";
+  overall_band: number;
+  word_count: number;
+  penalty_flag: boolean;
+  evaluations?: WritingCriterionEvaluation[];
+}
+
+export interface WritingTaskResult {
+  response_text: string;
+  word_count: number;
+  penalty_flag: boolean;
+  evaluation: {
+    evaluations?: WritingCriterionEvaluation[];
+    overall_band?: number;
+  };
+}
+
+/**
+ * Writing's result payload. Note it does NOT match ExamResultResponse — the
+ * exam service branches to `_get_writing_result`, which returns a weighted
+ * `overall_band` plus both task records instead of raw_score/band_score.
+ */
+export interface WritingResultResponse {
+  session_id: string;
+  user_id: string;
+  skill_area: string;
+  overall_band: number;
+  tasks: Record<string, WritingTaskResult>;
+}
+
 export async function createSession(
-  userId: string,
   examType: ExamType,
   skillArea: SkillArea,
 ): Promise<CreateSessionResponse> {
@@ -87,10 +167,24 @@ export async function createSession(
     method: "POST",
     headers,
     body: JSON.stringify({
-      user_id: userId,
       exam_type: mapExamType(examType),
       skill_area: mapSkillArea(skillArea),
     }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+
+  return response.json();
+}
+
+/** The Gateway derives the user identity from the HttpOnly-cookie JWT. */
+export async function getExamProgress(): Promise<ExamProgress> {
+  const response = await fetch(`${API_BASE}/progress`, {
+    ...fetchOptions,
+    headers,
+    cache: "no-store",
   });
 
   if (!response.ok) {
@@ -127,6 +221,69 @@ export async function submitSession(
     body: JSON.stringify({
       answers,
     }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+
+  return response.json();
+}
+
+/**
+ * Submit one Writing task for immediate evaluation.
+ *
+ * Deliberately separate from `submitSession` rather than an extra optional
+ * argument on it. The generic helper posts `{ answers }` and is used by the
+ * Reading and Speaking paths; widening its contract so one caller can also send
+ * `task_number`/`essay_text` would make a shared function's shape depend on who
+ * is calling it.
+ *
+ * The exam service requires `task_number` and `essay_text` at the top level of
+ * the body — not inside `answers` — and rejects the call with 400 otherwise
+ * (SubmitAnswersRequest, services/exam/app/schemas/exam_session.py). `answers`
+ * is still a required field on that model, hence the empty object.
+ *
+ * Submitting the same task twice is safe: the response row is UPSERTed on
+ * (session_id, task_number) and its stale evaluation cleared.
+ */
+export async function submitWritingTask(
+  sessionId: string,
+  taskNumber: 1 | 2,
+  essayText: string,
+): Promise<WritingSubmitResponse> {
+  const response = await fetch(`${API_BASE}/sessions/${sessionId}/submit`, {
+    ...fetchOptions,
+    method: "PUT",
+    headers,
+    body: JSON.stringify({
+      answers: {},
+      task_number: taskNumber,
+      essay_text: essayText,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+
+  return response.json();
+}
+
+/**
+ * Fetch the combined, weighted Writing result.
+ *
+ * Only valid once BOTH tasks have been submitted — the exam service returns 404
+ * while fewer than two response rows exist, which is why the Task 1 card is fed
+ * from the submit response instead of from here.
+ */
+export async function getWritingResult(
+  sessionId: string,
+): Promise<WritingResultResponse> {
+  const response = await fetch(`${API_BASE}/sessions/${sessionId}/result`, {
+    ...fetchOptions,
+    headers,
+    cache: "no-store",
   });
 
   if (!response.ok) {

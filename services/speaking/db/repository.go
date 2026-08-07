@@ -30,8 +30,11 @@ type SpeakingSession struct {
 	QuestionType   string          `json:"question_type"`
 	Transcript     string          `json:"transcript"`
 	Evaluation     json.RawMessage `json:"evaluation"` // JSONB raw bytes
-	OverallBand    float64         `json:"overall_band"`
-	CreatedAt      time.Time       `json:"created_at"`
+	// Nullable: a session where fewer than 3 of the 4 criteria completed has no
+	// meaningful overall band, and 0.0 would be indistinguishable from a real
+	// score of zero (GOA-032, BUG-040). Migration 003 drops the NOT NULL.
+	OverallBand *float64  `json:"overall_band"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 // SpeakingSessionSummary is the lightweight projection used for session
@@ -42,7 +45,7 @@ type SpeakingSessionSummary struct {
 	ID             string    `json:"id"`
 	QuestionPrompt string    `json:"question_prompt"`
 	QuestionType   string    `json:"question_type"`
-	OverallBand    float64   `json:"overall_band"`
+	OverallBand    *float64  `json:"overall_band"`
 	CreatedAt      time.Time `json:"created_at"`
 }
 

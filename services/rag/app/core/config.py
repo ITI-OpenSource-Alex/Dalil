@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     AWS_ENDPOINT_URL: Optional[str] = None
     AWS_ACCESS_KEY_ID: Optional[str] = None
     AWS_SECRET_ACCESS_KEY: Optional[str] = None
-    SQS_QUEUE_NAME: str = "user-events"
+    SQS_QUEUE_NAME: str = "user-events-rag"
 
 
     embedding_base_url: str = 'http://host.docker.internal:11434/v1'

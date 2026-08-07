@@ -21,20 +21,29 @@ import { streamWritingEvaluation, WritingEvent } from "@/lib/writing-stream";
 // imported, so the frontend did not compile; that arrived on dev with the
 // inline-feedback work and is not something this branch introduced.
 import type { CriterionEvaluation } from "@/lib/writing-api";
-import { SpeakingEvaluationResult } from "@/app/types/speaking";
+import {
+  SpeakingDimensions,
+  SpeakingEvaluationResult,
+} from "@/app/types/speaking";
 import { extractCriteriaScores } from "@/lib/speaking-format";
 import { CURRENT_USER_ID } from "@/lib/current-user";
 import { getChatSessionId, startNewChatSession } from "@/lib/chat-session";
+import { useCurrentUser } from "@/app/hooks/useCurrentUser";
+import InlineAlert from "@/components/speaking/inline-alert";
 
-// The speaking service is reached directly from the browser — same rationale
-// as lib/speaking-api.ts, which notes there's no gateway route for it. Derive
-// the WebSocket origin from that same env var so one setting moves both the
-// REST and WS endpoints together. http -> ws, https -> wss.
+// GOA-132: the speaking socket now goes through the Gateway like every other
+// browser call, so it picks up JWT validation at upgrade time, rate limiting
+// and a correlation ID. NEXT_PUBLIC_SPEAKING_API_URL is gone — it pointed the
+// browser straight at :8082, which had none of those.
+//
+// Derived from the single Gateway URL so the two cannot drift. http -> ws,
+// https -> wss. Orchestration also emits this URL on the speaking_url event;
+// this constant is the fallback when the socket is opened without a chat turn.
 const SPEAKING_WS_URL =
-  (process.env.NEXT_PUBLIC_SPEAKING_API_URL ?? "http://localhost:8082").replace(
+  (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080").replace(
     /^http/,
     "ws",
-  ) + "/ws";
+  ) + "/api/speaking/ws";
 
 // Chat goes through the Gateway. These two calls used relative paths, i.e. to
 // the Next.js server itself, where no route handler was ever written — both
@@ -45,11 +54,25 @@ const SPEAKING_WS_URL =
 const CHAT_API_BASE = `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080"}/api`;
 
 export type Opportunity = {
+  // Present on every row RAG's /match returns (services/rag/app/services/scoring.py)
+  // and passed through orchestration's match_results event unchanged, but this type
+  // never declared it — GOA-035's "Get Checklist" entry point needs it to link to
+  // /checklist/:programId.
+  programId: string;
   programName: string;
   university: string;
   country: string;
   deadline: string;
-  confidence: number; // 0 to 1
+  // The real /match response nests the score under `result.score` on a 0-100
+  // scale (services/rag/app/services/scoring.py's match_programs) -- this type
+  // previously declared a flat `confidence: number` on a 0-1 scale that never
+  // matched any real field name, so every card rendered "NaN% Match" (masked
+  // until now by an unrelated SSE-parsing bug that prevented match_results
+  // from ever reaching the UI at all).
+  result: {
+    score: number;
+    blocked_by: string | null;
+  };
 };
 
 export type Message = {
@@ -73,7 +96,7 @@ export default function ChatShell() {
       id: "welcome",
       role: "assistant",
       content:
-        "Hi Lina 👋 I've loaded your profile (CGPA 3.45, IELTS 6). Where would you like to start?",
+        "Hi 👋 I can help you find Master's programs, build an application checklist, or practise IELTS — where would you like to start?",
     },
   ]);
   const speakingSocket = useRef<SpeakingWebSocket | null>(null);
@@ -97,7 +120,23 @@ export default function ChatShell() {
   useEffect(() => {
     setSessionId(getChatSessionId());
   }, []);
-  const [userId] = useState(CURRENT_USER_ID);
+  // GOA-035/BUG-047: userId comes from the authenticated profile, falling
+  // back to CURRENT_USER_ID only until it resolves (or if it errors) -- see
+  // lib/current-user.ts.
+  //
+  // The session id deliberately stays GOA-038's sessionStorage value rather
+  // than being derived from userId as `chat-${userId}`: startNewChatSession()
+  // below has to mint a fresh conversation for the same user, which a value
+  // derived from identity alone cannot express.
+  const {
+    user,
+    status: profileStatus,
+    error: profileError,
+    retry: retryProfile,
+  } = useCurrentUser();
+  const identityLoading =
+    profileStatus === "loading" || profileStatus === "idle";
+  const userId = user?.id ?? CURRENT_USER_ID;
   const [memoryNotice, setMemoryNotice] = useState<string | null>(null);
   const [forgetting, setForgetting] = useState(false);
   const speakingQuestion = {
@@ -119,6 +158,11 @@ export default function ChatShell() {
   );
   const [chatMode, setChatMode] = useState<ChatMode>("chat");
   const [writingLoading, setWritingLoading] = useState(false);
+  // Surfaces both an SSE-stream "error" event from the writing service and a
+  // failure to even open the stream (e.g. an auth/subscription rejection
+  // from the Gateway) -- previously either case only reached console.error,
+  // leaving writingLoading stuck true with nothing visible to the user.
+  const [writingError, setWritingError] = useState<string | null>(null);
   const [writingEvaluations, setWritingEvaluations] = useState<
     Record<
       string,
@@ -158,14 +202,36 @@ export default function ChatShell() {
         });
         if (res.ok) {
           const history = await res.json();
-          if (history && history.length > 0) {
-            setMessages(
-              history.map((h: any, idx: number) => ({
-                id: `hist-${idx}`,
-                role: h.role,
-                content: h.content,
-              })),
-            );
+
+          // doc 10: history was assumed to always be an array of
+          // {role, content} entries and mapped over unguarded -- a
+          // non-array 200 response (or a malformed entry within an
+          // otherwise-valid array) threw during render instead of
+          // degrading gracefully. Malformed entries are skipped
+          // individually rather than passed through with undefined
+          // role/content, so one bad entry doesn't blank out an
+          // otherwise-good history.
+          if (Array.isArray(history)) {
+            const validMessages: Message[] = [];
+
+            history.forEach((h: unknown, idx: number) => {
+              const entry = h as { role?: unknown; content?: unknown } | null;
+              if (
+                entry &&
+                (entry.role === "user" || entry.role === "assistant") &&
+                typeof entry.content === "string"
+              ) {
+                validMessages.push({
+                  id: `hist-${idx}`,
+                  role: entry.role,
+                  content: entry.content,
+                });
+              }
+            });
+
+            if (validMessages.length > 0) {
+              setMessages(validMessages);
+            }
           }
         }
       } catch (err) {
@@ -361,8 +427,10 @@ export default function ChatShell() {
             role: "assistant",
             content: "Speaking evaluation completed.",
             evaluation: {
-              overallScore: evaluation.overall_band,
-              criteria: extractCriteriaScores(evaluation.dimensions),
+              overallScore: evaluation.overall_band ?? null,
+              criteria: extractCriteriaScores(
+                evaluation.dimensions as SpeakingDimensions,
+              ),
               feedback: evaluation.overall_feedback,
             },
           },
@@ -439,9 +507,23 @@ export default function ChatShell() {
 
       case "writing_url":
         setWritingLoading(true);
+        setWritingError(null);
 
+        // Failing to even open the stream (e.g. a 401 from the Gateway when
+        // the auth cookie or subscription tier doesn't clear) is otherwise a
+        // dead end -- the panel is left spinning forever with nothing but a
+        // console log. Reset the loading flag and surface it the same way an
+        // in-stream "error" event does (see handleWritingEvent above).
         streamWritingEvaluation(event.sseUrl, handleWritingEvent).catch(
-          console.error,
+          (err) => {
+            console.error(err);
+            setWritingLoading(false);
+            setWritingError(
+              err instanceof Error
+                ? err.message
+                : "Something went wrong while evaluating your essay. Please try again.",
+            );
+          },
         );
 
         break;
@@ -505,6 +587,7 @@ export default function ChatShell() {
         console.error(event.error);
 
         setWritingLoading(false);
+        setWritingError(event.error);
 
         break;
     }
@@ -605,6 +688,7 @@ export default function ChatShell() {
     setInlineIssues([]);
     setSubmittedEssay(essay);
     setImprovedEssay(undefined);
+    setWritingError(null);
 
     await handleSendMessage(essay);
   };
@@ -682,7 +766,11 @@ export default function ChatShell() {
         <div>
           <h1 className="text-lg font-bold text-[#0D3820]">GOA Assistant</h1>
           <p className="text-xs text-[#526053]">
-            Lina Ahmadi • CGPA 3.45 • IELTS 6
+            {profileStatus === "success" && user
+              ? user.email
+              : identityLoading
+                ? "Loading your profile…"
+                : "Not signed in"}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -760,19 +848,35 @@ export default function ChatShell() {
             setSpeakingError(null);
           }}
         />
+        {profileStatus === "error" && (
+          <div className="mb-3">
+            <InlineAlert
+              title="Couldn't load your profile"
+              description={
+                profileError ??
+                "Chat will keep using a placeholder identity until this is retried."
+              }
+              onRetry={retryProfile}
+            />
+          </div>
+        )}
         {chatMode === "chat" ? (
           <ChatInput
             onSendMessage={handleSendMessage}
             onOpenSpeaking={() => setSpeakingOpen(true)}
             onOpenWriting={() => setChatMode("writing")}
             activePractice={activePractice}
+            disabled={identityLoading}
           />
         ) : (
           <div className="space-y-4">
             <EssayComposer
               loading={writingLoading}
               onSubmit={handleEssaySubmit}
-              onCancel={() => setChatMode("chat")}
+              onCancel={() => {
+                setChatMode("chat");
+                setWritingError(null);
+              }}
             />
 
             <WritingEvaluationPanel
@@ -783,6 +887,7 @@ export default function ChatShell() {
               essayText={submittedEssay}
               improvedEssay={improvedEssay}
               isPaidTier={isPaidTier}
+              error={writingError}
             />
           </div>
         )}

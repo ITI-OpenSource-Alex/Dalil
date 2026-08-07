@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useExamTimer } from "@/app/hooks/useExamTimer";
 import { ExamType, SkillArea, ExamStatus } from "@/app/types/exam";
 import { getSession, sendHeartbeat, submitSession } from "@/lib/exam-api";
+import { extractRawQuestions } from "@/lib/reading-api";
 
 // Well inside the backend's 10-minute grace window, so several consecutive
 // failures are survivable.
@@ -394,7 +395,9 @@ function ExamShellContent() {
                   sessionId={sessionId}
                   audioUrls={listeningAudioUrls}
                   rawQuestions={
-                    session.questions as unknown as RawReadingQuestion[]
+                    extractRawQuestions(
+                      session,
+                    ) as unknown as RawReadingQuestion[]
                   }
                   onSubmitted={handleListeningSubmitted}
                 />

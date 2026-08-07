@@ -121,41 +121,46 @@ const SESSION_RESPONSE = {
 };
 
 function buildListeningSubmitResponse(answers: Record<string, string>) {
-  const sectionScores: Record<string, string> = {};
+  // Shape must match ListeningSubmitResponse / the real exam service grade
+  // payload — ReadingResultsView (reused for Listening) reads
+  // per_question_result + section_breakdown, not the older section_scores /
+  // results fields.
+  const per_question_result: Record<
+    string,
+    { submitted_answer: string; correct_answer: string; is_correct: boolean }
+  > = {};
+  const section_breakdown: Record<string, { correct: number; total: number }> =
+    {};
+
   for (let section = 1; section <= 4; section++) {
-    const start = (section - 1) * SECTION_QUESTION_COUNT + 1;
-    let correct = 0;
-    for (let n = start; n < start + SECTION_QUESTION_COUNT; n++) {
-      if (answers[String(n)] === `answer-${n}`) correct++;
-    }
-    sectionScores[`section_${section}`] =
-      `${correct}/${SECTION_QUESTION_COUNT}`;
+    section_breakdown[`section_${section}`] = {
+      correct: 0,
+      total: SECTION_QUESTION_COUNT,
+    };
   }
 
-  // Deliberately make sentence_completion the (only, hence weakest)
-  // question type, with a couple of misses, so the breakdown has something
-  // meaningful to highlight.
-  const totalCorrect = Object.values(answers).filter(
-    (v, i) => v === `answer-${i + 1}`,
-  ).length;
+  let totalCorrect = 0;
+  for (const question of LISTENING_QUESTIONS) {
+    const key = String(question.number);
+    const submitted = answers[key] ?? "";
+    const isCorrect = submitted === question.correct_answer;
+    if (isCorrect) totalCorrect++;
+
+    per_question_result[key] = {
+      submitted_answer: submitted,
+      correct_answer: String(question.correct_answer),
+      is_correct: isCorrect,
+    };
+
+    const sectionKey = `section_${question.section_number}`;
+    if (isCorrect) section_breakdown[sectionKey].correct++;
+  }
 
   return {
     band_score: 6.0,
     raw_score: totalCorrect,
-    section_scores: sectionScores,
-    question_type_breakdown: {
-      sentence_completion: {
-        correct: totalCorrect,
-        total: LISTENING_QUESTIONS.length,
-        weakest: true,
-      },
-    },
-    results: LISTENING_QUESTIONS.map((q) => ({
-      number: q.number,
-      correct: answers[String(q.number)] === q.correct_answer,
-      user_answer: answers[String(q.number)] ?? null,
-      correct_answer: q.correct_answer,
-    })),
+    per_question_result,
+    section_breakdown,
   };
 }
 
@@ -198,19 +203,33 @@ async function mockListeningBackend(page: Page) {
 }
 
 async function gotoListeningExam(page: Page) {
-  await page.goto(`/exam/shell?session=${SESSION_ID}`);
-  await expect(page.getByText("Section 1 of 4")).toBeVisible();
+  // domcontentloaded avoids hanging on Next.js "load" when the first shell
+  // compile / HMR interrupts the document (ERR_ABORTED under waitUntil:load).
+  await page.goto(`/exam/shell?session=${SESSION_ID}`, {
+    waitUntil: "domcontentloaded",
+  });
+  await expect(page.getByText("Section 1 of 4")).toBeVisible({
+    timeout: 30_000,
+  });
 }
 
-async function clickPlayPauseIfReady(page: Page) {
+async function ensureAudioPlaying(page: Page) {
   const playPause = page.getByTestId("locked-audio-play-pause");
+  const playing = page.getByText("Playing", { exact: true });
   await playPause.waitFor({ state: "visible" });
-  if (await playPause.isEnabled()) {
-    const isReady = await page.getByText("Ready to play").isVisible();
-    if (isReady) {
-      await playPause.click();
-    }
+
+  // Autoplay may still be in flight. Waiting first avoids the race where we
+  // see "Ready to play", autoplay then succeeds, and our click toggles it
+  // straight back to paused.
+  try {
+    await playing.waitFor({ state: "visible", timeout: 2_000 });
+    return;
+  } catch {
+    // Autoplay was blocked — fall through to the explicit control.
   }
+
+  await playPause.click();
+  await expect(playing).toBeVisible();
 }
 
 /** The active section's <audio> element, addressed the same way
@@ -226,18 +245,43 @@ async function endActiveSectionAudio(page: Page) {
   });
 }
 
+/**
+ * Advance the 30s inter-section silence gap.
+ *
+ * Must use `runFor`, not `fastForward`: Playwright's fastForward only fires
+ * each due timer at most once ("laptop lid" semantics), so a 30s jump would
+ * tick the 1Hz silence interval a single time. `runFor` fires every interval
+ * callback as time passes. Also: clock strings like "31s" are invalid —
+ * only numbers, `mm:ss`, and `hh:mm:ss` are accepted.
+ */
+async function advanceSilenceGap(page: Page, ms = 30_000) {
+  await page.clock.runFor(ms);
+}
+
+async function installPausedClock(page: Page) {
+  // Let the page load with a living clock, then pause so silence-gap tests
+  // can advance time manually. Installing already-paused (bare install())
+  // can stall Next.js hydration that depends on rAF/timers.
+  const start = new Date("2024-01-01T12:00:00Z");
+  await page.clock.install({ time: start });
+  await gotoListeningExam(page);
+  await page.clock.pauseAt(new Date(start.getTime() + 1_000));
+}
+
 test.describe("GOA Listening exam (mocked backend)", () => {
+  // First hit of /exam/shell often pays for a cold Next compile; keep headroom
+  // above the default 30s so a slow webServer does not flake the suite.
+  test.describe.configure({ timeout: 60_000 });
+
   test("audio plays, section 1 ends, and Next Section appears", async ({
     page,
   }) => {
     await mockListeningBackend(page);
     await gotoListeningExam(page);
 
-    // Autoplay may be blocked by the browser without a prior user gesture;
-    // fall back to the visible control exactly as a candidate would, then
-    // confirm playback state is reflected in the UI either way.
-    await clickPlayPauseIfReady(page);
-    await expect(page.getByText("Playing")).toBeVisible();
+    // Autoplay may be blocked without a prior gesture; ensureAudioPlaying
+    // waits for autoplay first, then clicks Play only if still idle.
+    await ensureAudioPlaying(page);
 
     await endActiveSectionAudio(page);
 
@@ -249,8 +293,7 @@ test.describe("GOA Listening exam (mocked backend)", () => {
     page,
   }) => {
     await mockListeningBackend(page);
-    await page.clock.install();
-    await gotoListeningExam(page);
+    await installPausedClock(page);
 
     await endActiveSectionAudio(page);
     await expect(page.getByTestId("next-section-button")).toBeVisible();
@@ -262,14 +305,15 @@ test.describe("GOA Listening exam (mocked backend)", () => {
 
     await page.getByTestId("next-section-button").click();
     await expect(page.getByTestId("silence-countdown")).toBeVisible();
-    await expect(page.getByTestId("silence-countdown")).toContainText("0:30");
+    await expect(page.getByTestId("silence-countdown")).toContainText("00:30");
 
     // Partway through the gap, still not on section 2 yet.
-    await page.clock.fastForward(15_000);
+    await advanceSilenceGap(page, 15_000);
     await expect(page.getByText("Section 1 of 4")).toBeVisible();
+    await expect(page.getByTestId("silence-countdown")).toContainText("00:15");
 
-    // Advance remaining 16s (total 31s) to complete the gap.
-    await page.clock.fastForward(16_000);
+    // Finish the remaining 15s — the tick that reaches 0 starts section 2.
+    await advanceSilenceGap(page, 15_000);
     await expect(page.getByText("Section 2 of 4")).toBeVisible();
   });
 
@@ -278,7 +322,7 @@ test.describe("GOA Listening exam (mocked backend)", () => {
   }) => {
     await mockListeningBackend(page);
     await gotoListeningExam(page);
-    await clickPlayPauseIfReady(page);
+    await ensureAudioPlaying(page);
 
     // The progress indicator is read-only: it has no slider role and is
     // marked pointer-events: none, so a drag/click on it must not move
@@ -314,8 +358,7 @@ test.describe("GOA Listening exam (mocked backend)", () => {
     page,
   }) => {
     const backend = await mockListeningBackend(page);
-    await page.clock.install();
-    await gotoListeningExam(page);
+    await installPausedClock(page);
 
     await page
       .getByTestId("listening-scratch-pad")
@@ -328,14 +371,14 @@ test.describe("GOA Listening exam (mocked backend)", () => {
 
     await endActiveSectionAudio(page);
     await page.getByTestId("next-section-button").click();
-    await page.clock.fastForward("31s");
+    await advanceSilenceGap(page);
     await expect(page.getByText("Section 2 of 4")).toBeVisible();
 
     // Section 1's answer must have survived the transition even though
     // it's no longer the active section.
     await endActiveSectionAudio(page);
     await page.getByTestId("next-section-button").click();
-    await page.clock.fastForward("31s");
+    await advanceSilenceGap(page);
     await expect(page.getByText("Section 3 of 4")).toBeVisible();
 
     await page
@@ -344,7 +387,7 @@ test.describe("GOA Listening exam (mocked backend)", () => {
 
     await endActiveSectionAudio(page);
     await page.getByTestId("next-section-button").click();
-    await page.clock.fastForward("31s");
+    await advanceSilenceGap(page);
     await expect(page.getByText("Section 4 of 4")).toBeVisible();
 
     await page
@@ -388,8 +431,7 @@ test.describe("GOA Listening exam (mocked backend)", () => {
     page,
   }) => {
     await mockListeningBackend(page);
-    await page.clock.install();
-    await gotoListeningExam(page);
+    await installPausedClock(page);
 
     // Answer every question correctly so section scores are all full marks
     // except we deliberately leave section 3 short by one to exercise a
@@ -406,7 +448,7 @@ test.describe("GOA Listening exam (mocked backend)", () => {
       await endActiveSectionAudio(page);
       if (section < 4) {
         await page.getByTestId("next-section-button").click();
-        await page.clock.fastForward("31s");
+        await advanceSilenceGap(page);
       }
     }
 

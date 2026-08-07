@@ -178,6 +178,15 @@ resource "aws_iam_role_policy" "staging_deploy" {
         Resource = local.github_deploy_ecs_service_arns["staging"]
       },
       {
+        Sid    = "ReadStagingDeployMetrics"
+        Effect = "Allow"
+        Action = [
+          "cloudwatch:GetMetricData",
+          "cloudwatch:GetMetricStatistics",
+        ]
+        Resource = "*"
+      },
+      {
         # Task-definition registration and lookup require wildcard resources.
         Sid      = "ManageTaskDefinitions"
         Effect   = "Allow"
@@ -283,10 +292,35 @@ resource "aws_iam_role_policy" "production_deploy" {
         Resource = local.github_deploy_ecr_repository_arns["production"]
       },
       {
+        Sid    = "ReadStagingImagesForPromotion"
+        Effect = "Allow"
+        Action = [
+          "ecr:BatchGetImage",
+          "ecr:DescribeImages",
+          "ecr:GetDownloadUrlForLayer",
+        ]
+        Resource = local.github_deploy_ecr_repository_arns["staging"]
+      },
+      {
         Sid      = "UpdateProductionServices"
         Effect   = "Allow"
         Action   = ["ecs:UpdateService", "ecs:DescribeServices"]
         Resource = local.github_deploy_ecs_service_arns["production"]
+      },
+      {
+        Sid      = "ReadStagingServicesForPromotion"
+        Effect   = "Allow"
+        Action   = ["ecs:DescribeServices"]
+        Resource = local.github_deploy_ecs_service_arns["staging"]
+      },
+      {
+        Sid    = "ReadProductionDeployMetrics"
+        Effect = "Allow"
+        Action = [
+          "cloudwatch:GetMetricData",
+          "cloudwatch:GetMetricStatistics",
+        ]
+        Resource = "*"
       },
       {
         # GOA-022 (B4): DescribeTaskDefinition was missing here, so the shared

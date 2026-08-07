@@ -1,5 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const baseURL = process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000";
+const useExternalBaseURL = Boolean(process.env.PLAYWRIGHT_BASE_URL);
+
 export default defineConfig({
   // Scoped to test/e2e so Playwright's default *.test.ts matcher doesn't
   // also try to collect the Vitest unit tests under lib/ (e.g.
@@ -9,7 +12,7 @@ export default defineConfig({
 
   /* Set the base URL so relative paths work across all tests */
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL,
     trace: "on-first-retry",
 
     /* Bypasses hardware mic prompts by feeding fake audio devices into the browser context */
@@ -31,11 +34,13 @@ export default defineConfig({
   ],
 
   /* Automatically start Next.js dev server before running tests if not running */
-  webServer: {
-    command: "npm run dev",
-    url: "http://localhost:3000",
-    reuseExistingServer: !process.env.CI,
-    timeout: 120 * 1000,
-  },
+  webServer: useExternalBaseURL
+    ? undefined
+    : {
+        command: "npm run dev",
+        url: baseURL,
+        reuseExistingServer: !process.env.CI,
+        timeout: 120 * 1000,
+      },
 });
 

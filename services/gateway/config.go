@@ -28,6 +28,20 @@ type Config struct {
 	// Chat is proxied rather than called from the browser, so the Gateway needs
 	// to know where Orchestration lives (BUG-029, BUG-044).
 	OrchestrationServiceURL string        `envconfig:"ORCHESTRATION_SERVICE_URL" default:"http://orchestration:8083"`
+	// GOA-132: the Gateway now proxies Speaking's session routes and its
+	// WebSocket, and exposes RAG's profile matching. SpeakingServiceURL is the
+	// http:// address; the ws:// upstream is derived from it in
+	// handlers.NewSpeakingWSHandler so the two cannot drift to different hosts.
+	// The WebSocket proxy also picks up JWT auth, the paid-tier gate and exam
+	// session ownership, none of which the browser's direct connection to
+	// :8082 ever had (GOA-059).
+	//
+	// GOA-084 also uses this for checklist persistence. Its /checklists routes
+	// take no internal API key -- ownership is scoped by X-User-ID alone (see
+	// ChecklistHandler) -- so unlike ExamServiceURL/WritingServiceURL this is
+	// not paired with InternalApiKey.
+	SpeakingServiceURL      string        `envconfig:"SPEAKING_SERVICE_URL" default:"http://speaking:8082"`
+	RAGServiceURL           string        `envconfig:"RAG_SERVICE_URL" default:"http://rag:8084"`
 	UserServiceURL          string        `envconfig:"USER_SERVICE_URL" required:"true"`
 	InternalApiKey          string        `envconfig:"INTERNAL_API_KEY" required:"true"`
 	AdminAPIKey             string        `envconfig:"ADMIN_API_KEY"`
@@ -36,6 +50,12 @@ type Config struct {
 	IngestionQueueURL       string        `envconfig:"INGESTION_QUEUE_URL"`
 	SubscriptionUpgradeURL  string        `envconfig:"SUBSCRIPTION_UPGRADE_URL" default:"/upgrade"`
 	SubscriptionCacheTTL    time.Duration `envconfig:"SUBSCRIPTION_CACHE_TTL" default:"5m"`
+	// Exam sessions a single candidate may open per hour. Sitting a full exam
+	// takes far longer than 20 minutes, so a legitimate candidate never reaches
+	// three; the ceiling exists to stop a loop from draining the question bank's
+	// unseen-question pool and burning grading spend (GOA-059).
+	ExamStartLimitPerHour int           `envconfig:"EXAM_START_LIMIT_PER_HOUR" default:"3"`
+	ExamOwnershipCacheTTL time.Duration `envconfig:"EXAM_OWNERSHIP_CACHE_TTL" default:"5m"`
 	// Comma-separated origin allow-list for CORS. Cannot be "*" because auth
 	// rides on HttpOnly cookies and the spec forbids wildcard + credentials.
 	CORSAllowedOrigins  string  `envconfig:"CORS_ALLOWED_ORIGINS" default:"http://localhost:3000"`
@@ -44,12 +64,23 @@ type Config struct {
 	// which is how the E2E suite and the load test run without weakening the
 	// shipped defaults.
 	ChatQueriesPerHour   int `envconfig:"CHAT_QUERIES_PER_HOUR" default:"20"`
+	// GOA-132: /match runs a scoring pass per program row, each with a potential
+	// LLM boost, so opportunity search is a real spend path rather than a cheap
+	// read and gets the same treatment as chat and essay evaluation.
+	OpportunitySearchesPerHour int `envconfig:"OPPORTUNITY_SEARCHES_PER_HOUR" default:"20"`
 	EssayEvalsPerHour    int `envconfig:"ESSAY_EVALS_PER_HOUR" default:"5"`
 	CVReviewsPerHour     int `envconfig:"CV_REVIEWS_PER_HOUR" default:"5"`
 	BudgetUSD           float64 `envconfig:"BUDGET_USD" default:"150.0"`
 	CostPromptPer1M     float64 `envconfig:"COST_PROMPT_PER_1M" default:"2.0"`
 	CostCompletionPer1M float64 `envconfig:"COST_COMPLETION_PER_1M" default:"10.0"`
 	LLMPricingJSON      string  `envconfig:"LLM_PRICING_JSON" default:"{\"claude-opus-4-8\":{\"prompt_per_1m\":2,\"completion_per_1m\":10},\"glm-5.2\":{\"prompt_per_1m\":6,\"completion_per_1m\":9},\"gpt-5.5\":{\"prompt_per_1m\":7,\"completion_per_1m\":14},\"claude-opus-4-6\":{\"prompt_per_1m\":8,\"completion_per_1m\":40},\"claude-opus-4-7\":{\"prompt_per_1m\":8,\"completion_per_1m\":40}}"`
+
+	// GOA-046 budget guardrail. The threshold is per user per UTC day; the
+	// interval is how often the roll-up is swept. Five minutes is chosen against
+	// the shape of the spend: a single swarm evaluation costs roughly $0.028, so
+	// no realistic burst crosses $1 inside one interval unattended.
+	UserDailyCostAlertUSD float64       `envconfig:"USER_DAILY_COST_ALERT_USD" default:"1.0"`
+	CostMonitorInterval   time.Duration `envconfig:"COST_MONITOR_INTERVAL" default:"5m"`
 }
 
 func LoadConfig() (Config, error) {

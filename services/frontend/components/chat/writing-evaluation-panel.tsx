@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import type { CriterionEvaluation } from "@/lib/writing-api";
 import EssayHighlighter, { EssayIssue } from "./essay-highlighter";
+import InlineAlert from "@/components/speaking/inline-alert";
 
 interface SimpleCriterionScore {
   band: number;
@@ -26,6 +27,8 @@ interface WritingEvaluationPanelProps {
   inlineIssues?: CriterionEvaluation[];
   improvedEssay?: string; // paid tier
   isPaidTier?: boolean;
+  /** Set when the evaluation stream failed to open or errored mid-stream. */
+  error?: string | null;
 }
 
 const labels: Record<string, string> = {
@@ -56,7 +59,7 @@ const BAR_COLOURS: Record<string, string> = {
   grammar: "#FF4D4D",
 };
 
-const DEFAULT_BAR_COLOUR = "#059669"; // emerald-600 fallback
+const DEFAULT_BAR_COLOUR = "var(--color-success)";
 
 function getBarColour(key: string): string {
   const canonical = CRITERION_ALIASES[key] ?? key;
@@ -73,6 +76,7 @@ export default function WritingEvaluationPanel({
   inlineIssues = [],
   improvedEssay,
   isPaidTier = false,
+  error = null,
 }: WritingEvaluationPanelProps) {
   const [essayView, setEssayView] = useState<EssayView>("original");
 
@@ -90,25 +94,33 @@ export default function WritingEvaluationPanel({
       id="writing-evaluation-panel"
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      className="rounded-xl border border-[#E4EAE4] bg-white shadow-sm p-5 space-y-5"
+      className="rounded-xl border border-border bg-surface shadow-sm p-5 space-y-5"
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <PenSquare className="text-emerald-600" size={18} />
-          <h3 className="font-semibold text-[#16351F]">
+          <PenSquare className="text-brand-fg" size={18} aria-hidden="true" />
+          <h2 className="font-semibold text-brand-fg">
             IELTS Writing Evaluation
-          </h3>
+          </h2>
         </div>
 
         <button
           type="button"
+          data-testid="download-pdf-button"
           onClick={() => window.print()}
-          className="print-hide flex items-center gap-1.5 text-xs font-medium text-[#526053] border border-[#E4EAE4] rounded-md px-2.5 py-1.5 hover:bg-[#F5F8F5] transition-colors"
+          className="print-hide flex items-center gap-1.5 text-xs font-medium text-fg-muted border border-border rounded-md px-2.5 py-1.5 hover:bg-canvas-subtle transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted"
         >
-          <Download size={14} />
+          <Download size={14} aria-hidden="true" />
           Download PDF
         </button>
       </div>
+
+      {error && (
+        <InlineAlert
+          title="Essay evaluation failed"
+          description={error}
+        />
+      )}
 
       <div className="space-y-4">
         <AnimatePresence>
@@ -124,7 +136,7 @@ export default function WritingEvaluationPanel({
                 className="space-y-2"
               >
                 <div className="flex justify-between">
-                  <span className="text-sm font-medium text-[#1D291E]">
+                  <span className="text-sm font-medium text-fg">
                     {labels[key] ?? key}
                   </span>
 
@@ -133,7 +145,7 @@ export default function WritingEvaluationPanel({
                   </span>
                 </div>
 
-                <div className="h-2 rounded-full bg-[#EEF2EE] overflow-hidden">
+                <div className="h-2 rounded-full bg-canvas-inset overflow-hidden">
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{
@@ -145,7 +157,7 @@ export default function WritingEvaluationPanel({
                   />
                 </div>
 
-                <p className="text-xs text-[#667267] leading-relaxed">
+                <p className="text-xs text-fg-muted leading-relaxed">
                   {value.feedback}
                 </p>
               </motion.div>
@@ -155,7 +167,7 @@ export default function WritingEvaluationPanel({
       </div>
 
       {loading && (
-        <div className="text-sm text-[#6C7A6E] animate-pulse">
+        <div className="text-sm text-fg-muted animate-pulse">
           Evaluating essay...
         </div>
       )}
@@ -164,43 +176,51 @@ export default function WritingEvaluationPanel({
         <motion.div
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="border-t pt-4 flex items-center justify-between"
+          className="border-t border-border pt-4 flex items-center justify-between"
         >
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="text-emerald-600" size={18} />
+            <CheckCircle2 className="text-success-fg" size={18} aria-hidden="true" />
             <span className="font-semibold">Estimated Overall Band</span>
           </div>
 
-          <span className="text-xl font-bold text-emerald-700">
+          <span className="text-xl font-bold text-success-fg">
             {overallBand.toFixed(1)}
           </span>
         </motion.div>
       )}
 
       {essayText && (
-        <div className="border-t pt-4 space-y-3">
+        <div className="border-t border-border pt-4 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <FileText className="text-[#526053]" size={16} />
-              <span className="text-sm font-semibold text-[#1D291E]">
+              <FileText className="text-fg-muted" size={16} aria-hidden="true" />
+              <span className="text-sm font-semibold text-fg">
                 Essay with Inline Highlights
               </span>
             </div>
 
-            <div className="print-hide flex items-center rounded-md border border-[#E4EAE4] p-0.5 text-xs">
+            <div
+              className="print-hide flex items-center rounded-md border border-border p-0.5 text-xs"
+              role="tablist"
+              aria-label="Essay view"
+            >
               <button
                 type="button"
+                role="tab"
+                aria-selected={essayView === "original"}
                 onClick={() => setEssayView("original")}
-                className={`px-2.5 py-1 rounded ${
+                className={`px-2.5 py-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted ${
                   essayView === "original"
-                    ? "bg-[#16351F] text-white"
-                    : "text-[#526053] hover:bg-[#F5F8F5]"
+                    ? "bg-brand text-fg-on-brand"
+                    : "text-fg-muted hover:bg-canvas-subtle"
                 }`}
               >
                 Original
               </button>
               <button
                 type="button"
+                role="tab"
+                aria-selected={essayView === "improved" && isPaidTier}
                 onClick={() => isPaidTier && setEssayView("improved")}
                 disabled={!isPaidTier}
                 title={
@@ -208,26 +228,26 @@ export default function WritingEvaluationPanel({
                     ? undefined
                     : "Upgrade to a paid plan to unlock the improved essay"
                 }
-                className={`flex items-center gap-1 px-2.5 py-1 rounded ${
+                className={`flex items-center gap-1 px-2.5 py-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted ${
                   essayView === "improved" && isPaidTier
-                    ? "bg-[#16351F] text-white"
-                    : "text-[#A2ADA3] cursor-not-allowed"
+                    ? "bg-brand text-fg-on-brand"
+                    : "text-fg-subtle cursor-not-allowed"
                 }`}
               >
-                {!isPaidTier && <Lock size={11} />}
+                {!isPaidTier && <Lock size={11} aria-hidden="true" />}
                 Improved
               </button>
             </div>
           </div>
 
-          <div className="max-h-72 overflow-y-auto rounded-md border border-[#E4EAE4] bg-[#FAFBF9] p-3">
+          <div className="max-h-72 overflow-y-auto rounded-md border border-border bg-canvas-subtle p-3">
             {essayView === "improved" && canShowImproved ? (
               <div className="space-y-2">
-                <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-700">
-                  <Sparkles size={12} />
+                <div className="flex items-center gap-1.5 text-xs font-medium text-brand-fg">
+                  <Sparkles size={12} aria-hidden="true" />
                   Improved version
                 </div>
-                <p className="text-sm text-[#1D291E] leading-relaxed whitespace-pre-wrap">
+                <p className="text-sm text-fg leading-relaxed whitespace-pre-wrap">
                   {improvedEssay}
                 </p>
               </div>

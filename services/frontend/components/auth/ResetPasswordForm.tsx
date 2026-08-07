@@ -1,100 +1,143 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, CheckCircle } from "lucide-react";
+import { ArrowRight, CheckCircle2, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
-import api from "@/lib/api";
+import { useRouter } from "next/navigation";
+import { authApi, apiErrorMessage } from "@/lib/api";
+import { Alert, Button, Field, Icon, Input } from "@/components/ui";
 
-export default function ResetPasswordForm() {
-  const [email, setEmail] = useState("");
-  const [error, setError] = useState("");
+/**
+ * The token-confirm step: reads `token` from the URL and calls
+ * POST /auth/reset-password with { token, newPassword } (the DTO at
+ * services/user/src/users/dto/reset-password.dto.ts). Previously no page in
+ * the app consumed this endpoint at all.
+ */
+export default function ResetPasswordForm({ token }: { token: string | null }) {
+  const router = useRouter();
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<{ password?: string; confirmPassword?: string }>({});
+  const [formError, setFormError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
+  const [done, setDone] = useState(false);
+
+  if (!token) {
+    return (
+      <Alert tone="danger" announce="none" title="This link is invalid">
+        Password reset links are single-use and only valid for a limited
+        time. Request a new one to continue.
+        <div className="mt-3">
+          <Link
+            href="/forgot-password"
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-danger-fg hover:underline"
+          >
+            Request a new link
+            <Icon icon={ArrowRight} size="xs" />
+          </Link>
+        </div>
+      </Alert>
+    );
+  }
+
+  if (done) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-4 text-center" role="status">
+        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-success-subtle text-success">
+          <Icon icon={CheckCircle2} size="lg" />
+        </span>
+        <p className="text-base font-semibold text-fg">Password updated</p>
+        <p className="text-sm leading-6 text-fg-muted">Taking you to sign in&hellip;</p>
+      </div>
+    );
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError("");
-    setLoading(true);
+    setFormError(null);
 
+    const nextFieldErrors: typeof fieldErrors = {};
+    if (password.length < 6) {
+      nextFieldErrors.password = "Password must be at least 6 characters.";
+    }
+    if (password !== confirmPassword) {
+      nextFieldErrors.confirmPassword = "Passwords do not match.";
+    }
+    setFieldErrors(nextFieldErrors);
+    if (Object.keys(nextFieldErrors).length > 0) return;
+
+    setLoading(true);
     try {
-      await api.post("/auth/reset-password", { email });
-      setSent(true);
-    } catch {
-      setError("Something went wrong. Please try again.");
+      await authApi.resetPassword(token as string, password);
+      setDone(true);
+      setTimeout(() => router.push("/login"), 1400);
+    } catch (err) {
+      const message = apiErrorMessage(err);
+      // A 400/401 here almost always means the token expired or was already
+      // used -- distinguishing that from a generic failure is worth doing
+      // since the fix ("request a new link") is different from "try again".
+      setFormError(
+        message ??
+          "This link has expired or was already used. Request a new one and try again.",
+      );
     } finally {
       setLoading(false);
     }
   }
 
-  if (sent) {
-    return (
-      <div className="flex flex-col items-center gap-4 py-4 text-center">
-        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100">
-          <CheckCircle className="h-7 w-7 text-emerald-700" />
-        </div>
-        <h2 className="text-lg font-semibold text-slate-900">Check your inbox</h2>
-        <p className="text-sm leading-6 text-slate-500">
-          We&apos;ve sent a password reset link to{" "}
-          <span className="font-medium text-slate-700">{email}</span>. It may
-          take a minute to arrive.
-        </p>
-        <Link
-          href="/login"
-          className="mt-2 inline-flex items-center gap-2 text-sm font-medium text-emerald-700 transition hover:text-emerald-800"
-        >
-          <ArrowLeft size={14} />
-          Back to sign in
-        </Link>
-      </div>
-    );
-  }
-
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-      {/* Email */}
-      <div className="flex flex-col gap-1.5">
-        <label
-          htmlFor="reset-email"
-          className="text-sm font-medium text-slate-700"
-        >
-          Email
-        </label>
-        <input
-          id="reset-email"
-          type="email"
-          placeholder="you@university.edu"
+    <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
+      <Field label="New password" required hint="At least 6 characters." error={fieldErrors.password}>
+        <Input
+          type={showPassword ? "text" : "password"}
+          name="password"
+          autoComplete="new-password"
           required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+          minLength={6}
+          value={password}
+          onChange={(e) => {
+            setPassword(e.target.value);
+            if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: undefined }));
+          }}
+          trailing={
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              className="rounded-chip p-1 text-fg-subtle transition-colors duration-120 ease-out hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted"
+            >
+              <Icon icon={showPassword ? EyeOff : Eye} size="sm" />
+            </button>
+          }
         />
-      </div>
+      </Field>
 
-      {/* Error */}
-      {error && (
-        <p className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
-          {error}
-        </p>
+      <Field label="Confirm new password" required error={fieldErrors.confirmPassword}>
+        <Input
+          type={showPassword ? "text" : "password"}
+          name="confirmPassword"
+          autoComplete="new-password"
+          required
+          minLength={6}
+          value={confirmPassword}
+          onChange={(e) => {
+            setConfirmPassword(e.target.value);
+            if (fieldErrors.confirmPassword)
+              setFieldErrors((prev) => ({ ...prev, confirmPassword: undefined }));
+          }}
+        />
+      </Field>
+
+      {formError && (
+        <Alert tone="danger" announce="assertive">
+          {formError}
+        </Alert>
       )}
 
-      {/* Submit */}
-      <button
-        type="submit"
-        disabled={loading}
-        id="reset-submit-btn"
-        className="mt-1 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:opacity-60"
-      >
-        {loading ? "Sending…" : "Send reset link"}
-        {!loading && <ArrowRight size={16} />}
-      </button>
-
-      <Link
-        href="/login"
-        className="inline-flex items-center justify-center gap-2 text-sm text-slate-500 transition hover:text-slate-700"
-      >
-        <ArrowLeft size={14} />
-        Back to sign in
-      </Link>
+      <Button type="submit" size="lg" fullWidth loading={loading} trailingIcon={ArrowRight}>
+        Update password
+      </Button>
     </form>
   );
 }

@@ -23,9 +23,9 @@ export default function SectionBreakdownBars({
   return (
     <div
       data-testid="section-breakdown-bars"
-      className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-2xs"
+      className="rounded-2xl border border-border bg-surface p-6 shadow-2xs"
     >
-      <h3 className="mb-4 text-sm font-bold text-gray-900">
+      <h3 className="mb-4 text-sm font-bold text-fg">
         Section Breakdown
       </h3>
 
@@ -40,14 +40,14 @@ export default function SectionBreakdownBars({
           return (
             <div key={key} data-testid={`section-bar-${key}`}>
               <div className="mb-1 flex items-center justify-between text-xs">
-                <span className="font-medium text-gray-700">{label}</span>
-                <span className="font-semibold text-gray-900">
+                <span className="font-medium text-fg-muted">{label}</span>
+                <span className="font-semibold text-fg">
                   {stat.correct}/{stat.total}
                 </span>
               </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
+              <div className="h-2 w-full overflow-hidden rounded-full bg-canvas-inset">
                 <div
-                  className="h-full rounded-full bg-emerald-600 transition-all"
+                  className="h-full rounded-full bg-success transition-all"
                   style={{ width: `${percentage}%` }}
                 />
               </div>

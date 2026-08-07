@@ -22,8 +22,16 @@ services:
       - EXAM_SERVICE_URL=http://exam:8085
       - NOTIFICATION_SERVICE_URL=http://notification:8087
       - ORCHESTRATION_SERVICE_URL=http://orchestration:8083
+      # GOA-132: the Gateway proxies Speaking's session routes and its
+      # WebSocket, and exposes RAG's profile matching at /api/opportunities.
+      # Both are Docker hostnames -- nothing here reaches a browser.
+      - SPEAKING_SERVICE_URL=http://speaking:8082
+      - RAG_SERVICE_URL=http://rag:8084
+      - OPPORTUNITY_SEARCHES_PER_HOUR=${OPPORTUNITY_SEARCHES_PER_HOUR:-20}
       - SUBSCRIPTION_UPGRADE_URL=${SUBSCRIPTION_UPGRADE_URL:-http://localhost:3000/upgrade}
       - SUBSCRIPTION_CACHE_TTL=5m
+      - EXAM_START_LIMIT_PER_HOUR=3
+      - EXAM_OWNERSHIP_CACHE_TTL=5m
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
     volumes:
       - ./services/gateway:/app
@@ -37,6 +45,8 @@ services:
       writing:
         condition: service_healthy
       exam:
+        condition: service_started
+      rag:
         condition: service_started
 
   user-service:
@@ -60,10 +70,11 @@ services:
       - AWS_ACCESS_KEY_ID=test
       - AWS_SECRET_ACCESS_KEY=test
       - AWS_ENDPOINT=http://localstack:4566
-      - SQS_QUEUE_URL=http://localstack:4566/000000000000/user-events
       # GOA-083: auth emails are now published to notification-queue, which the
       # notification service already polls. See services/user/src/sqs/sqs.module.ts.
       - NOTIFICATION_QUEUE_URL=http://localstack:4566/000000000000/notification-queue
+      # GOA-091: user domain events fan out through SNS with raw delivery to
+      # per-service SQS subscriber queues.
       - USER_EVENTS_TOPIC_ARN=arn:aws:sns:us-east-1:000000000000:user-events
 
       - REDIS_HOST=redis-gateway
@@ -99,17 +110,22 @@ services:
       - PYTHONPATH=/app:/packages/contracts/py:/opt/goa
       - OTEL_SERVICE_NAME=writing-service
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-}
+      - ANTHROPIC_BASE_URL=${GOA_LLM_BASE_URL:-${ANTHROPIC_BASE_URL:-}}
       - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
       - LLM_MODEL=${LLM_MODEL:-claude-opus-4-8}
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
       - LANGFUSE_HOST=${LANGFUSE_HOST}
-      - WRITING_MODEL=${WRITING_MODEL:-claude-sonnet-4-6}
-      # AgentRouter serves no channel for haiku ("无可用渠道" / 503), only
-      # claude-opus-4-8. Revert to a cheaper model if the gateway ever routes one.
+      # AgentRouter serves no channel for haiku ("无可用渠道" / 503) and none for
+      # claude-sonnet-4-6, only claude-opus-4-8 — which is why GOA-093's
+      # consolidation target moved off Sonnet. Revert to a cheaper model here if
+      # the gateway ever routes one.
+      - WRITING_MODEL=${WRITING_MODEL:-claude-opus-4-8}
       - CV_EXTRACTION_MODEL=${CV_EXTRACTION_MODEL:-claude-opus-4-8}
-      - ANTHROPIC_TIMEOUT_SECONDS=${ANTHROPIC_TIMEOUT_SECONDS:-25}
+      # Academic Task 1 stimulus description (GOA-093). Must be a vision-capable
+      # model; AgentRouter forwards multimodal blocks for claude-opus-4-8 (GOA-126).
+      - VISION_MODEL=${VISION_MODEL:-claude-opus-4-8}
+      - ANTHROPIC_TIMEOUT_SECONDS=${ANTHROPIC_TIMEOUT_SECONDS:-120}
       - WRITING_CACHE_VERSION=${WRITING_CACHE_VERSION:-v1}
     volumes:
       - ./services/writing/app:/app/app
@@ -147,12 +163,12 @@ services:
       # The CV processor is an AI service like any other and must reach the same
       # gateway. Without these two it fell back to the real Anthropic API with an
       # empty key and every CV stayed stuck in `processing` (BUG-018).
-      - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-}
+      - ANTHROPIC_BASE_URL=${GOA_LLM_BASE_URL:-${ANTHROPIC_BASE_URL:-}}
       - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
       # AgentRouter serves no channel for haiku ("无可用渠道" / 503), only
       # claude-opus-4-8. Revert to a cheaper model if the gateway ever routes one.
       - CV_EXTRACTION_MODEL=${CV_EXTRACTION_MODEL:-claude-opus-4-8}
-      - ANTHROPIC_TIMEOUT_SECONDS=${ANTHROPIC_TIMEOUT_SECONDS:-25}
+      - ANTHROPIC_TIMEOUT_SECONDS=${ANTHROPIC_TIMEOUT_SECONDS:-120}
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
       - LANGFUSE_HOST=${LANGFUSE_HOST}
@@ -291,7 +307,7 @@ services:
       - PORT=8082
       - MAX_CONNECTIONS=100
       - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
-      - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-}
+      - ANTHROPIC_BASE_URL=${GOA_LLM_BASE_URL:-${ANTHROPIC_BASE_URL:-}}
       - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
       - LLM_MODEL=${LLM_MODEL:-claude-opus-4-8}
       - SPEAKING_PRACTICE_MODEL=${SPEAKING_PRACTICE_MODEL:-claude-opus-4-8}
@@ -333,7 +349,7 @@ services:
       - DATABASE_URL=postgresql://goa:goa_pass@postgres:5432/rag_db
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-}
+      - ANTHROPIC_BASE_URL=${GOA_LLM_BASE_URL:-${ANTHROPIC_BASE_URL:-}}
       - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
       - LLM_MODEL=${LLM_MODEL:-claude-opus-4-8}
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
@@ -403,17 +419,17 @@ services:
       - DATABASE_URL=postgresql://goa:goa_pass@postgres:5432/orchestration_db
       - REDIS_URL=redis://redis-cache:6379/1
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-}
+      - ANTHROPIC_BASE_URL=${GOA_LLM_BASE_URL:-${ANTHROPIC_BASE_URL:-}}
       - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
       - LLM_MODEL=${LLM_MODEL:-claude-opus-4-8}
       - INTERNAL_API_KEY=supersecret_internal_key_123
-      # Browser-facing URLs. The *_SERVICE_URL values above are Docker
+      # The one browser-facing URL. The *_SERVICE_URL values above are Docker
       # hostnames for server-to-server calls; handing them to a client gave
       # ws://speaking:8082 and http://writing:8000, which no browser resolves
-      # (BUG-016). Writing's SSE now goes via the Gateway; Speaking's socket
-      # is still direct until the Gateway has a WS proxy.
+      # (BUG-016). Writing's SSE and Speaking's socket both go through the
+      # Gateway now, so PUBLIC_SPEAKING_WS_URL is gone -- Orchestration derives
+      # ws://<gateway>/api/speaking/ws from this value (GOA-132).
       - PUBLIC_GATEWAY_URL=${PUBLIC_GATEWAY_URL:-http://localhost:8080}
-      - PUBLIC_SPEAKING_WS_URL=${PUBLIC_SPEAKING_WS_URL:-ws://localhost:8082/ws}
       - OTEL_SERVICE_NAME=orchestration
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
@@ -475,7 +491,7 @@ services:
       # GOA-123: the visa adapter's LLM extraction runs here. Without these the
       # container fell back to api.anthropic.com with no key -> 401 on every source.
       - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
-      - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-}
+      - ANTHROPIC_BASE_URL=${GOA_LLM_BASE_URL:-${ANTHROPIC_BASE_URL:-}}
       - ANTHROPIC_USER_AGENT=${ANTHROPIC_USER_AGENT:-}
       - EXTRACTION_MODEL=${EXTRACTION_MODEL:-claude-opus-4-8}
       - EMBEDDING_BASE_URL=${EMBEDDING_BASE_URL:-http://host.docker.internal:11434/v1}

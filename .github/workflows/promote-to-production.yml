@@ -1,0 +1,265 @@
+name: Promote Staging to Production
+
+on:
+  push:
+    branches:
+      - dev
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+  statuses: write
+
+concurrency:
+  group: promote-staging-to-production
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'eu-west-1' }}
+  STAGING_ROLE_TO_ASSUME: ${{ vars.STAGING_AWS_ROLE_TO_ASSUME || vars.AWS_ROLE_TO_ASSUME }}
+  STAGING_CLUSTER: ${{ vars.STAGING_ECS_CLUSTER || 'goa-staging' }}
+  STAGING_BASE_URL: ${{ vars.STAGING_BASE_URL }}
+  SERVICES: gateway user orchestration speaking writing rag exam ingestion
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  staging-e2e-and-pr:
+    name: Run staging E2E and open production PR
+    if: vars.STAGING_INFRA_READY == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Mark staging promotion pending
+        run: |
+          set -euo pipefail
+          gh api -X POST "repos/${{ github.repository }}/statuses/${{ github.sha }}" \
+            -f state=pending \
+            -f context="promotion/staging-e2e" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            -f description="Running staging E2E before production PR" \
+            --silent
+
+      - name: Configure staging AWS credentials with OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.STAGING_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: goa-staging-promotion-${{ github.run_id }}
+          role-duration-seconds: 2700
+          mask-aws-account-id: true
+
+      - name: Wait for changed services to finish staging deploy
+        run: |
+          set -euo pipefail
+          git fetch origin main
+
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]]; then
+            changed_files="$(git diff --name-only "${{ github.event.before }}" "${{ github.sha }}")"
+          else
+            changed_files="$(git diff --name-only origin/main...HEAD)"
+          fi
+
+          changed_services=""
+          for service in $SERVICES; do
+            if grep -q "^services/${service}/" <<< "$changed_files"; then
+              changed_services="${changed_services} ${service}"
+            fi
+          done
+
+          if [[ -z "${changed_services// }" ]]; then
+            echo "No ECS service source changed; waiting for all staging services to be stable."
+            aws ecs wait services-stable \
+              --cluster "$STAGING_CLUSTER" \
+              --services $(for service in $SERVICES; do printf 'goa-staging-%s ' "$service"; done)
+            exit 0
+          fi
+
+          echo "Changed ECS services:${changed_services}"
+          sleep 30
+          for service in $changed_services; do
+            for attempt in {1..30}; do
+              aws ecs wait services-stable \
+                --cluster "$STAGING_CLUSTER" \
+                --services "goa-staging-${service}"
+              task_definition="$(aws ecs describe-services \
+                --cluster "$STAGING_CLUSTER" \
+                --services "goa-staging-${service}" \
+                --query 'services[0].taskDefinition' \
+                --output text)"
+              image="$(aws ecs describe-task-definition \
+                --task-definition "$task_definition" \
+                --query "taskDefinition.containerDefinitions[?name=='${service}'].image | [0]" \
+                --output text)"
+              image_tag="${image##*:}"
+              if [[ "$image_tag" == "${{ github.sha }}" ]]; then
+                echo "${service} is stable on ${image_tag}."
+                break
+              fi
+              if [[ "$attempt" == "30" ]]; then
+                echo "::error::${service} never reached staging image tag ${{ github.sha }}; latest was ${image}."
+                exit 1
+              fi
+              sleep 20
+            done
+          done
+
+      - name: Capture staging image SHAs
+        run: |
+          set -euo pipefail
+          : > staging-images.tsv
+          for service in $SERVICES; do
+            task_definition="$(aws ecs describe-services \
+              --cluster "$STAGING_CLUSTER" \
+              --services "goa-staging-${service}" \
+              --query 'services[0].taskDefinition' \
+              --output text)"
+            image="$(aws ecs describe-task-definition \
+              --task-definition "$task_definition" \
+              --query "taskDefinition.containerDefinitions[?name=='${service}'].image | [0]" \
+              --output text)"
+            image_tag="${image##*:}"
+            digest="$(aws ecr describe-images \
+              --repository-name "goa-staging-${service}" \
+              --image-ids imageTag="$image_tag" \
+              --query 'imageDetails[0].imageDigest' \
+              --output text)"
+            printf '%s\t%s\t%s\n' "$service" "$image" "$digest" >> staging-images.tsv
+          done
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: services/frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: services/frontend
+        run: npm ci
+
+      - name: Install Playwright browser
+        working-directory: services/frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run staging E2E through Gateway
+        id: e2e
+        working-directory: services/frontend
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ env.STAGING_BASE_URL }}
+        run: |
+          set -euo pipefail
+          : "${PLAYWRIGHT_BASE_URL:?Set repository variable STAGING_BASE_URL before promotion runs.}"
+          npm run test:e2e
+
+      - name: Capture last-hour staging performance metrics
+        if: always()
+        run: |
+          set -euo pipefail
+          end_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          start_time="$(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%SZ)"
+          : > staging-metrics.md
+          echo "| Service | CPU avg last hour | Memory avg last hour |" >> staging-metrics.md
+          echo "| --- | ---: | ---: |" >> staging-metrics.md
+
+          for service in $SERVICES; do
+            cpu="$(aws cloudwatch get-metric-statistics \
+              --namespace AWS/ECS \
+              --metric-name CPUUtilization \
+              --dimensions Name=ClusterName,Value="$STAGING_CLUSTER" Name=ServiceName,Value="goa-staging-${service}" \
+              --start-time "$start_time" \
+              --end-time "$end_time" \
+              --period 3600 \
+              --statistics Average \
+              --query 'Datapoints[0].Average' \
+              --output text 2>/dev/null || true)"
+            memory="$(aws cloudwatch get-metric-statistics \
+              --namespace AWS/ECS \
+              --metric-name MemoryUtilization \
+              --dimensions Name=ClusterName,Value="$STAGING_CLUSTER" Name=ServiceName,Value="goa-staging-${service}" \
+              --start-time "$start_time" \
+              --end-time "$end_time" \
+              --period 3600 \
+              --statistics Average \
+              --query 'Datapoints[0].Average' \
+              --output text 2>/dev/null || true)"
+            [[ "$cpu" == "None" || -z "$cpu" ]] && cpu="n/a"
+            [[ "$memory" == "None" || -z "$memory" ]] && memory="n/a"
+            echo "| \`${service}\` | ${cpu} | ${memory} |" >> staging-metrics.md
+          done
+
+      - name: Build production PR summary
+        if: success()
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          {
+            echo "## GOA-080 production promotion summary"
+            echo ""
+            echo "- Staging E2E: passed against \`${STAGING_BASE_URL}\`"
+            echo "- Commit tested on staging: \`${{ github.sha }}\`"
+            echo "- Production deploy will use the staging image tags/digests below, not rebuild images."
+            echo ""
+            echo "### Staging images"
+            echo ""
+            echo "| Service | Staging image | Digest |"
+            echo "| --- | --- | --- |"
+            while IFS=$'\t' read -r service image digest; do
+              echo "| \`${service}\` | \`${image}\` | \`${digest}\` |"
+            done < staging-images.tsv
+            echo ""
+            echo "### Performance metrics from the last hour"
+            echo ""
+            cat staging-metrics.md
+            echo ""
+            echo "### Diff from main"
+            echo ""
+            echo '```text'
+            git diff --stat origin/main...HEAD
+            echo '```'
+            echo ""
+            echo "### Commits"
+            echo ""
+            echo '```text'
+            git log --oneline origin/main..HEAD
+            echo '```'
+          } > production-promotion-summary.md
+
+      - name: Create or update dev to main PR
+        if: success()
+        run: |
+          set -euo pipefail
+          existing_pr="$(gh pr list --base main --head dev --state open --json number --jq '.[0].number // empty')"
+          if [[ -z "$existing_pr" ]]; then
+            gh pr create \
+              --base main \
+              --head dev \
+              --title "Promote dev to production" \
+              --body-file production-promotion-summary.md
+          else
+            gh pr edit "$existing_pr" --body-file production-promotion-summary.md
+            gh pr comment "$existing_pr" --body-file production-promotion-summary.md
+          fi
+
+      - name: Report staging promotion result
+        if: always()
+        run: |
+          set -euo pipefail
+          case "${{ job.status }}" in
+            success) state=success; description="Staging E2E passed and production PR is ready" ;;
+            cancelled) state=error; description="Staging promotion cancelled" ;;
+            *) state=failure; description="Staging E2E or production PR creation failed" ;;
+          esac
+          gh api -X POST "repos/${{ github.repository }}/statuses/${{ github.sha }}" \
+            -f state="$state" \
+            -f context="promotion/staging-e2e" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            -f description="$description" \
+            --silent

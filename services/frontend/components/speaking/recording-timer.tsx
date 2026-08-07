@@ -74,10 +74,10 @@ export default function RecordingTimer({ state, sessionKey }: RecordingTimerProp
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.2 }}
-      className="absolute top-3 right-3 z-20 flex items-center gap-1.5 rounded-full bg-white/85 px-2.5 py-1 text-[11px] font-medium text-[#0D3820] shadow-sm ring-1 ring-black/5 backdrop-blur-sm"
+      className="absolute top-3 right-3 z-20 flex items-center gap-1.5 rounded-full bg-surface/85 px-2.5 py-1 text-[11px] font-medium text-brand-fg shadow-sm ring-1 ring-border backdrop-blur-sm"
     >
       {isRecording && (
-        <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-rose-500" />
+        <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-danger" />
       )}
       <span>
         {label} <span className="tabular-nums">• {formatDuration(elapsedSeconds)}</span>

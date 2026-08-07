@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -17,6 +18,29 @@ import (
 	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/langfuse"
 	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/llm"
 )
+
+// waitForActiveConns polls until the connection gauge reaches want.
+//
+// activeConns is decremented by cleanup(), which runs on readPump's goroutine
+// after the socket closes -- so every assertion on it is asserting on an
+// asynchronous teardown. Reading it immediately (or after a fixed sleep sized
+// on a fast developer machine) is a race that passes locally and fails on a
+// slower CI runner, which is exactly the kind of flake that gets a real
+// regression dismissed as "just CI".
+func waitForActiveConns(t *testing.T, want int32, within time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(within)
+	for {
+		got := atomic.LoadInt32(&activeConns)
+		if got == want {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("activeConns = %d after %v, want %d", got, within, want)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
 
 // mockDBRepo satisfies db.Repository for testing
 type mockDBRepo struct{}
@@ -149,22 +173,55 @@ func TestIntegrationE2EAudioStreaming(t *testing.T) {
 		t.Error("Expected non-empty transcript text")
 	}
 
-	// 5. Read evaluation response frame
-	_, reply, err = ws.ReadMessage()
-	if err != nil {
-		t.Fatalf("Failed to read evaluation response: %v", err)
+	// 5. GOA-032: four per-criterion frames arrive BEFORE the aggregate. This is
+	// the ordering the whole ticket exists to produce, so it is asserted rather
+	// than skipped over.
+	criteriaSeen := map[string]bool{}
+	var evaluation map[string]interface{}
+	_ = ws.SetReadDeadline(time.Now().Add(10 * time.Second))
+	for evaluation == nil {
+		msgType, frame, readErr := ws.ReadMessage()
+		if readErr != nil {
+			t.Fatalf("Failed to read frame (saw %d criteria so far): %v", len(criteriaSeen), readErr)
+		}
+		if msgType != websocket.TextMessage {
+			t.Fatalf("Audio arrived before the aggregate evaluation frame")
+		}
+		var f map[string]interface{}
+		if err := json.Unmarshal(frame, &f); err != nil {
+			t.Fatalf("Failed to unmarshal frame: %v", err)
+		}
+		switch f["type"] {
+		case "criterion":
+			name, _ := f["criterion"].(string)
+			if name == "" {
+				t.Fatalf("criterion frame with no criterion name: %s", frame)
+			}
+			if criteriaSeen[name] {
+				t.Errorf("criterion %q streamed more than once", name)
+			}
+			criteriaSeen[name] = true
+			if f["timed_out"] != false {
+				t.Errorf("criterion %q unexpectedly timed out", name)
+			}
+			if f["band"] != 7.0 {
+				t.Errorf("criterion %q band = %v, want 7.0", name, f["band"])
+			}
+		case "evaluation":
+			evaluation = f
+		default:
+			t.Fatalf("unexpected frame type %v: %s", f["type"], frame)
+		}
 	}
 
-	err = json.Unmarshal(reply, &res)
-	if err != nil {
-		t.Fatalf("Failed to unmarshal evaluation response: %v", err)
+	if len(criteriaSeen) != 4 {
+		t.Errorf("expected 4 criterion frames before the evaluation, got %d: %v", len(criteriaSeen), criteriaSeen)
 	}
-
-	if res["type"] != "evaluation" {
-		t.Errorf("Expected type 'evaluation', got '%v'", res["type"])
+	if evaluation["overall_band"] != 7.0 {
+		t.Errorf("Expected overall band 7.0, got %v", evaluation["overall_band"])
 	}
-	if res["overall_band"] != 7.0 {
-		t.Errorf("Expected overall band 7.0, got %v", res["overall_band"])
+	if evaluation["completed_count"] != 4.0 {
+		t.Errorf("Expected completed_count 4, got %v", evaluation["completed_count"])
 	}
 
 	// 6. Read synthesized TTS binary chunk
@@ -200,27 +257,18 @@ func TestIntegrationMetricsAndSessionAccounting(t *testing.T) {
 	u.Scheme = "ws"
 	u.Path = "/ws"
 
-	if activeConns != 0 {
-		t.Fatalf("Expected baseline activeConns to be 0, got %d", activeConns)
-	}
+	waitForActiveConns(t, 0, 5*time.Second)
 
 	ws, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	if err != nil {
 		t.Fatalf("Failed to connect client: %v", err)
 	}
 
-	if activeConns != 1 {
-		t.Errorf("Expected activeConns to be 1, got %d", activeConns)
-	}
+	waitForActiveConns(t, 1, 5*time.Second)
 
 	ws.Close()
 
-	// Wait for cleanup deferred routines to finish
-	time.Sleep(150 * time.Millisecond)
-
-	if activeConns != 0 {
-		t.Errorf("Expected activeConns to return to 0 after disconnect, got %d", activeConns)
-	}
+	waitForActiveConns(t, 0, 5*time.Second)
 }
 
 func TestLoadConcurrentConnectionsAndLeaks(t *testing.T) {
@@ -271,7 +319,7 @@ func TestLoadConcurrentConnectionsAndLeaks(t *testing.T) {
 		}
 	}
 
-	if activeConns != int32(concurrency) {
+	if atomic.LoadInt32(&activeConns) != int32(concurrency) {
 		t.Errorf("Expected activeConns to count %d, got %d", concurrency, activeConns)
 	}
 
@@ -281,11 +329,7 @@ func TestLoadConcurrentConnectionsAndLeaks(t *testing.T) {
 		}
 	}
 
-	time.Sleep(1000 * time.Millisecond)
-
-	if activeConns != 0 {
-		t.Errorf("Expected activeConns to return to 0, got %d", activeConns)
-	}
+	waitForActiveConns(t, 0, 15*time.Second)
 
 	finalGoroutines := runtime.NumGoroutine()
 	margin := 10 // Allow small background system thread variations

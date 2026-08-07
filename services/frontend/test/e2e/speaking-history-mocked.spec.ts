@@ -1,21 +1,33 @@
-import { test, expect, Page } from "@playwright/test";
+import { test, expect, Page } from "./fixtures/auth";
 
 // These tests stub the Speaking Service's REST responses at the network
 // layer, so the full history → detail → share flow can be verified with
 // real, known data without requiring `docker compose up` (unlike the
 // waveform-animation and other backend-gated tests in speaking-system.spec.ts).
 //
-// The Speaking Service is called from a different origin than the frontend
-// (localhost:8082 vs localhost:3000 — see lib/speaking-api.ts), so mocked
-// responses must include CORS headers or the browser will reject them just
-// like it would a real cross-origin response missing them.
-const SPEAKING_API_BASE = "http://localhost:8082";
+// Speaking is reached through the Gateway now (GOA-132), not directly on
+// :8082 — so these routes must match /api/speaking/*, and the requests carry
+// no userId: the Gateway takes it from the JWT. Still a different origin than
+// the frontend (localhost:8080 vs localhost:3000), so mocked responses need
+// CORS headers or the browser rejects them exactly as it would a real
+// cross-origin response missing them.
+const SPEAKING_API_BASE = "http://localhost:8080/api/speaking";
 
 function withCors(body: unknown, status = 200) {
   return {
     status,
     contentType: "application/json",
-    headers: { "Access-Control-Allow-Origin": "*" },
+    // A wildcard origin is rejected by the browser once the request's
+    // credentials mode is "include" (which every speaking-api.ts call uses,
+    // per the file-level comment above) -- CORS requires an explicit origin
+    // to pair with credentialed requests. Pre-existing bug in this mock
+    // helper (present at the last commit before this work), found because it
+    // silently broke every test in this file with a CORS error rather than
+    // whatever each test actually meant to verify.
+    headers: {
+      "Access-Control-Allow-Origin": "http://localhost:3000",
+      "Access-Control-Allow-Credentials": "true",
+    },
     body: JSON.stringify(body),
   };
 }
@@ -50,7 +62,7 @@ function makeSessions(count: number) {
 }
 
 async function mockListSessions(page: Page, sessions: unknown[]) {
-  await page.route(`${SPEAKING_API_BASE}/sessions?**`, (route) =>
+  await page.route(`${SPEAKING_API_BASE}/sessions`, (route) =>
     route.fulfill(withCors(sessions)),
   );
 }
@@ -61,18 +73,18 @@ test.describe("GOA Speaking History (mocked backend)", () => {
   }) => {
     await mockListSessions(page, [SESSION_SUMMARY]);
     await page.route(
-      `${SPEAKING_API_BASE}/sessions/${SESSION_DETAIL.id}?**`,
+      `${SPEAKING_API_BASE}/sessions/${SESSION_DETAIL.id}`,
       (route) => route.fulfill(withCors(SESSION_DETAIL)),
     );
 
-    await page.goto("/speaking/history");
+    await page.goto("/practice/speaking/history");
 
     await expect(page.getByText(SESSION_SUMMARY.question_prompt)).toBeVisible();
     await expect(page.getByText("7", { exact: true }).first()).toBeVisible();
 
     await page.getByText(SESSION_SUMMARY.question_prompt).click();
 
-    await expect(page).toHaveURL(`/speaking/history/${SESSION_DETAIL.id}`);
+    await expect(page).toHaveURL(`/practice/speaking/history/${SESSION_DETAIL.id}`);
     await expect(page.getByText("IELTS Speaking Band Score")).toBeVisible();
 
     // Per-criterion scores from the mocked evaluation (bands, not the
@@ -87,7 +99,7 @@ test.describe("GOA Speaking History (mocked backend)", () => {
   }) => {
     await mockListSessions(page, makeSessions(15));
 
-    await page.goto("/speaking/history");
+    await page.goto("/practice/speaking/history");
 
     const summary = page.locator("p.sr-only", {
       hasText: "Band trend over your last",
@@ -104,7 +116,7 @@ test.describe("GOA Speaking History (mocked backend)", () => {
   }) => {
     await mockListSessions(page, makeSessions(1));
 
-    await page.goto("/speaking/history");
+    await page.goto("/practice/speaking/history");
 
     await expect(
       page.getByText("Complete more sessions to see your band trend."),
@@ -118,7 +130,7 @@ test.describe("GOA Speaking History (mocked backend)", () => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
 
     await page.route(
-      `${SPEAKING_API_BASE}/sessions/${SESSION_DETAIL.id}?**`,
+      `${SPEAKING_API_BASE}/sessions/${SESSION_DETAIL.id}`,
       (route) => route.fulfill(withCors(SESSION_DETAIL)),
     );
     await page.route(
@@ -126,7 +138,7 @@ test.describe("GOA Speaking History (mocked backend)", () => {
       (route) => route.fulfill(withCors({ share_token: "abc123sharetoken" })),
     );
 
-    await page.goto(`/speaking/history/${SESSION_DETAIL.id}`);
+    await page.goto(`/practice/speaking/history/${SESSION_DETAIL.id}`);
     await page.getByRole("button", { name: "Share" }).click();
 
     await expect(page.getByRole("button", { name: "Copied!" })).toBeVisible();
@@ -152,7 +164,7 @@ test.describe("GOA Speaking History (mocked backend)", () => {
     });
 
     await page.route(
-      `${SPEAKING_API_BASE}/sessions/${SESSION_DETAIL.id}?**`,
+      `${SPEAKING_API_BASE}/sessions/${SESSION_DETAIL.id}`,
       (route) => route.fulfill(withCors(SESSION_DETAIL)),
     );
     await page.route(
@@ -160,7 +172,7 @@ test.describe("GOA Speaking History (mocked backend)", () => {
       (route) => route.fulfill(withCors({ share_token: "fallbacktoken" })),
     );
 
-    await page.goto(`/speaking/history/${SESSION_DETAIL.id}`);
+    await page.goto(`/practice/speaking/history/${SESSION_DETAIL.id}`);
     await page.getByRole("button", { name: "Share" }).click();
 
     const fallbackInput = page.locator("input[readonly]");
@@ -173,11 +185,11 @@ test.describe("GOA Speaking History (mocked backend)", () => {
   test("history list is keyboard-navigable", async ({ page }) => {
     await mockListSessions(page, [SESSION_SUMMARY]);
     await page.route(
-      `${SPEAKING_API_BASE}/sessions/${SESSION_DETAIL.id}?**`,
+      `${SPEAKING_API_BASE}/sessions/${SESSION_DETAIL.id}`,
       (route) => route.fulfill(withCors(SESSION_DETAIL)),
     );
 
-    await page.goto("/speaking/history");
+    await page.goto("/practice/speaking/history");
 
     const sessionLink = page.getByRole("link", {
       name: new RegExp(SESSION_SUMMARY.question_prompt),
@@ -186,6 +198,6 @@ test.describe("GOA Speaking History (mocked backend)", () => {
     await expect(sessionLink).toBeFocused();
 
     await page.keyboard.press("Enter");
-    await expect(page).toHaveURL(`/speaking/history/${SESSION_DETAIL.id}`);
+    await expect(page).toHaveURL(`/practice/speaking/history/${SESSION_DETAIL.id}`);
   });
 });

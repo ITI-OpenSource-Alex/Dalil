@@ -1,384 +1,388 @@
 "use client";
 
-import { useState } from "react";
-
-interface LanguageData {
-  hasTakenIelts: "yes" | "no" | "";
-  // Yes branch fields
-  listeningScore: string;
-  readingScore: string;
-  writingScore: string;
-  speakingScore: string;
-  overallScore: string;
-  // No branch fields
-  planningToTake: "yes" | "no" | "";
-  targetOverallScore: string;
-  targetExamDate: string;
-}
+import { useEffect, useMemo, useState } from "react";
+import { ArrowLeft, ArrowRight, Info, Pencil, RotateCcw, Sparkles } from "lucide-react";
+import {
+  bandDescriptor,
+  computeOverallBand,
+  formatBand,
+  parseBand,
+} from "@/lib/ielts";
+import { Alert, Button, Field, Heading, Icon, Input, Text } from "@/components/ui";
+import { ChoiceCard } from "./choice-card";
+import { BandScoreInput, bandError } from "./ielts-score-input";
+import type { LanguageData } from "./types";
 
 interface LanguageStepProps {
   onNext: (data: LanguageData) => void;
   onBack: () => void;
-  initialData?: LanguageData;
+  initialData: LanguageData;
 }
 
-export default function LanguageStep({
-  onNext,
-  onBack,
-  initialData,
-}: LanguageStepProps) {
-  const [formData, setFormData] = useState<LanguageData>({
-    hasTakenIelts: initialData?.hasTakenIelts || "",
-    listeningScore: initialData?.listeningScore || "",
-    readingScore: initialData?.readingScore || "",
-    writingScore: initialData?.writingScore || "",
-    speakingScore: initialData?.speakingScore || "",
-    overallScore: initialData?.overallScore || "",
-    planningToTake: initialData?.planningToTake || "",
-    targetOverallScore: initialData?.targetOverallScore || "",
-    targetExamDate: initialData?.targetExamDate || "",
-  });
+const SCORE_FIELDS = [
+  { id: "listeningScore", label: "Listening" },
+  { id: "readingScore", label: "Reading" },
+  { id: "writingScore", label: "Writing" },
+  { id: "speakingScore", label: "Speaking" },
+] as const;
 
-  const [errors, setErrors] = useState<Record<string, string>>({});
+type Errors = Partial<Record<keyof LanguageData, string>>;
 
-  const validate = (): boolean => {
-    const newErrors: Record<string, string> = {};
+/** The earliest a candidate could sit an exam booked today. */
+function todayISO(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+export default function LanguageStep({ onNext, onBack, initialData }: LanguageStepProps) {
+  const [formData, setFormData] = useState<LanguageData>(initialData);
+  const [errors, setErrors] = useState<Errors>({});
+
+  const sections = useMemo(
+    () => ({
+      listening: parseBand(formData.listeningScore),
+      reading: parseBand(formData.readingScore),
+      writing: parseBand(formData.writingScore),
+      speaking: parseBand(formData.speakingScore),
+    }),
+    [
+      formData.listeningScore,
+      formData.readingScore,
+      formData.writingScore,
+      formData.speakingScore,
+    ],
+  );
+
+  const computedOverall = useMemo(() => computeOverallBand(sections), [sections]);
+
+  /*
+   * The overall band was previously a fifth number the candidate had to work
+   * out and type. It is fully determined by the other four -- IELTS reports
+   * the mean rounded to the nearest half band -- so asking for it was asking
+   * someone to do arithmetic the form already knows the answer to, and
+   * accepting whatever they typed meant a mistake there silently corrupted
+   * the single field programme matching gates on (`min_ielts`).
+   *
+   * Kept in state rather than derived at submit time so the persisted draft
+   * and the payload builder both see the same value without either having to
+   * re-run the rounding rules.
+   */
+  useEffect(() => {
+    if (formData.overrideOverall) return;
+    const next = computedOverall === null ? "" : formatBand(computedOverall);
+    if (next !== formData.overallScore) {
+      setFormData((prev) => ({ ...prev, overallScore: next }));
+    }
+  }, [computedOverall, formData.overrideOverall, formData.overallScore]);
+
+  const overallValue = parseBand(formData.overallScore);
+  const overrideDiffers =
+    formData.overrideOverall &&
+    overallValue !== null &&
+    computedOverall !== null &&
+    overallValue !== computedOverall;
+
+  function validate(): Errors {
+    const next: Errors = {};
 
     if (!formData.hasTakenIelts) {
-      newErrors.hasTakenIelts = "Please select whether you have taken IELTS.";
-    } else if (formData.hasTakenIelts === "yes") {
-      // Validate all sub-scores and overall score
-      const scoreFields = [
-        "listeningScore",
-        "readingScore",
-        "writingScore",
-        "speakingScore",
-        "overallScore",
-      ];
-      scoreFields.forEach((field) => {
-        const val = formData[field as keyof LanguageData];
-        if (!val) {
-          newErrors[field] = "Required";
-        } else {
-          const num = parseFloat(val);
-          if (isNaN(num) || num < 0 || num > 9 || num % 0.5 !== 0) {
-            newErrors[field] = "Must be 0-9 (0.5 steps)";
-          }
+      next.hasTakenIelts = "Tell us whether you've sat IELTS — either answer is fine.";
+      return next;
+    }
+
+    if (formData.hasTakenIelts === "yes") {
+      for (const field of SCORE_FIELDS) {
+        const error = bandError(formData[field.id], true);
+        if (error) {
+          next[field.id] =
+            error === "Required" ? `Enter your ${field.label} band.` : error;
         }
-      });
-    } else if (formData.hasTakenIelts === "no") {
-      if (!formData.planningToTake) {
-        newErrors.planningToTake =
-          "Please let us know if you are planning to take IELTS.";
-      } else if (formData.planningToTake === "yes") {
-        if (!formData.targetOverallScore) {
-          newErrors.targetOverallScore = "Target score is required";
-        } else {
-          const num = parseFloat(formData.targetOverallScore);
-          if (isNaN(num) || num < 0 || num > 9) {
-            newErrors.targetOverallScore = "Must be between 0 and 9";
-          }
-        }
-        if (!formData.targetExamDate) {
-          newErrors.targetExamDate = "Target date is required";
-        }
+      }
+      const overallError = bandError(formData.overallScore, true);
+      if (overallError) {
+        next.overallScore =
+          overallError === "Required"
+            ? "Enter the overall band from your test report."
+            : overallError;
+      }
+      return next;
+    }
+
+    if (!formData.planningToTake) {
+      next.planningToTake = "Let us know if you're planning to take it.";
+      return next;
+    }
+
+    if (formData.planningToTake === "yes") {
+      const targetError = bandError(formData.targetOverallScore, true);
+      if (targetError) {
+        next.targetOverallScore =
+          targetError === "Required"
+            ? "Pick a band to aim for — most Master's programmes ask for 6.5."
+            : targetError;
+      }
+      if (!formData.targetExamDate) {
+        next.targetExamDate = "Roughly when do you plan to sit it?";
+      } else if (formData.targetExamDate < todayISO()) {
+        next.targetExamDate = "Choose a date in the future.";
       }
     }
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+    return next;
+  }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (validate()) {
+    const nextErrors = validate();
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length === 0) {
       onNext(formData);
+      return;
     }
-  };
-
-  const handleRadioChange = (name: keyof LanguageData, value: string) => {
-    setFormData((prev) => {
-      const updated = { ...prev, [name]: value };
-      // Reset dependent fields when core choice changes
-      if (name === "hasTakenIelts") {
-        updated.listeningScore = "";
-        updated.readingScore = "";
-        updated.writingScore = "";
-        updated.speakingScore = "";
-        updated.overallScore = "";
-        updated.planningToTake = "";
-        updated.targetOverallScore = "";
-        updated.targetExamDate = "";
-      } else if (name === "planningToTake") {
-        updated.targetOverallScore = "";
-        updated.targetExamDate = "";
-      }
-      return updated;
+    requestAnimationFrame(() => {
+      document
+        .querySelector<HTMLElement>('[role="alert"]')
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
     });
-    setErrors({});
-  };
+  }
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    if (errors[name]) {
-      setErrors((prev) => ({ ...prev, [name]: "" }));
-    }
-  };
+  function setBranch(hasTakenIelts: LanguageData["hasTakenIelts"]) {
+    setFormData((prev) => ({
+      ...prev,
+      hasTakenIelts,
+      listeningScore: "",
+      readingScore: "",
+      writingScore: "",
+      speakingScore: "",
+      overallScore: "",
+      overrideOverall: false,
+      planningToTake: "",
+      targetOverallScore: "",
+      targetExamDate: "",
+    }));
+    setErrors({});
+  }
+
+  function set<K extends keyof LanguageData>(key: K, value: LanguageData[K]) {
+    setFormData((prev) => ({ ...prev, [key]: value }));
+    if (errors[key]) setErrors((prev) => ({ ...prev, [key]: undefined }));
+  }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="space-y-1">
-        <h2 className="text-xl font-bold text-black">How's your English?</h2>
-        <p className="text-sm text-gray-500">
-          We'll never reject you for a low score — we'll explain the gap and
-          plan around it.
-        </p>
+    <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-6">
+      <div>
+        <Heading as="h2" size="md">
+          How&apos;s your English?
+        </Heading>
+        <Text size="sm" tone="muted" className="mt-1">
+          We won&apos;t reject you for a low score — we&apos;ll explain the gap
+          and plan around it.
+        </Text>
       </div>
 
-      {/* Question 1: Have you taken IELTS? */}
-      <div className="space-y-2">
-        <label className="text-sm font-semibold text-black">
-          Have you taken IELTS before?
-        </label>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <button
-            type="button"
-            onClick={() => handleRadioChange("hasTakenIelts", "yes")}
-            className={`p-3 border rounded-xl text-left transition font-medium text-sm flex items-center justify-between ${
-              formData.hasTakenIelts === "yes"
-                ? "border-emerald-600 bg-emerald-50/30 text-black ring-1 ring-emerald-600"
-                : "border-gray-200 text-gray-700 hover:border-gray-300 bg-yellow-50"
-            }`}
+      <Field label="Have you taken IELTS before?" error={errors.hasTakenIelts}>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <ChoiceCard
+            name="hasTakenIelts"
+            value="yes"
+            checked={formData.hasTakenIelts === "yes"}
+            onChange={() => setBranch("yes")}
           >
-            <span>Yes, I have a score</span>
-            <div
-              className={`w-4 h-4 rounded-full border flex items-center justify-center ${formData.hasTakenIelts === "yes" ? "border-emerald-600" : "border-gray-300"}`}
-            >
-              {formData.hasTakenIelts === "yes" && (
-                <div className="w-2 h-2 rounded-full bg-emerald-600" />
-              )}
-            </div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleRadioChange("hasTakenIelts", "no")}
-            className={`p-3 border rounded-xl text-left transition font-medium text-sm flex items-center justify-between ${
-              formData.hasTakenIelts === "no"
-                ? "border-emerald-600 bg-emerald-50/30 text-black ring-1 ring-emerald-600"
-                : "border-gray-200 text-gray-700 hover:border-gray-300 bg-yellow-50"
-            }`}
+            Yes, I have a score
+          </ChoiceCard>
+          <ChoiceCard
+            name="hasTakenIelts"
+            value="no"
+            checked={formData.hasTakenIelts === "no"}
+            onChange={() => setBranch("no")}
           >
-            <span>Not yet</span>
-            <div
-              className={`w-4 h-4 rounded-full border flex items-center justify-center ${formData.hasTakenIelts === "no" ? "border-emerald-600" : "border-gray-300"}`}
-            >
-              {formData.hasTakenIelts === "no" && (
-                <div className="w-2 h-2 rounded-full bg-emerald-600" />
-              )}
-            </div>
-          </button>
+            Not yet
+          </ChoiceCard>
         </div>
-        {errors.hasTakenIelts && (
-          <p className="text-xs font-medium text-red-500">
-            {errors.hasTakenIelts}
-          </p>
-        )}
-      </div>
+      </Field>
 
-      {/* BRANCH 1: YES, HAVE SCORE */}
       {formData.hasTakenIelts === "yes" && (
-        <div className="p-4 bg-orange-50 border border-gray-100 rounded-xl space-y-4 animate-fadeIn">
-          <h3 className="text-sm font-bold text-black uppercase tracking-wider">
-            Enter your scores
-          </h3>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {[
-              { id: "listeningScore", label: "Listening" },
-              { id: "readingScore", label: "Reading" },
-              { id: "writingScore", label: "Writing" },
-              { id: "speakingScore", label: "Speaking" },
-            ].map((field) => (
-              <div key={field.id} className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-gray-700">
-                  {field.label}
-                </label>
-                <input
-                  type="number"
-                  step="0.5"
-                  name={field.id}
-                  placeholder="0.0"
-                  value={formData[field.id as keyof LanguageData]}
-                  onChange={handleInputChange}
-                  className={`w-full p-2 text-center bg-white border rounded-lg text-black text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
-                    errors[field.id] ? "border-red-500" : "border-gray-200"
-                  }`}
-                />
-                {errors[field.id] && (
-                  <span className="text-[10px] font-medium text-red-500 text-center">
-                    {errors[field.id]}
-                  </span>
-                )}
-              </div>
+        <div className="flex flex-col gap-5 rounded-card border border-border bg-canvas-subtle p-4 sm:p-5">
+          <div className="flex items-start gap-2">
+            <Icon icon={Info} size="sm" className="mt-0.5 shrink-0 text-fg-subtle" />
+            <Text size="sm" tone="muted">
+              Enter the four section bands from your test report. We&apos;ll work
+              out your overall band for you.
+            </Text>
+          </div>
+
+          {/* One per row rather than four across: the rail needs the full
+              width to keep eleven tap targets above the 24px minimum, and a
+              2x2 grid on a 360px phone put them at ~14px. */}
+          <div className="flex flex-col gap-5">
+            {SCORE_FIELDS.map((field) => (
+              <BandScoreInput
+                key={field.id}
+                id={field.id}
+                label={field.label}
+                value={formData[field.id]}
+                onChange={(v) => set(field.id, v)}
+                error={errors[field.id]}
+                compact
+              />
             ))}
           </div>
 
-          <div className="flex flex-col gap-1.5 max-w-40 mx-auto pt-2">
-            <label className="text-xs font-bold text-center text-black uppercase tracking-wide">
-              Overall Band Score
-            </label>
-            <input
-              type="number"
-              step="0.5"
-              name="overallScore"
-              placeholder="0.0"
-              value={formData.overallScore}
-              onChange={handleInputChange}
-              className={`w-full p-2.5 text-center font-bold bg-white border rounded-lg text-black text-base focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
-                errors.overallScore
-                  ? "border-red-500 font-normal text-xs"
-                  : "border-gray-300 border-emerald-600/30"
-              }`}
-            />
-            {errors.overallScore && (
-              <span className="text-[10px] font-medium text-red-500 text-center">
-                {errors.overallScore}
-              </span>
+          <div className="rounded-card border border-brand-border bg-brand-subtle p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <Text size="sm" className="font-semibold text-brand-fg">
+                  Overall band
+                </Text>
+                <Text size="sm" tone="muted" className="mt-0.5">
+                  {formData.overrideOverall
+                    ? "Entered manually"
+                    : computedOverall === null
+                      ? "Fill in all four sections above"
+                      : "Calculated from your four sections"}
+                </Text>
+              </div>
+
+              {formData.overrideOverall ? (
+                <Input
+                  type="number"
+                  name="overallScore"
+                  step={0.5}
+                  min={0}
+                  max={9}
+                  inputMode="decimal"
+                  aria-label="Overall band score"
+                  value={formData.overallScore}
+                  onChange={(e) => set("overallScore", e.target.value)}
+                  invalid={Boolean(errors.overallScore)}
+                  className="w-24 text-center text-base font-bold"
+                />
+              ) : (
+                <span
+                  aria-live="polite"
+                  className="shrink-0 text-3xl font-bold tabular-nums text-brand-fg"
+                >
+                  {overallValue === null ? "—" : formatBand(overallValue)}
+                </span>
+              )}
+            </div>
+
+            {overallValue !== null && !formData.overrideOverall && (
+              <Text size="sm" tone="muted" className="mt-2">
+                {bandDescriptor(overallValue)}
+              </Text>
             )}
+
+            {errors.overallScore && (
+              <p role="alert" className="mt-2 text-sm text-danger-fg">
+                {errors.overallScore}
+              </p>
+            )}
+
+            {overrideDiffers && computedOverall !== null && (
+              <Alert tone="warning" announce="none" className="mt-3">
+                Your sections average to {formatBand(computedOverall)}. If your
+                report says {formatBand(overallValue!)}, keep it — otherwise
+                double-check the four bands above.
+              </Alert>
+            )}
+
+            <div className="mt-3">
+              {formData.overrideOverall ? (
+                <Button
+                  variant="link"
+                  size="sm"
+                  leadingIcon={RotateCcw}
+                  onClick={() => {
+                    set("overrideOverall", false);
+                    setErrors((prev) => ({ ...prev, overallScore: undefined }));
+                  }}
+                >
+                  Calculate it for me
+                </Button>
+              ) : (
+                <Button
+                  variant="link"
+                  size="sm"
+                  leadingIcon={Pencil}
+                  onClick={() => set("overrideOverall", true)}
+                >
+                  My report says something different
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       )}
 
-      {/* BRANCH 2: NOT YET */}
       {formData.hasTakenIelts === "no" && (
-        <div className="space-y-4 animate-fadeIn">
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-black">
-              Planning to take it?
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => handleRadioChange("planningToTake", "yes")}
-                className={`p-3 border rounded-xl text-left transition font-medium text-sm flex items-center justify-between ${
-                  formData.planningToTake === "yes"
-                    ? "border-emerald-600 bg-emerald-50/30 text-black ring-1 ring-emerald-600"
-                    : "border-gray-200 text-gray-700 hover:border-gray-300 bg-yellow-50"
-                }`}
+        <div className="flex flex-col gap-4">
+          <Field label="Planning to take it?" error={errors.planningToTake}>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <ChoiceCard
+                name="planningToTake"
+                value="yes"
+                checked={formData.planningToTake === "yes"}
+                onChange={() => set("planningToTake", "yes")}
               >
-                <span>Yes, Planning</span>
-                <div
-                  className={`w-4 h-4 rounded-full border flex items-center justify-center ${formData.planningToTake === "yes" ? "border-emerald-600" : "border-gray-300"}`}
-                >
-                  {formData.planningToTake === "yes" && (
-                    <div className="w-2 h-2 rounded-full bg-emerald-600" />
-                  )}
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleRadioChange("planningToTake", "no")}
-                className={`p-3 border rounded-xl text-left transition font-medium text-sm flex items-center justify-between ${
-                  formData.planningToTake === "no"
-                    ? "border-emerald-600 bg-emerald-50/30 text-black ring-1 ring-emerald-600"
-                    : "border-gray-200 text-gray-700 hover:border-gray-300 bg-yellow-50"
-                }`}
+                Yes, planning to
+              </ChoiceCard>
+              <ChoiceCard
+                name="planningToTake"
+                value="no"
+                checked={formData.planningToTake === "no"}
+                onChange={() => set("planningToTake", "no")}
               >
-                <span>Not sure yet</span>
-                <div
-                  className={`w-4 h-4 rounded-full border flex items-center justify-center ${formData.planningToTake === "no" ? "border-emerald-600" : "border-gray-300"}`}
-                >
-                  {formData.planningToTake === "no" && (
-                    <div className="w-2 h-2 rounded-full bg-emerald-600" />
-                  )}
-                </div>
-              </button>
+                Not sure yet
+              </ChoiceCard>
             </div>
-            {errors.planningToTake && (
-              <p className="text-xs font-medium text-red-500">
-                {errors.planningToTake}
-              </p>
-            )}
-          </div>
+          </Field>
 
-          {/* SUB-BRANCH: YES, PLANNING */}
           {formData.planningToTake === "yes" && (
-            <div className="p-4 bg-yellow-50 border border-gray-100 rounded-xl space-y-4 animate-fadeIn">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold text-black">
-                    Targeted Overall Score
-                  </label>
-                  <input
-                    type="number"
-                    step="0.5"
-                    name="targetOverallScore"
-                    placeholder="e.g. 7.5"
-                    value={formData.targetOverallScore}
-                    onChange={handleInputChange}
-                    className={`w-full p-2.5 bg-white border rounded-lg text-black text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
-                      errors.targetOverallScore
-                        ? "border-red-500"
-                        : "border-gray-200"
-                    }`}
-                  />
-                  {errors.targetOverallScore && (
-                    <span className="text-[10px] font-medium text-red-500">
-                      {errors.targetOverallScore}
-                    </span>
-                  )}
-                </div>
+            <div className="flex flex-col gap-5 rounded-card border border-border bg-canvas-subtle p-4 sm:p-5">
+              <BandScoreInput
+                id="targetOverallScore"
+                label="Target overall band"
+                value={formData.targetOverallScore}
+                onChange={(v) => set("targetOverallScore", v)}
+                error={errors.targetOverallScore}
+              />
 
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold text-black">
-                    Target Exam Date
-                  </label>
-                  <input
-                    type="date"
-                    name="targetExamDate"
-                    value={formData.targetExamDate}
-                    onChange={handleInputChange}
-                    className={`w-full p-2.5 bg-white border rounded-lg text-black text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 ${
-                      errors.targetExamDate
-                        ? "border-red-500"
-                        : "border-gray-200"
-                    }`}
-                  />
-                  {errors.targetExamDate && (
-                    <span className="text-[10px] font-medium text-red-500">
-                      {errors.targetExamDate}
-                    </span>
-                  )}
-                </div>
-              </div>
+              <Field
+                label="Target exam date"
+                error={errors.targetExamDate}
+                hint="An estimate is fine — it only shapes your checklist timeline."
+              >
+                <Input
+                  type="date"
+                  name="targetExamDate"
+                  min={todayISO()}
+                  value={formData.targetExamDate}
+                  onChange={(e) => set("targetExamDate", e.target.value)}
+                />
+              </Field>
 
-              {/* Dynamic checklist alert text */}
-              <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-lg text-xs font-medium text-emerald-800">
-                ✨ We'll add IELTS preparation tasks to your checklist
+              <Alert tone="success" announce="none" icon={Sparkles}>
+                We&apos;ll add IELTS preparation tasks to your checklist
                 automatically.
-              </div>
+              </Alert>
             </div>
           )}
         </div>
       )}
 
-      {/* Navigation Row */}
-      <div className="flex gap-3 pt-2">
-        <button
+      <div className="flex flex-col-reverse gap-3 sm:flex-row">
+        <Button
           type="button"
+          variant="secondary"
+          size="lg"
+          leadingIcon={ArrowLeft}
           onClick={onBack}
-          className="w-1/3 border border-gray-300 text-black font-medium py-2.5 px-4 rounded-lg hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-200"
         >
           Back
-        </button>
-        <button
-          type="submit"
-          className="w-2/3 bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 px-4 rounded-lg shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
-        >
+        </Button>
+        <Button type="submit" size="lg" fullWidth trailingIcon={ArrowRight}>
           Continue
-        </button>
+        </Button>
       </div>
     </form>
   );

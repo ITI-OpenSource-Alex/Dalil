@@ -29,24 +29,24 @@ export default function InlineAlert({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -4 }}
       transition={{ duration: 0.2, ease: "easeOut" }}
-      className="flex items-start gap-3 rounded-xl border border-red-200/80 bg-red-50/80 p-4"
+      className="flex items-start gap-3 rounded-xl border border-danger-border bg-danger-subtle p-4"
     >
       <AlertCircle
         size={18}
-        className="mt-0.5 shrink-0 text-red-600"
+        className="mt-0.5 shrink-0 text-danger"
         aria-hidden="true"
       />
 
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-red-900">{title}</p>
-        <p className="mt-1 text-xs leading-relaxed text-red-700">
+        <p className="text-sm font-semibold text-danger-fg">{title}</p>
+        <p className="mt-1 text-xs leading-relaxed text-danger-fg/90">
           {description}
         </p>
 
         {onRetry && (
           <button
             onClick={onRetry}
-            className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-700 outline-none transition-colors hover:bg-red-50 focus-visible:ring-2 focus-visible:ring-red-500/40"
+            className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-danger-border bg-surface px-3 py-1.5 text-xs font-medium text-danger-fg outline-none transition-colors hover:bg-danger-subtle focus-visible:ring-2 focus-visible:ring-danger-border"
           >
             <RotateCcw size={13} aria-hidden="true" />
             {retryLabel}

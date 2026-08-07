@@ -1,0 +1,427 @@
+# HELP go_gc_duration_seconds A summary of the wall-time pause (stop-the-world) duration in garbage collection cycles.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 6.0403e-05
+go_gc_duration_seconds{quantile="0.25"} 0.000320418
+go_gc_duration_seconds{quantile="0.5"} 0.000521132
+go_gc_duration_seconds{quantile="0.75"} 0.001382986
+go_gc_duration_seconds{quantile="1"} 0.035386957
+go_gc_duration_seconds_sum 0.212495653
+go_gc_duration_seconds_count 86
+# HELP go_gc_gogc_percent Heap size target percentage configured by the user, otherwise 100. This value is set by the GOGC environment variable, and the runtime/debug.SetGCPercent function. Sourced from /gc/gogc:percent.
+# TYPE go_gc_gogc_percent gauge
+go_gc_gogc_percent 100
+# HELP go_gc_gomemlimit_bytes Go runtime memory limit configured by the user, otherwise math.MaxInt64. This value is set by the GOMEMLIMIT environment variable, and the runtime/debug.SetMemoryLimit function. Sourced from /gc/gomemlimit:bytes.
+# TYPE go_gc_gomemlimit_bytes gauge
+go_gc_gomemlimit_bytes 9.223372036854776e+18
+# HELP go_goroutines Number of goroutines that currently exist.
+# TYPE go_goroutines gauge
+go_goroutines 15
+# HELP go_info Information about the Go environment.
+# TYPE go_info gauge
+go_info{version="go1.25.12"} 1
+# HELP go_memstats_alloc_bytes Number of bytes allocated in heap and currently in use. Equals to /memory/classes/heap/objects:bytes.
+# TYPE go_memstats_alloc_bytes gauge
+go_memstats_alloc_bytes 7.698808e+06
+# HELP go_memstats_alloc_bytes_total Total number of bytes allocated in heap until now, even if released already. Equals to /gc/heap/allocs:bytes.
+# TYPE go_memstats_alloc_bytes_total counter
+go_memstats_alloc_bytes_total 1.011091928e+09
+# HELP go_memstats_buck_hash_sys_bytes Number of bytes used by the profiling bucket hash table. Equals to /memory/classes/profiling/buckets:bytes.
+# TYPE go_memstats_buck_hash_sys_bytes gauge
+go_memstats_buck_hash_sys_bytes 1.444763e+06
+# HELP go_memstats_frees_total Total number of heap objects frees. Equals to /gc/heap/frees:objects + /gc/heap/tiny/allocs:objects.
+# TYPE go_memstats_frees_total counter
+go_memstats_frees_total 614155
+# HELP go_memstats_gc_sys_bytes Number of bytes used for garbage collection system metadata. Equals to /memory/classes/metadata/other:bytes.
+# TYPE go_memstats_gc_sys_bytes gauge
+go_memstats_gc_sys_bytes 3.840816e+06
+# HELP go_memstats_heap_alloc_bytes Number of heap bytes allocated and currently in use, same as go_memstats_alloc_bytes. Equals to /memory/classes/heap/objects:bytes.
+# TYPE go_memstats_heap_alloc_bytes gauge
+go_memstats_heap_alloc_bytes 7.698808e+06
+# HELP go_memstats_heap_idle_bytes Number of heap bytes waiting to be used. Equals to /memory/classes/heap/released:bytes + /memory/classes/heap/free:bytes.
+# TYPE go_memstats_heap_idle_bytes gauge
+go_memstats_heap_idle_bytes 1.78290688e+08
+# HELP go_memstats_heap_inuse_bytes Number of heap bytes that are in use. Equals to /memory/classes/heap/objects:bytes + /memory/classes/heap/unused:bytes
+# TYPE go_memstats_heap_inuse_bytes gauge
+go_memstats_heap_inuse_bytes 1.2025856e+07
+# HELP go_memstats_heap_objects Number of currently allocated objects. Equals to /gc/heap/objects:objects.
+# TYPE go_memstats_heap_objects gauge
+go_memstats_heap_objects 13214
+# HELP go_memstats_heap_released_bytes Number of heap bytes released to OS. Equals to /memory/classes/heap/released:bytes.
+# TYPE go_memstats_heap_released_bytes gauge
+go_memstats_heap_released_bytes 1.67297024e+08
+# HELP go_memstats_heap_sys_bytes Number of heap bytes obtained from system. Equals to /memory/classes/heap/objects:bytes + /memory/classes/heap/unused:bytes + /memory/classes/heap/released:bytes + /memory/classes/heap/free:bytes.
+# TYPE go_memstats_heap_sys_bytes gauge
+go_memstats_heap_sys_bytes 1.90316544e+08
+# HELP go_memstats_last_gc_time_seconds Number of seconds since 1970 of last garbage collection.
+# TYPE go_memstats_last_gc_time_seconds gauge
+go_memstats_last_gc_time_seconds 1.7858090242421677e+09
+# HELP go_memstats_mallocs_total Total number of heap objects allocated, both live and gc-ed. Semantically a counter version for go_memstats_heap_objects gauge. Equals to /gc/heap/allocs:objects + /gc/heap/tiny/allocs:objects.
+# TYPE go_memstats_mallocs_total counter
+go_memstats_mallocs_total 627369
+# HELP go_memstats_mcache_inuse_bytes Number of bytes in use by mcache structures. Equals to /memory/classes/metadata/mcache/inuse:bytes.
+# TYPE go_memstats_mcache_inuse_bytes gauge
+go_memstats_mcache_inuse_bytes 14496
+# HELP go_memstats_mcache_sys_bytes Number of bytes used for mcache structures obtained from system. Equals to /memory/classes/metadata/mcache/inuse:bytes + /memory/classes/metadata/mcache/free:bytes.
+# TYPE go_memstats_mcache_sys_bytes gauge
+go_memstats_mcache_sys_bytes 15704
+# HELP go_memstats_mspan_inuse_bytes Number of bytes in use by mspan structures. Equals to /memory/classes/metadata/mspan/inuse:bytes.
+# TYPE go_memstats_mspan_inuse_bytes gauge
+go_memstats_mspan_inuse_bytes 220160
+# HELP go_memstats_mspan_sys_bytes Number of bytes used for mspan structures obtained from system. Equals to /memory/classes/metadata/mspan/inuse:bytes + /memory/classes/metadata/mspan/free:bytes.
+# TYPE go_memstats_mspan_sys_bytes gauge
+go_memstats_mspan_sys_bytes 669120
+# HELP go_memstats_next_gc_bytes Number of heap bytes when next garbage collection will take place. Equals to /gc/heap/goal:bytes.
+# TYPE go_memstats_next_gc_bytes gauge
+go_memstats_next_gc_bytes 1.393877e+07
+# HELP go_memstats_other_sys_bytes Number of bytes used for other system allocations. Equals to /memory/classes/other:bytes.
+# TYPE go_memstats_other_sys_bytes gauge
+go_memstats_other_sys_bytes 2.449221e+06
+# HELP go_memstats_stack_inuse_bytes Number of bytes obtained from system for stack allocator in non-CGO environments. Equals to /memory/classes/heap/stacks:bytes.
+# TYPE go_memstats_stack_inuse_bytes gauge
+go_memstats_stack_inuse_bytes 2.62144e+06
+# HELP go_memstats_stack_sys_bytes Number of bytes obtained from system for stack allocator. Equals to /memory/classes/heap/stacks:bytes + /memory/classes/os-stacks:bytes.
+# TYPE go_memstats_stack_sys_bytes gauge
+go_memstats_stack_sys_bytes 2.62144e+06
+# HELP go_memstats_sys_bytes Number of bytes obtained from system. Equals to /memory/classes/total:byte.
+# TYPE go_memstats_sys_bytes gauge
+go_memstats_sys_bytes 2.01357608e+08
+# HELP go_sched_gomaxprocs_threads The current runtime.GOMAXPROCS setting, or the number of operating system threads that can execute user-level Go code simultaneously. Sourced from /sched/gomaxprocs:threads.
+# TYPE go_sched_gomaxprocs_threads gauge
+go_sched_gomaxprocs_threads 12
+# HELP go_threads Number of OS threads created.
+# TYPE go_threads gauge
+go_threads 18
+# HELP goa_langfuse_ingestion_failures_total Number of individual Langfuse ingestion events that failed.
+# TYPE goa_langfuse_ingestion_failures_total counter
+goa_langfuse_ingestion_failures_total 138
+# HELP goa_speaking_active_connections Number of active speaking service WebSocket connections
+# TYPE goa_speaking_active_connections gauge
+goa_speaking_active_connections 0
+# HELP goa_speaking_agent_band_score IELTS band scores awarded by criteria
+# TYPE goa_speaking_agent_band_score histogram
+goa_speaking_agent_band_score_bucket{criterion="Fluency and Coherence",le="0"} 2
+goa_speaking_agent_band_score_bucket{criterion="Fluency and Coherence",le="0.5"} 2
+goa_speaking_agent_band_score_bucket{criterion="Fluency and Coherence",le="1"} 2
+goa_speaking_agent_band_score_bucket{criterion="Fluency and Coherence",le="1.5"} 2
+goa_speaking_agent_band_score_bucket{criterion="Fluency and Coherence",le="2"} 2
+goa_speaking_agent_band_score_bucket{criterion="Fluency and Coherence",le="2.5"} 2
+goa_speaking_agent_band_score_bucket{criterion="Fluency and Coherence",le="3"} 2
+goa_speaking_agent_band_score_bucket{criterion="Fluency and Coherence",le="3.5"} 2
+goa_speaking_agent_band_score_bucket{criterion="Fluency and Coherence",le="4"} 2
+goa_speaking_agent_band_score_bucket{criterion="Fluency and Coherence",le="4.5"} 2
+goa_speaking_agent_band_score_bucket{criterion="Fluency and Coherence",le="5"} 2
+goa_speaking_agent_band_score_bucket{criterion="Fluency and Coherence",le="5.5"} 2
+goa_speaking_agent_band_score_bucket{criterion="Fluency and Coherence",le="6"} 2
+goa_speaking_agent_band_score_bucket{criterion="Fluency and Coherence",le="6.5"} 2
+goa_speaking_agent_band_score_bucket{criterion="Fluency and Coherence",le="7"} 14
+goa_speaking_agent_band_score_bucket{criterion="Fluency and Coherence",le="7.5"} 17
+goa_speaking_agent_band_score_bucket{criterion="Fluency and Coherence",le="8"} 17
+goa_speaking_agent_band_score_bucket{criterion="Fluency and Coherence",le="8.5"} 17
+goa_speaking_agent_band_score_bucket{criterion="Fluency and Coherence",le="9"} 17
+goa_speaking_agent_band_score_bucket{criterion="Fluency and Coherence",le="+Inf"} 17
+goa_speaking_agent_band_score_sum{criterion="Fluency and Coherence"} 106.5
+goa_speaking_agent_band_score_count{criterion="Fluency and Coherence"} 17
+goa_speaking_agent_band_score_bucket{criterion="Grammatical Range and Accuracy",le="0"} 2
+goa_speaking_agent_band_score_bucket{criterion="Grammatical Range and Accuracy",le="0.5"} 2
+goa_speaking_agent_band_score_bucket{criterion="Grammatical Range and Accuracy",le="1"} 2
+goa_speaking_agent_band_score_bucket{criterion="Grammatical Range and Accuracy",le="1.5"} 2
+goa_speaking_agent_band_score_bucket{criterion="Grammatical Range and Accuracy",le="2"} 2
+goa_speaking_agent_band_score_bucket{criterion="Grammatical Range and Accuracy",le="2.5"} 2
+goa_speaking_agent_band_score_bucket{criterion="Grammatical Range and Accuracy",le="3"} 2
+goa_speaking_agent_band_score_bucket{criterion="Grammatical Range and Accuracy",le="3.5"} 2
+goa_speaking_agent_band_score_bucket{criterion="Grammatical Range and Accuracy",le="4"} 2
+goa_speaking_agent_band_score_bucket{criterion="Grammatical Range and Accuracy",le="4.5"} 2
+goa_speaking_agent_band_score_bucket{criterion="Grammatical Range and Accuracy",le="5"} 2
+goa_speaking_agent_band_score_bucket{criterion="Grammatical Range and Accuracy",le="5.5"} 2
+goa_speaking_agent_band_score_bucket{criterion="Grammatical Range and Accuracy",le="6"} 2
+goa_speaking_agent_band_score_bucket{criterion="Grammatical Range and Accuracy",le="6.5"} 2
+goa_speaking_agent_band_score_bucket{criterion="Grammatical Range and Accuracy",le="7"} 3
+goa_speaking_agent_band_score_bucket{criterion="Grammatical Range and Accuracy",le="7.5"} 11
+goa_speaking_agent_band_score_bucket{criterion="Grammatical Range and Accuracy",le="8"} 18
+goa_speaking_agent_band_score_bucket{criterion="Grammatical Range and Accuracy",le="8.5"} 18
+goa_speaking_agent_band_score_bucket{criterion="Grammatical Range and Accuracy",le="9"} 18
+goa_speaking_agent_band_score_bucket{criterion="Grammatical Range and Accuracy",le="+Inf"} 18
+goa_speaking_agent_band_score_sum{criterion="Grammatical Range and Accuracy"} 123
+goa_speaking_agent_band_score_count{criterion="Grammatical Range and Accuracy"} 18
+goa_speaking_agent_band_score_bucket{criterion="Lexical Resource",le="0"} 2
+goa_speaking_agent_band_score_bucket{criterion="Lexical Resource",le="0.5"} 2
+goa_speaking_agent_band_score_bucket{criterion="Lexical Resource",le="1"} 2
+goa_speaking_agent_band_score_bucket{criterion="Lexical Resource",le="1.5"} 2
+goa_speaking_agent_band_score_bucket{criterion="Lexical Resource",le="2"} 2
+goa_speaking_agent_band_score_bucket{criterion="Lexical Resource",le="2.5"} 2
+goa_speaking_agent_band_score_bucket{criterion="Lexical Resource",le="3"} 2
+goa_speaking_agent_band_score_bucket{criterion="Lexical Resource",le="3.5"} 2
+goa_speaking_agent_band_score_bucket{criterion="Lexical Resource",le="4"} 2
+goa_speaking_agent_band_score_bucket{criterion="Lexical Resource",le="4.5"} 2
+goa_speaking_agent_band_score_bucket{criterion="Lexical Resource",le="5"} 2
+goa_speaking_agent_band_score_bucket{criterion="Lexical Resource",le="5.5"} 2
+goa_speaking_agent_band_score_bucket{criterion="Lexical Resource",le="6"} 2
+goa_speaking_agent_band_score_bucket{criterion="Lexical Resource",le="6.5"} 3
+goa_speaking_agent_band_score_bucket{criterion="Lexical Resource",le="7"} 16
+goa_speaking_agent_band_score_bucket{criterion="Lexical Resource",le="7.5"} 16
+goa_speaking_agent_band_score_bucket{criterion="Lexical Resource",le="8"} 16
+goa_speaking_agent_band_score_bucket{criterion="Lexical Resource",le="8.5"} 16
+goa_speaking_agent_band_score_bucket{criterion="Lexical Resource",le="9"} 16
+goa_speaking_agent_band_score_bucket{criterion="Lexical Resource",le="+Inf"} 16
+goa_speaking_agent_band_score_sum{criterion="Lexical Resource"} 97.5
+goa_speaking_agent_band_score_count{criterion="Lexical Resource"} 16
+goa_speaking_agent_band_score_bucket{criterion="Pronunciation",le="0"} 1
+goa_speaking_agent_band_score_bucket{criterion="Pronunciation",le="0.5"} 1
+goa_speaking_agent_band_score_bucket{criterion="Pronunciation",le="1"} 2
+goa_speaking_agent_band_score_bucket{criterion="Pronunciation",le="1.5"} 2
+goa_speaking_agent_band_score_bucket{criterion="Pronunciation",le="2"} 2
+goa_speaking_agent_band_score_bucket{criterion="Pronunciation",le="2.5"} 2
+goa_speaking_agent_band_score_bucket{criterion="Pronunciation",le="3"} 2
+goa_speaking_agent_band_score_bucket{criterion="Pronunciation",le="3.5"} 2
+goa_speaking_agent_band_score_bucket{criterion="Pronunciation",le="4"} 2
+goa_speaking_agent_band_score_bucket{criterion="Pronunciation",le="4.5"} 2
+goa_speaking_agent_band_score_bucket{criterion="Pronunciation",le="5"} 2
+goa_speaking_agent_band_score_bucket{criterion="Pronunciation",le="5.5"} 2
+goa_speaking_agent_band_score_bucket{criterion="Pronunciation",le="6"} 2
+goa_speaking_agent_band_score_bucket{criterion="Pronunciation",le="6.5"} 2
+goa_speaking_agent_band_score_bucket{criterion="Pronunciation",le="7"} 14
+goa_speaking_agent_band_score_bucket{criterion="Pronunciation",le="7.5"} 16
+goa_speaking_agent_band_score_bucket{criterion="Pronunciation",le="8"} 16
+goa_speaking_agent_band_score_bucket{criterion="Pronunciation",le="8.5"} 16
+goa_speaking_agent_band_score_bucket{criterion="Pronunciation",le="9"} 16
+goa_speaking_agent_band_score_bucket{criterion="Pronunciation",le="+Inf"} 16
+goa_speaking_agent_band_score_sum{criterion="Pronunciation"} 100
+goa_speaking_agent_band_score_count{criterion="Pronunciation"} 16
+# HELP goa_speaking_criterion_complete_ms Latency from swarm start to an individual criterion completing, in milliseconds
+# TYPE goa_speaking_criterion_complete_ms histogram
+goa_speaking_criterion_complete_ms_bucket{criterion="Fluency and Coherence",outcome="completed",le="2500"} 0
+goa_speaking_criterion_complete_ms_bucket{criterion="Fluency and Coherence",outcome="completed",le="5000"} 3
+goa_speaking_criterion_complete_ms_bucket{criterion="Fluency and Coherence",outcome="completed",le="10000"} 11
+goa_speaking_criterion_complete_ms_bucket{criterion="Fluency and Coherence",outcome="completed",le="20000"} 16
+goa_speaking_criterion_complete_ms_bucket{criterion="Fluency and Coherence",outcome="completed",le="30000"} 16
+goa_speaking_criterion_complete_ms_bucket{criterion="Fluency and Coherence",outcome="completed",le="45000"} 17
+goa_speaking_criterion_complete_ms_bucket{criterion="Fluency and Coherence",outcome="completed",le="60000"} 17
+goa_speaking_criterion_complete_ms_bucket{criterion="Fluency and Coherence",outcome="completed",le="90000"} 17
+goa_speaking_criterion_complete_ms_bucket{criterion="Fluency and Coherence",outcome="completed",le="+Inf"} 17
+goa_speaking_criterion_complete_ms_sum{criterion="Fluency and Coherence",outcome="completed"} 157321
+goa_speaking_criterion_complete_ms_count{criterion="Fluency and Coherence",outcome="completed"} 17
+goa_speaking_criterion_complete_ms_bucket{criterion="Fluency and Coherence",outcome="provider_error",le="2500"} 0
+goa_speaking_criterion_complete_ms_bucket{criterion="Fluency and Coherence",outcome="provider_error",le="5000"} 0
+goa_speaking_criterion_complete_ms_bucket{criterion="Fluency and Coherence",outcome="provider_error",le="10000"} 0
+goa_speaking_criterion_complete_ms_bucket{criterion="Fluency and Coherence",outcome="provider_error",le="20000"} 4
+goa_speaking_criterion_complete_ms_bucket{criterion="Fluency and Coherence",outcome="provider_error",le="30000"} 4
+goa_speaking_criterion_complete_ms_bucket{criterion="Fluency and Coherence",outcome="provider_error",le="45000"} 7
+goa_speaking_criterion_complete_ms_bucket{criterion="Fluency and Coherence",outcome="provider_error",le="60000"} 7
+goa_speaking_criterion_complete_ms_bucket{criterion="Fluency and Coherence",outcome="provider_error",le="90000"} 7
+goa_speaking_criterion_complete_ms_bucket{criterion="Fluency and Coherence",outcome="provider_error",le="+Inf"} 7
+goa_speaking_criterion_complete_ms_sum{criterion="Fluency and Coherence",outcome="provider_error"} 165784
+goa_speaking_criterion_complete_ms_count{criterion="Fluency and Coherence",outcome="provider_error"} 7
+goa_speaking_criterion_complete_ms_bucket{criterion="Grammatical Range and Accuracy",outcome="completed",le="2500"} 0
+goa_speaking_criterion_complete_ms_bucket{criterion="Grammatical Range and Accuracy",outcome="completed",le="5000"} 1
+goa_speaking_criterion_complete_ms_bucket{criterion="Grammatical Range and Accuracy",outcome="completed",le="10000"} 12
+goa_speaking_criterion_complete_ms_bucket{criterion="Grammatical Range and Accuracy",outcome="completed",le="20000"} 17
+goa_speaking_criterion_complete_ms_bucket{criterion="Grammatical Range and Accuracy",outcome="completed",le="30000"} 18
+goa_speaking_criterion_complete_ms_bucket{criterion="Grammatical Range and Accuracy",outcome="completed",le="45000"} 18
+goa_speaking_criterion_complete_ms_bucket{criterion="Grammatical Range and Accuracy",outcome="completed",le="60000"} 18
+goa_speaking_criterion_complete_ms_bucket{criterion="Grammatical Range and Accuracy",outcome="completed",le="90000"} 18
+goa_speaking_criterion_complete_ms_bucket{criterion="Grammatical Range and Accuracy",outcome="completed",le="+Inf"} 18
+goa_speaking_criterion_complete_ms_sum{criterion="Grammatical Range and Accuracy",outcome="completed"} 167493
+goa_speaking_criterion_complete_ms_count{criterion="Grammatical Range and Accuracy",outcome="completed"} 18
+goa_speaking_criterion_complete_ms_bucket{criterion="Grammatical Range and Accuracy",outcome="provider_error",le="2500"} 0
+goa_speaking_criterion_complete_ms_bucket{criterion="Grammatical Range and Accuracy",outcome="provider_error",le="5000"} 0
+goa_speaking_criterion_complete_ms_bucket{criterion="Grammatical Range and Accuracy",outcome="provider_error",le="10000"} 0
+goa_speaking_criterion_complete_ms_bucket{criterion="Grammatical Range and Accuracy",outcome="provider_error",le="20000"} 5
+goa_speaking_criterion_complete_ms_bucket{criterion="Grammatical Range and Accuracy",outcome="provider_error",le="30000"} 5
+goa_speaking_criterion_complete_ms_bucket{criterion="Grammatical Range and Accuracy",outcome="provider_error",le="45000"} 6
+goa_speaking_criterion_complete_ms_bucket{criterion="Grammatical Range and Accuracy",outcome="provider_error",le="60000"} 6
+goa_speaking_criterion_complete_ms_bucket{criterion="Grammatical Range and Accuracy",outcome="provider_error",le="90000"} 6
+goa_speaking_criterion_complete_ms_bucket{criterion="Grammatical Range and Accuracy",outcome="provider_error",le="+Inf"} 6
+goa_speaking_criterion_complete_ms_sum{criterion="Grammatical Range and Accuracy",outcome="provider_error"} 119343
+goa_speaking_criterion_complete_ms_count{criterion="Grammatical Range and Accuracy",outcome="provider_error"} 6
+goa_speaking_criterion_complete_ms_bucket{criterion="Lexical Resource",outcome="completed",le="2500"} 0
+goa_speaking_criterion_complete_ms_bucket{criterion="Lexical Resource",outcome="completed",le="5000"} 3
+goa_speaking_criterion_complete_ms_bucket{criterion="Lexical Resource",outcome="completed",le="10000"} 10
+goa_speaking_criterion_complete_ms_bucket{criterion="Lexical Resource",outcome="completed",le="20000"} 15
+goa_speaking_criterion_complete_ms_bucket{criterion="Lexical Resource",outcome="completed",le="30000"} 15
+goa_speaking_criterion_complete_ms_bucket{criterion="Lexical Resource",outcome="completed",le="45000"} 16
+goa_speaking_criterion_complete_ms_bucket{criterion="Lexical Resource",outcome="completed",le="60000"} 16
+goa_speaking_criterion_complete_ms_bucket{criterion="Lexical Resource",outcome="completed",le="90000"} 16
+goa_speaking_criterion_complete_ms_bucket{criterion="Lexical Resource",outcome="completed",le="+Inf"} 16
+goa_speaking_criterion_complete_ms_sum{criterion="Lexical Resource",outcome="completed"} 150444
+goa_speaking_criterion_complete_ms_count{criterion="Lexical Resource",outcome="completed"} 16
+goa_speaking_criterion_complete_ms_bucket{criterion="Lexical Resource",outcome="provider_error",le="2500"} 0
+goa_speaking_criterion_complete_ms_bucket{criterion="Lexical Resource",outcome="provider_error",le="5000"} 0
+goa_speaking_criterion_complete_ms_bucket{criterion="Lexical Resource",outcome="provider_error",le="10000"} 0
+goa_speaking_criterion_complete_ms_bucket{criterion="Lexical Resource",outcome="provider_error",le="20000"} 6
+goa_speaking_criterion_complete_ms_bucket{criterion="Lexical Resource",outcome="provider_error",le="30000"} 6
+goa_speaking_criterion_complete_ms_bucket{criterion="Lexical Resource",outcome="provider_error",le="45000"} 8
+goa_speaking_criterion_complete_ms_bucket{criterion="Lexical Resource",outcome="provider_error",le="60000"} 8
+goa_speaking_criterion_complete_ms_bucket{criterion="Lexical Resource",outcome="provider_error",le="90000"} 8
+goa_speaking_criterion_complete_ms_bucket{criterion="Lexical Resource",outcome="provider_error",le="+Inf"} 8
+goa_speaking_criterion_complete_ms_sum{criterion="Lexical Resource",outcome="provider_error"} 169928
+goa_speaking_criterion_complete_ms_count{criterion="Lexical Resource",outcome="provider_error"} 8
+goa_speaking_criterion_complete_ms_bucket{criterion="Pronunciation",outcome="completed",le="2500"} 0
+goa_speaking_criterion_complete_ms_bucket{criterion="Pronunciation",outcome="completed",le="5000"} 1
+goa_speaking_criterion_complete_ms_bucket{criterion="Pronunciation",outcome="completed",le="10000"} 13
+goa_speaking_criterion_complete_ms_bucket{criterion="Pronunciation",outcome="completed",le="20000"} 15
+goa_speaking_criterion_complete_ms_bucket{criterion="Pronunciation",outcome="completed",le="30000"} 15
+goa_speaking_criterion_complete_ms_bucket{criterion="Pronunciation",outcome="completed",le="45000"} 16
+goa_speaking_criterion_complete_ms_bucket{criterion="Pronunciation",outcome="completed",le="60000"} 16
+goa_speaking_criterion_complete_ms_bucket{criterion="Pronunciation",outcome="completed",le="90000"} 16
+goa_speaking_criterion_complete_ms_bucket{criterion="Pronunciation",outcome="completed",le="+Inf"} 16
+goa_speaking_criterion_complete_ms_sum{criterion="Pronunciation",outcome="completed"} 147159
+goa_speaking_criterion_complete_ms_count{criterion="Pronunciation",outcome="completed"} 16
+goa_speaking_criterion_complete_ms_bucket{criterion="Pronunciation",outcome="provider_error",le="2500"} 0
+goa_speaking_criterion_complete_ms_bucket{criterion="Pronunciation",outcome="provider_error",le="5000"} 0
+goa_speaking_criterion_complete_ms_bucket{criterion="Pronunciation",outcome="provider_error",le="10000"} 0
+goa_speaking_criterion_complete_ms_bucket{criterion="Pronunciation",outcome="provider_error",le="20000"} 5
+goa_speaking_criterion_complete_ms_bucket{criterion="Pronunciation",outcome="provider_error",le="30000"} 5
+goa_speaking_criterion_complete_ms_bucket{criterion="Pronunciation",outcome="provider_error",le="45000"} 8
+goa_speaking_criterion_complete_ms_bucket{criterion="Pronunciation",outcome="provider_error",le="60000"} 8
+goa_speaking_criterion_complete_ms_bucket{criterion="Pronunciation",outcome="provider_error",le="90000"} 8
+goa_speaking_criterion_complete_ms_bucket{criterion="Pronunciation",outcome="provider_error",le="+Inf"} 8
+goa_speaking_criterion_complete_ms_sum{criterion="Pronunciation",outcome="provider_error"} 185655
+goa_speaking_criterion_complete_ms_count{criterion="Pronunciation",outcome="provider_error"} 8
+# HELP goa_speaking_e2e_latency_ms End-to-end latency from first audio chunk received to first TTS chunk written to the socket, in milliseconds
+# TYPE goa_speaking_e2e_latency_ms histogram
+goa_speaking_e2e_latency_ms_bucket{le="5000"} 0
+goa_speaking_e2e_latency_ms_bucket{le="10000"} 0
+goa_speaking_e2e_latency_ms_bucket{le="20000"} 0
+goa_speaking_e2e_latency_ms_bucket{le="30000"} 2
+goa_speaking_e2e_latency_ms_bucket{le="45000"} 2
+goa_speaking_e2e_latency_ms_bucket{le="60000"} 2
+goa_speaking_e2e_latency_ms_bucket{le="90000"} 2
+goa_speaking_e2e_latency_ms_bucket{le="120000"} 2
+goa_speaking_e2e_latency_ms_bucket{le="180000"} 2
+goa_speaking_e2e_latency_ms_bucket{le="+Inf"} 2
+goa_speaking_e2e_latency_ms_sum 40165
+goa_speaking_e2e_latency_ms_count 2
+# HELP goa_speaking_goroutine_count Current number of running goroutines
+# TYPE goa_speaking_goroutine_count gauge
+goa_speaking_goroutine_count 10
+# HELP goa_speaking_holistic_evaluation_ms Latency of holistic speaking evaluations
+# TYPE goa_speaking_holistic_evaluation_ms histogram
+goa_speaking_holistic_evaluation_ms_bucket{le="1000"} 0
+goa_speaking_holistic_evaluation_ms_bucket{le="2000"} 0
+goa_speaking_holistic_evaluation_ms_bucket{le="3000"} 0
+goa_speaking_holistic_evaluation_ms_bucket{le="4000"} 0
+goa_speaking_holistic_evaluation_ms_bucket{le="5000"} 0
+goa_speaking_holistic_evaluation_ms_bucket{le="6000"} 0
+goa_speaking_holistic_evaluation_ms_bucket{le="7000"} 0
+goa_speaking_holistic_evaluation_ms_bucket{le="8000"} 0
+goa_speaking_holistic_evaluation_ms_bucket{le="9000"} 0
+goa_speaking_holistic_evaluation_ms_bucket{le="10000"} 0
+goa_speaking_holistic_evaluation_ms_bucket{le="+Inf"} 0
+goa_speaking_holistic_evaluation_ms_sum 0
+goa_speaking_holistic_evaluation_ms_count 0
+# HELP goa_speaking_llm_first_token_ms Latency from LLM request start to first token emitted in milliseconds
+# TYPE goa_speaking_llm_first_token_ms histogram
+goa_speaking_llm_first_token_ms_bucket{le="250"} 0
+goa_speaking_llm_first_token_ms_bucket{le="500"} 0
+goa_speaking_llm_first_token_ms_bucket{le="1000"} 0
+goa_speaking_llm_first_token_ms_bucket{le="2500"} 9
+goa_speaking_llm_first_token_ms_bucket{le="5000"} 37
+goa_speaking_llm_first_token_ms_bucket{le="10000"} 56
+goa_speaking_llm_first_token_ms_bucket{le="20000"} 63
+goa_speaking_llm_first_token_ms_bucket{le="40000"} 67
+goa_speaking_llm_first_token_ms_bucket{le="60000"} 67
+goa_speaking_llm_first_token_ms_bucket{le="+Inf"} 67
+goa_speaking_llm_first_token_ms_sum 454591
+goa_speaking_llm_first_token_ms_count 67
+# HELP goa_speaking_sessions_total Total number of completed speaking sessions
+# TYPE goa_speaking_sessions_total counter
+goa_speaking_sessions_total{outcome="completed"} 1
+goa_speaking_sessions_total{outcome="dropped"} 110
+goa_speaking_sessions_total{outcome="error"} 1
+# HELP goa_speaking_slo_violations_total Count of latency budget breaches, labelled by which budget was exceeded
+# TYPE goa_speaking_slo_violations_total counter
+goa_speaking_slo_violations_total{budget="e2e_latency_ms"} 7
+goa_speaking_slo_violations_total{budget="time_to_first_criterion_ms"} 16
+goa_speaking_slo_violations_total{budget="transcription_ratio"} 21
+# HELP goa_speaking_time_to_first_criterion_ms Latency from first audio chunk received to the first per-criterion result frame being queued for the client, in milliseconds
+# TYPE goa_speaking_time_to_first_criterion_ms histogram
+goa_speaking_time_to_first_criterion_ms_bucket{le="2500"} 0
+goa_speaking_time_to_first_criterion_ms_bucket{le="5000"} 0
+goa_speaking_time_to_first_criterion_ms_bucket{le="10000"} 0
+goa_speaking_time_to_first_criterion_ms_bucket{le="15000"} 2
+goa_speaking_time_to_first_criterion_ms_bucket{le="20000"} 2
+goa_speaking_time_to_first_criterion_ms_bucket{le="30000"} 5
+goa_speaking_time_to_first_criterion_ms_bucket{le="45000"} 8
+goa_speaking_time_to_first_criterion_ms_bucket{le="60000"} 12
+goa_speaking_time_to_first_criterion_ms_bucket{le="90000"} 18
+goa_speaking_time_to_first_criterion_ms_bucket{le="+Inf"} 24
+goa_speaking_time_to_first_criterion_ms_sum 1.502438e+06
+goa_speaking_time_to_first_criterion_ms_count 24
+# HELP goa_speaking_transcription_ms Latency of local faster-whisper STT sidecar calls in milliseconds
+# TYPE goa_speaking_transcription_ms histogram
+goa_speaking_transcription_ms_bucket{le="500"} 0
+goa_speaking_transcription_ms_bucket{le="1000"} 0
+goa_speaking_transcription_ms_bucket{le="2500"} 0
+goa_speaking_transcription_ms_bucket{le="5000"} 0
+goa_speaking_transcription_ms_bucket{le="10000"} 2
+goa_speaking_transcription_ms_bucket{le="15000"} 4
+goa_speaking_transcription_ms_bucket{le="20000"} 5
+goa_speaking_transcription_ms_bucket{le="30000"} 8
+goa_speaking_transcription_ms_bucket{le="45000"} 11
+goa_speaking_transcription_ms_bucket{le="60000"} 15
+goa_speaking_transcription_ms_bucket{le="+Inf"} 24
+goa_speaking_transcription_ms_sum 1.30072e+06
+goa_speaking_transcription_ms_count 24
+# HELP goa_speaking_transcription_ratio STT processing time divided by source audio duration (unitless; 0.33 = 1s of processing per 3s of speech)
+# TYPE goa_speaking_transcription_ratio histogram
+goa_speaking_transcription_ratio_bucket{le="0.1"} 0
+goa_speaking_transcription_ratio_bucket{le="0.2"} 0
+goa_speaking_transcription_ratio_bucket{le="0.3"} 0
+goa_speaking_transcription_ratio_bucket{le="0.4"} 0
+goa_speaking_transcription_ratio_bucket{le="0.5"} 2
+goa_speaking_transcription_ratio_bucket{le="0.75"} 3
+goa_speaking_transcription_ratio_bucket{le="1"} 6
+goa_speaking_transcription_ratio_bucket{le="1.5"} 9
+goa_speaking_transcription_ratio_bucket{le="2"} 13
+goa_speaking_transcription_ratio_bucket{le="3"} 19
+goa_speaking_transcription_ratio_bucket{le="+Inf"} 24
+goa_speaking_transcription_ratio_sum 48.191066666666664
+goa_speaking_transcription_ratio_count 24
+# HELP goa_speaking_tts_first_audio_ms Latency from Piper TTS request start to first audio chunk received in milliseconds
+# TYPE goa_speaking_tts_first_audio_ms histogram
+goa_speaking_tts_first_audio_ms_bucket{le="50"} 0
+goa_speaking_tts_first_audio_ms_bucket{le="100"} 0
+goa_speaking_tts_first_audio_ms_bucket{le="250"} 0
+goa_speaking_tts_first_audio_ms_bucket{le="500"} 0
+goa_speaking_tts_first_audio_ms_bucket{le="1000"} 0
+goa_speaking_tts_first_audio_ms_bucket{le="2000"} 0
+goa_speaking_tts_first_audio_ms_bucket{le="5000"} 0
+goa_speaking_tts_first_audio_ms_bucket{le="10000"} 2
+goa_speaking_tts_first_audio_ms_bucket{le="+Inf"} 2
+goa_speaking_tts_first_audio_ms_sum 13246
+goa_speaking_tts_first_audio_ms_count 2
+# HELP process_cpu_seconds_total Total user and system CPU time spent in seconds.
+# TYPE process_cpu_seconds_total counter
+process_cpu_seconds_total 29.32
+# HELP process_max_fds Maximum number of open file descriptors.
+# TYPE process_max_fds gauge
+process_max_fds 1.048576e+06
+# HELP process_network_receive_bytes_total Number of bytes received by the process over the network.
+# TYPE process_network_receive_bytes_total counter
+process_network_receive_bytes_total 1.86518172e+08
+# HELP process_network_transmit_bytes_total Number of bytes sent by the process over the network.
+# TYPE process_network_transmit_bytes_total counter
+process_network_transmit_bytes_total 1.96056166e+08
+# HELP process_open_fds Number of open file descriptors.
+# TYPE process_open_fds gauge
+process_open_fds 21
+# HELP process_resident_memory_bytes Resident memory size in bytes.
+# TYPE process_resident_memory_bytes gauge
+process_resident_memory_bytes 4.3986944e+07
+# HELP process_start_time_seconds Start time of the process since unix epoch in seconds.
+# TYPE process_start_time_seconds gauge
+process_start_time_seconds 1.78580352736e+09
+# HELP process_virtual_memory_bytes Virtual memory size in bytes.
+# TYPE process_virtual_memory_bytes gauge
+process_virtual_memory_bytes 1.415286784e+09
+# HELP process_virtual_memory_max_bytes Maximum amount of virtual memory available in bytes.
+# TYPE process_virtual_memory_max_bytes gauge
+process_virtual_memory_max_bytes 1.8446744073709552e+19
+# HELP promhttp_metric_handler_requests_in_flight Current number of scrapes being served.
+# TYPE promhttp_metric_handler_requests_in_flight gauge
+promhttp_metric_handler_requests_in_flight 1
+# HELP promhttp_metric_handler_requests_total Total number of scrapes by HTTP status code.
+# TYPE promhttp_metric_handler_requests_total counter
+promhttp_metric_handler_requests_total{code="200"} 4
+promhttp_metric_handler_requests_total{code="500"} 0
+promhttp_metric_handler_requests_total{code="503"} 0

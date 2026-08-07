@@ -1,0 +1,142 @@
+{
+    "root_group": {
+        "checks": {
+            "band present iff >=3 criteria completed": {
+                "id": "1692107be488d3424f827bdbf383ee35",
+                "passes": 4,
+                "fails": 0,
+                "name": "band present iff >=3 criteria completed",
+                "path": "::band present iff >=3 criteria completed"
+            },
+            "upgrade accepted (101)": {
+                "name": "upgrade accepted (101)",
+                "path": "::upgrade accepted (101)",
+                "id": "a1be1719b83c42c3dad3ce9757996741",
+                "passes": 5,
+                "fails": 0
+            }
+        },
+        "name": "",
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {}
+    },
+    "metrics": {
+        "vus_max": {
+            "value": 5,
+            "min": 5,
+            "max": 5
+        },
+        "data_received": {
+            "count": 27775,
+            "rate": 356.72148418527433
+        },
+        "speaking_time_to_evaluation_ms": {
+            "avg": 59066.5,
+            "min": 44442,
+            "med": 57023.5,
+            "max": 77777,
+            "p(90)": 74883.2,
+            "p(95)": 76330.09999999999,
+            "thresholds": {
+                "p(95)<90000": false
+            }
+        },
+        "iterations": {
+            "count": 5,
+            "rate": 0.0642162887822276
+        },
+        "iteration_duration": {
+            "p(95)": 75964.41238600001,
+            "avg": 60995.8548088,
+            "min": 44531.875346,
+            "med": 68221.763745,
+            "max": 77867.403621,
+            "p(90)": 74061.421151
+        },
+        "speaking_sessions_completed": {
+            "count": 4,
+            "rate": 0.051373031025782084
+        },
+        "ws_session_duration": {
+            "avg": 60995.622114599995,
+            "min": 44531.717636,
+            "med": 68221.473528,
+            "max": 77867.115803,
+            "p(90)": 74061.14853379999,
+            "p(95)": 75964.13216839998
+        },
+        "speaking_overall_band_present": {
+            "passes": 1,
+            "fails": 3,
+            "thresholds": {
+                "rate>0.9": true
+            },
+            "value": 0.25
+        },
+        "ws_msgs_received": {
+            "count": 30,
+            "rate": 0.3852977326933656
+        },
+        "checks": {
+            "passes": 9,
+            "fails": 0,
+            "value": 1
+        },
+        "ws_sessions": {
+            "count": 5,
+            "rate": 0.0642162887822276
+        },
+        "speaking_criteria_received": {
+            "rate": 0.2568651551289104,
+            "count": 20
+        },
+        "speaking_time_to_first_criterion_ms": {
+            "avg": 45978.6,
+            "min": 20400,
+            "med": 54611,
+            "max": 65462,
+            "p(90)": 62594.8,
+            "p(95)": 64028.4,
+            "thresholds": {
+                "p(95)<45000": true
+            }
+        },
+        "speaking_time_to_transcript_ms": {
+            "p(95)": 58215.6,
+            "avg": 37208.2,
+            "min": 13980,
+            "med": 37133,
+            "max": 60568,
+            "p(90)": 55863.2
+        },
+        "ws_msgs_sent": {
+            "count": 305,
+            "rate": 3.9171936157158838
+        },
+        "vus": {
+            "value": 1,
+            "min": 1,
+            "max": 5
+        },
+        "ws_connecting": {
+            "min": 84.188143,
+            "med": 84.383055,
+            "max": 84.483461,
+            "p(90)": 84.480421,
+            "p(95)": 84.481941,
+            "avg": 84.3539332
+        },
+        "data_sent": {
+            "rate": 61813.44368857421,
+            "count": 4812910
+        },
+        "speaking_session_errors": {
+            "count": 1,
+            "rate": 0.012843257756445521,
+            "thresholds": {
+                "count==0": true
+            }
+        }
+    }
+}

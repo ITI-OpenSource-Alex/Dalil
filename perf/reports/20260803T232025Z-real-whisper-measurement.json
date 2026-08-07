@@ -1,0 +1,87 @@
+{
+  "audio": "real spoken English (Piper-synthesised IELTS Part 2 answer), 16kHz 16-bit mono",
+  "measured_at": "2026-08-03T23:23:30Z",
+  "n": 12,
+  "provider": "real faster-whisper 'small' int8 on CPU, services/speech",
+  "ratio": {
+    "max": 0.48046666666666665,
+    "med": 0.3972888888888889,
+    "min": 0.34394117647058825,
+    "p95": 0.4720666666666667
+  },
+  "sample_transcript": "I would like to talk about a journey that I took last summer with my family to the mountains in the north of the country. We had been planning the trip for several months, mostly because my younger sister had never seen snow before and she was extremely excited about it. We left very early in the morning, around five o'clock, and the drive itself took almost seven hours, which sounds exhausting but was actually one of the best parts of the whole experience. The scenery gradually changed from flat farmland to steep valleys covered in pine trees and every half an hour or so somebody would ask the driver to stop so that we could take photographs. What made the journey particularly memorable for me was not the destination itself, but the conversations we had along the way. My grandfather told us stories about the village, where he grew up, stories that I had honestly never heard before despite knowing him my entire life. When we finally arrived the weather was much colder than we had anticipated and none of us had packed properly. So we spent the first evening buying scarves and gloves in a small shop near the hotel, laughing at how badly prepared we were, looking back. I think the trip taught me that the unplanned moments are usually the ones you remember most clearly.",
+  "samples": [
+    {
+      "audio_ms": 15000,
+      "processing_ms": 7207,
+      "ratio": 0.48046666666666665,
+      "transcript": "I would like to talk about a journey that I took last summer with my family to the mountains in the north of the country. We had been planning the trip for several months, mostly because my younger sister had never seen snow before and she was extremely excited about it. We left very early in the morning."
+    },
+    {
+      "audio_ms": 15000,
+      "processing_ms": 7081,
+      "ratio": 0.4720666666666667,
+      "transcript": "I would like to talk about a journey that I took last summer with my family to the mountains in the north of the country. We had been planning the trip for several months, mostly because my younger sister had never seen snow before and she was extremely excited about it. We left very early in the morning."
+    },
+    {
+      "audio_ms": 15000,
+      "processing_ms": 6990,
+      "ratio": 0.466,
+      "transcript": "I would like to talk about a journey that I took last summer with my family to the mountains in the north of the country. We had been planning the trip for several months, mostly because my younger sister had never seen snow before and she was extremely excited about it. We left very early in the morning."
+    },
+    {
+      "audio_ms": 30000,
+      "processing_ms": 11776,
+      "ratio": 0.39253333333333335,
+      "transcript": "I would like to talk about a journey that I took last summer with my family to the mountains in the north of the country. We had been planning the trip for several months, mostly because my younger sister had never seen snow before and she was extremely excited about it. We left very early in the morning, around 5 o'clock, and the drive itself took almost 7 hours, which sounds exhausting but was actually one of the best parts of the whole experience. The scenery gradually changed from flat farmland to steep valleys covered in pine trees, and every half an hour."
+    },
+    {
+      "audio_ms": 30000,
+      "processing_ms": 11880,
+      "ratio": 0.396,
+      "transcript": "I would like to talk about a journey that I took last summer with my family to the mountains in the north of the country. We had been planning the trip for several months, mostly because my younger sister had never seen snow before and she was extremely excited about it. We left very early in the morning, around 5 o'clock, and the drive itself took almost 7 hours, which sounds exhausting but was actually one of the best parts of the whole experience. The scenery gradually changed from flat farmland to steep valleys covered in pine trees, and every half an hour."
+    },
+    {
+      "audio_ms": 30000,
+      "processing_ms": 11470,
+      "ratio": 0.38233333333333336,
+      "transcript": "I would like to talk about a journey that I took last summer with my family to the mountains in the north of the country. We had been planning the trip for several months, mostly because my younger sister had never seen snow before and she was extremely excited about it. We left very early in the morning, around 5 o'clock, and the drive itself took almost 7 hours, which sounds exhausting but was actually one of the best parts of the whole experience. The scenery gradually changed from flat farmland to steep valleys covered in pine trees, and every half an hour."
+    },
+    {
+      "audio_ms": 45000,
+      "processing_ms": 17899,
+      "ratio": 0.39775555555555553,
+      "transcript": "I would like to talk about a journey that I took last summer with my family to the mountains in the north of the country. We had been planning the trip for several months, mostly because my younger sister had never seen snow before and she was extremely excited about it. We left very early in the morning, around 5 o'clock, and the drive itself took almost 7 hours, which sounds exhausting but was actually one of the best parts of the whole experience. The scenery gradually changed from flat farmland to steep valleys covered in pine trees, and every half an hour or so somebody would ask the driver to stop so that we could take photographs. What made the journey particularly memorable for me was not the destination itself, but the conversations we had along the way. My grandfather told us stories about the village, where he grew up,"
+    },
+    {
+      "audio_ms": 45000,
+      "processing_ms": 19781,
+      "ratio": 0.4395777777777778,
+      "transcript": "I would like to talk about a journey that I took last summer with my family to the mountains in the north of the country. We had been planning the trip for several months, mostly because my younger sister had never seen snow before and she was extremely excited about it. We left very early in the morning, around 5 o'clock, and the drive itself took almost 7 hours, which sounds exhausting but was actually one of the best parts of the whole experience. The scenery gradually changed from flat farmland to steep valleys covered in pine trees, and every half an hour or so somebody would ask the driver to stop so that we could take photographs. What made the journey particularly memorable for me was not the destination itself, but the conversations we had along the way. My grandfather told us stories about the village, where he grew up,"
+    },
+    {
+      "audio_ms": 45000,
+      "processing_ms": 17878,
+      "ratio": 0.3972888888888889,
+      "transcript": "I would like to talk about a journey that I took last summer with my family to the mountains in the north of the country. We had been planning the trip for several months, mostly because my younger sister had never seen snow before and she was extremely excited about it. We left very early in the morning, around 5 o'clock, and the drive itself took almost 7 hours, which sounds exhausting but was actually one of the best parts of the whole experience. The scenery gradually changed from flat farmland to steep valleys covered in pine trees, and every half an hour or so somebody would ask the driver to stop so that we could take photographs. What made the journey particularly memorable for me was not the destination itself, but the conversations we had along the way. My grandfather told us stories about the village, where he grew up,"
+    },
+    {
+      "audio_ms": 68000,
+      "processing_ms": 23427,
+      "ratio": 0.34451470588235295,
+      "transcript": "I would like to talk about a journey that I took last summer with my family to the mountains in the north of the country. We had been planning the trip for several months, mostly because my younger sister had never seen snow before and she was extremely excited about it. We left very early in the morning, around five o'clock, and the drive itself took almost seven hours, which sounds exhausting but was actually one of the best parts of the whole experience. The scenery gradually changed from flat farmland to steep valleys covered in pine trees and every half an hour or so somebody would ask the driver to stop so that we could take photographs. What made the journey particularly memorable for me was not the destination itself, but the conversations we had along the way. My grandfather told us stories about the village, where he grew up, stories that I had honestly never heard before despite knowing him my entire life. When we finally arrived the weather was much colder than we had anticipated and none of us had packed properly. So we spent the first evening buying scarves and gloves in a small shop near the hotel, laughing at how badly prepared we were, looking back. I think the trip taught me that the unplanned moments are usually the ones you remember most clearly."
+    },
+    {
+      "audio_ms": 68000,
+      "processing_ms": 23868,
+      "ratio": 0.351,
+      "transcript": "I would like to talk about a journey that I took last summer with my family to the mountains in the north of the country. We had been planning the trip for several months, mostly because my younger sister had never seen snow before and she was extremely excited about it. We left very early in the morning, around five o'clock, and the drive itself took almost seven hours, which sounds exhausting but was actually one of the best parts of the whole experience. The scenery gradually changed from flat farmland to steep valleys covered in pine trees and every half an hour or so somebody would ask the driver to stop so that we could take photographs. What made the journey particularly memorable for me was not the destination itself, but the conversations we had along the way. My grandfather told us stories about the village, where he grew up, stories that I had honestly never heard before despite knowing him my entire life. When we finally arrived the weather was much colder than we had anticipated and none of us had packed properly. So we spent the first evening buying scarves and gloves in a small shop near the hotel, laughing at how badly prepared we were, looking back. I think the trip taught me that the unplanned moments are usually the ones you remember most clearly."
+    },
+    {
+      "audio_ms": 68000,
+      "processing_ms": 23388,
+      "ratio": 0.34394117647058825,
+      "transcript": "I would like to talk about a journey that I took last summer with my family to the mountains in the north of the country. We had been planning the trip for several months, mostly because my younger sister had never seen snow before and she was extremely excited about it. We left very early in the morning, around five o'clock, and the drive itself took almost seven hours, which sounds exhausting but was actually one of the best parts of the whole experience. The scenery gradually changed from flat farmland to steep valleys covered in pine trees and every half an hour or so somebody would ask the driver to stop so that we could take photographs. What made the journey particularly memorable for me was not the destination itself, but the conversations we had along the way. My grandfather told us stories about the village, where he grew up, stories that I had honestly never heard before despite knowing him my entire life. When we finally arrived the weather was much colder than we had anticipated and none of us had packed properly. So we spent the first evening buying scarves and gloves in a small shop near the hotel, laughing at how badly prepared we were, looking back. I think the trip taught me that the unplanned moments are usually the ones you remember most clearly."
+    }
+  ]
+}

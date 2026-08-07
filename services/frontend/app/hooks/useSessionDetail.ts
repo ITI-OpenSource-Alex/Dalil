@@ -3,7 +3,7 @@ import { getSpeakingSession } from "@/lib/speaking-api";
 import { SpeakingSessionDetail } from "@/app/types/speaking";
 import { FetchStatus } from "./useSessionHistory";
 
-export function useSessionDetail(sessionId: string, userId: string) {
+export function useSessionDetail(sessionId: string) {
   const [session, setSession] = useState<SpeakingSessionDetail | null>(null);
   const [status, setStatus] = useState<FetchStatus>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -15,14 +15,14 @@ export function useSessionDetail(sessionId: string, userId: string) {
     setError(null);
 
     try {
-      const data = await getSpeakingSession(sessionId, userId);
+      const data = await getSpeakingSession(sessionId);
       setSession(data);
       setStatus("success");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load session");
       setStatus("error");
     }
-  }, [sessionId, userId]);
+  }, [sessionId]);
 
   useEffect(() => {
     load();

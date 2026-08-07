@@ -4,7 +4,7 @@ import { SpeakingSessionSummary } from "@/app/types/speaking";
 
 export type FetchStatus = "idle" | "loading" | "success" | "error";
 
-export function useSessionHistory(userId: string) {
+export function useSessionHistory() {
   const [sessions, setSessions] = useState<SpeakingSessionSummary[]>([]);
   const [status, setStatus] = useState<FetchStatus>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -14,7 +14,7 @@ export function useSessionHistory(userId: string) {
     setError(null);
 
     try {
-      const data = await listSpeakingSessions(userId);
+      const data = await listSpeakingSessions();
       setSessions(data);
       setStatus("success");
     } catch (err) {
@@ -23,7 +23,7 @@ export function useSessionHistory(userId: string) {
       );
       setStatus("error");
     }
-  }, [userId]);
+  }, []);
 
   useEffect(() => {
     load();

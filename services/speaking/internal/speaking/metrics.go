@@ -2,11 +2,11 @@ package speaking
 
 import (
 	"bytes"
-	"net/http"
 	"runtime"
 	"sync"
 	"time"
 
+	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/internal/httpx"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
@@ -14,19 +14,15 @@ import (
 var (
 	// Used solely by the STT call in stt.go. Whisper runs on CPU in the speech
 	// sidecar, so transcription time scales with utterance length: 35 seconds of
-	// audio measured at 11.4s, which blew straight through the previous 10s
-	// budget and failed every non-trivial utterance (BUG-037). IELTS Part 2
+	// audio measured at 11.4s (GOA-098), which blew straight through the previous
+	// 10s budget and failed every non-trivial utterance (BUG-037). IELTS Part 2
 	// answers run one to two minutes by design, so the ceiling has to allow for
 	// roughly 40s of processing plus headroom -- the exam format sets this
 	// number, not a round figure.
-	httpClient = &http.Client{
-		Timeout: 120 * time.Second,
-		Transport: &http.Transport{
-			MaxIdleConns:        100,
-			MaxIdleConnsPerHost: 100,
-			IdleConnTimeout:     90 * time.Second,
-		},
-	}
+	//
+	// GOA-032: the transport is now shared with the TTS and AgentRouter clients
+	// (internal/httpx), so a session no longer pays a fresh handshake per leg.
+	httpClient = httpx.NewClient(120 * time.Second)
 
 	bufferPool = sync.Pool{
 		New: func() interface{} {
@@ -39,17 +35,56 @@ var (
 		Help: "Number of active speaking service WebSocket connections",
 	})
 
+	// GOA-032. Buckets are the measurement, not decoration. histogram_quantile
+	// interpolates *within* a bucket, so every observation landing in +Inf is
+	// unbounded above and the quantile pins to the last finite edge. The previous
+	// ceiling here was 5000ms while GOA-098 measured 11,400ms on a 35s clip --
+	// every real transcription fell into +Inf and this histogram reported a flat,
+	// fabricated P95 of 5s forever.
+	//
+	// (The help text also said "ElevenLabs". There is no ElevenLabs -- BUG-041.)
 	transcriptionLatencyMetric = promauto.NewHistogram(prometheus.HistogramOpts{
 		Name:    "goa_speaking_transcription_ms",
-		Help:    "Latency of ElevenLabs STT transcription calls in milliseconds",
-		Buckets: []float64{100, 250, 500, 1000, 1500, 2000, 3000, 5000},
+		Help:    "Latency of local faster-whisper STT sidecar calls in milliseconds",
+		Buckets: []float64{500, 1000, 2500, 5000, 10000, 15000, 20000, 30000, 45000, 60000},
 	})
 
+	// The SLO is a ratio, so the ratio needs its own histogram -- it cannot be
+	// recovered by dividing two separately-aggregated quantiles. P95(a)/P95(b) is
+	// not P95(a/b); those are different sessions in the numerator and the
+	// denominator. Observing processing_ms/audio_ms per request is the only way
+	// the alert expression matches the acceptance criterion.
+	transcriptionRatioMetric = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "goa_speaking_transcription_ratio",
+		Help:    "STT processing time divided by source audio duration (unitless; 0.33 = 1s of processing per 3s of speech)",
+		Buckets: []float64{0.1, 0.2, 0.3, 0.4, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0},
+	})
+
+	// Same ceiling problem: was capped at 10s against a measured ~77s session.
 	e2eLatencyMetric = promauto.NewHistogram(prometheus.HistogramOpts{
 		Name:    "goa_speaking_e2e_latency_ms",
-		Help:    "End-to-end latency from first audio chunk received to first TTS chunk sent in milliseconds",
-		Buckets: []float64{200, 500, 1000, 1500, 2000, 2500, 3000, 5000, 10000},
+		Help:    "End-to-end latency from first audio chunk received to first TTS chunk written to the socket, in milliseconds",
+		Buckets: []float64{5000, 10000, 20000, 30000, 45000, 60000, 90000, 120000, 180000},
 	})
+
+	// GOA-032: the number the user actually feels once criteria stream. e2e stays
+	// as the honest total, but this is what perceived responsiveness is judged on.
+	timeToFirstCriterionMetric = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "goa_speaking_time_to_first_criterion_ms",
+		Help:    "Latency from first audio chunk received to the first per-criterion result frame being queued for the client, in milliseconds",
+		Buckets: []float64{2500, 5000, 10000, 15000, 20000, 30000, 45000, 60000, 90000},
+	})
+
+	// Labelled by criterion, because "the swarm is slow" is not actionable and
+	// "Pronunciation is slow" is. The outcome label matters just as much: a
+	// timed-out agent's elapsed time is the deadline, not a measurement, so
+	// mixing the two makes P95 converge on swarmEvaluationTimeout by
+	// construction.
+	criterionCompleteMetric = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "goa_speaking_criterion_complete_ms",
+		Help:    "Latency from swarm start to an individual criterion completing, in milliseconds",
+		Buckets: []float64{2500, 5000, 10000, 20000, 30000, 45000, 60000, 90000},
+	}, []string{"criterion", "outcome"})
 
 	goroutineCountMetric = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "goa_speaking_goroutine_count",
@@ -61,26 +96,37 @@ var (
 		Help: "Total number of completed speaking sessions",
 	}, []string{"outcome"})
 
-	// 1. IELTS Band scores awarded by criteria
+	// IELTS band scores awarded per criterion.
 	AgentBandScoreMetric = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "goa_speaking_agent_band_score",
 		Help:    "IELTS band scores awarded by criteria",
 		Buckets: []float64{0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0},
 	}, []string{"criterion"})
 
-	// 2. LLM Time to First Token
+	// Fed from AgentResult.FirstTokenMs. It used to be fed total completion time,
+	// so a metric named "first_token" reported something else entirely -- worse
+	// than not having it, because a dashboard cannot tell you it is lying.
 	LlmFirstTokenMetric = promauto.NewHistogram(prometheus.HistogramOpts{
 		Name:    "goa_speaking_llm_first_token_ms",
 		Help:    "Latency from LLM request start to first token emitted in milliseconds",
-		Buckets: []float64{100, 250, 500, 750, 1000, 1500, 2000, 3000, 5000},
+		Buckets: []float64{250, 500, 1000, 2500, 5000, 10000, 20000, 40000, 60000},
 	})
 
-	// 3. ElevenLabs TTS Time to First Audio chunk
 	TtsFirstAudioMetric = promauto.NewHistogram(prometheus.HistogramOpts{
 		Name:    "goa_speaking_tts_first_audio_ms",
-		Help:    "Latency from TTS request start to first audio chunk generated in milliseconds",
-		Buckets: []float64{50, 100, 200, 300, 500, 750, 1000, 2000, 3000},
+		Help:    "Latency from Piper TTS request start to first audio chunk received in milliseconds",
+		Buckets: []float64{50, 100, 250, 500, 1000, 2000, 5000, 10000},
 	})
+
+	// Labelled by which budget broke. A single unlabelled counter cannot tell a
+	// slow provider from a slow sidecar, which is exactly the distinction this
+	// ticket exists to make. Label values come from slo.go, never from a string
+	// literal at a call site -- a typo'd label does not error, it silently
+	// creates a second time series no alert matches.
+	sloViolationsMetric = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "goa_speaking_slo_violations_total",
+		Help: "Count of latency budget breaches, labelled by which budget was exceeded",
+	}, []string{"budget"})
 )
 
 func StartBackgroundTasks() {

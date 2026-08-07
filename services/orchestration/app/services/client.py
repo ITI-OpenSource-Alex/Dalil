@@ -201,8 +201,10 @@ async def forward_downstream_stream(
         # speaking_service_url produced ws://speaking:8082/ws, which no browser can
         # resolve, so the SPEAKING intent was dead end to end (BUG-016).
         #
-        # This one still bypasses the Gateway: there is no WS proxy yet, so it
-        # misses JWT auth and rate limiting. Tracked as a follow-up under GOA-094.
+        # GOA-132: this now points at the Gateway's WebSocket proxy, so the
+        # session is authenticated at upgrade time and carries a correlation ID
+        # into Speaking's logs. The browser sends its access_token cookie on the
+        # handshake, which is why no token is embedded in this URL.
         ws_url = settings.public_speaking_ws_url
         if traceparent:
             separator = "&" if "?" in ws_url else "?"

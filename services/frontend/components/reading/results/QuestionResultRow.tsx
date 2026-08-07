@@ -14,9 +14,10 @@ interface Props {
 
 /**
  * Single question's result: user answer, correct answer, correct/incorrect
- * styling, and a passage location hint. The hint is "Passage N" —
- * `passage_number` is the only location signal the backend provides per
- * question (no paragraph/line reference exists in the schema).
+ * styling, and a location hint. `passage_number` is the only location signal
+ * the backend provides per question (no paragraph/line reference exists in the
+ * schema), so the hint is "<locationLabel> N" — "Passage N" for Reading,
+ * "Section N" for Listening, which reuses this row.
  */
 export default function QuestionResultRow({
   question,
@@ -33,20 +34,20 @@ export default function QuestionResultRow({
       data-correct={result.is_correct}
       className={`rounded-xl border p-4 ${
         result.is_correct
-          ? "border-emerald-200 bg-emerald-50"
-          : "border-red-200 bg-red-50"
+          ? "border-success-border bg-success-subtle"
+          : "border-danger-border bg-danger-subtle"
       }`}
     >
       <div className="mb-2 flex items-center justify-between gap-3">
-        <p className="text-sm font-medium text-gray-900">
+        <p className="text-sm font-medium text-fg">
           <span className="mr-2">{question.number}.</span>
           {question.promptStem}
         </p>
         <span
           className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
             result.is_correct
-              ? "bg-emerald-600 text-white"
-              : "bg-red-600 text-white"
+              ? "bg-success text-white"
+              : "bg-danger text-white"
           }`}
         >
           {result.is_correct ? "Correct" : "Incorrect"}
@@ -55,27 +56,27 @@ export default function QuestionResultRow({
 
       <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs">
         <p>
-          <span className="text-gray-500">Your answer: </span>
+          <span className="text-fg-subtle">Your answer: </span>
           <span
             data-testid={`result-user-answer-${question.number}`}
-            className="font-semibold text-gray-900"
+            className="font-semibold text-fg"
           >
             {result.submitted_answer || "(no answer)"}
           </span>
         </p>
         <p>
-          <span className="text-gray-500">Correct answer: </span>
+          <span className="text-fg-subtle">Correct answer: </span>
           <span
             data-testid={`result-correct-answer-${question.number}`}
-            className="font-semibold text-gray-900"
+            className="font-semibold text-fg"
           >
             {result.correct_answer}
           </span>
         </p>
         {question.passageNumber != null && (
           <p data-testid={`result-passage-hint-${question.number}`}>
-            <span className="text-gray-500">Location: </span>
-            <span className="font-medium text-gray-700">
+            <span className="text-fg-subtle">Location: </span>
+            <span className="font-medium text-fg-muted">
               {locationLabel} {question.passageNumber}
             </span>
           </p>

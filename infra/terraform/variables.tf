@@ -339,3 +339,30 @@ variable "manage_github_oidc_provider" {
 #   default     = ""
 # }
 
+
+# GOA-046 cost monitoring. Defaults to off: the AWS Budgets and Cost Explorer
+# resources in cost_monitoring.tf cannot be applied from this account, which
+# carries an explicit deny on billing:* and ce:*. See that file's header.
+variable "enable_cost_monitoring" {
+  description = "Create the AWS Budgets alert and weekly Cost Explorer report Lambda."
+  type        = bool
+  default     = false
+}
+
+variable "monthly_budget_usd" {
+  description = "Monthly AWS budget in USD, alerted at 80% and 100% of actual spend."
+  type        = number
+  default     = 150
+}
+
+variable "cost_report_sender_address" {
+  description = "SES-verified sender address for the weekly cost report."
+  type        = string
+  default     = ""
+}
+
+variable "cost_report_recipients" {
+  description = "Recipients of the budget alerts and the weekly cost report."
+  type        = list(string)
+  default     = []
+}

@@ -1,7 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UsersService } from './users.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { BadRequestException, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { User } from './entities/user.entity';
 import { UserProfile } from '../profile/entities/profile.entity';
 import { ResetToken } from './entities/reset-tokens.entity';
@@ -9,6 +13,18 @@ import { EmailVerification } from './entities/email-verification.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { SqsService } from '@ssut/nestjs-sqs';
 import { ConfigService } from '@nestjs/config';
+
+const mockSnsSend = jest.fn();
+
+jest.mock('@aws-sdk/client-sns', () => {
+  const actual = jest.requireActual('@aws-sdk/client-sns');
+  return {
+    ...actual,
+    SNSClient: jest.fn().mockImplementation(() => ({
+      send: mockSnsSend,
+    })),
+  };
+});
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -49,8 +65,12 @@ describe('UsersService', () => {
   const mockConfigService = {
     get: jest.fn().mockImplementation((key: string, defaultValue?: string) => {
       if (key === 'SQS_PRODUCER_NAME') return defaultValue ?? 'user-events';
-      if (key === 'SQS_NOTIFICATION_PRODUCER_NAME') return defaultValue ?? 'notifications';
-      if (key === 'NOTIFICATION_QUEUE_URL') return 'http://localhost:4566/000000000000/notification-queue';
+      if (key === 'SQS_NOTIFICATION_PRODUCER_NAME')
+        return defaultValue ?? 'notifications';
+      if (key === 'NOTIFICATION_QUEUE_URL')
+        return 'http://localhost:4566/000000000000/notification-queue';
+      if (key === 'USER_EVENTS_TOPIC_ARN')
+        return 'arn:aws:sns:us-east-1:000000000000:user-events';
       return defaultValue;
     }),
   };
@@ -86,6 +106,7 @@ describe('UsersService', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+    mockSnsSend.mockReset();
   });
 
   it('should be defined', () => {
@@ -96,7 +117,9 @@ describe('UsersService', () => {
     const userId = '11111111-1111-4111-8111-111111111111';
 
     beforeEach(() => {
-      jest.spyOn(service as any, 'revokeAllAccessTokens').mockResolvedValue(undefined);
+      jest
+        .spyOn(service as any, 'revokeAllAccessTokens')
+        .mockResolvedValue(undefined);
     });
 
     it('DELETE /account with wrong password returns 401', async () => {
@@ -108,9 +131,9 @@ describe('UsersService', () => {
       });
       jest.spyOn(require('bcrypt'), 'compare').mockResolvedValue(false);
 
-      await expect(service.deleteAccount(userId, userId, 'wrong')).rejects.toThrow(
-        UnauthorizedException,
-      );
+      await expect(
+        service.deleteAccount(userId, userId, 'wrong'),
+      ).rejects.toThrow(UnauthorizedException);
     });
 
     it('DELETE /account sets deletedAt, anonymises email, revokes tokens and publishes AccountDeleted', async () => {
@@ -122,13 +145,22 @@ describe('UsersService', () => {
       });
       jest.spyOn(require('bcrypt'), 'compare').mockResolvedValue(true);
       const manager = { update: jest.fn() };
-      mockUserRepository.manager.transaction.mockImplementation(async (cb) => cb(manager));
-      mockSqsService.send.mockResolvedValue([]);
+      mockUserRepository.manager.transaction.mockImplementation(async (cb) =>
+        cb(manager),
+      );
+      mockSnsSend.mockResolvedValue({});
 
-      const result = await service.deleteAccount(userId, userId, 'correct-password');
+      const result = await service.deleteAccount(
+        userId,
+        userId,
+        'correct-password',
+      );
       await new Promise(process.nextTick);
 
-      expect(result).toMatchObject({ success: true, deletedAt: expect.any(String) });
+      expect(result).toMatchObject({
+        success: true,
+        deletedAt: expect.any(String),
+      });
       expect(manager.update).toHaveBeenCalledWith(User, userId, {
         deletedAt: expect.any(Date),
         email: `deleted_${userId}@deleted.goa`,
@@ -138,12 +170,14 @@ describe('UsersService', () => {
         { userId },
         { revokedAt: expect.any(Date) },
       );
-      expect(mockSqsService.send).toHaveBeenCalledWith('user-events', {
-        id: expect.any(String),
-        body: expect.objectContaining({
-          type: 'account.deleted',
-          payload: { userId, deletedAt: expect.any(String) },
-        }),
+      expect(mockSnsSend).toHaveBeenCalledTimes(1);
+      const command = mockSnsSend.mock.calls[0][0];
+      expect(command.input.TopicArn).toBe(
+        'arn:aws:sns:us-east-1:000000000000:user-events',
+      );
+      expect(JSON.parse(command.input.Message)).toMatchObject({
+        type: 'account.deleted',
+        payload: { userId, deletedAt: expect.any(String) },
       });
     });
 
@@ -178,7 +212,10 @@ describe('UsersService', () => {
       });
 
       await expect(
-        service.internalLogin({ email: 'deleted@example.com', password: 'Secret123!' }),
+        service.internalLogin({
+          email: 'deleted@example.com',
+          password: 'Secret123!',
+        }),
       ).rejects.toThrow(UnauthorizedException);
     });
   });
@@ -231,7 +268,9 @@ describe('UsersService', () => {
         expiresAt: expect.any(String),
       });
       // expiresAt is a valid ISO 8601 string.
-      expect(() => new Date(message.body.expiresAt).toISOString()).not.toThrow();
+      expect(() =>
+        new Date(message.body.expiresAt).toISOString(),
+      ).not.toThrow();
       // The published token is the RAW token (64 hex chars), never the hash form used in DB lookups.
       expect(message.body.resetToken).toMatch(/^[0-9a-f]{64}$/i);
     });
@@ -463,9 +502,9 @@ describe('UsersService', () => {
     it('should save the profile and return it successfully', async () => {
       mockProfileRepository.findOne.mockResolvedValue({ ...mockProfile });
       mockProfileRepository.save.mockResolvedValue({ ...mockProfile, ...dto });
-      // SQS lookup runs async - resolve but do not block
+      // SNS publish runs async - resolve but do not block
       mockUserRepository.findOne.mockResolvedValue(mockUser);
-      mockSqsService.send.mockResolvedValue([]);
+      mockSnsSend.mockResolvedValue({});
 
       const result = await service.updateProfile(userId, dto);
 
@@ -473,22 +512,31 @@ describe('UsersService', () => {
       expect(mockProfileRepository.save).toHaveBeenCalledTimes(1);
     });
 
-    it('should call SqsService.send after a successful profile save', async () => {
+    it('should publish UserUpdated to SNS after a successful profile save', async () => {
       mockProfileRepository.findOne.mockResolvedValue({ ...mockProfile });
       mockProfileRepository.save.mockResolvedValue({ ...mockProfile, ...dto });
       mockUserRepository.findOne.mockResolvedValue(mockUser);
-      mockSqsService.send.mockResolvedValue([]);
+      mockSnsSend.mockResolvedValue({});
 
       await service.updateProfile(userId, dto);
 
       // Allow the fire-and-forget microtask to flush
       await new Promise(process.nextTick);
 
-      expect(mockSqsService.send).toHaveBeenCalledTimes(1);
-      const [producerName, message] = mockSqsService.send.mock.calls[0];
-      expect(producerName).toBe('user-events');
+      expect(mockSnsSend).toHaveBeenCalledTimes(1);
+      const command = mockSnsSend.mock.calls[0][0];
+      expect(command.input.TopicArn).toBe(
+        'arn:aws:sns:us-east-1:000000000000:user-events',
+      );
+      expect(command.input.MessageAttributes).toMatchObject({
+        eventType: {
+          DataType: 'String',
+          StringValue: 'user.updated',
+        },
+      });
+      const event = JSON.parse(command.input.Message);
       // Verify the full event envelope — use expect.any(String) for non-deterministic fields
-      expect(message.body).toMatchObject({
+      expect(event).toMatchObject({
         type: 'user.updated',
         version: '1.0',
         timestamp: expect.any(String),
@@ -500,27 +548,23 @@ describe('UsersService', () => {
         },
       });
       // correlationId must be a valid UUID v4
-      expect(message.body.correlationId).toMatch(
+      expect(event.correlationId).toMatch(
         /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
       );
       // timestamp must be a valid ISO 8601 string
-      expect(() =>
-        new Date(message.body.timestamp).toISOString(),
-      ).not.toThrow();
-      // message.id must equal correlationId (our convention)
-      expect(message.id).toBe(message.body.correlationId);
+      expect(() => new Date(event.timestamp).toISOString()).not.toThrow();
     });
 
-    it('should still return the saved profile even if SqsService.send throws', async () => {
+    it('should still return the saved profile even if SNS publish throws', async () => {
       mockProfileRepository.findOne.mockResolvedValue({ ...mockProfile });
       mockProfileRepository.save.mockResolvedValue({ ...mockProfile, ...dto });
       mockUserRepository.findOne.mockResolvedValue(mockUser);
-      mockSqsService.send.mockRejectedValue(new Error('SQS unavailable'));
+      mockSnsSend.mockRejectedValue(new Error('SNS unavailable'));
 
       // Silence the logger so the caught error does not leak to stderr and cause exit code 1
       jest.spyOn((service as any).logger, 'error').mockImplementation(() => {});
 
-      // Should resolve successfully — SQS failure must not propagate
+      // Should resolve successfully — SNS failure must not propagate
       await expect(
         service.updateProfile(userId, dto as any),
       ).resolves.toMatchObject({ degreeLevel: 'MSc' });
@@ -528,15 +572,15 @@ describe('UsersService', () => {
       // Flush the fire-and-forget so the spy handles the rejection before the test tears down
       await new Promise(process.nextTick);
 
-      // The DB save must have occurred regardless of SQS outcome
+      // The DB save must have occurred regardless of SNS outcome
       expect(mockProfileRepository.save).toHaveBeenCalledTimes(1);
     });
 
-    it('should log an error (not rethrow) when SQS publish fails', async () => {
+    it('should log an error (not rethrow) when SNS publish fails', async () => {
       mockProfileRepository.findOne.mockResolvedValue({ ...mockProfile });
       mockProfileRepository.save.mockResolvedValue({ ...mockProfile, ...dto });
       mockUserRepository.findOne.mockResolvedValue(mockUser);
-      mockSqsService.send.mockRejectedValue(new Error('SQS timeout'));
+      mockSnsSend.mockRejectedValue(new Error('SNS timeout'));
 
       const loggerErrorSpy = jest
         .spyOn((service as any).logger, 'error')
@@ -560,10 +604,9 @@ describe('UsersService', () => {
         service.updateProfile('nonexistent-id', dto as any),
       ).rejects.toThrow('Profile for user nonexistent-id not found');
 
-      // No SQS attempt if profile was not found
+      // No user-event publish attempt if profile was not found
       await new Promise(process.nextTick);
-      expect(mockSqsService.send).not.toHaveBeenCalled();
+      expect(mockSnsSend).not.toHaveBeenCalled();
     });
   });
 });
-

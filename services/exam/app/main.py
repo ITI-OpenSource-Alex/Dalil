@@ -16,7 +16,9 @@ from app.api.reading import router as reading_router
 from app.api.results import router as results_router
 from app.api.sessions import router as sessions_router
 from app.core.database import db
+from app.core.exam_observability import refresh_question_bank_size
 from app.core.logging import configure_logging, correlation_id_var
+from app.repositories.question_repository import QuestionRepository
 from app.services.sweep_service import run_sweep_loop
 from app.services.account_deletion_consumer import consume_account_deleted_messages
 
@@ -29,6 +31,15 @@ async def lifespan(app: FastAPI):
     logger.info("Starting up Exam service...")
     await db.connect()
     logger.info("Exam service database connected and migrations checked.")
+
+    # Seed the question-bank-size gauge so the "drops unexpectedly" alarm has a
+    # baseline before the first /question-bank/stats call. Non-fatal: a failure
+    # here must not block startup.
+    try:
+        stats = await QuestionRepository(db.pool).get_question_bank_stats()
+        refresh_question_bank_size(stats)
+    except Exception:
+        logger.exception("Failed to seed question bank size gauge on startup")
 
     sweep_task = asyncio.create_task(run_sweep_loop(db.pool))
     account_deleted_task = asyncio.create_task(consume_account_deleted_messages())

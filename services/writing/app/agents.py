@@ -378,9 +378,10 @@ async def extract_chart_context(s3_key: str, *, trace: Any = None) -> str:
     return description
 
 class WritingAgentRunner:
-    def __init__(self, client: Any, *, model: str) -> None:
+    def __init__(self, client: Any, *, model: str, max_tokens: int = 16000) -> None:
         self.client = client
         self.model = model
+        self.max_tokens = max_tokens
 
     async def evaluate(
         self,
@@ -499,10 +500,11 @@ class WritingAgentRunner:
                 model=self.model,
                 # A criterion response carries feedback, sentence examples AND the
                 # highlighted-issue spans, so it scales with essay length. At 1600 a
-                # 375-word essay truncated mid-JSON, and because the cut landed inside a
-                # string there was no closing brace to find — surfacing as the useless
-                # "did not return a JSON object" rather than "you ran out of room".
-                max_tokens=4000,
+                # 375-word essay truncated mid-JSON, and AgentRouter later began
+                # exhausting 4000 tokens on ordinary 198-word samples. The ceiling is
+                # configurable so deployments can absorb provider-side output changes
+                # without changing the model, rubric, or retry policy.
+                max_tokens=self.max_tokens,
                 # See the note in describe_task1_stimulus: `temperature` is rejected for
                 # this model and was failing 2 of the 4 criterion agents per request.
                 system=system,
@@ -595,7 +597,11 @@ def get_agent_runner() -> WritingAgentRunner:
         default_headers={"User-Agent": settings.anthropic_user_agent},
         **({"base_url": settings.anthropic_base_url} if settings.anthropic_base_url else {}),
     )
-    return WritingAgentRunner(client, model=settings.writing_model)
+    return WritingAgentRunner(
+        client,
+        model=settings.writing_model,
+        max_tokens=settings.writing_agent_max_tokens,
+    )
 
 
 async def _public_evaluation(

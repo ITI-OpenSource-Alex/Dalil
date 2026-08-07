@@ -126,6 +126,7 @@ services:
       # model; AgentRouter forwards multimodal blocks for claude-opus-4-8 (GOA-126).
       - VISION_MODEL=${VISION_MODEL:-claude-opus-4-8}
       - ANTHROPIC_TIMEOUT_SECONDS=${ANTHROPIC_TIMEOUT_SECONDS:-120}
+      - WRITING_AGENT_MAX_TOKENS=${WRITING_AGENT_MAX_TOKENS:-16000}
       - WRITING_CACHE_VERSION=${WRITING_CACHE_VERSION:-v1}
     volumes:
       - ./services/writing/app:/app/app

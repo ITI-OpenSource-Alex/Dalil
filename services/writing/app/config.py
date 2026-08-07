@@ -29,6 +29,7 @@ class Settings:
     vision_model: str = "claude-opus-4-8"
     anthropic_user_agent: str = "Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14"
     anthropic_timeout_seconds: float = 25.0
+    writing_agent_max_tokens: int = 16000
     langfuse_public_key: str = ""
     langfuse_secret_key: str = ""
     langfuse_host: str = "https://cloud.langfuse.com"
@@ -59,6 +60,9 @@ def get_settings() -> Settings:
         vision_model=os.getenv("VISION_MODEL", "claude-opus-4-8"),
         anthropic_timeout_seconds=float(
             os.getenv("ANTHROPIC_TIMEOUT_SECONDS", "25")
+        ),
+        writing_agent_max_tokens=int(
+            os.getenv("WRITING_AGENT_MAX_TOKENS", "16000")
         ),
         langfuse_public_key=os.getenv("LANGFUSE_PUBLIC_KEY", ""),
         langfuse_secret_key=os.getenv("LANGFUSE_SECRET_KEY", ""),

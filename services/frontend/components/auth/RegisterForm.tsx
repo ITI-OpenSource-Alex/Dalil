@@ -1,149 +1,157 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, CheckCircle2, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import api from "@/lib/api";
+import { authApi, apiErrorMessage } from "@/lib/api";
+import { Alert, Button, Field, Icon, Input } from "@/components/ui";
 
 // POST /users only takes {email, password} (services/user/src/users/dto/
 // create-user.dto.ts) and does not log the caller in -- registering and
 // authenticating are two separate calls, so this redirects to /login on
-// success rather than assuming a session exists afterward.
+// success rather than assuming a session exists afterward. Registration also
+// triggers a verification email server-side (users.service.ts).
 export default function RegisterForm() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<{ password?: string; confirmPassword?: string }>({});
+  const [formError, setFormError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError("");
+    setFormError(null);
 
-    if (password !== confirmPassword) {
-      setError("Passwords do not match.");
-      return;
+    const nextFieldErrors: typeof fieldErrors = {};
+    if (password.length < 6) {
+      nextFieldErrors.password = "Password must be at least 6 characters.";
     }
+    if (password !== confirmPassword) {
+      nextFieldErrors.confirmPassword = "Passwords do not match.";
+    }
+    setFieldErrors(nextFieldErrors);
+    if (Object.keys(nextFieldErrors).length > 0) return;
 
     setLoading(true);
     try {
-      await api.post("/users", { email, password });
-      router.push("/login");
+      await authApi.register(email, password);
+      setDone(true);
+      setTimeout(() => router.push("/login"), 1400);
     } catch (err) {
-      const message =
-        (axiosMessage(err) as string | undefined) ??
-        "Could not create an account. Please try again.";
-      setError(message);
+      setFormError(apiErrorMessage(err) ?? "Could not create an account. Please try again.");
     } finally {
       setLoading(false);
     }
   }
 
+  if (done) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-4 text-center" role="status">
+        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-success-subtle text-success">
+          <Icon icon={CheckCircle2} size="lg" />
+        </span>
+        <p className="text-base font-semibold text-fg">Account created</p>
+        <p className="text-sm leading-6 text-fg-muted">
+          Taking you to sign in&hellip;
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-      <div className="flex flex-col gap-1.5">
-        <label
-          htmlFor="register-email"
-          className="text-sm font-medium text-slate-700"
-        >
-          Email
-        </label>
-        <input
-          id="register-email"
+    <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
+      <Field label="Email" required id="register-email">
+        <Input
           type="email"
+          name="email"
+          autoComplete="email"
           placeholder="you@university.edu"
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
         />
-      </div>
+      </Field>
 
-      <div className="flex flex-col gap-1.5">
-        <label
-          htmlFor="register-password"
-          className="text-sm font-medium text-slate-700"
-        >
-          Password
-        </label>
-        <input
-          id="register-password"
-          type="password"
-          placeholder="At least 6 characters"
+      <Field
+        label="Password"
+        required
+        hint="At least 6 characters."
+        error={fieldErrors.password}
+        id="register-password"
+      >
+        <Input
+          type={showPassword ? "text" : "password"}
+          name="password"
+          autoComplete="new-password"
           required
           minLength={6}
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+          onChange={(e) => {
+            setPassword(e.target.value);
+            if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: undefined }));
+          }}
+          trailing={
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              className="pointer-events-auto rounded-chip p-1 text-fg-subtle transition-colors duration-120 ease-out hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted"
+            >
+              <Icon icon={showPassword ? EyeOff : Eye} size="sm" />
+            </button>
+          }
         />
-      </div>
+      </Field>
 
-      <div className="flex flex-col gap-1.5">
-        <label
-          htmlFor="register-confirm-password"
-          className="text-sm font-medium text-slate-700"
-        >
-          Confirm password
-        </label>
-        <input
-          id="register-confirm-password"
-          type="password"
-          placeholder="Re-enter your password"
+      <Field
+        label="Confirm password"
+        required
+        error={fieldErrors.confirmPassword}
+        id="register-confirm-password"
+      >
+        <Input
+          type={showPassword ? "text" : "password"}
+          name="confirmPassword"
+          autoComplete="new-password"
           required
           minLength={6}
           value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          className="rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+          onChange={(e) => {
+            setConfirmPassword(e.target.value);
+            if (fieldErrors.confirmPassword)
+              setFieldErrors((prev) => ({ ...prev, confirmPassword: undefined }));
+          }}
         />
-      </div>
+      </Field>
 
-      {error && (
-        <p className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
-          {error}
-        </p>
+      {formError && (
+        <Alert tone="danger" announce="assertive">
+          {formError}
+        </Alert>
       )}
 
-      <button
+      <Button
         type="submit"
-        disabled={loading}
         id="register-submit-btn"
-        className="mt-1 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:opacity-60"
+        size="lg"
+        fullWidth
+        loading={loading}
+        trailingIcon={ArrowRight}
       >
-        {loading ? "Creating account…" : "Create account"}
-        {!loading && <ArrowRight size={16} />}
-      </button>
+        Create account
+      </Button>
 
-      <p className="text-center text-sm text-slate-500">
+      <p className="text-center text-sm text-fg-muted">
         Already have an account?{" "}
-        <Link
-          href="/login"
-          className="font-medium text-emerald-700 transition hover:text-emerald-800"
-        >
+        <Link href="/login" className="font-medium text-brand-fg hover:text-brand-active">
           Sign in
         </Link>
       </p>
     </form>
   );
-}
-
-function axiosMessage(err: unknown): string | undefined {
-  if (
-    typeof err === "object" &&
-    err !== null &&
-    "response" in err &&
-    typeof (err as { response?: unknown }).response === "object"
-  ) {
-    const data = (err as { response?: { data?: unknown } }).response?.data;
-    if (
-      typeof data === "object" &&
-      data !== null &&
-      "message" in data &&
-      typeof (data as { message?: unknown }).message === "string"
-    ) {
-      return (data as { message: string }).message;
-    }
-  }
-  return undefined;
 }

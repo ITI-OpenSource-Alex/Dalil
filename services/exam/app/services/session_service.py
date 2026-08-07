@@ -5,6 +5,7 @@ from uuid import UUID, uuid4
 
 from fastapi import HTTPException, status
 
+from app.core.exam_observability import record_exam_completion
 from app.core.metrics import (
     goa_writing_exam_task1_evaluation_ms,
     goa_writing_exam_task2_evaluation_ms,
@@ -178,6 +179,16 @@ class SessionService:
         await self.session_repository.submit(session_id)
         await self.session_repository.mark_scored(session_id)
 
+        record_exam_completion(
+            session_id=session_id,
+            user_id=session["user_id"],
+            skill_area=session["skill_area"],
+            exam_type=session["exam_type"],
+            band_score=grading["band_score"],
+            duration_s=self.timer_service.elapsed_seconds(session["started_at"]),
+            question_bank_ref=question.get("book_ref"),
+        )
+
         return {
             "session_id": session_id,
             "status": "submitted",
@@ -335,6 +346,16 @@ class SessionService:
         await self.session_repository.submit(session_id)
         await self.session_repository.mark_scored(session_id)
 
+        record_exam_completion(
+            session_id=session_id,
+            user_id=session["user_id"],
+            skill_area="reading",
+            exam_type=session["exam_type"],
+            band_score=grading["band_score"],
+            duration_s=self.timer_service.elapsed_seconds(session["started_at"]),
+            question_bank_ref=question.get("book_ref"),
+        )
+
         return grading
 
     async def create_listening_session(
@@ -468,6 +489,17 @@ class SessionService:
         )
         await self.session_repository.submit(session_id)
         await self.session_repository.mark_scored(session_id)
+
+        record_exam_completion(
+            session_id=session_id,
+            user_id=session["user_id"],
+            skill_area="listening",
+            exam_type=session["exam_type"],
+            band_score=grading["band_score"],
+            duration_s=self.timer_service.elapsed_seconds(session["started_at"]),
+            question_bank_ref=question.get("book_ref"),
+        )
+
         return grading
 
     def _time_limit_for(self, skill_area: str) -> int:
@@ -613,11 +645,40 @@ class SessionService:
         responses = await self.writing_response_repository.get_all_by_session(
             session_id
         )
-        all_tasks_submitted = {1, 2}.issubset({r["task_number"] for r in responses})
+        # A response row exists as soon as save_response() runs, *before*
+        # the (possibly failing) evaluation call -- so a task whose
+        # evaluation previously failed still has a row here. Checking row
+        # presence alone previously let a retried task be considered
+        # "submitted" for the *other* task's response, prematurely flipping
+        # the whole session to "submitted"/"scored" while that other task
+        # had no real evaluation yet, then rejecting its own legitimate
+        # retry with 400 "Invalid session state". Require a completed
+        # evaluation on both tasks instead.
+        all_tasks_submitted = {1, 2}.issubset(
+            {
+                r["task_number"]
+                for r in responses
+                if r["evaluation_result"] is not None
+            }
+        )
 
         if all_tasks_submitted:
             await self.session_repository.submit(session_id)
             await self.session_repository.mark_scored(session_id)
+
+            overall_band = self._writing_overall_band(responses)
+            question = await self.question_repository.get_by_id(
+                session["question_id"]
+            )
+            record_exam_completion(
+                session_id=session_id,
+                user_id=session["user_id"],
+                skill_area="writing",
+                exam_type=session["exam_type"],
+                band_score=overall_band,
+                duration_s=self.timer_service.elapsed_seconds(session["started_at"]),
+                question_bank_ref=question.get("book_ref") if question else None,
+            )
 
         return {
             "session_id": session_id,
@@ -626,6 +687,16 @@ class SessionService:
             "overall_band": evaluation.overall_band,
             "word_count": word_count,
             "penalty_flag": penalty_flag,
+            # The per-criterion breakdown is computed above and persisted on the
+            # line before this, but used to be dropped on the way out — leaving
+            # no way for a client to show Task 1 feedback while Task 2 is still
+            # being written. GET /{session_id}/result cannot fill that gap: it
+            # 404s until both task rows exist (see _get_writing_result), by
+            # design, because a "result" for half a paper is not a result.
+            # Additive, so existing callers are unaffected (GOA-058).
+            "evaluations": [
+                item.model_dump() for item in evaluation.evaluations
+            ],
         }
 
     async def _resolve_task_context(
@@ -633,16 +704,70 @@ class SessionService:
         session: dict[str, Any],
         task_number: int,
     ) -> tuple[str | None, str | None]:
+        """
+        Find the prompt for one writing task.
+
+        `questions` is stored as JSONB and two different shapes are genuinely in
+        use, so this must handle both:
+
+          A) a LIST, one entry per task, each carrying its own `number`. This is
+             what every ingested Cambridge book produces
+             (app/ingestion/writing_parser.py) and therefore what real sessions
+             actually contain.
+
+          B) a DICT keyed `task1`/`task2`. Used by seeded/fixture data.
+
+        This method previously assumed shape B unconditionally and called .get()
+        on the decoded value. A non-empty list is truthy, so `questions_data or
+        {}` left it a list and `.get` raised AttributeError — an unhandled
+        exception, i.e. HTTP 500 on *every* writing submit against real data,
+        for both tasks. Shape A is now handled first because it is the common
+        case in production.
+
+        Returns (task_prompt, stimulus_s3_key). The second element is always
+        None today — see the TODO below.
+        """
         question = await self.question_repository.get_by_id(session["question_id"])
 
         if question is None:
             return None, None
-        questions_data = self._decode_json(question["questions"])
-        task_key = "task1" if task_number == 1 else "task2"
-        task_data = (questions_data or {}).get(task_key, {})
+
+        # _question_list already normalises str/dict/list JSONB into a list and
+        # is the same helper _public_question uses, so the submit path and the
+        # read path can never disagree about what the question contains.
+        entries = self._question_list(question["questions"])
+        task_data: dict[str, Any] = {}
+
+        for index, entry in enumerate(entries):
+            if not isinstance(entry, dict):
+                continue
+
+            # Shape B arrives wrapped in a single-element list.
+            nested = entry.get(f"task{task_number}")
+            if isinstance(nested, dict):
+                task_data = nested
+                break
+
+            # Shape A: trust the declared `number` when present so array order
+            # alone cannot swap the two tasks; fall back to position.
+            number = entry.get("number", index + 1)
+            if number == task_number:
+                task_data = entry
+                break
+
         task_prompt = task_data.get("prompt")
-        image_s3_key = task_data.get("image_s3_key") if task_number == 1 else None
-        return task_prompt, image_s3_key
+
+        # TODO(GOA-058 follow-up): reintroduce the Academic Task 1 stimulus
+        # image here once the ingestion + S3 pre-signing pipeline exists. The
+        # plumbing below is intentionally left in place (the Writing service
+        # still accepts an optional `stimulusS3Key`) so restoring it is a
+        # one-line change:
+        #     stimulus_s3_key = task_data.get("image_s3_key") if task_number == 1 else None
+        # Image-based evaluation is postponed: no ingested question carries an
+        # image key and the current Writing agents no longer consume one.
+        stimulus_s3_key = None
+
+        return task_prompt, stimulus_s3_key
 
     async def _get_writing_result(
         self,
@@ -671,8 +796,7 @@ class SessionService:
 
         band_task1 = tasks.get(1, {}).get("evaluation", {}).get("overall_band", 0.0)
         band_task2 = tasks.get(2, {}).get("evaluation", {}).get("overall_band", 0.0)
-        # IELTS weighting: Task 2 counts twice Task 1. Confirm this is what you want.
-        overall_band = round((band_task1 + 2 * band_task2) / 3 * 2) / 2  # nearest 0.5
+        overall_band = self._weight_writing_bands(band_task1, band_task2)
 
         return {
             "session_id": session_id,
@@ -681,3 +805,20 @@ class SessionService:
             "overall_band": overall_band,
             "tasks": tasks,
         }
+
+    def _weight_writing_bands(self, band_task1: float, band_task2: float) -> float:
+        # IELTS weighting: Task 2 counts twice Task 1, rounded to nearest 0.5.
+        return round((band_task1 + 2 * band_task2) / 3 * 2) / 2
+
+    def _writing_overall_band(self, responses: list[Any]) -> float:
+        """Overall writing band from the two stored task evaluations.
+
+        Shares ``_weight_writing_bands`` with ``_get_writing_result`` so the
+        completion log and the result endpoint never disagree.
+        """
+
+        bands: dict[int, float] = {}
+        for r in responses:
+            evaluation = self._decode_json(r["evaluation_result"]) or {}
+            bands[r["task_number"]] = evaluation.get("overall_band", 0.0)
+        return self._weight_writing_bands(bands.get(1, 0.0), bands.get(2, 0.0))

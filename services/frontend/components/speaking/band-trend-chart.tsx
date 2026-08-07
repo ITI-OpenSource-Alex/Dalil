@@ -32,13 +32,25 @@ const MAX_TRACKED_SESSIONS = 10;
 export default function BandTrendChart({ sessions }: BandTrendChartProps) {
   if (sessions.length < MIN_SESSIONS_FOR_TREND) {
     return (
-      <div className="rounded-2xl border border-gray-200/80 bg-white p-6 text-center shadow-2xs">
-        <p className="text-sm text-gray-500">
+      <div className="rounded-2xl border border-border bg-surface p-6 text-center shadow-2xs">
+        <p className="text-sm text-fg-subtle">
           Complete more sessions to see your band trend.
         </p>
       </div>
     );
   }
+
+  // Chart.js draws to canvas, which doesn't understand CSS custom properties
+  // the way a className does -- the colour has to be resolved to a concrete
+  // value up front. Reading it from the DOM (rather than hardcoding the hex
+  // a second time) is what keeps this in sync with --color-success in
+  // globals.css if that token ever changes, light or dark theme alike.
+  const successColor =
+    typeof window !== "undefined"
+      ? getComputedStyle(document.documentElement)
+          .getPropertyValue("--color-success")
+          .trim() || "#1f7a3d"
+      : "#1f7a3d";
 
   // Most recent N, then reversed into chronological (left-to-right) order —
   // sessions may arrive in either order, so this doesn't assume the caller
@@ -55,9 +67,9 @@ export default function BandTrendChart({ sessions }: BandTrendChartProps) {
       {
         label: "Overall Band",
         data: chronological.map((s) => s.overall_band),
-        borderColor: "#059669",
-        backgroundColor: "#059669",
-        pointBackgroundColor: "#059669",
+        borderColor: successColor,
+        backgroundColor: successColor,
+        pointBackgroundColor: successColor,
         pointRadius: 4,
         tension: 0.3,
       },
@@ -84,8 +96,8 @@ export default function BandTrendChart({ sessions }: BandTrendChartProps) {
     .join(", ")}.`;
 
   return (
-    <div className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-2xs">
-      <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-gray-400">
+    <div className="rounded-2xl border border-border bg-surface p-6 shadow-2xs">
+      <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-fg-subtle">
         Band Trend
       </h3>
       <div className="h-64 w-full">

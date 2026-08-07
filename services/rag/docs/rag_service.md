@@ -166,6 +166,48 @@ Prometheus metrics exporter endpoint. Exposes standard Python process metrics al
 - `goa_rag_query_latency_ms`: Histogram of query latencies.
 - `goa_rag_retrieval_similarity_score`: Histogram of top similarity scores.
 - `goa_rag_low_confidence_total`: Counter incremented whenever top similarity score falls below `0.6`.
+- `goa_rag_checklist_generated_total{source}`: Counter of checklists generated, labeled `llm` or `fallback`.
+- `goa_rag_checklist_generation_latency_ms`: Histogram of checklist generation latency.
+
+### 5. `GET /checklists/{programId}` (GOA-084)
+Returns the caller's persisted checklist for a program, generating and persisting one
+on first request. A second request for the same `(user, program)` returns the same
+row without invoking the LLM again — enforced by a unique index on
+`checklists (user_id, program_id)`, not just application logic.
+
+- **Headers**: `X-User-ID` (required, UUID) — ownership is scoped entirely by this
+  header; this route takes no `X-Internal-Api-Key`, matching the other user-facing
+  routes (`/query`, `/score`, `/match`).
+- **Response Body (`ChecklistResponse`)**:
+  ```json
+  {
+    "checklistId": "b6b6c6c6-....",
+    "programId": "11111111-1111-1111-1111-111111111111",
+    "generatedBy": "llm",
+    "items": [
+      {
+        "itemId": "ielts_retake",
+        "title": "Retake IELTS",
+        "description": "Your score is below the program's minimum.",
+        "category": "language",
+        "checked": false
+      }
+    ]
+  }
+  ```
+- **Errors**: `404` if the program doesn't exist; `422` if `X-User-ID` is missing or
+  not a UUID. If the LLM call fails or returns unusable output, a fixed baseline
+  checklist is persisted instead (`generatedBy: "fallback"`) rather than a 500.
+
+### 6. `PUT /checklists/{programId}/items/{itemId}`
+Updates one item's checked state on the caller's checklist for that program.
+
+- **Headers**: `X-User-ID` (required, UUID).
+- **Request Body**: `{"checked": true}`
+- **Response Body**: the updated `ChecklistItem`.
+- **Errors**: `404` if the caller has no checklist for that program, or if `itemId`
+  isn't one of that checklist's items (scoping every query by `user_id` means a
+  foreign user's checklist is indistinguishable from "not found").
 
 ---
 
@@ -180,8 +222,9 @@ The service includes an automated **Migration Runner** executed on startup, trac
 | `003_create_program_requirements.sql` | `program_requirements` | Standard academic admissions requirement tables. |
 | `004_create_local_user_profiles.sql` | `local_user_profiles` | Caches user profile snapshots (GPA, ECTS, target countries). |
 | `005_create_faq_entries.sql` | `faq_entries` | FAQ list matching on standard trigram pattern indexing (`pg_trgm`). |
-| `006_add_checklists.sql` | `checklists`, `checklist_item_states` | Stores student task checklists and progress status tags. |
+| `006_add_checklists.sql` | `checklists`, `checklist_item_states` | Placeholder schema for these tables (Sprint 1 stub; superseded by 027). |
 | `007_add_visa_requirements.sql` | `visa_requirements` | Caches scraped visa details with a unique key on `(country, visa_type, issuing_body)`. |
+| `027_checklist_persistence.sql` | `checklists`, `checklist_item_states` | GOA-084: reshapes 006's placeholder tables into one JSON-item checklist per `(user_id, program_id)` (unique-indexed) plus per-item checked state keyed by `item_key`. |
 
 ---
 

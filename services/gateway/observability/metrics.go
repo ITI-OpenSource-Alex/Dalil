@@ -13,6 +13,8 @@ type Metrics struct {
 	RateLimitHitsTotal         prometheus.Counter
 	AuthFailuresTotal          prometheus.Counter
 	SecurityInputRejectedTotal *prometheus.CounterVec
+	UserDailyCostAlertsTotal   prometheus.Counter
+	DailySpendUSD              prometheus.Gauge
 }
 
 func NewMetrics() (*Metrics, error) {
@@ -70,13 +72,57 @@ func NewMetrics() (*Metrics, error) {
 		return nil, err
 	}
 
+	// GOA-046. Deliberately unlabelled by user: the alert names the user in its
+	// structured log, where a high-cardinality string is free. Putting a user id
+	// in a Prometheus label would create one time series per user forever, and
+	// the metric only ever needs to answer "how often did this fire".
+	userDailyCostAlertsTotal, err := registerCounter(
+		prometheus.CounterOpts{
+			Name: "goa_gateway_user_daily_cost_alerts_total",
+			Help: "Times a single user exceeded the daily AI spend threshold.",
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	dailySpendUSD, err := registerGauge(
+		prometheus.GaugeOpts{
+			Name: "goa_gateway_daily_spend_usd",
+			Help: "Total AI spend in USD accrued so far on the current UTC day.",
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Metrics{
 		RequestsTotal:              requestsTotal,
 		LatencySeconds:             latencySeconds,
 		RateLimitHitsTotal:         rateLimitHitsTotal,
 		AuthFailuresTotal:          authFailuresTotal,
 		SecurityInputRejectedTotal: securityInputRejectedTotal,
+		UserDailyCostAlertsTotal:   userDailyCostAlertsTotal,
+		DailySpendUSD:              dailySpendUSD,
 	}, nil
+}
+
+// RecordUserDailyCostAlert counts one per-user budget breach.
+func (m *Metrics) RecordUserDailyCostAlert() {
+	if m == nil || m.UserDailyCostAlertsTotal == nil {
+		return
+	}
+
+	m.UserDailyCostAlertsTotal.Inc()
+}
+
+// SetDailySpendUSD publishes the running total for the current UTC day.
+func (m *Metrics) SetDailySpendUSD(value float64) {
+	if m == nil || m.DailySpendUSD == nil {
+		return
+	}
+
+	m.DailySpendUSD.Set(value)
 }
 
 func (m *Metrics) RecordRequest(route string, method string, statusCode int, latency time.Duration) {
@@ -137,6 +183,21 @@ func registerHistogramVec(opts prometheus.HistogramOpts, labels []string) (*prom
 	}
 
 	return histogram, nil
+}
+
+func registerGauge(opts prometheus.GaugeOpts) (prometheus.Gauge, error) {
+	gauge := prometheus.NewGauge(opts)
+	if err := prometheus.Register(gauge); err != nil {
+		if alreadyRegistered, ok := err.(prometheus.AlreadyRegisteredError); ok {
+			if existing, ok := alreadyRegistered.ExistingCollector.(prometheus.Gauge); ok {
+				return existing, nil
+			}
+		}
+
+		return nil, err
+	}
+
+	return gauge, nil
 }
 
 func registerCounter(opts prometheus.CounterOpts) (prometheus.Counter, error) {

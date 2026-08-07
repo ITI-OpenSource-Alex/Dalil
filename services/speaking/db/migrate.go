@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"os"
+	"path"
 	"sort"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -52,14 +54,36 @@ func RunMigrations(ctx context.Context, pool *pgxpool.Pool, files fs.FS) error {
 	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock($1)", migrationLockID); err != nil {
 		return fmt.Errorf("acquiring migration lock: %w", err)
 	}
+	if _, err := tx.Exec(ctx, `
+		CREATE TABLE IF NOT EXISTS migrations_log (
+			migration_file VARCHAR(255) PRIMARY KEY,
+			executed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			migration_batch_id VARCHAR(255)
+		);
+	`); err != nil {
+		return fmt.Errorf("creating migrations ledger: %w", err)
+	}
+	if _, err := tx.Exec(ctx, "ALTER TABLE migrations_log ADD COLUMN IF NOT EXISTS migration_batch_id VARCHAR(255)"); err != nil {
+		return fmt.Errorf("ensuring migration batch column: %w", err)
+	}
 
 	for _, name := range entries {
+		var applied bool
+		if err := tx.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM migrations_log WHERE migration_file = $1)", name).Scan(&applied); err != nil {
+			return fmt.Errorf("checking migration %s: %w", name, err)
+		}
+		if applied {
+			continue
+		}
 		body, err := fs.ReadFile(files, name)
 		if err != nil {
 			return fmt.Errorf("reading migration %s: %w", name, err)
 		}
 		if _, err := tx.Exec(ctx, string(body)); err != nil {
 			return fmt.Errorf("applying migration %s: %w", name, err)
+		}
+		if _, err := tx.Exec(ctx, "INSERT INTO migrations_log (migration_file, migration_batch_id) VALUES ($1, $2)", name, os.Getenv("MIGRATION_BATCH_ID")); err != nil {
+			return fmt.Errorf("recording migration %s: %w", name, err)
 		}
 	}
 
@@ -68,5 +92,58 @@ func RunMigrations(ctx context.Context, pool *pgxpool.Pool, files fs.FS) error {
 	}
 
 	log.Info().Int("count", len(entries)).Msg("Speaking service migrations applied successfully")
+	return nil
+}
+
+func RunDownMigrations(ctx context.Context, pool *pgxpool.Pool, files fs.FS) error {
+	batchID := os.Getenv("MIGRATION_BATCH_ID")
+	if batchID == "" {
+		return fmt.Errorf("MIGRATION_BATCH_ID is required for down migrations")
+	}
+
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("beginning rollback transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock($1)", migrationLockID); err != nil {
+		return fmt.Errorf("acquiring migration lock: %w", err)
+	}
+
+	rows, err := tx.Query(ctx, "SELECT migration_file FROM migrations_log WHERE migration_batch_id = $1 ORDER BY migration_file DESC", batchID)
+	if err != nil {
+		return fmt.Errorf("listing batch migrations: %w", err)
+	}
+	defer rows.Close()
+
+	rolledBack := 0
+	for rows.Next() {
+		var migrationFile string
+		if err := rows.Scan(&migrationFile); err != nil {
+			return fmt.Errorf("reading batch migration row: %w", err)
+		}
+		rollbackFile := "rollback/" + path.Base(migrationFile[:len(migrationFile)-len(".sql")]) + "_down.sql"
+		body, err := fs.ReadFile(files, rollbackFile)
+		if err != nil {
+			return fmt.Errorf("reading rollback %s: %w", rollbackFile, err)
+		}
+		if _, err := tx.Exec(ctx, string(body)); err != nil {
+			return fmt.Errorf("applying rollback %s: %w", rollbackFile, err)
+		}
+		if _, err := tx.Exec(ctx, "DELETE FROM migrations_log WHERE migration_file = $1", migrationFile); err != nil {
+			return fmt.Errorf("removing migration ledger row %s: %w", migrationFile, err)
+		}
+		rolledBack++
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterating batch migrations: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("committing rollbacks: %w", err)
+	}
+
+	log.Info().Int("count", rolledBack).Str("batch_id", batchID).Msg("Speaking service migrations rolled back successfully")
 	return nil
 }

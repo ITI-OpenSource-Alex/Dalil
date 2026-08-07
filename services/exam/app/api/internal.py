@@ -10,6 +10,10 @@ import structlog
 
 from app.core.config import settings
 from app.core.database import db
+from app.core.exam_observability import (
+    record_exam_completion,
+    refresh_question_bank_size,
+)
 from app.services.account_deletion import export_user_data, purge_user_data
 from app.core.metrics import (
     goa_speaking_exam_evaluation_ms,
@@ -72,6 +76,9 @@ async def question_bank_stats(
 ) -> dict[str, Any]:
     raw_stats = await repository.get_question_bank_stats()
     book_stats = await repository.get_question_bank_stats_by_book()
+
+    # Keep the gauge in step with the bank every time stats are queried.
+    refresh_question_bank_size(raw_stats)
 
     payload: dict[str, dict[str, int]] = {"academic": {}, "general": {}}
 
@@ -163,7 +170,12 @@ async def submit_transcript(session_id: UUID, payload: TranscriptPayload):
         )
         start_time = time.time()
         result = await speaking_client.evaluate_holistic(
-            session_id, {"concatenated_transcript": text, "user_id": str(sessions_res["user_id"])}
+            session_id,
+            {
+                "concatenated_transcript": text,
+                "user_id": str(sessions_res["user_id"]),
+                "exam_session_id": str(session_id),
+            },
         )
         duration_ms = (time.time() - start_time) * 1000
         goa_speaking_exam_evaluation_ms.observe(duration_ms)
@@ -184,6 +196,23 @@ async def submit_transcript(session_id: UUID, payload: TranscriptPayload):
             agent_responses=eval_data.model_dump(),
         )
         await session_repo.mark_scored(session_id)
+
+        question_id = sessions_res.get("question_id")
+        question = (
+            await QuestionRepository(db.pool).get_by_id(question_id)
+            if question_id
+            else None
+        )
+        duration_s = sum(int(t.get("duration_s") or 0) for t in transcripts)
+        record_exam_completion(
+            session_id=session_id,
+            user_id=sessions_res["user_id"],
+            skill_area=sessions_res["skill_area"],
+            exam_type=sessions_res["exam_type"],
+            band_score=eval_data.overall_band,
+            duration_s=duration_s,
+            question_bank_ref=question.get("book_ref") if question else None,
+        )
 
         return {}
 

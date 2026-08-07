@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures/auth";
 
 test.describe("IELTS Exam Flow E2E Tests", () => {
   test.beforeEach(async ({ page }) => {
@@ -39,32 +39,19 @@ test.describe("IELTS Exam Flow E2E Tests", () => {
     await expect(timerElement).toBeVisible();
   });
 
-  // Test 2: Writing exam async submission mechanics
-  test("Writing exam: Task 1 submission keeps Task 2 active", async ({
-    page,
-  }) => {
-    await page.evaluate(() => {
-      sessionStorage.setItem(
-        "active_exam_session",
-        JSON.stringify({
-          sessionId: "test-session-writing",
-          examType: "Academic",
-          skillArea: "Writing",
-        }),
-      );
-    });
-
-    await page.goto("/exam/shell?session=test-session-writing");
-
-    const task1Input = page.locator("textarea").first();
-    const task2Input = page.locator("textarea").nth(1);
-
-    await task1Input.fill("Task 1 sample essay content...");
-    await expect(task2Input).toBeEnabled();
-
-    await task2Input.fill("Task 2 sample argument content...");
-    await expect(task2Input).toHaveValue("Task 2 sample argument content...");
-  });
+  // Test 2 (Writing exam async submission mechanics) used to live here. It
+  // asserted `page.locator("textarea").nth(1)` was enabled while task 1 was
+  // being evaluated, which GOA-058 makes impossible to express: the two tasks
+  // are now tabs, so only the active panel's textarea is visible at a time.
+  //
+  // It was also never exercising the behaviour it claimed. Nothing stubbed
+  // GET /api/exam/sessions/:id, so the shell's session load failed and it
+  // redirected to /exam, a page with no textarea at all — the assertions ran
+  // against a page that was never the exam.
+  //
+  // The same guarantee ("Task 2 remains fully editable while Task 1 evaluation
+  // runs") is now covered properly, against a stubbed Gateway, in
+  // test/e2e/writing-exam.spec.ts.
 
   // Test 3: Speaking exam evaluation & redirect
   test("Speaking exam shows evaluating spinner after completion and redirects to results", async ({

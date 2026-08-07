@@ -26,9 +26,9 @@ class Settings:
     writing_model: str = "claude-opus-4-8"
     cv_review_model: str = "claude-opus-4-8"
     cv_extraction_model: str = "claude-opus-4-8"
+    vision_model: str = "claude-opus-4-8"
     anthropic_user_agent: str = "Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14"
     anthropic_timeout_seconds: float = 25.0
-    openai_api_key: str = ""
     langfuse_public_key: str = ""
     langfuse_secret_key: str = ""
     langfuse_host: str = "https://cloud.langfuse.com"
@@ -56,10 +56,10 @@ def get_settings() -> Settings:
         cv_extraction_model=os.getenv(
             "CV_EXTRACTION_MODEL", "claude-opus-4-8"
         ),
+        vision_model=os.getenv("VISION_MODEL", "claude-opus-4-8"),
         anthropic_timeout_seconds=float(
             os.getenv("ANTHROPIC_TIMEOUT_SECONDS", "25")
         ),
-        openai_api_key=os.getenv("OPENAI_API_KEY", ""),
         langfuse_public_key=os.getenv("LANGFUSE_PUBLIC_KEY", ""),
         langfuse_secret_key=os.getenv("LANGFUSE_SECRET_KEY", ""),
         langfuse_host=os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com"),

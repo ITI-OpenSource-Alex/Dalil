@@ -30,12 +30,16 @@ def evaluation_cache_key(
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
-def find_cached_evaluation(db: Session, cache_key: str) -> dict | None:
+def find_cached_evaluation(db: Session, cache_key: str, user_id: str) -> dict | None:
+    # Scoped by user_id, not just cache_key: the key is a hash of essay text +
+    # submission/exam type only, so two users submitting identical text would
+    # otherwise be served each other's cached evaluation row.
     essay = (
         db.query(Essay)
         .filter(
             Essay.evaluation_cache_key == cache_key,
             Essay.evaluation_result.isnot(None),
+            Essay.user_id == user_id,
         )
         .order_by(Essay.id.desc())
         .first()

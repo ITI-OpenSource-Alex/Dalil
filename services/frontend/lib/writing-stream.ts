@@ -1,4 +1,6 @@
 import { HighlightedIssue, CriterionEvaluation } from "@/lib/writing-api";
+import { throwForResponse } from "@/lib/subscription";
+import { SSEParser } from "@/lib/chat-stream";
 
 export type { HighlightedIssue, CriterionEvaluation };
 
@@ -38,50 +40,51 @@ export async function streamWritingEvaluation(
   sseUrl: string,
   onEvent: (event: WritingEvent) => void,
 ) {
-  const response = await fetch(sseUrl);
+  // credentials: "include" is required -- the SSE URL points at the Gateway
+  // (/api/writing/essays/:id/evaluate), which sits behind JWT auth and a
+  // RequirePaid check. Without this the httpOnly auth cookie never reaches
+  // the request, the Gateway returns 401, and the caller has no way to tell
+  // that apart from any other failure (BUG: writing practice hung forever
+  // because this was missing and the status code was discarded).
+  //
+  // method: "POST" -- the Gateway registers this route as api.Post(...)
+  // (server.go), so a GET (fetch's default) never matched the route at all
+  // and 404'd before this ever streamed anything. Found while wiring the
+  // standalone Practice page onto this same function.
+  const response = await fetch(sseUrl, {
+    method: "POST",
+    credentials: "include",
+  });
 
   if (!response.ok) {
-    throw new Error("Unable to start writing evaluation.");
+    // The Gateway gates this route with RequirePaid, so a Free account's
+    // essay submission lands here with a 403 marker rather than a fault.
+    // throwForResponse turns that into a SubscriptionRequiredError the chat
+    // shell answers with the upgrade dialog; anything else keeps producing a
+    // plain Error with the status, exactly as before.
+    await throwForResponse(response, "essay-evaluation");
   }
 
   if (!response.body) {
     throw new Error("Missing SSE response body.");
   }
 
+  // The writing service's frames carry their own `type` field in the JSON
+  // body (see services/writing/app/routers/essays.py) -- there is no
+  // `event:` line to read, unlike CV review's frames (lib/cv-api.ts).
+  const parser = new SSEParser<WritingEvent>(({ data }) => data as WritingEvent);
+
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
-
-  let buffer = "";
 
   while (true) {
     const { value, done } = await reader.read();
 
     if (done) break;
 
-    buffer += decoder.decode(value, {
-      stream: true,
-    });
-
-    const events = buffer.split("\n\n");
-
-    buffer = events.pop() ?? "";
-
-    for (const rawEvent of events) {
-      const dataLine = rawEvent
-        .split("\n")
-        .find((line) => line.startsWith("data:"));
-
-      if (!dataLine) continue;
-
-      try {
-        const payload = JSON.parse(
-          dataLine.replace("data:", "").trim(),
-        ) as WritingEvent;
-
-        onEvent(payload);
-      } catch (err) {
-        console.error("Failed to parse writing SSE", err);
-      }
-    }
+    const chunk = decoder.decode(value, { stream: true });
+    parser.push(chunk).forEach(onEvent);
   }
+
+  parser.flush().forEach(onEvent);
 }

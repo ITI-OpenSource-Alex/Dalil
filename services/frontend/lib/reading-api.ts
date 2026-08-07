@@ -1,5 +1,6 @@
 import type { ReadingAnswers, ReadingSubmitResponse } from "@/app/types/reading";
 import type { ExamSessionResponse } from "@/lib/exam-api";
+import { throwForResponse } from "@/lib/subscription";
 
 // Reading-specific client for the /exam/reading/* endpoint.
 //
@@ -42,7 +43,7 @@ export async function submitReadingSession(
   });
 
   if (!response.ok) {
-    throw new Error(await response.text());
+    await throwForResponse(response, "exam-reading");
   }
 
   return response.json();

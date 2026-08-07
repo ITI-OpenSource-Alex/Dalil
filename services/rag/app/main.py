@@ -6,6 +6,7 @@ from app.core.logging import configure_logging, correlation_id_var
 from app.api.query import router as query_router
 from app.api.visa import router as visa_router
 from app.api.documents import router as documents_router
+from app.api.faq import router as faq_router
 from app.core.redis import redis_client
 from app.api.scoring import router as scoring_router
 from app.api.scoring import match_router as match_router
@@ -16,6 +17,7 @@ import time
 from app.services.sqs_consumer import consume_sqs_messages
 from app.api.program_requirements import router as program_requirements_router
 from app.api.scholarship_programs import router as scholarship_programs_router
+from app.api.checklists import router as checklists_router
 
 configure_logging()
 logger = structlog.get_logger("rag_service.main")
@@ -111,6 +113,7 @@ app.include_router(visa_router)
 app.include_router(documents_router)
 app.include_router(program_requirements_router)
 app.include_router(scholarship_programs_router)
+app.include_router(checklists_router)
 # Health endpoint
 @app.get("/health")
 async def health_check():
@@ -120,5 +123,6 @@ async def health_check():
 # Metrics endpoint using standard prometheus client exporter
 metrics_app = make_asgi_app()
 app.mount("/metrics", metrics_app)
+app.include_router(faq_router)
 app.include_router(scoring_router)
 app.include_router(match_router)

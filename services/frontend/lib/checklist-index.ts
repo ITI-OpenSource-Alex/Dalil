@@ -1,0 +1,115 @@
+/**
+ * A local index of the checklists this user has opened.
+ *
+ * The backend has no "list my checklists" route. RAG persists a checklist per
+ * (user, programme) and the Gateway exposes GET/PUT for *one* programme id
+ * (services/gateway/server.go: /api/checklists/:programId), so the only way to
+ * reach a checklist has been to already know the id — which in practice meant
+ * clicking through from an opportunity card inside a chat message, and losing
+ * it the moment the conversation moved on.
+ *
+ * This registry is what lets /checklists exist as a page at all. It is a
+ * client-side convenience, not a source of truth: the checklist itself, and
+ * every checked item, still live server-side. Clearing it loses the shortcut,
+ * never the data — reopening the programme restores the same checklist.
+ *
+ * localStorage rather than sessionStorage, deliberately: an application
+ * checklist spans weeks, so it has to survive closing the tab.
+ *
+ * A proper GET /api/checklists (index) on RAG's side would replace this
+ * wholesale, and should. Recorded as a known limitation.
+ */
+
+const STORAGE_KEY = "goa.checklists.index";
+const MAX_ENTRIES = 50;
+
+export interface ChecklistIndexEntry {
+  programId: string;
+  programName: string;
+  university: string | null;
+  country: string | null;
+  /** ISO timestamp of the last time the detail page was opened. */
+  lastOpenedAt: string;
+  /** Cached progress, refreshed each time the detail page loads. */
+  totalItems: number;
+  completedItems: number;
+}
+
+function isEntry(value: unknown): value is ChecklistIndexEntry {
+  if (typeof value !== "object" || value === null) return false;
+  const entry = value as Partial<ChecklistIndexEntry>;
+  return (
+    typeof entry.programId === "string" &&
+    entry.programId.length > 0 &&
+    typeof entry.programName === "string" &&
+    typeof entry.lastOpenedAt === "string"
+  );
+}
+
+export function readChecklistIndex(): ChecklistIndexEntry[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    // Filtered per entry rather than rejected wholesale: one corrupt record
+    // written by an older build should not hide every other checklist.
+    return parsed
+      .filter(isEntry)
+      .sort((a, b) => b.lastOpenedAt.localeCompare(a.lastOpenedAt));
+  } catch {
+    return [];
+  }
+}
+
+function write(entries: ChecklistIndexEntry[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify(entries.slice(0, MAX_ENTRIES)),
+    );
+  } catch {
+    // Quota or private mode. The registry is a shortcut; losing it is not
+    // worth taking the page down for.
+  }
+}
+
+/**
+ * Records (or refreshes) one checklist. Called by the detail page once its
+ * data has loaded, so the cached progress is always something that was really
+ * observed rather than optimistically assumed.
+ */
+export function rememberChecklist(
+  entry: Omit<ChecklistIndexEntry, "lastOpenedAt">,
+): void {
+  const existing = readChecklistIndex().filter(
+    (e) => e.programId !== entry.programId,
+  );
+  write([
+    {
+      ...entry,
+      // Preserve a previously-known programme name if this call has only the
+      // raw id to offer -- the detail page knows the checklist, not always the
+      // programme metadata.
+      programName:
+        entry.programName ||
+        readChecklistIndex().find((e) => e.programId === entry.programId)
+          ?.programName ||
+        entry.programId,
+      lastOpenedAt: new Date().toISOString(),
+    },
+    ...existing,
+  ]);
+}
+
+export function forgetChecklist(programId: string): void {
+  write(readChecklistIndex().filter((e) => e.programId !== programId));
+}
+
+/** 0-100, or 0 for a checklist with no items. */
+export function progressPercent(entry: ChecklistIndexEntry): number {
+  if (entry.totalItems <= 0) return 0;
+  return Math.round((entry.completedItems / entry.totalItems) * 100);
+}

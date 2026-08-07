@@ -85,3 +85,81 @@ func listeningTestApp(handler *ExamHandler, userID string) *fiber.App {
 	app.Put("/:sessionId/submit", handler.SubmitListening)
 	return app
 }
+
+func TestGetHistoryUsesAuthenticatedUserAndForwardsPage(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/users/user-123/exam-history" {
+			t.Fatalf("unexpected path %q", r.URL.Path)
+		}
+		if got := r.URL.Query().Get("page"); got != "2" {
+			t.Fatalf("expected page=2 forwarded, got %q", got)
+		}
+		if got := r.Header.Get("X-Internal-API-Key"); got != "test-key" {
+			t.Fatalf("expected internal API key, got %q", got)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[]`))
+	}))
+	defer upstream.Close()
+
+	handler := NewExamHandler(upstream.Client(), upstream.URL, "test-key")
+	app := historyTestApp(handler, "user-123")
+	response, err := app.Test(httptest.NewRequest(http.MethodGet, "/history?page=2", nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", response.StatusCode)
+	}
+}
+
+func TestGetHistoryUnauthenticatedReturns401(t *testing.T) {
+	handler := NewExamHandler(http.DefaultClient, "http://unused", "test-key")
+	app := fiber.New()
+	app.Get("/history", handler.GetHistory)
+	response, err := app.Test(httptest.NewRequest(http.MethodGet, "/history", nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", response.StatusCode)
+	}
+}
+
+func TestGetWeakAreasUsesAuthenticatedUser(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/users/user-123/weak-areas" {
+			t.Fatalf("unexpected path %q", r.URL.Path)
+		}
+		if got := r.Header.Get("X-Internal-API-Key"); got != "test-key" {
+			t.Fatalf("expected internal API key, got %q", got)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer upstream.Close()
+
+	handler := NewExamHandler(upstream.Client(), upstream.URL, "test-key")
+	app := historyTestApp(handler, "user-123")
+	response, err := app.Test(httptest.NewRequest(http.MethodGet, "/weak-areas", nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", response.StatusCode)
+	}
+}
+
+func historyTestApp(handler *ExamHandler, userID string) *fiber.App {
+	app := fiber.New()
+	app.Use(func(c *fiber.Ctx) error {
+		c.Locals(middleware.ContextKeyUserID, userID)
+		return c.Next()
+	})
+	app.Get("/history", handler.GetHistory)
+	app.Get("/weak-areas", handler.GetWeakAreas)
+	return app
+}

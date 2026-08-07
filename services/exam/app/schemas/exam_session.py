@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.schemas.common import ExamType, SessionStatus, SkillArea
 from app.schemas.question import QuestionResponse
@@ -47,6 +47,12 @@ class SessionDetailsResponse(SessionResponse):
 class SubmitAnswersRequest(BaseModel):
     """Request payload for submitting answers for an IELTS exam session."""
 
-    answers: dict[str, Any]
+    # Writing submissions are per-task (essay_text/task_number) and never
+    # populate this -- it was previously required with no default, which
+    # meant a spec-correct Writing-only submission still 422'd unless the
+    # caller sent a meaningless empty object alongside it. Defaulting to {}
+    # keeps Reading (which always sends a populated dict) unaffected while
+    # making the two submission shapes genuinely independent.
+    answers: dict[str, Any] = Field(default_factory=dict)
     essay_text: str | None = None
     task_number: int | None = None

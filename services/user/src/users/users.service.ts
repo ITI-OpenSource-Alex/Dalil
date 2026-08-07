@@ -175,7 +175,7 @@ export class UsersService {
     Object.assign(profile, dto);
     const savedProfile = await this.profileRepository.save(profile);
 
-    // Fire-and-forget: publish UserUpdated event to SQS.
+    // Fire-and-forget: publish UserUpdated to the user-events SNS topic.
     // A failure here must never fail the HTTP request — the DB write is the source of truth.
     void this.publishUserUpdatedEvent(id);
 
@@ -233,16 +233,26 @@ export class UsersService {
     const { passwordHash: _, ...profile } = user as any;
 
     const [examHistory, essays, speakingSessions] = await Promise.all([
-      this.fetchJsonSection('EXAM_SERVICE_URL', `/users/${userId}/exam-history`),
-      this.fetchJsonSection('WRITING_SERVICE_URL', `/internal/users/${userId}/essays`),
-      this.fetchJsonSection('SPEAKING_SERVICE_URL', `/sessions?userId=${userId}`),
+      this.fetchJsonSection(
+        'EXAM_SERVICE_URL',
+        `/users/${userId}/exam-history`,
+      ),
+      this.fetchJsonSection(
+        'WRITING_SERVICE_URL',
+        `/internal/users/${userId}/essays`,
+      ),
+      this.fetchJsonSection(
+        'SPEAKING_SERVICE_URL',
+        `/sessions?userId=${userId}`,
+      ),
     ]);
 
     return {
       exportedAt: new Date().toISOString(),
       userId,
       profile,
-      examHistory: examHistory?.items ?? examHistory?.results ?? examHistory ?? [],
+      examHistory:
+        examHistory?.items ?? examHistory?.results ?? examHistory ?? [],
       essays: essays?.essays ?? essays ?? [],
       speakingSessions: speakingSessions?.sessions ?? speakingSessions ?? [],
     };
@@ -250,7 +260,9 @@ export class UsersService {
 
   private assertSelf(userId: string, requesterId?: string): void {
     if (!requesterId || requesterId !== userId) {
-      throw new ForbiddenException('Users can only access their own account data');
+      throw new ForbiddenException(
+        'Users can only access their own account data',
+      );
     }
   }
 
@@ -316,6 +328,16 @@ export class UsersService {
           workExperienceYears: user.profile?.workExperienceYears || 0,
           extracurricularsScore: user.profile?.extracurricularsScore || 0,
           targetCountries: user.profile?.targetCountries || [],
+          // RAG pre-filters candidate programmes by discipline, which it derives
+          // from this field (discipline_for_field_of_study in
+          // services/rag/app/services/scoring.py). Omitting it here left
+          // local_user_profiles.field_of_study NULL for every replicated user,
+          // so the filter could never activate outside the seeded demo rows --
+          // matching silently ranked Mechanical Engineering programmes for a
+          // Computer Science applicant. Null, not '', because RAG treats an
+          // absent field of study as "do not filter" and an empty string the
+          // same way only by accident.
+          fieldOfStudy: user.profile?.fieldOfStudy || null,
         },
       };
 
@@ -458,44 +480,36 @@ export class UsersService {
     [key: string]: unknown;
   }): Promise<void> {
     const topicArn = this.configService.get<string>('USER_EVENTS_TOPIC_ARN');
-    if (topicArn) {
-      const endpoint = this.configService.get<string>('AWS_ENDPOINT');
-      const accessKeyId = this.configService.get<string>('AWS_ACCESS_KEY_ID');
-      const secretAccessKey = this.configService.get<string>(
-        'AWS_SECRET_ACCESS_KEY',
-      );
-      const snsClient = new SNSClient({
-        region: this.configService.get<string>('AWS_REGION', 'us-east-1'),
-        ...(endpoint && { endpoint }),
-        ...(accessKeyId &&
-          secretAccessKey && {
-            credentials: { accessKeyId, secretAccessKey },
-          }),
-      });
-
-      await snsClient.send(
-        new PublishCommand({
-          TopicArn: topicArn,
-          Message: JSON.stringify(event),
-          MessageAttributes: {
-            eventType: {
-              DataType: 'String',
-              StringValue: event.type,
-            },
-          },
-        }),
-      );
-      return;
+    if (!topicArn) {
+      throw new Error('USER_EVENTS_TOPIC_ARN environment variable is required');
     }
 
-    const producerName = this.configService.get<string>(
-      'SQS_PRODUCER_NAME',
-      'user-events',
+    const endpoint = this.configService.get<string>('AWS_ENDPOINT');
+    const accessKeyId = this.configService.get<string>('AWS_ACCESS_KEY_ID');
+    const secretAccessKey = this.configService.get<string>(
+      'AWS_SECRET_ACCESS_KEY',
     );
-    await this.sqsService.send(producerName, {
-      id: event.correlationId,
-      body: event,
+    const snsClient = new SNSClient({
+      region: this.configService.get<string>('AWS_REGION', 'us-east-1'),
+      ...(endpoint && { endpoint }),
+      ...(accessKeyId &&
+        secretAccessKey && {
+          credentials: { accessKeyId, secretAccessKey },
+        }),
     });
+
+    await snsClient.send(
+      new PublishCommand({
+        TopicArn: topicArn,
+        Message: JSON.stringify(event),
+        MessageAttributes: {
+          eventType: {
+            DataType: 'String',
+            StringValue: event.type,
+          },
+        },
+      }),
+    );
   }
 
   private hashToken(token: string): string {
@@ -815,6 +829,11 @@ export class UsersService {
       workExperienceYears: u.profile?.workExperienceYears || 0,
       extracurricularsScore: u.profile?.extracurricularsScore || 0,
       targetCountries: u.profile?.targetCountries || [],
+      // RAG's backfill funnels this straight into the same upsert the SQS
+      // consumer uses, so leaving it out here reintroduced the NULL
+      // field_of_study that disables discipline pre-filtering -- see
+      // publishUserUpdatedEvent.
+      fieldOfStudy: u.profile?.fieldOfStudy || null,
     }));
     return {
       users: mappedUsers,
@@ -822,6 +841,3 @@ export class UsersService {
     };
   }
 }
-
-
-

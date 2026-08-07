@@ -30,9 +30,12 @@ def _profile(**over):
 
 
 def test_shared_scorer_returns_zero_and_reason_when_gated():
+    # Diploma -> PhD, i.e. genuinely under-qualified. This used to be
+    # Bachelor -> Master, which the degree gate no longer blocks: holding the
+    # rung below a programme is its prerequisite, not a disqualification.
     result = score_profile_against_program(
-        _profile(degreeLevel="Bachelor"),
-        ProgramRequirements(id="p", degree_level="Master"),
+        _profile(degreeLevel="Diploma"),
+        ProgramRequirements(id="p", degree_level="PhD"),
     )
     assert result["score"] == 0.0
     assert result["blocked_by"] == "degree_level"

@@ -34,14 +34,34 @@ async def consume_sqs_messages():
         client_options["aws_secret_access_key"] = settings.AWS_SECRET_ACCESS_KEY
 
     async with session.create_client("sqs", **client_options) as sqs_client:
-        try:
-            # Get the queue URL. We assume the queue name is configured in settings
-            response = await sqs_client.get_queue_url(QueueName=settings.SQS_QUEUE_NAME)
-            queue_url = response["QueueUrl"]
-            logger.info("SQS Consumer connected", queue_url=queue_url)
-        except (BotoCoreError, ClientError) as e:
-            logger.error("Failed to get SQS queue URL", error=str(e))
-            return
+        # Retry rather than return. This lookup runs at startup, and the queue is
+        # created by an infrastructure step RAG does not control -- compose only
+        # waits for LocalStack's health check, which passes before the user-events
+        # topology exists. Giving up on the first NonExistentQueue killed profile
+        # replication for the entire life of the process: nothing repopulated
+        # local_user_profiles, so /match answered 425 forever and the Opportunities
+        # page sat on "Your profile is still syncing" until someone restarted RAG.
+        backoff = 5
+        while True:
+            try:
+                response = await sqs_client.get_queue_url(QueueName=settings.SQS_QUEUE_NAME)
+                queue_url = response["QueueUrl"]
+                logger.info("SQS Consumer connected", queue_url=queue_url)
+                break
+            except asyncio.CancelledError:
+                logger.info("SQS consumer cancelled before connecting")
+                return
+            except (BotoCoreError, ClientError) as e:
+                logger.error(
+                    "Failed to get SQS queue URL; retrying",
+                    error=str(e),
+                    queue_name=settings.SQS_QUEUE_NAME,
+                    retry_in_seconds=backoff,
+                )
+                await asyncio.sleep(backoff)
+                # Capped so a permanently misconfigured queue name costs one log
+                # line a minute rather than a tight loop against SQS.
+                backoff = min(backoff * 2, 60)
 
         while True:
             try:

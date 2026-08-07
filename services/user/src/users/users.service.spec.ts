@@ -497,6 +497,10 @@ describe('UsersService', () => {
       id: userId,
       email: 'user@example.com',
       subscriptionTier: 'free' as const,
+      // publishUserUpdatedEvent re-reads the user with its profile relation and
+      // builds the event payload from it, so the academic fields it forwards to
+      // RAG only appear here.
+      profile: { ...mockProfile, fieldOfStudy: 'Computer Science' },
     };
 
     it('should save the profile and return it successfully', async () => {
@@ -545,6 +549,10 @@ describe('UsersService', () => {
           userId,
           email: mockUser.email,
           subscriptionTier: mockUser.subscriptionTier,
+          // RAG's discipline pre-filter reads this and nothing else supplies it;
+          // when it was missing from the payload the filter was dead for every
+          // replicated user.
+          fieldOfStudy: 'Computer Science',
         },
       });
       // correlationId must be a valid UUID v4

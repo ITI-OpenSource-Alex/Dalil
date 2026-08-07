@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.config import Settings, get_settings
 from app.dependencies import get_db, get_s3_client, get_sqs_client
 from app.models import CVReview
-from app.schemas import CVReviewRequest, CVUploadResponse
+from app.schemas import CVLatestResponse, CVReviewRequest, CVUploadResponse
 from app.services.cv_review import (
     CVReviewCoordinator,
     cv_review_cache_key,
@@ -129,7 +129,48 @@ async def upload_cv(
             detail="Could not publish the CV upload event",
         ) from exc
 
-    return CVUploadResponse(cvId=review.id, status=review.status)
+    return CVUploadResponse(cvId=review.id, status=review.status, s3Key=review.s3_key)
+
+
+@router.get(
+    "/latest",
+    response_model=CVLatestResponse,
+    responses={404: {"description": "No CV uploaded yet"}},
+)
+async def latest_cv(
+    userId: str,
+    db: Session = Depends(get_db),
+) -> CVLatestResponse:
+    """The signed-in user's most recent CV upload.
+
+    Exists so the browser can show upload/processing status and recover
+    s3Key (required by POST /cv/review) across a reload, without the
+    frontend having to hold that state itself for the life of the session.
+    """
+    validate_user_id(userId)
+    # Tie-broken by id, not just uploaded_at: two uploads in the same test (or
+    # the same request burst) can land in the same server_default=func.now()
+    # tick, at which point uploaded_at alone no longer distinguishes "most
+    # recent" from merely "tied".
+    review = (
+        db.query(CVReview)
+        .filter(CVReview.user_id == userId)
+        .order_by(CVReview.uploaded_at.desc(), CVReview.id.desc())
+        .first()
+    )
+    if review is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No CV uploaded yet",
+        )
+    return CVLatestResponse(
+        cvId=review.id,
+        s3Key=review.s3_key,
+        originalFilename=review.original_filename,
+        status=review.status,
+        uploadedAt=review.uploaded_at,
+        errorMessage=review.error_message,
+    )
 
 
 @router.post(

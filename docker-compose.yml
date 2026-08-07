@@ -94,6 +94,7 @@ services:
     build:
       context: .
       dockerfile: services/writing/Dockerfile
+      target: dev
     ports:
       - "8000:8000"
     environment:
@@ -149,6 +150,7 @@ services:
     build:
       context: .
       dockerfile: services/writing/Dockerfile
+      target: dev
     command: [ "sh", "-c", "python -m app.init_db && python -m cv_processor.local_worker" ]
     environment:
       - DATABASE_URL=postgresql://goa:goa_pass@postgres:5432/writing_db
@@ -346,6 +348,16 @@ services:
       - "8084:8084"
     environment:
       - PORT=8084
+      # /opt/goa is the shared security package (GOA-034); see the volume below.
+      # Pinned here rather than left to the image's ENV PYTHONPATH, because the
+      # package is delivered at RUN time by a bind mount while the path that
+      # finds it lived only in the image. A container started from an image
+      # built before that ENV was added therefore mounts the code with no way to
+      # import it, and uvicorn dies on `from goa_security import wrap_untrusted`
+      # before it ever binds :8084 -- which the Gateway reports as a 502 from
+      # /api/opportunities/query. The Writing service already pins it here and
+      # was unaffected; this makes RAG match.
+      - PYTHONPATH=/app:/opt/goa
       - DATABASE_URL=postgresql://goa:goa_pass@postgres:5432/rag_db
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
@@ -416,6 +428,10 @@ services:
       - "8083:8083"
     environment:
       - PORT=8083
+      # Same reason as RAG above: the shared security package arrives on the
+      # bind mount at /opt/goa, so the path to it belongs next to the mount
+      # rather than only in the image.
+      - PYTHONPATH=/app:/opt/goa
       - DATABASE_URL=postgresql://goa:goa_pass@postgres:5432/orchestration_db
       - REDIS_URL=redis://redis-cache:6379/1
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}

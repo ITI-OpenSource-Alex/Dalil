@@ -109,6 +109,7 @@ def test_concatenated_string_payload_and_agent_response(
             "status": "in_progress",
             "user_id": uuid4(),
             "skill_area": "speaking",
+            "exam_type": "academic",
         }
     )
     mock_session_instance.submit = AsyncMock()
@@ -179,6 +180,9 @@ def test_concatenated_string_payload_and_agent_response(
     called_payload = mock_speaking_client_instance.evaluate_holistic.call_args[0][1]
     expected_concatenated = "Part 1:\nI like apples.\nPart 2:\nI went to the store.\nPart 3:\nFruits are healthy."
     assert called_payload["concatenated_transcript"] == expected_concatenated
+    # The Speaking service traces the holistic exam on exam_session_id, so the
+    # Exam service must forward it as the correlation key (GOA-066).
+    assert called_payload["exam_session_id"] == session_id
 
     # Verify agent response extraction
     mock_result_instance.create.assert_called_once()

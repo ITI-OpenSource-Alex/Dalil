@@ -657,6 +657,7 @@ class TestSpeakingEngine:
                 "status": "in_progress",
                 "user_id": user_id,
                 "skill_area": "speaking",
+                "exam_type": "academic",
             }
         )
         mock_session_instance.try_submit = AsyncMock(return_value=True)

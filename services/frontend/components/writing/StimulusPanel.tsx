@@ -55,7 +55,7 @@ export default function StimulusPanel({ task, examType }: StimulusPanelProps) {
   return (
     <div className="mb-4" data-testid={testId("stimulus-panel")}>
       <div
-        className="mb-3 text-sm text-gray-800 whitespace-pre-wrap leading-relaxed"
+        className="mb-3 text-sm text-fg-muted whitespace-pre-wrap leading-relaxed"
         data-testid={testId(
           isAcademic ? "stimulus-prompt" : "stimulus-scenario-text",
         )}
@@ -64,7 +64,7 @@ export default function StimulusPanel({ task, examType }: StimulusPanelProps) {
       </div>
 
       {task.instructions && (
-        <p className="mb-3 text-xs font-medium text-gray-500">
+        <p className="mb-3 text-xs font-medium text-fg-subtle">
           {task.instructions}
         </p>
       )}

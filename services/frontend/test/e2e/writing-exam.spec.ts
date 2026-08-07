@@ -1,4 +1,4 @@
-import { test, expect, Page, Route } from "@playwright/test";
+import { test, expect, Page, Route } from "./fixtures/auth";
 
 // These tests stub the Gateway's REST responses at the network layer, the
 // established pattern in this repo (see test/e2e/reading-exam.spec.ts), so the
@@ -237,12 +237,6 @@ async function mockExamApi(
       }),
     ),
   );
-
-  // The results page fires this and ignores failures; stub it so it doesn't
-  // surface as an unhandled console error during the run.
-  await page.route("**/api/profile/update-scores", (route) =>
-    route.fulfill({ status: 200, contentType: "application/json", body: "{}" }),
-  );
 }
 
 function words(count: number): string {
@@ -308,13 +302,13 @@ test.describe("Writing exam UI", () => {
     const textarea = page.getByTestId("task-1-textarea");
     const counter = page.getByTestId("task-1-word-counter");
 
-    // The computed values below are Tailwind's text-orange-500 and
-    // text-emerald-600 as this browser resolves them (Tailwind v4 emits oklch;
-    // Chromium reports lab). Asserting the rendered colour, not just the class,
-    // is the point — "orange below target, green at target" is the acceptance
-    // criterion, and a class name alone would not catch a broken palette.
-    const ORANGE = "lab(64.272 57.1788 90.3583)";
-    const GREEN = "lab(55.0481 -49.9246 15.93)";
+    // The computed values below are the app's --warning-fg and --success-fg
+    // design tokens (globals.css) as this browser resolves them. Asserting
+    // the rendered colour, not just the class, is the point — "warning below
+    // target, success at target" is the acceptance criterion, and a class
+    // name alone would not catch a broken palette.
+    const ORANGE = "rgb(133, 83, 7)"; // --warning-fg: #855307
+    const GREEN = "rgb(23, 97, 47)"; // --success-fg: #17612f
 
     await textarea.fill(words(148));
     await expect(counter).toHaveText("148 / 150 words");

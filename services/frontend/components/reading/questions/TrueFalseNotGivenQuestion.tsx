@@ -38,10 +38,10 @@ export default function TrueFalseNotGivenQuestion({
               type="button"
               onClick={() => onChange(choice)}
               aria-pressed={selected}
-              className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+              className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted ${
                 selected
-                  ? "border-emerald-700 bg-emerald-700 text-white"
-                  : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                  ? "border-brand bg-brand text-fg-on-brand"
+                  : "border-border-strong bg-surface text-fg-muted hover:bg-canvas-subtle"
               }`}
             >
               {choice}

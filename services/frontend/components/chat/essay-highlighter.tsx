@@ -165,7 +165,7 @@ function HighlightMark({ segment }: { segment: MarkSegment }) {
           side="top"
           align="start"
           sideOffset={6}
-          className="z-50 w-64 rounded-md border border-[#E4EAE4] bg-white shadow-md p-2.5 space-y-1"
+          className="z-50 w-64 rounded-md border border-border bg-surface shadow-md p-2.5 space-y-1"
         >
           <span
             className="text-[10px] font-semibold uppercase tracking-wide"
@@ -174,14 +174,14 @@ function HighlightMark({ segment }: { segment: MarkSegment }) {
             {criterionLabels[segment.issue.criterion] ??
               segment.issue.criterion}
           </span>
-          <p className="text-xs text-[#1D291E] leading-relaxed">
+          <p className="text-xs text-fg leading-relaxed">
             {segment.issue.issue}
           </p>
-          <p className="text-xs text-[#667267] leading-relaxed">
-            <span className="font-medium text-[#3A463B]">Suggestion: </span>
+          <p className="text-xs text-fg-muted leading-relaxed">
+            <span className="font-medium text-fg">Suggestion: </span>
             {segment.issue.suggestion}
           </p>
-          <Tooltip.Arrow className="fill-white" />
+          <Tooltip.Arrow className="fill-surface" />
         </Tooltip.Content>
       </Tooltip.Portal>
     </Tooltip.Root>
@@ -196,7 +196,7 @@ export default function EssayHighlighter({
 
   return (
     <Tooltip.Provider delayDuration={150}>
-      <div className="text-sm text-[#1D291E] leading-relaxed whitespace-pre-wrap">
+      <div className="text-sm text-fg leading-relaxed whitespace-pre-wrap">
         {segments.map((segment, segmentIdx) =>
           segment.type === "text" ? (
             <span key={`text-${segmentIdx}`}>{segment.content}</span>

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   AlertCircle,
   ArrowRight,
@@ -10,6 +10,7 @@ import {
   ChevronUp,
   FileText,
   GraduationCap,
+  LayoutDashboard,
   ListChecks,
   LogOut,
   Menu,
@@ -22,72 +23,101 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { authApi } from "@/lib/api";
+import { DEFAULT_UPGRADE_URL } from "@/lib/subscription";
 import { useCurrentUser } from "@/app/hooks/useCurrentUser";
 import { isProfileComplete } from "@/app/types/profile";
+import { emailInitials } from "@/lib/user-display";
 import { Badge, Button, Icon } from "@/components/ui";
 import { Wordmark } from "@/components/marketing/wordmark";
 
-// Derives up to 2 uppercase initials from an email's local part (the
-// segment before "@") for the avatar badge -- CurrentUser carries no
-// separate display name, only an email.
-function initialsFromEmail(email: string): string {
-  const localPart = email.split("@")[0] ?? "";
-  const letters = localPart.replace(/[^a-zA-Z]/g, "");
-  return (letters.slice(0, 2) || email.slice(0, 2) || "?").toUpperCase();
-}
-
 // href: null marks an entry as genuinely unavailable -- rendered as an inert
 // badge rather than a Link, with `unavailableReason` as the explicit,
-// visible reason (not just a hover tooltip). Opportunity search and the
-// application checklist *are* implemented, but only inline inside Chat (see
-// chat-shell.tsx and /checklist/[programId]) -- there is no standalone page
-// for either yet, so they link to /chat with a "In Chat" badge instead of
-// being marked unavailable, and `linksElsewhere: true` keeps them from
-// double-highlighting alongside the Chat item itself.
+// visible reason (not just a hover tooltip).
+//
 // matchStrategy: "prefix" is opt-in, only for routes with real child routes
-// that should share the highlight (/exam/shell, /exam/results under IELTS;
-// /speaking/history/[id] under Speaking History) -- every other route
-// matches exactly, so a route like /profile is never marked active while
-// merely prefixed by another route's path.
-const NAV_ITEMS: {
+// that should share the highlight (/exam/shell, /exam/results under IELTS) --
+// every other route matches exactly, so a route like /profile is never marked
+// active while merely prefixed by another route's path.
+//
+// `children` are sub-routes rendered indented beneath their parent, and only
+// while that section is the active one. Speaking History used to sit at the
+// top level as a peer of Chat and IELTS, which put a *history view* of one
+// practice mode at the same altitude as the product's primary sections --
+// fixed by nesting it under a standalone Speaking section. Phase D
+// generalises that fix: Speaking and Writing are now peers under one
+// Practice section (both were previously reachable only via Chat's toolbar
+// buttons, Writing with no sidebar presence at all), each with its own
+// Practice + History children. Opportunities and Checklists likewise stop
+// pointing at /chat with an "In Chat" badge -- both now have their own pages.
+interface NavItem {
   label: string;
   icon: LucideIcon;
   href: string | null;
   matchStrategy?: "exact" | "prefix";
-  linksElsewhere?: boolean;
-  elsewhereBadge?: string;
   unavailableReason?: string;
-}[] = [
+  /**
+   * Extra path prefixes that should also light this item up. Needed because
+   * the checklist detail view lives at the pre-existing /checklist/:programId
+   * (linked from chat and covered by e2e specs) while its new index is
+   * /checklists -- renaming the former to tidy the sidebar would be the tail
+   * wagging the dog.
+   */
+  alsoActiveFor?: string[];
+  children?: { label: string; href: string; matchStrategy?: "exact" | "prefix" }[];
+}
+
+const NAV_ITEMS: NavItem[] = [
+  // Phase E (docs/IA-REDESIGN-PROPOSAL.md): the user's home after
+  // onboarding, replacing the temporary redirect to /opportunities.
+  { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
   { label: "Chat", icon: MessageSquare, href: "/chat" },
+  { label: "IELTS Exam", icon: GraduationCap, href: "/exam", matchStrategy: "prefix" },
   {
-    label: "Opportunities",
-    icon: Target,
-    href: "/chat",
-    linksElsewhere: true,
-    elsewhereBadge: "In Chat",
+    // Phase D (docs/IA-REDESIGN-PROPOSAL.md): a standalone section, no
+    // longer reachable only by opening Chat and finding the right toolbar
+    // button. "Speaking" used to sit here as its own top-level item with a
+    // single History child; Writing had no sidebar presence at all. Both
+    // skills are peers under Practice now, each with Practice + History.
+    label: "Practice",
+    icon: AudioLines,
+    href: "/practice",
+    matchStrategy: "prefix",
+    children: [
+      { label: "Speaking Practice", href: "/practice/speaking" },
+      {
+        label: "Speaking History",
+        href: "/practice/speaking/history",
+        matchStrategy: "prefix",
+      },
+      { label: "Writing Practice", href: "/practice/writing" },
+      {
+        label: "Writing History",
+        href: "/practice/writing/history",
+        matchStrategy: "prefix",
+      },
+    ],
   },
+  { label: "Opportunities", icon: Target, href: "/opportunities" },
   {
     label: "Checklists",
     icon: ListChecks,
-    href: "/chat",
-    linksElsewhere: true,
-    elsewhereBadge: "In Chat",
-  },
-  { label: "IELTS", icon: GraduationCap, href: "/exam", matchStrategy: "prefix" },
-  {
-    label: "Speaking History",
-    icon: AudioLines,
-    href: "/speaking/history",
+    href: "/checklists",
     matchStrategy: "prefix",
+    alsoActiveFor: ["/checklist/"],
   },
-  {
-    label: "CV Review",
-    icon: FileText,
-    href: null,
-    unavailableReason: "Requires GOA Pro — coming soon",
-  },
+  // Phase E: standalone page, upload is free-tier, AI review remains paid
+  // (surfaced by the upgrade dialog on the page itself, not by hiding the
+  // nav entry -- href: null is for routes that don't exist yet, not for
+  // paid features, see the comment above NavItem).
+  { label: "CV Review", icon: FileText, href: "/cv-review" },
   { label: "Profile", icon: UserIcon, href: "/profile" },
 ];
+
+function matches(pathname: string, href: string, strategy?: "exact" | "prefix") {
+  return strategy === "prefix"
+    ? pathname === href || pathname.startsWith(`${href}/`)
+    : pathname === href;
+}
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -196,36 +226,69 @@ export function Sidebar() {
                 );
               }
 
-              const isActive =
-                !item.linksElsewhere &&
-                (item.matchStrategy === "prefix"
-                  ? pathname === item.href || pathname.startsWith(`${item.href}/`)
-                  : pathname === item.href);
+              const href = item.href;
+              const inSection =
+                matches(pathname, href, item.matchStrategy) ||
+                (item.alsoActiveFor?.some((p) => pathname.startsWith(p)) ??
+                  false);
+              // A parent with children is highlighted only for its own page,
+              // not for a child's -- otherwise both rows light up at once and
+              // neither tells you where you are. `inSection` still governs
+              // whether the child rows are revealed.
+              const isActive = item.children ? pathname === href : inSection;
 
               return (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  onClick={() => setIsOpen(false)}
-                  aria-current={isActive ? "page" : undefined}
-                  title={item.linksElsewhere ? `${item.label} — inside Chat` : undefined}
-                  className={cn(
-                    "flex items-center justify-between gap-3 rounded-full px-3.5 py-2.5 text-sm font-medium transition-colors",
-                    isActive
-                      ? "bg-brand-subtle font-semibold text-brand-fg"
-                      : "text-fg-muted hover:bg-canvas-subtle hover:text-fg",
+                <div key={item.label}>
+                  <Link
+                    href={href}
+                    onClick={() => setIsOpen(false)}
+                    aria-current={isActive ? "page" : undefined}
+                    className={cn(
+                      "flex items-center justify-between gap-3 rounded-full px-3.5 py-2.5 text-sm font-medium transition-colors",
+                      isActive
+                        ? "bg-brand-subtle font-semibold text-brand-fg"
+                        : "text-fg-muted hover:bg-canvas-subtle hover:text-fg",
+                    )}
+                  >
+                    <span className="flex items-center gap-3">
+                      <Icon icon={item.icon} size="sm" />
+                      <span>{item.label}</span>
+                    </span>
+                  </Link>
+
+                  {item.children && inSection && (
+                    // Rendered only inside the active section: a permanently
+                    // expanded tree would put every leaf back at the top level,
+                    // which is the flatness this restructure removes. The rail
+                    // on the left is what carries the "belongs to the item
+                    // above" relationship visually.
+                    <div className="mt-1 ml-6 space-y-1 border-l border-border pl-3">
+                      {item.children.map((child) => {
+                        const childActive = matches(
+                          pathname,
+                          child.href,
+                          child.matchStrategy,
+                        );
+                        return (
+                          <Link
+                            key={child.href}
+                            href={child.href}
+                            onClick={() => setIsOpen(false)}
+                            aria-current={childActive ? "page" : undefined}
+                            className={cn(
+                              "block rounded-full px-3 py-2 text-sm transition-colors",
+                              childActive
+                                ? "bg-brand-subtle font-semibold text-brand-fg"
+                                : "text-fg-muted hover:bg-canvas-subtle hover:text-fg",
+                            )}
+                          >
+                            {child.label}
+                          </Link>
+                        );
+                      })}
+                    </div>
                   )}
-                >
-                  <span className="flex items-center gap-3">
-                    <Icon icon={item.icon} size="sm" />
-                    <span>{item.label}</span>
-                  </span>
-                  {item.elsewhereBadge && (
-                    <Badge tone="info" size="sm" pill>
-                      {item.elsewhereBadge}
-                    </Badge>
-                  )}
-                </Link>
+                </div>
               );
             })}
           </nav>
@@ -263,8 +326,10 @@ export function Sidebar() {
                 Unlimited AI, CV review, IELTS scoring.
               </p>
             </div>
-            <Button size="sm" trailingIcon={ArrowRight}>
-              Upgrade
+            {/* Was an inert <Button> with no handler -- the one place in the
+                app that advertises the paid tier did nothing when clicked. */}
+            <Button size="sm" trailingIcon={ArrowRight} asChild>
+              <Link href={DEFAULT_UPGRADE_URL}>Upgrade</Link>
             </Button>
           </div>
 
@@ -285,8 +350,8 @@ function UserMenu({
   user: { email: string } | null;
   identityLoading: boolean;
 }) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -313,15 +378,26 @@ function UserMenu({
   }, [open]);
 
   async function handleLogout() {
-    setOpen(false);
+    if (loggingOut) return;
+    // The menu deliberately stays open: this is a network round trip, and
+    // closing it first would leave the user with no indication that anything
+    // is happening between the click and the redirect.
+    setLoggingOut(true);
     try {
       await authApi.logout();
     } catch {
       // Best-effort: even if the network call fails, the client still treats
       // the session as ended rather than stranding the user on a dead menu.
     } finally {
-      router.push("/login");
-      router.refresh();
+      // A hard navigation, not router.push(). Three things have to observe the
+      // cleared cookie for a logout to actually look like one, and a
+      // client-side push guarantees none of them: middleware.ts decides
+      // /login vs /chat from request cookies, the App Router keeps a
+      // client-side RSC cache of the authenticated pages already visited, and
+      // this component's own useCurrentUser state would otherwise survive the
+      // transition still holding the old identity. assign() discards all
+      // three by reloading the document.
+      window.location.assign("/login");
     }
   }
 
@@ -335,7 +411,7 @@ function UserMenu({
         className="flex w-full items-center gap-3 rounded-control px-2 py-2 text-left transition-colors hover:bg-canvas-subtle"
       >
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-forest-800 text-xs font-bold text-white">
-          {identityLoading ? "···" : user ? initialsFromEmail(user.email) : "?"}
+          {identityLoading ? "···" : user ? emailInitials(user.email) : "?"}
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-xs font-bold text-fg">
@@ -368,10 +444,12 @@ function UserMenu({
             role="menuitem"
             type="button"
             onClick={handleLogout}
-            className="flex w-full items-center gap-2 rounded-control px-3 py-2 text-left text-sm text-fg transition-colors hover:bg-canvas-subtle"
+            disabled={loggingOut}
+            aria-busy={loggingOut || undefined}
+            className="flex w-full items-center gap-2 rounded-control px-3 py-2 text-left text-sm text-fg transition-colors hover:bg-canvas-subtle disabled:cursor-not-allowed disabled:opacity-60"
           >
             <Icon icon={LogOut} size="sm" />
-            Log out
+            {loggingOut ? "Signing out…" : "Log out"}
           </button>
         </div>
       )}

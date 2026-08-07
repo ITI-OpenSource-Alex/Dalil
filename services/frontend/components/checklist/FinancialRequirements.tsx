@@ -23,7 +23,7 @@ export default function FinancialRequirements({
       data-phase="Financial Requirements"
       className="print-avoid-break"
     >
-      <h3 className="text-sm font-semibold text-[#0D3820] mb-2">
+      <h3 className="text-sm font-semibold text-brand-fg mb-2">
         Financial Requirements
       </h3>
       <ul className="space-y-2">
@@ -31,13 +31,13 @@ export default function FinancialRequirements({
           <li
             key={`${item.country}-${item.issuingBody}-${index}`}
             data-testid="financial-item"
-            className="rounded-xl border border-[#E4EAE4] bg-white p-3"
+            className="rounded-xl border border-border bg-surface p-3"
           >
-            <p className="text-sm font-medium text-[#0D3820]">
+            <p className="text-sm font-medium text-brand-fg">
               {item.country} — {item.issuingBody}
             </p>
-            <p className="mt-0.5 text-xs text-[#526053]">{item.message}</p>
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#899C8B]">
+            <p className="mt-0.5 text-xs text-fg-muted">{item.message}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-fg-subtle">
               {item.lastVerifiedAt && (
                 <span>
                   Last verified {new Date(item.lastVerifiedAt).toLocaleDateString()}
@@ -48,7 +48,7 @@ export default function FinancialRequirements({
                   href={item.sourceUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-emerald-700 underline underline-offset-2 print:no-underline"
+                  className="text-brand-fg underline underline-offset-2 print:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted rounded-xs"
                 >
                   Official source
                 </a>

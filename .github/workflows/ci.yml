@@ -91,6 +91,12 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    # Without this the job inherits GitHub's 6-hour default, so a single test
+    # that blocks (see the SQS consumer's queue-URL retry loop) holds a runner
+    # for the rest of the day instead of failing. This is the backstop; the
+    # per-test --timeout below is what actually names the culprit.
+    timeout-minutes: 20
+
     # [RESILIENCE FIX 3]: Spin up Postgres alongside Redis for global DB mocks
     services:
       redis:
@@ -183,7 +189,7 @@ jobs:
         if: matrix.language == 'python'
         run: |
           pip install -r requirements.txt
-          pip install ruff pytest pytest-cov
+          pip install ruff pytest pytest-cov pytest-timeout
 
       - name: Ruff
         if: matrix.language == 'python'
@@ -200,9 +206,17 @@ jobs:
           REDIS_GATEWAY_URL: redis://127.0.0.1:6379/0
           PYTHONPATH: ${{ github.workspace }}/packages/contracts/py:${{ github.workspace }}/packages/security/py
         # [RESILIENCE FIX 1]: Gracefully skip Pytest if no tests folder exists to avoid Exit Code 5
+        # --timeout: a hung test fails with the stack of the exact test that
+        # blocked, instead of stalling the job until it is killed with no
+        # attribution. 120s is well clear of the slowest legitimate test here
+        # (the migration suite) while still catching a genuine deadlock or an
+        # unbounded retry loop quickly.
+        # --timeout-method=thread: the default (SIGALRM) cannot interrupt a
+        # coroutine parked in await, which is precisely the failure mode this
+        # is here to catch.
         run: |
           if [ -d "tests" ]; then
-            pytest --cov=. --cov-report=xml
+            pytest --cov=. --cov-report=xml --timeout=120 --timeout-method=thread
           else
             echo "No tests folder found. Skipping pytest to avoid fatal exit code 5."
           fi

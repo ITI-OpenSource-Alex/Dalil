@@ -13,24 +13,24 @@ export default function ChecklistProgress({ items }: { items: ChecklistItem[] })
   return (
     <div
       data-testid="checklist-progress"
-      className="rounded-2xl border border-[#E4EAE4] bg-white p-4"
+      className="rounded-2xl border border-border bg-surface p-4"
     >
       <div className="flex items-center justify-between text-sm">
-        <span className="font-medium text-[#0D3820]">
+        <span className="font-medium text-brand-fg">
           {done} of {total} tasks complete
         </span>
-        <span className="text-[#899C8B]">{percent}%</span>
+        <span className="text-fg-subtle">{percent}%</span>
       </div>
-      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[#F0F3EF]">
+      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-canvas-inset">
         <div
-          className="h-full rounded-full bg-emerald-600 transition-all"
+          className="h-full rounded-full bg-success transition-all"
           style={{ width: `${percent}%` }}
         />
       </div>
       {estimatedDate && (
-        <p className="mt-3 text-xs text-[#899C8B]">
+        <p className="mt-3 text-xs text-fg-subtle">
           Estimated completion:{" "}
-          <span className="font-medium text-[#526053]">
+          <span className="font-medium text-fg-muted">
             {estimatedDate.toLocaleDateString(undefined, {
               month: "long",
               day: "numeric",

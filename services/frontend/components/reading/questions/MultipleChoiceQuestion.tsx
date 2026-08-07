@@ -43,7 +43,7 @@ export default function MultipleChoiceQuestion({
             return (
               <label
                 key={i}
-                className="flex cursor-pointer items-start gap-2 text-sm text-gray-800"
+                className="flex cursor-pointer items-start gap-2 text-sm text-fg-muted"
               >
                 <input
                   type="radio"
@@ -51,7 +51,7 @@ export default function MultipleChoiceQuestion({
                   value={letter}
                   checked={value === letter}
                   onChange={() => onChange(letter)}
-                  className="mt-0.5 accent-emerald-700"
+                  className="mt-0.5 accent-brand"
                 />
                 <span>
                   <span className="mr-1 font-medium">{letter}.</span>

@@ -52,38 +52,38 @@ export default function TaskResultCard({
     <div
       data-testid={`task-${taskNumber}-result-card`}
       data-expanded={expanded}
-      className="rounded-2xl border border-gray-200/80 bg-white shadow-2xs"
+      className="rounded-2xl border border-border bg-surface shadow-2xs"
     >
       <button
         type="button"
         onClick={() => setExpanded((value) => !value)}
         aria-expanded={expanded}
         data-testid={`task-${taskNumber}-result-toggle`}
-        className="flex w-full items-center justify-between gap-4 p-5 text-left"
+        className="flex w-full items-center justify-between gap-4 p-5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted rounded-2xl"
       >
         <div className="flex items-center gap-3">
           {expanded ? (
-            <ChevronDown size={16} className="text-gray-400" />
+            <ChevronDown size={16} className="text-fg-subtle" aria-hidden="true" />
           ) : (
-            <ChevronRight size={16} className="text-gray-400" />
+            <ChevronRight size={16} className="text-fg-subtle" aria-hidden="true" />
           )}
           <div>
-            <h4 className="font-serif text-sm font-bold text-gray-900">
+            <h4 className="font-serif text-sm font-bold text-fg">
               Task {taskNumber} — evaluated
             </h4>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-fg-subtle">
               {wordCount} words · {expanded ? "Hide" : "Show"} full feedback
             </p>
           </div>
         </div>
 
         <div className="shrink-0 text-right">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-fg-subtle">
             Band
           </p>
           <p
             data-testid={`task-${taskNumber}-band`}
-            className="font-serif text-2xl font-bold text-[#0d4d3a]"
+            className="font-serif text-2xl font-bold text-brand-fg"
           >
             {formatBand(overallBand)}
           </p>
@@ -98,9 +98,9 @@ export default function TaskResultCard({
       {penaltyFlag && (
         <div
           data-testid={`task-${taskNumber}-penalty-warning`}
-          className="mx-5 mb-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+          className="mx-5 mb-4 flex items-start gap-2 rounded-xl border border-warning-border bg-warning-subtle px-3 py-2 text-xs text-warning-fg"
         >
-          <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+          <AlertTriangle size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
           <span>{UNDER_MINIMUM_WARNING}</span>
         </div>
       )}
@@ -114,21 +114,21 @@ export default function TaskResultCard({
             <div
               key={item.criterion}
               data-testid={`task-${taskNumber}-criterion-${item.criterion}`}
-              className="rounded-xl border border-gray-100 bg-gray-50/60 p-3"
-              style={{ borderLeft: `3px solid ${colours?.text ?? "#6B7280"}` }}
+              className="rounded-xl border border-border bg-canvas-subtle p-3"
+              style={{ borderLeft: `3px solid ${colours?.text ?? "var(--color-fg-muted)"}` }}
             >
               <div className="mb-1 flex items-center justify-between gap-2">
                 <span
                   className="text-[10px] font-bold uppercase tracking-wide"
-                  style={{ color: colours?.text ?? "#374151" }}
+                  style={{ color: colours?.text ?? "var(--color-fg-muted)" }}
                 >
                   {item.label}
                 </span>
-                <span className="text-xs font-bold text-gray-700">
+                <span className="text-xs font-bold text-fg-muted">
                   {formatBand(item.band)}
                 </span>
               </div>
-              <p className="text-xs leading-relaxed text-gray-600">
+              <p className="text-xs leading-relaxed text-fg-muted">
                 {item.issue}
               </p>
             </div>
@@ -139,7 +139,7 @@ export default function TaskResultCard({
       {expanded && (
         <div
           data-testid={`task-${taskNumber}-expanded`}
-          className="border-t border-gray-100 px-5 py-4"
+          className="border-t border-border px-5 py-4"
         >
           <div className="mb-4 space-y-3">
             {topIssues.map((item) => {
@@ -148,28 +148,28 @@ export default function TaskResultCard({
               return (
                 <div key={item.criterion} className="space-y-1.5">
                   <div className="flex justify-between text-xs">
-                    <span className="font-medium text-gray-800">
+                    <span className="font-medium text-fg-muted">
                       {item.label}
                     </span>
                     <span
                       className="font-bold"
-                      style={{ color: colours?.text ?? "#374151" }}
+                      style={{ color: colours?.text ?? "var(--color-fg-muted)" }}
                     >
                       Band {formatBand(item.band)}
                     </span>
                   </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-gray-100">
+                  <div className="h-1.5 overflow-hidden rounded-full bg-canvas-inset">
                     <div
                       className="h-full rounded-full"
                       style={{
                         width: `${(item.band / 9) * 100}%`,
-                        background: colours?.text ?? "#6B7280",
+                        background: colours?.text ?? "var(--color-fg-muted)",
                       }}
                     />
                   </div>
                   {item.suggestion && (
-                    <p className="text-xs leading-relaxed text-gray-500">
-                      <span className="font-medium text-gray-700">
+                    <p className="text-xs leading-relaxed text-fg-subtle">
+                      <span className="font-medium text-fg-muted">
                         Suggestion:{" "}
                       </span>
                       {item.suggestion}
@@ -185,7 +185,7 @@ export default function TaskResultCard({
             shape differs from the writing service's, so toEssayIssues adapts at
             this boundary rather than either side being rewritten.
           */}
-          <div className="max-h-72 overflow-y-auto rounded-xl border border-gray-200 bg-[#FAFBF9] p-3">
+          <div className="max-h-72 overflow-y-auto rounded-xl border border-border bg-canvas-subtle p-3">
             <EssayHighlighter essayText={essayText} issues={essayIssues} />
           </div>
         </div>

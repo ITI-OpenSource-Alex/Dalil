@@ -12,13 +12,21 @@ const HEARTBEAT_INTERVAL_MS = 60_000;
 // import { evaluateEssay } from "@/lib/writing-api";
 import type { ExamSessionResponse } from "@/lib/exam-api";
 import ReadingExam from "@/components/reading/ReadingExam";
+import ListeningExam from "@/components/listening/ListeningExam";
 import WritingExam from "@/components/writing/WritingExam";
 import ComingSoonPanel from "@/components/exam/ComingSoonPanel";
 import { storeReadingResult } from "@/lib/reading-result-storage";
+import { storeListeningResult } from "@/lib/listening-result-storage";
 import type {
   NormalizedReadingQuestion,
   ReadingSubmitResponse,
+  RawReadingQuestion,
 } from "@/app/types/reading";
+import type {
+  ListeningSubmitResponse,
+  NormalizedListeningQuestion,
+} from "@/app/types/listening";
+import { Alert, Button } from "@/components/ui";
 
 // useSearchParams() opts the page into client-side rendering during
 // prerendering, which Next.js requires to be wrapped in a Suspense boundary
@@ -28,7 +36,7 @@ export default function ExamShell() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#fbfbfa] p-8 font-mono text-xs text-gray-500">
+        <div className="min-h-screen bg-canvas p-8 font-mono text-xs text-fg-subtle">
           Loading active session...
         </div>
       }
@@ -36,6 +44,50 @@ export default function ExamShell() {
       <ExamShellContent />
     </Suspense>
   );
+}
+
+// Listening sessions receive their audio URLs from the start response, not
+// from the generic session fetch. The shell falls back to the stored start
+// payload when the session object itself does not include audio_urls.
+function getListeningAudioUrls(
+  session: ExamSessionResponse | null,
+  sessionId: string,
+): [string, string, string, string] | null {
+  const sessionUrls = (session as unknown as { audio_urls?: unknown })
+    .audio_urls;
+  if (
+    Array.isArray(sessionUrls) &&
+    sessionUrls.length === 4 &&
+    sessionUrls.every((url) => typeof url === "string")
+  ) {
+    return sessionUrls as [string, string, string, string];
+  }
+
+  if (typeof window === "undefined") return null;
+
+  try {
+    const storedListeningSession = window.sessionStorage.getItem(
+      `listening_start_${sessionId}`,
+    );
+    if (!storedListeningSession) return null;
+
+    const parsed = JSON.parse(storedListeningSession) as unknown as {
+      audio_urls?: unknown;
+    };
+    const urls = parsed.audio_urls;
+
+    if (
+      Array.isArray(urls) &&
+      urls.length === 4 &&
+      urls.every((url) => typeof url === "string")
+    ) {
+      return urls as [string, string, string, string];
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
 }
 
 function ExamShellContent() {
@@ -113,6 +165,10 @@ function ExamShellContent() {
   // failures before a session is at risk, so a brief network drop costs
   // nothing. One fires immediately so a session is marked live from the moment
   // the exam opens rather than a minute into it.
+  //
+  // Skill-agnostic by design — Listening keeps this running exactly like
+  // every other module, including through its own silence-gap and
+  // answer-transfer phases, since none of those change `status`.
   useEffect(() => {
     if (!sessionId || status !== "in_progress") {
       return;
@@ -128,11 +184,13 @@ function ExamShellContent() {
 
   /**
    * Generic whole-exam submit, used by the skills that have no submit flow of
-   * their own. Reading and Writing both opt out: Reading owns its own confirm
-   * modal, and Writing submits one task at a time (GOA-058).
+   * their own. Reading, Listening and Writing all opt out: Reading owns its
+   * own confirm modal, Listening owns its 10-minute answer-transfer window
+   * (GOA-056), and Writing submits one task at a time (GOA-058).
    */
   const executeSubmission = async () => {
     setShowSubmitModal(false);
+    setSubmissionError(null);
 
     try {
       setStatus("evaluating");
@@ -176,17 +234,51 @@ function ExamShellContent() {
     router.push(`/exam/results?session=${sessionId}&skill=Reading`);
   };
 
+  const handleListeningSubmitted = (
+    result: ListeningSubmitResponse,
+    questions: NormalizedListeningQuestion[],
+  ) => {
+    // Same constraint as Reading: no GET-result endpoint, so the submit
+    // response is carried forward via storage rather than re-fetched.
+    storeListeningResult(sessionId, { result, questions });
+    router.push(`/exam/results?session=${sessionId}&skill=Listening`);
+  };
+
   const handleTimeUp = () => {
-    // useExamTimer is called below with session?.remaining_time_seconds ?? 0
-    // — before the session finishes loading, that's 0, which makes the
-    // timer fire an immediate (spurious) time-up on mount, before
-    // examConfig exists. Ignoring that null-session case here is required
-    // for Reading (and doesn't change Writing's real-timeout behavior,
-    // which only ever fires once examConfig is already set).
     if (!examConfig) return;
-    if (examConfig.skill === "Reading") {
-      setReadingForceSubmit((n) => n + 1);
-      return;
+
+    switch (examConfig?.skill) {
+      case "Reading":
+        // useExamTimer is called below with session?.remaining_time_seconds ?? 0
+        // — before the session finishes loading, that's 0, which makes the
+        // timer fire an immediate (spurious) time-up on mount, before
+        // examConfig exists. Ignoring that null-session case here is required
+        // for Reading/Listening (and doesn't change Writing's real-timeout
+        // behavior, which only ever fires once examConfig is already set).
+        setReadingForceSubmit((n) => n + 1);
+        break;
+
+      case "Listening":
+        // ListeningExam owns its own submission flow via the mandated
+        // 10-minute answer-transfer countdown (see its TRANSFER_TICK /
+        // handleSubmit) and already disables its own Submit button once that
+        // window elapses. Calling executeSubmission() here would fire
+        // Writing's task1/task2 payload shape against a Listening session and
+        // fight with the transfer window ListeningExam is already managing —
+        // so this is intentionally a no-op. The shell's outer timer is not
+        // the authority on when a Listening attempt ends.
+        return;
+
+      case "Writing":
+        executeSubmission();
+        break;
+
+      case "Speaking":
+        // TODO: speaking timeout handling
+        return;
+
+      default:
+        return;
     }
     // Writing flushes its own unsubmitted tasks: only it knows which of the two
     // have already been evaluated, and each submit needs that task's own text
@@ -205,10 +297,15 @@ function ExamShellContent() {
 
   if (loadingSession || !session || !examConfig)
     return (
-      <div className="min-h-screen bg-[#fbfbfa] p-8 font-mono text-xs text-gray-500">
+      <div className="min-h-screen bg-canvas p-8 font-mono text-xs text-fg-subtle">
         Loading active session...
       </div>
     );
+
+  const listeningAudioUrls =
+    examConfig.skill === "Listening"
+      ? getListeningAudioUrls(session, sessionId)
+      : null;
 
   return (
     <>
@@ -227,12 +324,12 @@ function ExamShellContent() {
           }`}
         >
           {/* Header Bar */}
-          <header className="h-16 border-b border-gray-200/80 px-8 flex justify-between items-center bg-white shrink-0">
+          <header className="h-16 border-b border-border px-8 flex justify-between items-center bg-surface shrink-0">
             <div className="flex items-center gap-3">
-              <span className="font-serif text-lg font-bold text-gray-900">
+              <span className="font-serif text-lg font-bold text-fg">
                 {examConfig.skill} Module
               </span>
-              <span className="bg-[#e2f4ea] text-[#0d4d3a] px-2.5 py-0.5 text-xs font-semibold rounded-full">
+              <span className="bg-brand-subtle text-brand-fg px-2.5 py-0.5 text-xs font-semibold rounded-full">
                 {examConfig.type}
               </span>
             </div>
@@ -241,15 +338,17 @@ function ExamShellContent() {
               <div
                 className={`font-mono text-sm font-semibold px-3 py-1 rounded-full border transition-colors ${
                   isCritical
-                    ? "bg-red-50 text-red-600 border-red-300 animate-pulse"
-                    : "bg-gray-100 text-gray-800 border-gray-200"
+                    ? "bg-danger-subtle text-danger border-danger-border animate-pulse"
+                    : "bg-canvas-subtle text-fg-muted border-border"
                 }`}
               >
                 {formattedTime}
               </div>
-              {/* Reading has its own submit control + confirmation modal
-                  (ReadingExam / SubmitConfirmModal) with unanswered-count
-                  logic this generic modal doesn't have — see
+              {/* Reading and Listening each own their own submit control +
+                  timing logic (ReadingExam's SubmitConfirmModal; Listening's
+                  answer-transfer footer button, gated on its own 10-minute
+                  countdown) with unanswered-count / window-expiry logic this
+                  generic modal doesn't have — see
                   components/reading/SubmitConfirmModal.tsx for why that's a
                   separate component rather than a reuse of this one.
 
@@ -259,27 +358,25 @@ function ExamShellContent() {
                   second one lands. A generic submit here could only post an
                   empty payload over the top of that. */}
               {examConfig.skill !== "Reading" &&
+                examConfig.skill !== "Listening" &&
                 examConfig.skill !== "Writing" && (
-                  <button
-                    onClick={() => setShowSubmitModal(true)}
-                    className="bg-[#0d4d3a] hover:bg-[#09382a] text-white px-4 py-1.5 rounded-full text-xs font-semibold transition"
-                  >
+                  <Button size="sm" onClick={() => setShowSubmitModal(true)}>
                     Submit Exam
-                  </button>
+                  </Button>
                 )}
             </div>
           </header>
 
-          {/* Workspace Area. Reading owns its own independently-scrolling
-              split panels, which the generic overflow-auto/p-8 wrapper used
-              by every other skill would fight with (both the page and the
-              inner panels trying to scroll), so it gets an unpadded,
-              height-constrained container instead. */}
+          {/* Workspace Area. Reading and Listening each own their own
+              independently-scrolling split panels, which the generic
+              overflow-auto/p-8 wrapper used by every other skill would fight
+              with (both the page and the inner panels trying to scroll), so
+              they get an unpadded, height-constrained container instead. */}
           <main
             className={
-              examConfig.skill === "Reading"
-                ? "flex-1 min-h-0 overflow-hidden bg-[#fbfbfa]"
-                : "flex-1 overflow-auto p-8 bg-[#fbfbfa]"
+              examConfig.skill === "Reading" || examConfig.skill === "Listening"
+                ? "flex-1 min-h-0 overflow-hidden bg-canvas"
+                : "flex-1 overflow-auto p-8 bg-canvas"
             }
           >
             {examConfig.skill === "Reading" && (
@@ -290,6 +387,31 @@ function ExamShellContent() {
                 forceSubmitSignal={readingForceSubmit}
               />
             )}
+
+            {examConfig.skill === "Listening" &&
+              (listeningAudioUrls ? (
+                <ListeningExam
+                  sessionId={sessionId}
+                  audioUrls={listeningAudioUrls}
+                  rawQuestions={
+                    session.questions as unknown as RawReadingQuestion[]
+                  }
+                  onSubmitted={handleListeningSubmitted}
+                />
+              ) : (
+                <div className="bg-surface border border-border rounded-2xl p-8 max-w-3xl mx-auto my-8 shadow-2xs">
+                  <h2 className="font-serif text-xl font-bold text-fg mb-2">
+                    Listening session data is incomplete
+                  </h2>
+                  <p className="text-sm text-fg-subtle mb-5">
+                    This session is missing its four section audio URLs, so the
+                    listening module can&apos;t be started.
+                  </p>
+                  <Button onClick={() => router.push("/exam")}>
+                    Return to Skills Workspace
+                  </Button>
+                </div>
+              ))}
 
             {examConfig.skill === "Writing" && (
               <WritingExam
@@ -302,20 +424,19 @@ function ExamShellContent() {
               />
             )}
 
-            {examConfig.skill !== "Writing" && examConfig.skill !== "Reading" && (
-              <ComingSoonPanel
-                skill={examConfig.skill}
-                onBack={() => router.push("/exam")}
-              />
-            )}
+            {examConfig.skill !== "Writing" &&
+              examConfig.skill !== "Reading" &&
+              examConfig.skill !== "Listening" && (
+                <ComingSoonPanel
+                  skill={examConfig.skill}
+                  onBack={() => router.push("/exam")}
+                />
+              )}
 
             {submissionError && (
-              <div
-                role="alert"
-                className="mt-6 max-w-3xl mx-auto rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
-              >
+              <Alert tone="danger" className="mt-6 max-w-3xl mx-auto">
                 {submissionError}
-              </div>
+              </Alert>
             )}
           </main>
         </div>
@@ -333,26 +454,20 @@ function ExamShellContent() {
       {/* Submit Confirmation Modal */}
       {showSubmitModal && (
         <div className="fixed inset-0 bg-black/40 z-150 flex items-center justify-center p-4 backdrop-blur-xs">
-          <div className="bg-white border border-gray-200 p-6 max-w-sm w-full rounded-2xl shadow-xl">
-            <h3 className="text-base font-bold text-gray-900 mb-1">
+          <div className="bg-surface border border-border p-6 max-w-sm w-full rounded-2xl shadow-xl">
+            <h3 className="text-base font-bold text-fg mb-1">
               Submit Examination?
             </h3>
-            <p className="text-xs text-gray-500 mb-6">
+            <p className="text-xs text-fg-subtle mb-6">
               Your responses will be evaluated using AI scoring guidelines.
             </p>
             <div className="flex justify-end gap-2 text-xs font-semibold">
-              <button
-                onClick={() => setShowSubmitModal(false)}
-                className="border border-gray-200 rounded-full px-4 py-2 text-gray-600 hover:bg-gray-50 transition"
-              >
+              <Button variant="secondary" size="sm" onClick={() => setShowSubmitModal(false)}>
                 Cancel
-              </button>
-              <button
-                onClick={executeSubmission}
-                className="bg-[#0d4d3a] hover:bg-[#09382a] text-white rounded-full px-4 py-2 transition"
-              >
+              </Button>
+              <Button size="sm" onClick={executeSubmission}>
                 Submit & Exit
-              </button>
+              </Button>
             </div>
           </div>
         </div>

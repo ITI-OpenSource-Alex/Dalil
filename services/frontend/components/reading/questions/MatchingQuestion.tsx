@@ -34,7 +34,7 @@ export default function MatchingQuestion({ question, value, onChange }: Props) {
           value={value}
           onChange={(e) => onChange(e.target.value)}
           aria-label={`Question ${question.number} match`}
-          className="w-full max-w-sm rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20"
+          className="w-full max-w-sm rounded-lg border border-border-strong bg-surface px-3 py-1.5 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand-muted"
         >
           <option value="">Select a match…</option>
           {question.options.map((option, i) => {

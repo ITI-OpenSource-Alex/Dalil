@@ -42,9 +42,13 @@ export default function ShareButton({ sessionId }: ShareButtonProps) {
         type="button"
         onClick={handleShare}
         disabled={loading}
-        className="flex items-center gap-2 rounded-full bg-[#0d4d3a] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#09382a] disabled:cursor-not-allowed disabled:opacity-60"
+        className="flex items-center gap-2 rounded-full bg-brand px-4 py-2 text-xs font-semibold text-fg-on-brand transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted"
       >
-        {status === "copied" ? <Check size={14} /> : <Share2 size={14} />}
+        {status === "copied" ? (
+          <Check size={14} aria-hidden="true" />
+        ) : (
+          <Share2 size={14} aria-hidden="true" />
+        )}
         {status === "copied"
           ? "Copied!"
           : loading
@@ -59,20 +63,20 @@ export default function ShareButton({ sessionId }: ShareButtonProps) {
 
       {status === "error" && shareUrl && (
         <div className="mt-2">
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-fg-subtle">
             Couldn&apos;t copy automatically — copy the link below:
           </p>
           <input
             readOnly
             value={shareUrl}
             onFocus={(e) => e.currentTarget.select()}
-            className="mt-1 w-full rounded-lg border border-gray-200/80 bg-[#fbfbfa] px-3 py-1.5 text-xs text-gray-700"
+            className="mt-1 w-full rounded-lg border border-border bg-canvas-subtle px-3 py-1.5 text-xs text-fg-muted"
           />
         </div>
       )}
 
       {requestError && (
-        <p role="alert" className="mt-1 text-xs text-red-600">
+        <p role="alert" className="mt-1 text-xs text-danger">
           {requestError}
         </p>
       )}

@@ -484,20 +484,42 @@ func (h *AuthHandler) proxyToUserService(c *fiber.Ctx, method string, path strin
 	return c.Send(respBody)
 }
 
+// clearCookies expires both auth cookies.
+//
+// Secure and SameSite are set to the same values Login and Refresh write. A
+// browser matches a deletion cookie on (name, domain, path) alone, so these
+// attributes are not what makes the delete land -- but a Set-Cookie carrying
+// SameSite=None without Secure is rejected outright by Chrome and Firefox,
+// which would make the delete a no-op the moment SECURE_COOKIES is turned on
+// in a cross-site deployment. Mirroring the write path removes that trap
+// rather than relying on the current same-site setup staying that way.
+//
+// MaxAge is set alongside Expires because the two are not interchangeable in
+// every browser: Safari has historically preferred Max-Age, and a cookie that
+// survives logout in one browser is the hardest kind of auth bug to reproduce.
 func (h *AuthHandler) clearCookies(c *fiber.Ctx) {
+	secure := os.Getenv("SECURE_COOKIES") == "true"
+	expired := time.Now().Add(-24 * time.Hour)
+
 	c.Cookie(&fiber.Cookie{
 		Name:     "access_token",
 		Value:    "",
 		HTTPOnly: true,
+		Secure:   secure,
+		SameSite: "Lax",
 		Path:     "/",
-		Expires:  time.Now().Add(-24 * time.Hour),
+		Expires:  expired,
+		MaxAge:   -1,
 	})
 	c.Cookie(&fiber.Cookie{
 		Name:     "refresh_token",
 		Value:    "",
 		HTTPOnly: true,
+		Secure:   secure,
+		SameSite: "Lax",
 		Path:     "/auth/refresh",
-		Expires:  time.Now().Add(-24 * time.Hour),
+		Expires:  expired,
+		MaxAge:   -1,
 	})
 }
 

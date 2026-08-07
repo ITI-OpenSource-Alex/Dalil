@@ -19,8 +19,8 @@ export default function PhaseSection({
   return (
     <section data-testid="checklist-phase" data-phase={phase} className="print-avoid-break">
       <div className="flex items-baseline justify-between mb-2">
-        <h3 className="text-sm font-semibold text-[#0D3820]">{phase}</h3>
-        <span className="text-xs text-[#899C8B]">
+        <h3 className="text-sm font-semibold text-brand-fg">{phase}</h3>
+        <span className="text-xs text-fg-subtle">
           {doneCount}/{items.length} complete
         </span>
       </div>

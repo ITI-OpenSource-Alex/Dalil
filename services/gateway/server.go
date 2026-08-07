@@ -141,8 +141,12 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	app.Post("/auth/reset-password", authHandler.ResetPassword)
 	app.Get("/auth/verify-email/:token", authHandler.VerifyEmail)
 
+	// Logout takes OptionalJWT deliberately -- see that middleware's doc comment.
+	// Behind the mandatory JWT check, an expired or already-blacklisted token
+	// meant the handler never ran and the auth cookies were never cleared, so
+	// the Log out button left the user logged in.
+	app.Post("/auth/logout", middleware.OptionalJWT(cfg.JWTSecret), authHandler.Logout)
 	// Protected auth endpoints (gated by JWT middleware containing the Redis blacklist check)
-	app.Post("/auth/logout", middleware.JWT(cfg.JWTSecret, redisClient, metrics), authHandler.Logout)
 	app.Post("/auth/logout-all", middleware.JWT(cfg.JWTSecret, redisClient, metrics), authHandler.LogoutAll)
 
 	app.Delete("/users/:id/account", middleware.JWT(cfg.JWTSecret, redisClient, metrics), authHandler.DeleteAccount)
@@ -193,7 +197,13 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	// changed. Exam prep moved to the paid side in GOA-059, where the whole
 	// /api/exam group carries the gate rather than each route repeating it.
 	api.Post("/writing/essays/upload", subscriptionMiddleware.RequirePaid, middleware.ValidateEssayTextLength(5000), writingHandler.UploadEssay)
-	api.Post("/writing/cv/upload", subscriptionMiddleware.RequirePaid, writingHandler.UploadCV)
+	// Phase E (docs/IA-REDESIGN-PROPOSAL.md): CV upload moved to the free side of
+	// the gate on purpose, matching the CV Review page's agreed product policy --
+	// a Free user can upload and hold a CV, they just cannot ask for an AI review
+	// of it. Review is the paid step and keeps RequirePaid below. This narrows the
+	// default-allow exception list above, so calling it out explicitly here too.
+	api.Post("/writing/cv/upload", writingHandler.UploadCV)
+	api.Get("/writing/cv/latest", writingHandler.LatestCV)
 	api.Post("/writing/cv/review",
 		subscriptionMiddleware.RequirePaid,
 		middleware.AIRateLimiter(redisClient, "cv_review", cfg.CVReviewsPerHour, time.Hour, logger, metrics),
@@ -252,6 +262,17 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	// same path inside the group. Ownership validation does not apply -- the route
 	// takes no session id and the Exam service scopes the summary to X-User-Id.
 	exam.Get("/progress", examHandler.GetProgress)
+	// The Exam service has exposed GET /users/{id}/exam-history and
+	// GET /users/{id}/weak-areas since the history/progress work landed, but
+	// neither had a gateway route -- finished backend work with no way to
+	// reach it from the browser. Registered alongside /progress (same paid
+	// gate, same "no session id, scoped by X-User-Id" shape) rather than
+	// carved out as free reads: /progress already sits behind RequirePaid for
+	// the same reason, and changing that gating policy for exam history is a
+	// product decision to make deliberately, not a side effect of wiring the
+	// route up.
+	exam.Get("/history", examHandler.GetHistory)
+	exam.Get("/weak-areas", examHandler.GetWeakAreas)
 
 	// TODO(GOA-059): GET /api/exam/audio/:sessionId/:section is not implemented.
 	// It would validate ownership (examOwnership.Validate) and then hand back the
@@ -262,6 +283,11 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	// own -- it holds no S3 credentials, bucket name or audio_s3_key. Blocked on
 	// an Exam service endpoint (owned by the exam team) along the lines of
 	// GET /internal/sessions/{id}/audio/{section}; wire it here once that lands.
+
+	// Reading your own already-submitted essays back is not one of the paid
+	// features named in the policy comment above -- free tier, like chat and
+	// notifications, consistent with that default-allow rule.
+	api.Get("/writing/essays", writingHandler.ListEssays)
 
 	api.Post("/writing/essays/:essayId/evaluate",
 		subscriptionMiddleware.RequirePaid,
@@ -310,14 +336,6 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	// data instead of discarding it (BUG onboarding-handleFinish). Routing only --
 	// same proxy shape as GetProfile above, no User-service change.
 	api.Put("/profile", profileHandler.UpdateProfile)
-	app.Post(
-		"/cv/upload",
-		middleware.JWT(cfg.JWTSecret, redisClient, metrics),
-		middleware.RateLimiter(redisClient, 60, metrics),
-		subscriptionMiddleware.ResolveSubscription,
-		subscriptionMiddleware.RequirePaid,
-		writingHandler.UploadCV,
-	)
 
 	return &GatewayServer{
 		App:             app,

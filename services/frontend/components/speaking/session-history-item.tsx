@@ -13,23 +13,23 @@ export default function SessionHistoryItem({
 }: SessionHistoryItemProps) {
   return (
     <Link
-      href={`/speaking/history/${session.id}`}
-      className="flex items-center justify-between gap-4 rounded-2xl border border-gray-200/80 bg-white p-4 shadow-2xs transition hover:border-emerald-200 hover:bg-emerald-50/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+      href={`/practice/speaking/history/${session.id}`}
+      className="flex items-center justify-between gap-4 rounded-2xl border border-border bg-surface p-4 shadow-2xs transition hover:border-brand-border hover:bg-brand-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted"
     >
       <div className="min-w-0">
-        <p className="truncate text-sm font-semibold text-gray-900">
+        <p className="truncate text-sm font-semibold text-fg">
           {session.question_prompt}
         </p>
-        <p className="mt-1 text-xs text-gray-400">
+        <p className="mt-1 text-xs text-fg-subtle">
           {formatSessionDate(session.created_at)} &bull; {session.question_type}
         </p>
       </div>
 
-      <div className="shrink-0 rounded-xl border border-gray-200/80 bg-[#fbfbfa] px-3 py-1.5 text-center">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+      <div className="shrink-0 rounded-xl border border-border bg-canvas-subtle px-3 py-1.5 text-center">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-fg-subtle">
           Band
         </p>
-        <p className="font-serif text-lg font-bold text-[#0d4d3a]">
+        <p className="font-serif text-lg font-bold text-brand-fg">
           {session.overall_band}
         </p>
       </div>

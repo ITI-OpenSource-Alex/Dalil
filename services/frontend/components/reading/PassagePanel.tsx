@@ -29,15 +29,15 @@ export default function PassagePanel({
   return (
     <div
       data-testid="passage-panel"
-      className="h-full overflow-y-auto border-r border-gray-200/80 bg-white p-8"
+      className="h-full overflow-y-auto border-r border-border bg-surface p-8"
     >
       <div className="mb-4">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-700">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-brand-fg">
           Passage {passageNumber}
         </span>
       </div>
 
-      <article className="prose prose-sm max-w-none space-y-4 text-sm leading-relaxed whitespace-pre-wrap text-gray-800 select-text">
+      <article className="prose prose-sm max-w-none space-y-4 text-sm leading-relaxed whitespace-pre-wrap text-fg-muted select-text">
         {paragraphs.map((paragraph, paragraphIndex) => (
           <Paragraph
             key={paragraphIndex}
@@ -85,8 +85,17 @@ function Paragraph({
             key={i}
             data-testid="passage-highlight"
             title="Click to remove highlight"
+            role="button"
+            tabIndex={0}
+            aria-label={`Remove highlight: ${segment.text}`}
             onClick={() => onRemoveHighlight(segment.highlightId!)}
-            className="cursor-pointer rounded-xs bg-amber-200/70 hover:bg-amber-300/70"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onRemoveHighlight(segment.highlightId!);
+              }
+            }}
+            className="cursor-pointer rounded-xs bg-amber-200/70 hover:bg-amber-300/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
           >
             {segment.text}
           </mark>

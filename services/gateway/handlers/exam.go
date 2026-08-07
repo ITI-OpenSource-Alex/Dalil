@@ -201,6 +201,50 @@ func (h *ExamHandler) GetProgress(c *fiber.Ctx) error {
 	return h.forward(c, http.MethodGet, target, nil)
 }
 
+// GetHistory proxies GET /api/exam/history to the Exam service's
+// GET /users/{id}/exam-history, which has existed since the history/progress
+// work landed but had no gateway route in front of it -- unreachable from the
+// browser even though the endpoint and its response schema (ExamHistoryItem)
+// were already implemented. The user ID comes from the JWT, matching every
+// other route in this file; `page` passes through unchanged when present so
+// the existing 20-rows-per-page pagination on the Exam service works as-is.
+func (h *ExamHandler) GetHistory(c *fiber.Ctx) error {
+	userID, err := authenticatedUserID(c)
+	if err != nil {
+		return err
+	}
+	target, err := url.JoinPath(h.examServiceURL, "users", userID, "exam-history")
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid user id")
+	}
+	if page := c.Query("page"); page != "" {
+		parsed, err := url.Parse(target)
+		if err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "invalid user id")
+		}
+		query := parsed.Query()
+		query.Set("page", page)
+		parsed.RawQuery = query.Encode()
+		target = parsed.String()
+	}
+	return h.forward(c, http.MethodGet, target, nil)
+}
+
+// GetWeakAreas proxies GET /api/exam/weak-areas to the Exam service's
+// GET /users/{id}/weak-areas -- same unreachable-endpoint situation as
+// GetHistory above.
+func (h *ExamHandler) GetWeakAreas(c *fiber.Ctx) error {
+	userID, err := authenticatedUserID(c)
+	if err != nil {
+		return err
+	}
+	target, err := url.JoinPath(h.examServiceURL, "users", userID, "weak-areas")
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid user id")
+	}
+	return h.forward(c, http.MethodGet, target, nil)
+}
+
 // SubmitReadingSession proxies PUT /api/exam/reading/{sessionId}/submit.
 //
 // The generic SubmitSession above hits the exam service's generic

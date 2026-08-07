@@ -141,7 +141,11 @@ def test_success_creates_row_and_publishes_contract(
 
     assert response.status_code == 202
     review = db_session.query(CVReview).one()
-    assert response.json() == {"cvId": review.id, "status": "processing"}
+    assert response.json() == {
+        "cvId": review.id,
+        "status": "processing",
+        "s3Key": review.s3_key,
+    }
     assert review.user_id == "user-123"
     assert review.original_filename == "resume.pdf"
     assert review.s3_key == fake_s3.uploads[0]["key"]
@@ -206,3 +210,37 @@ def test_openapi_documents_multipart_and_responses(client):
 
     assert "multipart/form-data" in operation["requestBody"]["content"]
     assert {"202", "413", "415"}.issubset(operation["responses"])
+
+
+def test_latest_cv_returns_404_when_none_uploaded(client, fake_s3):
+    response = client.get("/cv/latest", params={"userId": "no-cv-user"})
+
+    assert response.status_code == 404
+
+
+def test_latest_cv_returns_most_recent_upload(client, db_session, fake_s3):
+    upload(client, "resume.pdf", PDF, "application/pdf")
+    second = upload(client, "resume-v2.pdf", PDF, "application/pdf")
+
+    response = client.get("/cv/latest", params={"userId": "user-123"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["cvId"] == second.json()["cvId"]
+    assert body["s3Key"] == second.json()["s3Key"]
+    assert body["originalFilename"] == "resume-v2.pdf"
+    assert body["status"] == "processing"
+
+
+def test_latest_cv_scopes_to_user_id(client, fake_s3):
+    upload(client, "resume.pdf", PDF, "application/pdf")
+
+    response = client.get("/cv/latest", params={"userId": "someone-else"})
+
+    assert response.status_code == 404
+
+
+def test_latest_cv_rejects_unsafe_user_id(client, fake_s3):
+    response = client.get("/cv/latest", params={"userId": "../../another-user"})
+
+    assert response.status_code == 422

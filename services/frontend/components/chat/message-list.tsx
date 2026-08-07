@@ -25,6 +25,16 @@ export default function MessageList({
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
+  // The typing indicator and the streaming placeholder's blinking cursor both
+  // signal "assistant is working". Showing both at once looks like two
+  // separate assistants responding. The indicator is suppressed whenever the
+  // message list already contains a streaming placeholder — its cursor is the
+  // visual indicator.
+  const hasStreamingMessage = messages.some(
+    (m) => m.role === "assistant" && m.isStreaming,
+  );
+  const showTypingIndicator = isTyping && !hasStreamingMessage;
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <AnimatePresence initial={false}>
@@ -82,8 +92,8 @@ export default function MessageList({
         })}
       </AnimatePresence>
 
-      {/* Typing Indicator */}
-      <AnimatePresence>{isTyping && <TypingIndicator />}</AnimatePresence>
+      {/* Typing Indicator — suppressed when a streaming placeholder is already visible */}
+      <AnimatePresence>{showTypingIndicator && <TypingIndicator />}</AnimatePresence>
 
       <div ref={endRef} />
     </div>

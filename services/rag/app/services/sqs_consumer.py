@@ -1,7 +1,12 @@
 import asyncio
 import json
 import structlog
-from botocore.exceptions import BotoCoreError, ClientError
+from botocore.exceptions import (
+    BotoCoreError,
+    ClientError,
+    NoCredentialsError,
+    PartialCredentialsError,
+)
 from aiobotocore.session import get_session
 
 
@@ -10,6 +15,36 @@ from app.services.profile_repo import delete_local_user_data, upsert_local_profi
 
 
 logger = structlog.get_logger("rag_service.sqs_consumer")
+
+
+# ClientError codes that mean "these credentials will never work", as opposed to
+# "this queue does not exist yet". Retrying the first kind is an infinite loop;
+# retrying the second is the whole point of the backoff below.
+_FATAL_CLIENT_ERROR_CODES = frozenset(
+    {
+        "InvalidClientTokenId",
+        "UnrecognizedClientException",
+        "SignatureDoesNotMatch",
+        "AuthFailure",
+        "AccessDenied",
+        "AccessDeniedException",
+    }
+)
+
+
+def _is_unrecoverable_auth_error(exc: Exception) -> bool:
+    """True when no amount of waiting will make this call succeed.
+
+    Missing/partial credentials and rejected credentials are configuration
+    faults: the process cannot fix them by retrying, so the consumer should
+    log once and stop rather than spin until the container is killed.
+    """
+    if isinstance(exc, (NoCredentialsError, PartialCredentialsError)):
+        return True
+    if isinstance(exc, ClientError):
+        code = exc.response.get("Error", {}).get("Code")
+        return code in _FATAL_CLIENT_ERROR_CODES
+    return False
 
 
 def parse_user_event(body: str) -> dict:
@@ -41,6 +76,11 @@ async def consume_sqs_messages():
         # replication for the entire life of the process: nothing repopulated
         # local_user_profiles, so /match answered 425 forever and the Opportunities
         # page sat on "Your profile is still syncing" until someone restarted RAG.
+        #
+        # Retrying is only correct for a condition that can actually resolve on
+        # its own. A credential fault cannot: retrying it spins until the task is
+        # cancelled, which is an unkillable loop in production and an indefinite
+        # hang in any test that drives this function to completion.
         backoff = 5
         while True:
             try:
@@ -52,6 +92,13 @@ async def consume_sqs_messages():
                 logger.info("SQS consumer cancelled before connecting")
                 return
             except (BotoCoreError, ClientError) as e:
+                if _is_unrecoverable_auth_error(e):
+                    logger.error(
+                        "SQS credentials missing or rejected; consumer stopping",
+                        error=str(e),
+                        queue_name=settings.SQS_QUEUE_NAME,
+                    )
+                    return
                 logger.error(
                     "Failed to get SQS queue URL; retrying",
                     error=str(e),

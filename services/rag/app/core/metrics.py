@@ -33,6 +33,17 @@ RERANK_FALLBACK_TOTAL = Counter(
     labelnames=["cause"],  # model_unavailable | predict_failed
 )
 
+# GOA-137: distinguish a useful lexical arm from one that merely adds latency.
+RETRIEVAL_ARM_HITS = Counter(
+    "goa_rag_retrieval_arm_hits",
+    "Final top-k sources by candidate-generation provenance",
+    labelnames=["arm"],  # dense_only | lexical_only | both
+)
+HYBRID_ENABLED = Gauge(
+    "goa_rag_hybrid_enabled",
+    "Retrieval mode used by the latest query: 1 = hybrid, 0 = dense-only",
+)
+
 
 SCORING_PIPELINE_LATENCY = Histogram(
     "goa_scoring_pipeline_latency_ms",

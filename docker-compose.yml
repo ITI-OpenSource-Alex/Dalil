@@ -378,6 +378,7 @@ services:
       - EMBEDDING_BASE_URL=${EMBEDDING_BASE_URL:-http://host.docker.internal:11434/v1}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL:-nomic-embed-text}
       - EMBEDDING_API_KEY=${EMBEDDING_API_KEY:-ollama}
+      - RAG_HYBRID_ENABLED=${RAG_HYBRID_ENABLED:-false}
     volumes:
       - ./services/rag:/app
       - ./packages/security/py:/opt/goa

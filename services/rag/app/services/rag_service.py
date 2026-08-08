@@ -22,7 +22,9 @@ from app.core.metrics import (
     FAQ_BYPASS_TOTAL,
     FAQ_HITS_TOTAL,
     FAQ_STALE_SUPPRESSED_TOTAL,
+    HYBRID_ENABLED,
     LLM_RETRIES_TOTAL,
+    RETRIEVAL_ARM_HITS,
     UNPRICED_MODEL_TOTAL,
 )
 from app.services.faq_policy import classify_question
@@ -378,8 +380,112 @@ async def _record_faq_hit(faq_id) -> None:
         )
 
 
+def reciprocal_rank_fusion(
+    dense_candidates: List[Dict[str, Any]],
+    lexical_candidates: List[Dict[str, Any]],
+    *,
+    rank_constant: int = 60,
+) -> List[Dict[str, Any]]:
+    """Fuse dense and lexical ranks without mixing incomparable score scales."""
+
+    if rank_constant <= 0:
+        raise ValueError("rank_constant must be positive")
+
+    fused: Dict[str, Dict[str, Any]] = {}
+
+    def add(candidate: Dict[str, Any], arm: str, rank: int) -> None:
+        document_id = str(candidate["id"])
+        if document_id not in fused:
+            dense_similarity = candidate.get("similarity") if arm == "dense" else None
+            fused[document_id] = {
+                "id": document_id,
+                "title": candidate.get("title"),
+                "content": candidate["content"],
+                "source_url": candidate.get("source_url"),
+                # A lexical-only hit has no cosine score. Null is evidence of that;
+                # 0.0 would falsely claim the dense arm measured a zero similarity.
+                "similarity": dense_similarity,
+                "relevance_score": dense_similarity,
+                "dense_similarity": dense_similarity,
+                "lexical_score": None,
+                "rrf_score": 0.0,
+                "retrieval_arms": [],
+            }
+        item = fused[document_id]
+        item["rrf_score"] += 1.0 / (rank_constant + rank)
+        if arm not in item["retrieval_arms"]:
+            item["retrieval_arms"].append(arm)
+        if arm == "dense":
+            dense_similarity = candidate.get("similarity")
+            item["similarity"] = dense_similarity
+            item["relevance_score"] = dense_similarity
+            item["dense_similarity"] = dense_similarity
+        else:
+            item["lexical_score"] = candidate.get("lexical_score")
+
+    for rank, candidate in enumerate(dense_candidates, 1):
+        add(candidate, "dense", rank)
+    for rank, candidate in enumerate(lexical_candidates, 1):
+        add(candidate, "lexical", rank)
+
+    for item in fused.values():
+        item["retrieval_arms"].sort()
+    return sorted(fused.values(), key=lambda item: (-item["rrf_score"], item["id"]))
+
+
+def _retrieval_sql(category: str | None) -> tuple[str, str]:
+    """Build the two parameterised candidate queries for one transaction."""
+
+    category_predicate = "WHERE category = $3" if category else ""
+    dense_sql = f"""
+        SELECT id, title, content, source_url,
+               1 - (embedding <=> $1::vector) AS similarity
+        FROM documents
+        {category_predicate}
+        ORDER BY embedding <=> $1::vector
+        LIMIT $2
+    """
+
+    lexical_predicates = [
+        "content_tsv @@ websearch_to_tsquery('english', $1)"
+    ]
+    if category:
+        lexical_predicates.append("category = $3")
+    lexical_sql = f"""
+        SELECT id, title, content, source_url,
+               ts_rank(
+                   content_tsv,
+                   websearch_to_tsquery('english', $1)
+               ) AS lexical_score
+        FROM documents
+        WHERE {' AND '.join(lexical_predicates)}
+        ORDER BY lexical_score DESC, id
+        LIMIT $2
+    """
+    return dense_sql, lexical_sql
+
+
+def _record_retrieval_arm_hits(sources: List[Dict[str, Any]]) -> None:
+    for source in sources:
+        arms = set(source.get("retrieval_arms") or [])
+        if arms == {"dense", "lexical"}:
+            label = "both"
+        elif arms == {"lexical"}:
+            label = "lexical_only"
+        elif arms == {"dense"}:
+            label = "dense_only"
+        else:
+            continue
+        RETRIEVAL_ARM_HITS.labels(arm=label).inc()
+
+
 async def query_rag(
-    question: str, user_id: str, top_k: int = 5, trace: Any = None, flag_overrides: Dict[str, Any] | None = None
+    question: str,
+    user_id: str,
+    top_k: int = 5,
+    category: str | None = None,
+    trace: Any = None,
+    flag_overrides: Dict[str, Any] | None = None,
 ) -> Tuple[str, List[Dict[str, Any]], Dict[str, Any]]:
     """
     Checks for a hand-curated FAQ match first (zero-token, skips the LLM entirely on
@@ -481,6 +587,15 @@ async def query_rag(
     # 3. Retrieve matching documents from pgvector database using Cosine Similarity
     retrieval_limit = flags.get("retrieval_width", getattr(settings, "rag_retrieval_width", 15))
     probes_val = flags.get("ivfflat_probes", getattr(settings, "rag_ivfflat_probes", 1))
+    hybrid_enabled = flags.get(
+        "hybrid_enabled", getattr(settings, "rag_hybrid_enabled", False)
+    )
+    HYBRID_ENABLED.set(1 if hybrid_enabled else 0)
+    normalized_category = category.strip().lower() if category and category.strip() else None
+    dense_sql, lexical_sql = _retrieval_sql(normalized_category)
+    query_args = [query_vector, retrieval_limit]
+    if normalized_category:
+        query_args.append(normalized_category)
 
     async with db.pool.acquire() as conn:
         # SET LOCAL is transaction-scoped. Outside a transaction Postgres discards it
@@ -493,18 +608,15 @@ async def query_rag(
         async with conn.transaction():
             if probes_val > 1:
                 await conn.execute(f"SET LOCAL ivfflat.probes = {int(probes_val)};")
-            rows = await conn.fetch(
-                """
-                SELECT id, title, content, source_url,
-                       1 - (embedding <=> $1::vector) AS similarity
-                FROM documents
-                ORDER BY embedding <=> $1::vector
-                LIMIT $2
-            """,
-                query_vector,
-                retrieval_limit,
-            )
-    sources = [
+            dense_rows = await conn.fetch(dense_sql, *query_args)
+            lexical_rows = []
+            if hybrid_enabled:
+                lexical_args = [question, retrieval_limit]
+                if normalized_category:
+                    lexical_args.append(normalized_category)
+                lexical_rows = await conn.fetch(lexical_sql, *lexical_args)
+
+    dense_sources = [
         {
             "id": str(row["id"]),
             "title": row.get("title"),
@@ -513,15 +625,36 @@ async def query_rag(
             "similarity": float(row["similarity"]),
             "relevance_score": float(row["similarity"]),
         }
-        for row in rows
+        for row in dense_rows
     ]
-    top_similarity = max([s["similarity"] for s in sources], default=0.0)
+    top_similarity = max(
+        (source["similarity"] for source in dense_sources), default=None
+    )
+    if hybrid_enabled:
+        lexical_sources = [
+            {
+                "id": str(row["id"]),
+                "title": row.get("title"),
+                "content": row["content"],
+                "source_url": row["source_url"],
+                "lexical_score": float(row["lexical_score"]),
+            }
+            for row in lexical_rows
+        ]
+        sources = reciprocal_rank_fusion(dense_sources, lexical_sources)
+    else:
+        # Preserve GOA-033's dense path byte-for-byte when the feature is off.
+        sources = dense_sources
 
     # Confidence Threshold Check BEFORE LLM invocation (gated by flag)
     threshold_enabled = flags.get("threshold_enabled", getattr(settings, "rag_threshold_enabled", True))
     CONFIDENCE_THRESHOLD = getattr(settings, "confidence_threshold", 0.60)
 
-    if threshold_enabled and top_similarity < CONFIDENCE_THRESHOLD:
+    # RRF is a rank-fusion score, not a calibrated cosine. The confidence gate
+    # deliberately remains on the best DENSE cosine so 0.60 keeps its meaning.
+    if threshold_enabled and (
+        top_similarity is None or top_similarity < CONFIDENCE_THRESHOLD
+    ):
         from app.core.metrics import LOW_CONFIDENCE_TOTAL
         LOW_CONFIDENCE_TOTAL.inc()
         total_latency_ms = (time.time() - start_time) * 1000
@@ -535,7 +668,10 @@ async def query_rag(
             "refusal_reason": "insufficient_data",
             "refusal_suggestion": "Please rephrase your question with specific details regarding universities, programs, or visa requirements.",
         }
-        return None, sources[:top_k], metrics_summary
+        final_sources = sources[:top_k]
+        if hybrid_enabled:
+            _record_retrieval_arm_hits(final_sources)
+        return None, final_sources, metrics_summary
 
     # Step 6: Cross-Encoder Re-Ranking (gated by flag)
     rerank_enabled = flags.get("rerank_enabled", getattr(settings, "rag_rerank_enabled", True))
@@ -545,6 +681,9 @@ async def query_rag(
         sources = reranker.rank(question, sources, top_n=top_k)
     else:
         sources = sources[:top_k]
+
+    if hybrid_enabled:
+        _record_retrieval_arm_hits(sources)
 
     # Eval affordance (see api/query.py). Retrieval is complete and re-ranked at this
     # point, so the retrieval metrics are fully determined; stopping here lets the

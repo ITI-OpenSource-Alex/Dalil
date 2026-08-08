@@ -127,7 +127,12 @@ class Reranker:
         # Case 2: Fallback Token Overlap / BM25 re-ranking
         for candidate in candidates:
             overlap_score = _fallback_token_overlap_score(query, candidate["content"])
-            init_sim = candidate.get("similarity", 0.5)
+            init_sim = candidate.get("similarity")
+            if init_sim is None:
+                # Lexical-only hybrid candidates have no measured cosine. Keep the
+                # absence explicit on the candidate while using the old neutral prior
+                # solely inside this degraded fallback calculation.
+                init_sim = 0.5
             candidate["rerank_score"] = init_sim + (0.5 * overlap_score)
 
         sorted_candidates = sorted(candidates, key=lambda x: x["rerank_score"], reverse=True)

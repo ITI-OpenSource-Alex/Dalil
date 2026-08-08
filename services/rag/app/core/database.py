@@ -1,11 +1,24 @@
 import os
 import glob
 import logging
+import re
+from collections import defaultdict
 import asyncpg
 from pgvector.asyncpg import register_vector
 from app.core.config import settings
 
 logger = logging.getLogger("rag_service.database")
+
+
+def duplicate_migration_prefixes(paths):
+    """Return existing numeric migration collisions without treating them as fatal."""
+
+    grouped = defaultdict(list)
+    for path in paths:
+        match = re.match(r"(\d+)_", os.path.basename(path))
+        if match:
+            grouped[match.group(1)].append(os.path.basename(path))
+    return {prefix: names for prefix, names in grouped.items() if len(names) > 1}
 
 
 class Database:
@@ -52,6 +65,13 @@ class Database:
             # migrations directory is in app/migrations (parent of app/core)
             migrations_dir = os.path.join(os.path.dirname(current_dir), "migrations")
             migration_files = sorted(glob.glob(os.path.join(migrations_dir, "*.sql")))
+
+            duplicates = duplicate_migration_prefixes(migration_files)
+            if duplicates:
+                logger.warning(
+                    "Existing duplicate migration number prefixes (runner orders by filename): %s",
+                    duplicates,
+                )
 
             if not migration_files:
                 logger.warning("No migration files found in %s", migrations_dir)

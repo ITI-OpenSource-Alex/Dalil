@@ -8,6 +8,12 @@ class QueryRequest(BaseModel):
     topK: Optional[int] = Field(
         5, description="Number of source document chunks to retrieve"
     )
+    category: Optional[str] = Field(
+        None,
+        min_length=1,
+        max_length=100,
+        description="Optional document category applied to every retrieval arm",
+    )
 
 
 class DocumentSource(BaseModel):
@@ -15,7 +21,15 @@ class DocumentSource(BaseModel):
     title: Optional[str] = Field(None, description="The document title parsed from stored metadata")
     url: Optional[str] = Field(None, alias="source_url", description="The source URL of the chunk")
     content: str = Field(..., description="The text content of the chunk")
-    relevance_score: float = Field(..., alias="similarity", description="Cosine relevance score (0.0 to 1.0)")
+    relevance_score: Optional[float] = Field(
+        ...,
+        alias="similarity",
+        description="Dense cosine relevance, or null for a lexical-only candidate",
+    )
+    retrieval_arms: Optional[List[str]] = Field(
+        None,
+        description="Candidate-generation arms that retrieved this document",
+    )
     class Config:
         populate_by_name = True
 

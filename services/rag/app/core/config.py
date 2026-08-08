@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     rag_cache_enabled: bool = True
     rag_retrieval_width: int = 15
     rag_ivfflat_probes: int = 1
+    # GOA-137 measured dense Recall@10=1.00 on both adversarial subsets before
+    # implementation, so the required +0.15/+0.10 gains are impossible on the
+    # frozen corpus. Keep hybrid available for clean A/B requests but default off.
+    rag_hybrid_enabled: bool = False
     confidence_threshold: float = 0.60
 
 

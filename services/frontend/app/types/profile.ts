@@ -6,6 +6,10 @@ export interface UserProfileDetail {
   degreeLevel: string | null;
   gpa: number | null;
   ieltsScore: number | null;
+  ieltsListening: number | null;
+  ieltsReading: number | null;
+  ieltsWriting: number | null;
+  ieltsSpeaking: number | null;
   targetCountries: string[];
   fieldOfStudy: string | null;
   ects: number | null;

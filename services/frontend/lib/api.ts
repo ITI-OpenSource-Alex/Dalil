@@ -62,6 +62,10 @@ export interface UpdateProfilePayload {
   gpa?: number;
   gpaScale?: "4.0" | "100";
   ieltsScore?: number;
+  ieltsListening?: number;
+  ieltsReading?: number;
+  ieltsWriting?: number;
+  ieltsSpeaking?: number;
   targetCountries?: string[];
   fieldOfStudy?: string;
   ects?: number;

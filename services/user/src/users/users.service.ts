@@ -324,6 +324,12 @@ export class UsersService {
           gpa: user.profile?.gpa || 0,
           gpaScale: user.profile?.gpaScale || '4.0',
           ieltsScore: user.profile?.ieltsScore || 0,
+          // Null (not 0): 0.0 is a real band, and missing subscores must not
+          // look like the candidate scored zero on every section.
+          ieltsListening: user.profile?.ieltsListening ?? null,
+          ieltsReading: user.profile?.ieltsReading ?? null,
+          ieltsWriting: user.profile?.ieltsWriting ?? null,
+          ieltsSpeaking: user.profile?.ieltsSpeaking ?? null,
           degreeLevel: user.profile?.degreeLevel || 'Bachelor',
           workExperienceYears: user.profile?.workExperienceYears || 0,
           extracurricularsScore: user.profile?.extracurricularsScore || 0,
@@ -825,6 +831,10 @@ export class UsersService {
       gpa: u.profile?.gpa || 0,
       gpaScale: u.profile?.gpaScale || '4.0',
       ieltsScore: u.profile?.ieltsScore || 0,
+      ieltsListening: u.profile?.ieltsListening ?? null,
+      ieltsReading: u.profile?.ieltsReading ?? null,
+      ieltsWriting: u.profile?.ieltsWriting ?? null,
+      ieltsSpeaking: u.profile?.ieltsSpeaking ?? null,
       degreeLevel: u.profile?.degreeLevel || 'Bachelor',
       workExperienceYears: u.profile?.workExperienceYears || 0,
       extracurricularsScore: u.profile?.extracurricularsScore || 0,

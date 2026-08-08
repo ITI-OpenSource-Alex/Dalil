@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, Pencil, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { useCurrentUser } from "@/app/hooks/useCurrentUser";
 import { isProfileComplete } from "@/app/types/profile";
 import { DEFAULT_UPGRADE_URL } from "@/lib/subscription";
 import { ProfileForm } from "@/components/profile/profile-form";
+import { OpportunityMatchesSection } from "@/components/profile/opportunity-matches-section";
+import { CvUploadPanel } from "@/components/cv/cv-upload-panel";
 import Skeleton from "@/components/ui/skeleton";
 import {
   Alert,
@@ -19,42 +20,38 @@ import {
   Text,
 } from "@/components/ui";
 
+/**
+ * Profile hub — one page, five sections (GOA-029 Task 9):
+ * header → account → always-on ProfileForm → CV → opportunity matches.
+ * Autosave status lives in the form; hard load failures use the page Alert.
+ */
 export default function ProfilePage() {
-  const { user, status, error, retry } = useCurrentUser();
-  const [editing, setEditing] = useState(false);
-  const [justSaved, setJustSaved] = useState(false);
+  const { user, status, error, retry, patchProfile } = useCurrentUser();
 
-  async function handleSaved() {
-    setEditing(false);
-    setJustSaved(true);
-    // Refetch rather than patching local state from the form's own values: the
-    // server is the authority on what was actually stored (it coerces types
-    // and ignores unknown fields), and showing the submitted values instead
-    // would quietly hide a partial write.
-    await retry();
-  }
+  const focusApplicationProfile = () => {
+    const section = document.getElementById("application-profile");
+    section?.scrollIntoView({ behavior: "smooth", block: "start" });
+    section?.focus({ preventScroll: true });
+    const firstField = section?.querySelector<HTMLElement>(
+      "input:not([type='hidden']), select, textarea, button, [tabindex]:not([tabindex='-1'])",
+    );
+    firstField?.focus({ preventScroll: true });
+  };
 
   return (
     <PageContainer size="md">
-      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <Badge tone="brand" pill>
-            Your Profile
-          </Badge>
-          <Heading as="h1" size="xl" className="mt-2">
-            Account &amp; Application Profile
-          </Heading>
-          <Text size="sm" tone="muted" className="mt-1">
-            Everything here feeds programme matching. Keep it current and your
-            matches stay current.
-          </Text>
-        </div>
-
-        {status === "success" && user && !editing && (
-          <Button leadingIcon={Pencil} onClick={() => setEditing(true)}>
-            Edit profile
-          </Button>
-        )}
+      {/* 1. Header */}
+      <div className="mb-8">
+        <Badge tone="brand" pill>
+          Your Profile
+        </Badge>
+        <Heading as="h1" size="xl" className="mt-2">
+          Account &amp; Application Profile
+        </Heading>
+        <Text size="sm" tone="muted" className="mt-1">
+          Everything here feeds programme matching. Keep it current and your
+          matches stay current — changes save when you leave a field.
+        </Text>
       </div>
 
       {status === "loading" && (
@@ -65,9 +62,11 @@ export default function ProfilePage() {
         </div>
       )}
 
+      {/* Page-level Alert for hard load failures only */}
       {status === "error" && (
         <Alert
           tone="danger"
+          announce="assertive"
           actions={
             <>
               <Button variant="danger" size="sm" onClick={retry}>
@@ -84,17 +83,12 @@ export default function ProfilePage() {
       )}
 
       {status === "success" && user && (
-        <div className="space-y-6">
-          {justSaved && !editing && (
-            <Alert tone="success" announce="polite" icon={CheckCircle2}>
-              Profile saved. Your programme matches will use it from now on.
-            </Alert>
-          )}
-
+        <div className="space-y-8">
+          {/* 2. Account card — read-only */}
           <Card>
-            <Text size="sm" tone="muted" className="mb-4 font-semibold">
+            <Heading as="h2" size="xs" className="mb-4 text-fg-muted">
               Account
-            </Text>
+            </Heading>
             <dl className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
               <ReadOnlyField label="Email" value={user.email} />
               <ReadOnlyField
@@ -115,98 +109,66 @@ export default function ProfilePage() {
             )}
           </Card>
 
-          <Card>
+          {/* 3. Application profile — always ProfileForm (no Edit/Cancel/Save) */}
+          <Card
+            id="application-profile"
+            tabIndex={-1}
+            className="scroll-mt-6 outline-none focus-visible:ring-2 focus-visible:ring-brand-muted"
+          >
             <div className="mb-4 flex items-center justify-between gap-3">
-              <Text size="sm" tone="muted" className="font-semibold">
+              <Heading as="h2" size="xs" className="text-fg-muted">
                 Application Profile
-              </Text>
-              {!editing && !isProfileComplete(user.profile) && (
+              </Heading>
+              {!isProfileComplete(user.profile) && (
                 <Badge tone="warning" size="sm" pill>
                   Incomplete
                 </Badge>
               )}
             </div>
 
-            {editing ? (
-              <ProfileForm
-                profile={user.profile}
-                onCancel={() => setEditing(false)}
-                onSaved={handleSaved}
-              />
-            ) : (
-              <>
-                {!isProfileComplete(user.profile) && (
-                  <Alert tone="info" announce="none" className="mb-4">
-                    Your application profile is incomplete, so programme
-                    matching has little to work with.
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <Button size="sm" onClick={() => setEditing(true)}>
-                        Fill it in here
-                      </Button>
-                      <Button size="sm" variant="secondary" asChild>
-                        <Link href="/onboarding">Use the guided wizard</Link>
-                      </Button>
-                    </div>
-                  </Alert>
-                )}
-
-                <dl className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
-                  <ReadOnlyField
-                    label="Degree level"
-                    value={user.profile?.degreeLevel ?? null}
-                  />
-                  <ReadOnlyField
-                    label="Field of study"
-                    value={user.profile?.fieldOfStudy ?? null}
-                  />
-                  <ReadOnlyField
-                    label="GPA"
-                    value={
-                      user.profile?.gpa != null
-                        ? `${user.profile.gpa} / ${user.profile.gpaScale}`
-                        : null
-                    }
-                  />
-                  <ReadOnlyField
-                    label="ECTS credits"
-                    value={user.profile?.ects ?? null}
-                  />
-                  <ReadOnlyField
-                    label="IELTS overall band"
-                    value={
-                      user.profile?.ieltsScore != null
-                        ? user.profile.ieltsScore.toFixed(1)
-                        : null
-                    }
-                  />
-                  <ReadOnlyField
-                    label="Work experience"
-                    value={
-                      user.profile?.workExperienceYears != null
-                        ? `${user.profile.workExperienceYears} years`
-                        : null
-                    }
-                  />
-                  <ReadOnlyField
-                    label="Extracurriculars"
-                    value={
-                      user.profile?.extracurricularsScore != null
-                        ? `${user.profile.extracurricularsScore} / 10`
-                        : null
-                    }
-                  />
-                  <ReadOnlyField
-                    label="Target countries"
-                    value={
-                      user.profile?.targetCountries.length
-                        ? user.profile.targetCountries.join(", ")
-                        : null
-                    }
-                  />
-                </dl>
-              </>
+            {!isProfileComplete(user.profile) && (
+              <Alert tone="info" announce="none" className="mb-4">
+                Your application profile is incomplete, so programme matching
+                has little to work with. Fill in the fields below, or{" "}
+                <Link
+                  href="/onboarding"
+                  className="font-medium text-brand-fg underline underline-offset-2"
+                >
+                  use the guided wizard
+                </Link>
+                .
+              </Alert>
             )}
+
+            <ProfileForm
+              profile={user.profile}
+              onOptimisticUser={patchProfile}
+              onSaveError={() => {
+                // Hard autosave failure: resync from server (rolls form back).
+                void retry();
+              }}
+            />
           </Card>
+
+          {/* 4. CV upload */}
+          <section className="space-y-3" aria-labelledby="profile-cv-heading">
+            <div>
+              <Heading as="h2" size="sm" id="profile-cv-heading">
+                CV
+              </Heading>
+              <Text size="sm" tone="muted" className="mt-1">
+                Upload or replace your CV here. AI review stays on the CV Review
+                page.
+              </Text>
+            </div>
+            <CvUploadPanel showReviewLink />
+          </section>
+
+          {/* 5. Opportunity matches */}
+          <OpportunityMatchesSection
+            profileComplete={isProfileComplete(user.profile)}
+            onFocusProfile={focusApplicationProfile}
+          />
         </div>
       )}
     </PageContainer>

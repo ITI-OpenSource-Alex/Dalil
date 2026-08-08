@@ -491,16 +491,40 @@ describe('UsersService', () => {
 
   describe('updateProfile (GOA-016)', () => {
     const userId = 'user-uuid-123';
-    const dto = { degreeLevel: 'MSc' };
-    const mockProfile = { userId, degreeLevel: 'BSc' };
+    // GOA-029: Stage-2 scoring already had work/extracurriculars; IELTS
+    // sub-scores must persist and ride UserUpdated so RAG's local snapshot
+    // (and the profile form after refresh) can round-trip them. Matching still
+    // gates on overall ieltsScore only.
+    const dto = {
+      degreeLevel: 'MSc',
+      ieltsScore: 7.0,
+      ieltsListening: 7.5,
+      ieltsReading: 7.0,
+      ieltsWriting: 6.5,
+      ieltsSpeaking: 7.0,
+    };
+    const mockProfile = {
+      userId,
+      degreeLevel: 'BSc',
+      ieltsScore: null as number | null,
+      ieltsListening: null as number | null,
+      ieltsReading: null as number | null,
+      ieltsWriting: null as number | null,
+      ieltsSpeaking: null as number | null,
+    };
     const mockUser = {
       id: userId,
       email: 'user@example.com',
       subscriptionTier: 'free' as const,
       // publishUserUpdatedEvent re-reads the user with its profile relation and
       // builds the event payload from it, so the academic fields it forwards to
-      // RAG only appear here.
-      profile: { ...mockProfile, fieldOfStudy: 'Computer Science' },
+      // RAG only appear here. Include the post-save sub-scores so the SNS
+      // assertion exercises the real publisher path.
+      profile: {
+        ...mockProfile,
+        ...dto,
+        fieldOfStudy: 'Computer Science',
+      },
     };
 
     it('should save the profile and return it successfully', async () => {
@@ -512,8 +536,25 @@ describe('UsersService', () => {
 
       const result = await service.updateProfile(userId, dto);
 
-      expect(result).toMatchObject({ userId, degreeLevel: 'MSc' });
+      expect(result).toMatchObject({
+        userId,
+        degreeLevel: 'MSc',
+        ieltsScore: 7.0,
+        ieltsListening: 7.5,
+        ieltsReading: 7.0,
+        ieltsWriting: 6.5,
+        ieltsSpeaking: 7.0,
+      });
       expect(mockProfileRepository.save).toHaveBeenCalledTimes(1);
+      expect(mockProfileRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ieltsScore: 7.0,
+          ieltsListening: 7.5,
+          ieltsReading: 7.0,
+          ieltsWriting: 6.5,
+          ieltsSpeaking: 7.0,
+        }),
+      );
     });
 
     it('should publish UserUpdated to SNS after a successful profile save', async () => {
@@ -553,6 +594,11 @@ describe('UsersService', () => {
           // when it was missing from the payload the filter was dead for every
           // replicated user.
           fieldOfStudy: 'Computer Science',
+          ieltsScore: 7.0,
+          ieltsListening: 7.5,
+          ieltsReading: 7.0,
+          ieltsWriting: 6.5,
+          ieltsSpeaking: 7.0,
         },
       });
       // correlationId must be a valid UUID v4

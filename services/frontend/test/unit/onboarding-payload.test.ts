@@ -60,6 +60,27 @@ describe("buildProfilePayload", () => {
     expect(payload.ieltsScore).toBe(6.5);
   });
 
+  it("includes IELTS sub-scores alongside overall when the exam was taken", () => {
+    const payload = buildProfilePayload(
+      EMPTY_ACADEMIC,
+      {
+        ...EMPTY_LANGUAGE,
+        hasTakenIelts: "yes",
+        listeningScore: "7.5",
+        readingScore: "7.0",
+        writingScore: "6.5",
+        speakingScore: "7.0",
+        overallScore: "7.0",
+      },
+      EMPTY_TARGETS,
+    );
+    expect(payload.ieltsListening).toBe(7.5);
+    expect(payload.ieltsReading).toBe(7.0);
+    expect(payload.ieltsWriting).toBe(6.5);
+    expect(payload.ieltsSpeaking).toBe(7.0);
+    expect(payload.ieltsScore).toBe(7.0);
+  });
+
   it("refuses an unreportable band rather than persisting it", () => {
     // 6.4 is not a band. Letting it through would silently mis-gate every
     // programme whose min_ielts sits between 6.0 and 6.5.

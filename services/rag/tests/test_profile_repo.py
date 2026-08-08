@@ -43,19 +43,24 @@ async def test_upsert_local_profiles_mapping(monkeypatch):
     assert args[3] == 3.8  # gpa
     assert args[4] == "4.0"  # gpaScale (explicit mapping test)
     assert args[5] == 7.5  # ielts
-    assert args[6] == "Bachelor"  # degreeLevel
-    assert args[7] == 2  # workExp (explicit mapping test)
-    assert args[8] == 85  # extracurriculars (explicit mapping test)
-    assert args[9] == ["Germany"]  # targetCountries (array mapping test)
+    # Optional IELTS sub-scores: absent keys bind as NULL (older publishers).
+    assert args[6] is None  # ielts_listening
+    assert args[7] is None  # ielts_reading
+    assert args[8] is None  # ielts_writing
+    assert args[9] is None  # ielts_speaking
+    assert args[10] == "Bachelor"  # degreeLevel
+    assert args[11] == 2  # workExp (explicit mapping test)
+    assert args[12] == 85  # extracurriculars (explicit mapping test)
+    assert args[13] == ["Germany"]  # targetCountries (array mapping test)
     # fieldOfStudy drives match_programs()'s discipline pre-filter. It was absent
     # from both the event payload and this upsert, so field_of_study was NULL for
     # every replicated user and the filter never engaged.
-    assert args[10] == "Computer Science"
+    assert args[14] == "Computer Science"
     # last_synced_at is parsed, not passed through. This line previously asserted
     # the raw string "2024-01-01T00:00:00Z", pinning the defect in place -- that
     # is precisely the value asyncpg refuses to bind to a timestamptz (BUG-024).
-    assert isinstance(args[11], datetime)
-    assert args[11] == datetime(2024, 1, 1, tzinfo=timezone.utc)
+    assert isinstance(args[15], datetime)
+    assert args[15] == datetime(2024, 1, 1, tzinfo=timezone.utc)
 
 
 @pytest.mark.asyncio
@@ -154,7 +159,7 @@ async def test_upsert_local_profiles_missing_key(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# BUG-024: the envelope timestamp must reach asyncpg as a datetime
+# Shared fixtures for mapping / timestamp / IELTS sub-score cases
 # ---------------------------------------------------------------------------
 
 def _mock_pool(monkeypatch):
@@ -186,6 +191,58 @@ def _payload(**overrides):
     return base
 
 
+# ---------------------------------------------------------------------------
+# GOA-029: IELTS sub-scores replicate into local_user_profiles
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_upsert_local_profiles_ielts_subscores_round_trip(monkeypatch):
+    """IELTS section bands must land in local_user_profiles, not only overall.
+
+    UserUpdated carries ieltsListening/Reading/Writing/Speaking (GOA-029). Matching
+    still scores on ieltsScore alone, but the snapshot has to round-trip the four
+    columns so the profile UI / agent can read what the user saved.
+    """
+    conn = _mock_pool(monkeypatch)
+
+    await upsert_local_profiles(
+        _payload(
+            ieltsScore=7.0,
+            ieltsListening=7.5,
+            ieltsReading=7.0,
+            ieltsWriting=6.5,
+            ieltsSpeaking=7.0,
+        )
+    )
+
+    conn.execute.assert_called_once()
+    sql, *bound = conn.execute.call_args[0]
+
+    insert_list = sql.split("INSERT INTO local_user_profiles", 1)[1].split(")", 1)[0]
+    insert_list = insert_list.split("(", 1)[1]
+    columns = [c.strip() for c in insert_list.replace("\n", " ").split(",") if c.strip()]
+
+    for column in (
+        "ielts_listening",
+        "ielts_reading",
+        "ielts_writing",
+        "ielts_speaking",
+    ):
+        assert column in columns, f"upsert SQL must include {column}"
+        assert f"{column} = EXCLUDED.{column}" in sql
+
+    # Bound $N args follow INSERT column order — that is the round-trip.
+    assert bound[columns.index("ielts_listening")] == 7.5
+    assert bound[columns.index("ielts_reading")] == 7.0
+    assert bound[columns.index("ielts_writing")] == 6.5
+    assert bound[columns.index("ielts_speaking")] == 7.0
+    assert bound[columns.index("ielts_score")] == 7.0
+
+
+# ---------------------------------------------------------------------------
+# BUG-024: the envelope timestamp must reach asyncpg as a datetime
+# ---------------------------------------------------------------------------
+
 @pytest.mark.asyncio
 async def test_js_iso_timestamp_is_bound_as_a_datetime(monkeypatch):
     """The User service stamps events with JavaScript's toISOString(), e.g.
@@ -203,7 +260,8 @@ async def test_js_iso_timestamp_is_bound_as_a_datetime(monkeypatch):
 
     await upsert_local_profiles(_payload())
 
-    bound = conn.execute.call_args[0][11]
+    # $15 last_synced_at — four IELTS sub-score params sit after ielts_score.
+    bound = conn.execute.call_args[0][15]
     assert isinstance(bound, datetime), f"expected datetime, got {type(bound).__name__}"
     assert bound.year == 2026 and bound.month == 7 and bound.day == 26
     assert bound.tzinfo is not None, "timestamptz comparisons need an aware datetime"
@@ -215,7 +273,7 @@ async def test_absent_timestamp_stays_none(monkeypatch):
 
     await upsert_local_profiles(_payload(last_synced_at=None))
 
-    assert conn.execute.call_args[0][11] is None
+    assert conn.execute.call_args[0][15] is None
 
 
 @pytest.mark.asyncio
@@ -227,4 +285,4 @@ async def test_malformed_timestamp_does_not_block_the_profile(monkeypatch):
     await upsert_local_profiles(_payload(last_synced_at="not-a-timestamp"))
 
     conn.execute.assert_called_once()
-    assert conn.execute.call_args[0][11] is None
+    assert conn.execute.call_args[0][15] is None

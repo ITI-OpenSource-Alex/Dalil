@@ -21,21 +21,30 @@ import {
 } from "@/lib/opportunities-api";
 import { Badge, Button, Card, Icon, Text } from "@/components/ui";
 
-const TONE_BADGE: Record<MatchTone, "success" | "brand" | "warning" | "neutral"> = {
+const TONE_BADGE: Record<
+  MatchTone,
+  "success" | "warning" | "danger" | "neutral"
+> = {
   strong: "success",
-  possible: "brand",
-  stretch: "warning",
+  possible: "warning",
+  stretch: "danger",
   blocked: "neutral",
 };
 
 const TONE_BAR: Record<MatchTone, string> = {
   strong: "bg-success",
-  possible: "bg-brand",
-  stretch: "bg-warning",
+  possible: "bg-warning",
+  stretch: "bg-danger",
   blocked: "bg-fg-subtle",
 };
 
-export function OpportunityCard({ program }: { program: MatchedProgram }) {
+export function OpportunityCard({
+  program,
+  onOpen,
+}: {
+  program: MatchedProgram;
+  onOpen?: (program: MatchedProgram) => void;
+}) {
   const tone = matchTone(program);
   const score = Math.round(program.result.score);
   const deadline = formatDeadline(program.deadline);
@@ -47,8 +56,12 @@ export function OpportunityCard({ program }: { program: MatchedProgram }) {
   const deadlineUrgency =
     days === null ? null : days < 0 ? "closed" : days <= 30 ? "soon" : null;
 
-  return (
-    <Card className="flex h-full flex-col gap-4">
+  const open = () => onOpen?.(program);
+
+  // Primary region is the activatable control; footer links stay outside so
+  // Tab order is open → checklist → Ask GOA (no nested interactive).
+  const details = (
+    <>
       <div className="flex items-start justify-between gap-3">
         <h3 className="min-w-0 text-sm font-bold text-fg">
           {program.programName}
@@ -114,6 +127,33 @@ export function OpportunityCard({ program }: { program: MatchedProgram }) {
             {MATCH_TONE_LABEL[tone]} against your profile
           </Text>
         </div>
+      )}
+    </>
+  );
+
+  return (
+    <Card
+      variant={onOpen ? "interactive" : "flat"}
+      className="flex h-full flex-col gap-4"
+    >
+      {onOpen ? (
+        <div
+          role="button"
+          tabIndex={0}
+          className="flex flex-1 flex-col gap-4 rounded-control outline-none focus-visible:ring-2 focus-visible:ring-brand-muted"
+          aria-label={`View details for ${program.programName} at ${program.university}`}
+          onClick={open}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              open();
+            }
+          }}
+        >
+          {details}
+        </div>
+      ) : (
+        <div className="flex flex-1 flex-col gap-4">{details}</div>
       )}
 
       <div className="mt-auto flex flex-wrap gap-2 pt-1">

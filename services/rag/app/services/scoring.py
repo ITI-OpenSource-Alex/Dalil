@@ -323,6 +323,13 @@ async def match_programs(user_id: str) -> list[dict]:
                 "university": r["university"],
                 "country": r["country"],
                 "deadline": str(r["deadline"]) if r["deadline"] else None,
+                "requirements": {
+                    "minEcts": r["min_ects"],
+                    "minGpa": float(r["min_gpa"]) if r["min_gpa"] is not None else None,
+                    "minIelts": float(r["min_ielts"]) if r["min_ielts"] is not None else None,
+                    "degreeLevel": r["degree_level"],
+                    "minWorkExperience": r["min_work_experience"],
+                },
                 "result": result,
             }
         )

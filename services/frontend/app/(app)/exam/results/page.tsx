@@ -6,17 +6,18 @@ import Link from "next/link";
 import { SkillArea } from "@/app/types/exam";
 import { getResult, getSession, getWritingResult } from "@/lib/exam-api";
 import Skeleton from "@/components/ui/skeleton";
-import type {
-  ExamSessionResponse,
-  ExamResultResponse,
-  WritingResultResponse,
-} from "@/lib/exam-api";
+import type { ExamResultResponse, WritingResultResponse } from "@/lib/exam-api";
 import CombinedWritingResults from "@/components/writing/CombinedWritingResults";
 import {
   loadReadingResult,
   type StoredReadingResult,
 } from "@/lib/reading-result-storage";
+import {
+  loadListeningResult,
+  type StoredListeningResult,
+} from "@/lib/listening-result-storage";
 import ReadingResultsView from "@/components/reading/results/ReadingResultsView";
+import { READING_UI_TYPE_LABELS } from "@/lib/reading-results";
 import { Badge, Button, Card, Heading, PageContainer, Text } from "@/components/ui";
 
 // useSearchParams() opts the page into client-side rendering during
@@ -45,10 +46,11 @@ function ResultsPageContent() {
   const skill = (searchParams.get("skill") || "Reading") as SkillArea;
   const [mounted, setMounted] = useState(false);
   const sessionId = searchParams.get("session") || "";
-  const [session, setSession] = useState<ExamSessionResponse | null>(null);
   const [result, setResult] = useState<ExamResultResponse | null>(null);
   const [readingResult, setReadingResult] =
     useState<StoredReadingResult | null>(null);
+  const [listeningResult, setListeningResult] =
+    useState<StoredListeningResult | null>(null);
   const [writingResult, setWritingResult] =
     useState<WritingResultResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -89,6 +91,25 @@ function ResultsPageContent() {
       return;
     }
 
+    // Listening is stored and read back exactly like Reading, and for the same
+    // reason -- the exam service has no GET-result endpoint for it either, so
+    // the submit response captured client-side is the only copy of the
+    // per-question breakdown. See lib/listening-result-storage.ts.
+    if (skill === "Listening") {
+      const stored = loadListeningResult(sessionId);
+      setListeningResult(stored);
+      setLoading(false);
+
+      if (!stored) {
+        setError("No Listening result found for this session.");
+        return;
+      }
+
+      sessionStorage.removeItem("active_exam_session");
+
+      return;
+    }
+
     // Writing does have a GET-result endpoint, but its payload is not
     // ExamResultResponse: the exam service branches to _get_writing_result and
     // returns a weighted `overall_band` plus both task records instead of
@@ -102,15 +123,6 @@ function ResultsPageContent() {
           setWritingResult(writing);
 
           sessionStorage.removeItem("active_exam_session");
-
-          fetch("/api/profile/update-scores", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ skill, bandScore: writing.overall_band }),
-          }).catch(() => {
-            // Non-fatal, matching the Reading path: a profile sync failure
-            // must not stop a candidate seeing their result.
-          });
         } catch (err) {
           setError(
             err instanceof Error ? err.message : "Failed to load result",
@@ -127,34 +139,14 @@ function ResultsPageContent() {
       try {
         setLoading(true);
 
-        const [sessionData, resultData] = await Promise.all([
+        const [, resultData] = await Promise.all([
           getSession(sessionId),
           getResult(sessionId),
         ]);
 
-        setSession(sessionData);
         setResult(resultData);
 
         sessionStorage.removeItem("active_exam_session");
-
-        // Only the generic result shape reaches here: Reading and Writing both
-        // return from their own branches above, and Writing's weighted
-        // `overall_band` is posted by that branch (it is not on this payload).
-        // GOA-134: an unscored session must not be posted to the profile. It
-        // would overwrite a real band with null and look like a regression in
-        // the user's progress chart, when in fact nothing was measured.
-        if (resultData.band_score !== null && resultData.band_score !== undefined) {
-          await fetch("/api/profile/update-scores", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              skill,
-              bandScore: resultData.band_score,
-            }),
-          });
-        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load result");
       } finally {
@@ -223,6 +215,50 @@ function ResultsPageContent() {
     );
   }
 
+  if (skill === "Listening") {
+    if (!listeningResult) {
+      return (
+        <PageContainer size="xl">
+          <Text tone="muted">No result found.</Text>
+        </PageContainer>
+      );
+    }
+
+    // ReadingResultsView is deliberately reused rather than duplicated: the
+    // two results payloads have the same shape, and the labels that do differ
+    // (heading, CTA, per-question "Section N" vs "Passage N", the fourth
+    // section) are all props. The test ids are overridden so the Listening
+    // e2e specs can target this view without colliding with Reading's.
+    return (
+      <PageContainer size="xl">
+        <div
+          className={`transition-all duration-700 ease-out ${
+            mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+          }`}
+        >
+          <ReadingResultsView
+            result={listeningResult.result}
+            questions={listeningResult.questions}
+            title="Listening Results"
+            buttonLabel="Practice Listening Again"
+            buttonHref="/exam"
+            resultTestId="listening-results-view"
+            bandScoreTestId="listening-band-score"
+            buttonTestId="practice-listening-again-button"
+            questionTypeLabels={READING_UI_TYPE_LABELS}
+            locationLabel="Section"
+            sections={[
+              { key: "section_1", label: "Section 1" },
+              { key: "section_2", label: "Section 2" },
+              { key: "section_3", label: "Section 3" },
+              { key: "section_4", label: "Section 4" },
+            ]}
+          />
+        </div>
+      </PageContainer>
+    );
+  }
+
   if (skill === "Writing") {
     if (!writingResult) {
       return (
@@ -277,7 +313,7 @@ function ResultsPageContent() {
             <Badge tone="brand" pill>
               Official Simulation Result
             </Badge>
-            <Heading as="h2" size="xl" className="mt-2">
+            <Heading as="h1" size="xl" className="mt-2">
               {skill} Analytics
             </Heading>
           </div>
@@ -311,7 +347,7 @@ function ResultsPageContent() {
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               {sectionScores.map(([section, score]) => (
                 <Card key={section} padding="sm">
-                  <Heading as="h4" size="sm" className="capitalize">
+                  <Heading as="h3" size="sm" className="capitalize">
                     {section.replaceAll("_", " ")}
                   </Heading>
                   <Text size="xs" tone="muted" className="mt-2 leading-relaxed">
@@ -329,7 +365,7 @@ function ResultsPageContent() {
 
         {/* Action Engine Block */}
         <Card>
-          <Heading as="h3" size="md" className="mb-3">
+          <Heading as="h2" size="md" className="mb-3">
             Targeted Action Plan
           </Heading>
           <ul className="list-disc space-y-2 pl-4 text-xs leading-relaxed text-fg-muted">

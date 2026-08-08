@@ -102,6 +102,12 @@ variable "service_error_rate_threshold" {
   default     = 2
 }
 
+variable "reading_listening_grading_p95_threshold_ms" {
+  description = "Reading/Listening exam grading latency P95 alarm threshold in milliseconds (GOA-066)."
+  type        = number
+  default     = 500
+}
+
 variable "dlq_visible_messages_threshold" {
   description = "DLQ visible-message alarm threshold."
   type        = number

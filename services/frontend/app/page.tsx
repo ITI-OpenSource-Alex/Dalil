@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { Navbar } from "@/components/marketing/navbar";
 import { Hero } from "@/components/marketing/hero";
 import { TrustBar } from "@/components/marketing/trust-bar";
@@ -29,7 +30,15 @@ import { Footer } from "@/components/marketing/footer";
  * Every section is a Server Component. The only client islands are the
  * navbar (mobile menu + scroll state), Reveal, and StatCounter.
  */
-export default function HomePage() {
+export default async function HomePage() {
+  // Read on the server, not in the browser. access_token is HttpOnly (the
+  // Gateway sets it that way deliberately), so client JS cannot see it — a
+  // client-side check would have to call the API and would flash "Sign in" at
+  // every signed-in visitor before correcting itself. Reading the cookie here
+  // opts this route out of static prerendering; the page still renders entirely
+  // on the server, and the alternative is a wrong CTA on first paint.
+  const signedIn = (await cookies()).has("access_token");
+
   return (
     <>
       {/* Scroll reveals ship their hidden state in the HTML so there is no
@@ -39,7 +48,7 @@ export default function HomePage() {
         <style>{`[data-reveal]{opacity:1 !important;transform:none !important}`}</style>
       </noscript>
 
-      <Navbar />
+      <Navbar signedIn={signedIn} />
 
       <main id="main-content">
         <Hero />

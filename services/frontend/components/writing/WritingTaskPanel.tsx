@@ -64,7 +64,7 @@ export default function WritingTaskPanel({
     return (
       <div
         data-testid={`task-${taskNumber}-missing`}
-        className="rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center text-xs text-gray-500"
+        className="rounded-2xl border border-dashed border-border bg-surface p-8 text-center text-xs text-fg-subtle"
       >
         No Task {taskNumber} prompt was found for this exam paper.
       </div>
@@ -72,9 +72,9 @@ export default function WritingTaskPanel({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-gray-200/80 bg-white p-5 shadow-2xs">
-      <div className="mb-3 flex items-center justify-between gap-3 border-b border-gray-100 pb-2">
-        <h4 className="font-serif text-sm font-bold text-gray-900">
+    <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-border bg-surface p-5 shadow-2xs">
+      <div className="mb-3 flex items-center justify-between gap-3 border-b border-border pb-2">
+        <h4 className="font-serif text-sm font-bold text-fg">
           Task {taskNumber}
         </h4>
 
@@ -82,11 +82,11 @@ export default function WritingTaskPanel({
           data-testid={`task-${taskNumber}-suggested-time`}
           className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
             overSuggestedTime
-              ? "bg-amber-50 text-amber-800"
-              : "bg-gray-100 text-gray-600"
+              ? "bg-warning-subtle text-warning-fg"
+              : "bg-canvas-subtle text-fg-muted"
           }`}
         >
-          <Clock size={12} />
+          <Clock size={12} aria-hidden="true" />
           Suggested: {suggestedMinutes} min for Task {taskNumber}
         </span>
       </div>
@@ -105,15 +105,15 @@ export default function WritingTaskPanel({
         data-testid={`task-${taskNumber}-textarea`}
         aria-label={`Task ${taskNumber} response`}
         placeholder={`Compose your Task ${taskNumber} response here...`}
-        className="w-full flex-1 resize-none rounded-xl border border-gray-200 bg-gray-50/50 p-3.5 text-sm text-gray-800 transition focus:border-[#0d4d3a] focus:outline-none focus:ring-2 focus:ring-[#0d4d3a]/20 disabled:opacity-60"
+        className="w-full flex-1 resize-none rounded-xl border border-border bg-canvas-subtle p-3.5 text-sm text-fg-muted transition focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand-muted disabled:opacity-60"
       />
 
       {underMinimum && wordCount > 0 && (
         <div
           data-testid={`task-${taskNumber}-under-minimum-warning`}
-          className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+          className="mt-3 flex items-start gap-2 rounded-xl border border-warning-border bg-warning-subtle px-3 py-2 text-xs text-warning-fg"
         >
-          <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+          <AlertTriangle size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
           <span>{UNDER_MINIMUM_WARNING}</span>
         </div>
       )}
@@ -123,7 +123,7 @@ export default function WritingTaskPanel({
           data-testid={`task-${taskNumber}-word-counter`}
           data-state={met ? "met" : "below"}
           className={`text-xs font-semibold tabular-nums ${
-            met ? "text-emerald-600" : "text-orange-500"
+            met ? "text-success-fg" : "text-warning-fg"
           }`}
         >
           {wordCount} / {target} words
@@ -134,9 +134,9 @@ export default function WritingTaskPanel({
           onClick={onSubmit}
           disabled={submitting || wordCount === 0}
           data-testid={`task-${taskNumber}-submit`}
-          className="flex items-center gap-2 rounded-full bg-[#0d4d3a] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#09382a] disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex items-center gap-2 rounded-full bg-brand px-4 py-2 text-xs font-semibold text-fg-on-brand transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted"
         >
-          {submitting && <Loader2 size={13} className="animate-spin" />}
+          {submitting && <Loader2 size={13} className="animate-spin" aria-hidden="true" />}
           {submitting ? "Evaluating..." : `Submit Task ${taskNumber}`}
         </button>
       </div>
@@ -144,7 +144,8 @@ export default function WritingTaskPanel({
       {status === "error" && errorMessage && (
         <p
           data-testid={`task-${taskNumber}-error`}
-          className="mt-2 text-xs text-red-600"
+          className="mt-2 text-xs text-danger"
+          role="alert"
         >
           {errorMessage}
         </p>

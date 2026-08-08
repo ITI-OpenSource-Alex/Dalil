@@ -1,52 +1,27 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { RotateCcw } from "lucide-react";
 import { streamChatResponse, ChatEvent } from "@/lib/chat-stream";
 import MessageList from "./message-list";
 import ChatInput from "./chat-input";
-import SpeakingSessionPanel, { SpeakingState } from "./speaking-session-panel";
-import {
-  AudioRecorder,
-  selectRecordingMimeType,
-} from "@/lib/audio-recorder";
-import {
-  SpeakingWebSocket,
-  SpeakingEvaluation,
-  SocketSpeakingState,
-} from "@/lib/speaking-websocket";
-import { AudioPlayer } from "@/lib/audio-player";
-
-import EssayComposer from "./essay-composer";
-import WritingEvaluationPanel from "./writing-evaluation-panel";
-
-import { streamWritingEvaluation, WritingEvent } from "@/lib/writing-stream";
-// Used by the inlineIssues state below. The type was referenced without being
-// imported, so the frontend did not compile; that arrived on dev with the
-// inline-feedback work and is not something this branch introduced.
-import type { CriterionEvaluation } from "@/lib/writing-api";
-import {
-  SpeakingDimensions,
-  SpeakingEvaluationResult,
-} from "@/app/types/speaking";
-import { extractCriteriaScores } from "@/lib/speaking-format";
 import { CURRENT_USER_ID } from "@/lib/current-user";
+import { emailInitials } from "@/lib/user-display";
 import { getChatSessionId, startNewChatSession } from "@/lib/chat-session";
 import { useCurrentUser } from "@/app/hooks/useCurrentUser";
-import InlineAlert from "@/components/speaking/inline-alert";
-
-// GOA-132: the speaking socket now goes through the Gateway like every other
-// browser call, so it picks up JWT validation at upgrade time, rate limiting
-// and a correlation ID. NEXT_PUBLIC_SPEAKING_API_URL is gone — it pointed the
-// browser straight at :8082, which had none of those.
-//
-// Derived from the single Gateway URL so the two cannot drift. http -> ws,
-// https -> wss. Orchestration also emits this URL on the speaking_url event;
-// this constant is the fallback when the socket is opened without a chat turn.
-const SPEAKING_WS_URL =
-  (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080").replace(
-    /^http/,
-    "ws",
-  ) + "/api/speaking/ws";
+import { Alert, Button } from "@/components/ui";
+import {
+  CONNECTION_ERROR,
+  GENERIC_ASSISTANT_ERROR,
+  sanitizeAssistantText,
+  sanitizeErrorMessage,
+} from "@/lib/chat-sanitize";
+import {
+  isSubscriptionRequiredMessage,
+  SubscriptionRequiredError,
+} from "@/lib/subscription";
+import { useUpgradePrompt } from "@/components/subscription/upgrade-dialog";
 
 // Chat goes through the Gateway. These two calls used relative paths, i.e. to
 // the Next.js server itself, where no route handler was ever written — both
@@ -65,7 +40,9 @@ export type Opportunity = {
   programName: string;
   university: string;
   country: string;
-  deadline: string;
+  // Nullable: the column is optional in program_requirements and RAG
+  // passes None straight through, which the UI rendered as "Deadline: null".
+  deadline: string | null;
   // The real /match response nests the score under `result.score` on a 0-100
   // scale (services/rag/app/services/scoring.py's match_programs) -- this type
   // previously declared a flat `confidence: number` on a 0-1 scale that never
@@ -86,12 +63,23 @@ export type Message = {
   intent?: string;
   confidence?: number;
   opportunities?: Opportunity[];
-  evaluation?: SpeakingEvaluationResult;
   sources?: string[];
   error?: string;
 };
 
-type ChatMode = "chat" | "writing";
+/**
+ * Message ids used to be `assistant-${Date.now()}`. Two sends inside the same
+ * millisecond -- which is exactly what a double-fired submit produces -- gave
+ * two messages the same id, so `<AnimatePresence>` saw duplicate React keys and
+ * every `messages.map(m => m.id === assistantMessageId ? ... : m)` update wrote
+ * tokens into *both* bubbles. That is one of the ways the same answer appeared
+ * to be streamed twice. A monotonic counter cannot collide.
+ */
+let messageSequence = 0;
+function nextMessageId(prefix: string): string {
+  messageSequence += 1;
+  return `${prefix}-${messageSequence}-${Date.now()}`;
+}
 
 export default function ChatShell() {
   const [messages, setMessages] = useState<Message[]>([
@@ -102,18 +90,26 @@ export default function ChatShell() {
         "Hi 👋 I can help you find Master's programs, build an application checklist, or practise IELTS — where would you like to start?",
     },
   ]);
-  const speakingSocket = useRef<SpeakingWebSocket | null>(null);
-  const audioPlayer = useRef(new AudioPlayer());
-  const audioPlayerRef = useRef<AudioContext | null>(null);
-
+  const router = useRouter();
   const [isTyping, setIsTyping] = useState(false);
-  const [speakingOpen, setSpeakingOpen] = useState(false);
-  const [speakingState, setSpeakingState] = useState<SpeakingState>("idle");
-  const [speakingEvaluation, setSpeakingEvaluation] =
-    useState<SpeakingEvaluation | null>(null);
-  const [speakingError, setSpeakingError] = useState<string | null>(null);
-  const [liveTranscript, setLiveTranscript] = useState("");
-  const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
+  const upgrade = useUpgradePrompt();
+  /*
+   * The single-flight lock on sending.
+   *
+   * handleSendMessage had no guard at all, and there are three ways to invoke
+   * it in quick succession: Enter in the textarea, the Send button, and the
+   * Writing composer's submit. Each invocation appended its own assistant
+   * bubble and opened its own POST /api/chat, so two replies really did stream
+   * side by side for one apparent question -- the "two assistants answering"
+   * report. A ref, not state: the second call happens in the same tick as the
+   * first, before any re-render could have propagated a state flag.
+   */
+  const sendingRef = useRef(false);
+  const [isSending, setIsSending] = useState(false);
+  /** True once anything has been sent, so history can no longer clobber. */
+  const hasSentRef = useRef(false);
+  /** Aborts an in-flight turn when the conversation is reset or unmounted. */
+  const chatAbortRef = useRef<AbortController | null>(null);
   // A real per-session id (GOA-038). This was the constant "session-lina-123",
   // shared by every browser, tab and reload, so a second conversation could not
   // exist -- and cross-session memory is only observable across two of them.
@@ -140,57 +136,11 @@ export default function ChatShell() {
   const identityLoading =
     profileStatus === "loading" || profileStatus === "idle";
   const userId = user?.id ?? CURRENT_USER_ID;
+  // Replaces the hardcoded "LA" on the user avatar — a leftover from the
+  // "Lina Ahmadi" demo persona that showed the same two letters to everyone.
+  const userInitials = user?.email ? emailInitials(user.email) : "";
   const [memoryNotice, setMemoryNotice] = useState<string | null>(null);
   const [forgetting, setForgetting] = useState(false);
-  const speakingQuestion = {
-    prompt: "Describe a memorable journey you have taken.",
-    type: "part2",
-  };
-
-  const recorderRef = useRef<AudioRecorder | null>(null);
-  // Bumped once per new speaking session (see openSpeakingSocket). The only
-  // job of this value is to tell RecordingTimer "a fresh take just began" —
-  // it's not meaningful on its own and nothing else should read it.
-  const [speakingSessionKey, setSpeakingSessionKey] = useState(0);
-  // Stop -> finishRecording() is a local-only signal (see openSpeakingSocket's
-  // "processing" case below); the server may never respond at all if
-  // transcription fails silently server-side, so nothing else would ever
-  // move speakingState off "transcribing". This is the fallback that does.
-  const transcriptionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
-  const [chatMode, setChatMode] = useState<ChatMode>("chat");
-  const [writingLoading, setWritingLoading] = useState(false);
-  // Surfaces both an SSE-stream "error" event from the writing service and a
-  // failure to even open the stream (e.g. an auth/subscription rejection
-  // from the Gateway) -- previously either case only reached console.error,
-  // leaving writingLoading stuck true with nothing visible to the user.
-  const [writingError, setWritingError] = useState<string | null>(null);
-  const [writingEvaluations, setWritingEvaluations] = useState<
-    Record<
-      string,
-      {
-        band: number;
-        feedback: string;
-      }
-    >
-  >({});
-  const [writingOverallBand, setWritingOverallBand] = useState<number>();
-  const [inlineIssues, setInlineIssues] = useState<CriterionEvaluation[]>([]);
-  const [submittedEssay, setSubmittedEssay] = useState<string>("");
-  const [improvedEssay, setImprovedEssay] = useState<string | undefined>();
-  const [isPaidTier] = useState(true); // TODO: hardcoded until tier comes from session/profile
-
-  // Single source of truth for the session lock: which practice mode, if
-  // any, currently owns the input area. Derived — not a separate flag — from
-  // the two states that already govern what's on screen, so it can never
-  // disagree with what the user is actually looking at. Whichever of these
-  // is non-null is the one the *other* mode's controls get disabled for.
-  const activePractice: "speaking" | "writing" | null = speakingOpen
-    ? "speaking"
-    : chatMode === "writing"
-      ? "writing"
-      : null;
 
   // Load session history on mount
   useEffect(() => {
@@ -198,13 +148,34 @@ export default function ChatShell() {
     // request /chat/sessions//history, which is a different route entirely.
     if (!sessionId) return;
 
+    // Two guards, for two different ways this effect used to corrupt the
+    // transcript:
+    //
+    // 1. AbortController + the `cancelled` flag. In development React mounts
+    //    effects twice, so this fired two overlapping history requests whose
+    //    responses both called setMessages. It is also what keeps a response
+    //    from a session the user has already left (New conversation, Forget
+    //    me) from landing in the new one.
+    //
+    // 2. hasSentRef. loadHistory *replaces* the whole message list. If the
+    //    user typed and sent before this slow GET resolved, the replacement
+    //    wiped the user's message and the assistant bubble that was actively
+    //    streaming into it -- after which every token update targeted an id
+    //    that no longer existed, and the reply appeared to restart from
+    //    nothing. History is only ever applied to an untouched transcript.
+    const controller = new AbortController();
+    let cancelled = false;
+
     async function loadHistory() {
       try {
         const res = await fetch(`${CHAT_API_BASE}/chat/sessions/${sessionId}/history`, {
           credentials: "include",
+          signal: controller.signal,
         });
+        if (cancelled || hasSentRef.current) return;
         if (res.ok) {
           const history = await res.json();
+          if (cancelled || hasSentRef.current) return;
 
           // doc 10: history was assumed to always be an array of
           // {role, content} entries and mapped over unguarded -- a
@@ -225,23 +196,35 @@ export default function ChatShell() {
                 typeof entry.content === "string"
               ) {
                 validMessages.push({
-                  id: `hist-${idx}`,
+                  // Namespaced by session id: `hist-0` from a previous
+                  // conversation could otherwise collide with `hist-0` from
+                  // this one if both ended up in the list.
+                  id: `hist-${sessionId}-${idx}`,
                   role: entry.role,
-                  content: entry.content,
+                  content:
+                    entry.role === "assistant"
+                      ? sanitizeAssistantText(entry.content)
+                      : entry.content,
                 });
               }
             });
 
-            if (validMessages.length > 0) {
+            if (validMessages.length > 0 && !cancelled && !hasSentRef.current) {
               setMessages(validMessages);
             }
           }
         }
       } catch (err) {
+        if (controller.signal.aborted) return;
         console.error("Failed to fetch session history:", err);
       }
     }
     loadHistory();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
   }, [sessionId]);
 
   /**
@@ -252,10 +235,22 @@ export default function ChatShell() {
    * know your degree. Wiping them is the separate, explicit control below.
    */
   const handleNewConversation = () => {
+    // Cut any in-flight turn loose first. Without this, a reply still
+    // streaming from the abandoned conversation kept appending tokens into
+    // the new one's (empty) transcript, which looked exactly like an
+    // unprompted second assistant message.
+    chatAbortRef.current?.abort();
+    chatAbortRef.current = null;
+    sendingRef.current = false;
+    setIsSending(false);
+    setIsTyping(false);
+
     setSessionId(startNewChatSession());
     setMessages([]);
     setMemoryNotice(null);
-    setChatMode("chat");
+    // Lets the new session's history load apply again — it is a different
+    // conversation, and nothing has been sent in it yet.
+    hasSentRef.current = false;
   };
 
   /**
@@ -285,6 +280,12 @@ export default function ChatShell() {
       // A new session id too: the old thread was just deleted server-side, so
       // continuing to post against it would recreate a conversation the user
       // asked to be rid of.
+      chatAbortRef.current?.abort();
+      chatAbortRef.current = null;
+      sendingRef.current = false;
+      setIsSending(false);
+      setIsTyping(false);
+      hasSentRef.current = false;
       setSessionId(startNewChatSession());
       setMessages([]);
       setMemoryNotice(
@@ -301,202 +302,6 @@ export default function ChatShell() {
     } finally {
       setForgetting(false);
     }
-  };
-
-  const clearTranscriptionTimeout = () => {
-    if (transcriptionTimeoutRef.current) {
-      clearTimeout(transcriptionTimeoutRef.current);
-      transcriptionTimeoutRef.current = null;
-    }
-  };
-
-  // Opens a speaking session against `wsUrl`. Shared by the two ways a
-  // session can start: the "Start Speaking" button (which knows the endpoint
-  // directly) and a speaking_url SSE event (where Orchestration supplies it).
-  const openSpeakingSocket = async (wsUrl: string) => {
-    // Every real "a new take is starting" entry point funnels through here
-    // (the mic button and the chat-classified speaking_url path alike), so
-    // this is the one place the timer's reset signal needs to fire.
-    setSpeakingSessionKey((key) => key + 1);
-    clearTranscriptionTimeout();
-    speakingSocket.current?.close();
-
-    // SPEAK-EVAL-002: session_init must declare the recorded audio format, so
-    // the format is resolved before the socket is constructed. Previously the
-    // recorder was created inside the socket's "connected" handler — after
-    // session_init had already been sent — so no format could have been
-    // declared even if anyone had tried, and the backend asserted PCM for
-    // whatever the browser happened to record.
-    //
-    // The order is: pick format (pure, no microphone) -> open socket -> start
-    // recorder. Starting the recorder last means there is never a window where
-    // audio exists and no socket does; chunks arriving during the handshake are
-    // queued by SpeakingWebSocket and flushed on open. Only the first chunk
-    // carries the container header, so losing it would cost the whole utterance.
-    let audioFormat: string;
-    try {
-      audioFormat = selectRecordingMimeType();
-    } catch (err) {
-      console.error("No supported recording format:", err);
-      setSpeakingError(
-        err instanceof Error
-          ? err.message
-          : "This browser cannot record audio we can transcribe.",
-      );
-      setSpeakingState("idle");
-      return;
-    }
-
-    speakingSocket.current = new SpeakingWebSocket({
-      wsUrl,
-      userId,
-      questionPrompt: speakingQuestion.prompt,
-      questionType: speakingQuestion.type,
-      audioFormat,
-
-      onTranscript: (text, isFinal) => {
-        setLiveTranscript(text);
-
-        if (isFinal) {
-          console.log("Final transcript:", text);
-        }
-      },
-
-      onTtsChunk: (audio) => {
-        audioPlayer.current.addChunk(audio);
-      },
-
-      // Surface connection/server failures in the panel instead of leaving
-      // the user staring at a silently-reset button. Must also move
-      // speakingState back to "idle" itself — unlike the native-socket
-      // "error" case below, nothing else does this for a server-sent error
-      // message, which otherwise left the UI stuck on whatever state it was
-      // in (e.g. "transcribing") forever.
-      onError: (message) => {
-        console.error("Speaking socket error:", message);
-        clearTranscriptionTimeout();
-        setSpeakingError(message);
-        setSpeakingState("idle");
-        setAudioStream(null);
-      },
-
-      onStateChange: (socketState) => {
-        switch (socketState) {
-          case "connecting":
-            setSpeakingState("connecting");
-            break;
-
-          case "connected":
-            setSpeakingState("listening");
-
-            recorderRef.current = new AudioRecorder({
-              onAudioChunk: (chunk) => {
-                speakingSocket.current?.sendAudio(chunk);
-              },
-            });
-
-            recorderRef.current
-              .start()
-              .then(() => {
-                setAudioStream(recorderRef.current?.getStream() ?? null);
-
-                // The browser is allowed to normalise the requested type. If
-                // what it actually produces differs from what session_init
-                // declared, the upload would be mislabelled — the exact defect
-                // this ticket removes — so fail loudly rather than transcribe
-                // bytes under the wrong name.
-                const actual = recorderRef.current?.getMimeType();
-                if (actual && actual.split(";")[0] !== audioFormat.split(";")[0]) {
-                  console.error(
-                    `Recorder produced ${actual} but session declared ${audioFormat}`,
-                  );
-                  speakingSocket.current?.close();
-                  recorderRef.current?.stop();
-                  recorderRef.current = null;
-                  setSpeakingError(
-                    "Your browser recorded an unexpected audio format. Please try again.",
-                  );
-                  setSpeakingState("idle");
-                  setAudioStream(null);
-                }
-              })
-              .catch((err) => {
-                console.error("Failed to start audio recorder:", err);
-                setSpeakingError(
-                  err instanceof Error && err.name === "UnsupportedRecordingError"
-                    ? err.message
-                    : "Could not start recording from your microphone.",
-                );
-                setSpeakingState("idle");
-              });
-
-            break;
-          case "recording":
-            setSpeakingState("listening");
-            break;
-
-          case "processing":
-            setSpeakingState("transcribing");
-
-            // Server-side transcription can fail without ever notifying the
-            // client at all (e.g. the STT call times out) — finishRecording()
-            // is a local-only signal with no server round trip, so nothing
-            // else guarantees a reply arrives. Force back to "idle" if
-            // neither onEvaluation nor onError happens within a generous
-            // window, so the button can't get stuck on "Stop" forever.
-            clearTranscriptionTimeout();
-            transcriptionTimeoutRef.current = setTimeout(() => {
-              transcriptionTimeoutRef.current = null;
-              setSpeakingError(
-                "Transcription is taking longer than expected. Please try again.",
-              );
-              setSpeakingState("idle");
-            }, 15000);
-            break;
-
-          case "done":
-            setSpeakingState("done");
-            break;
-
-          case "error":
-            clearTranscriptionTimeout();
-            setSpeakingState("idle");
-            setAudioStream(null);
-            break;
-        }
-      },
-
-      onEvaluation: (evaluation) => {
-        clearTranscriptionTimeout();
-        setSpeakingState("evaluating");
-
-        setSpeakingEvaluation(evaluation);
-
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `speaking-${Date.now()}`,
-            role: "assistant",
-            content: "Speaking evaluation completed.",
-            evaluation: {
-              overallScore: evaluation.overall_band ?? null,
-              criteria: extractCriteriaScores(
-                evaluation.dimensions as SpeakingDimensions,
-              ),
-              feedback: evaluation.overall_feedback,
-            },
-          },
-        ]);
-
-        audioPlayer.current.play();
-
-        setTimeout(() => {
-          setSpeakingState("done");
-        }, 800);
-      },
-    });
-
-    speakingSocket.current.connect();
   };
 
   const handleChatEvent = (event: ChatEvent, assistantMessageId: string) => {
@@ -558,44 +363,42 @@ export default function ChatShell() {
         break;
 
       case "writing_url":
-        setWritingLoading(true);
-        setWritingError(null);
-
-        // Failing to even open the stream (e.g. a 401 from the Gateway when
-        // the auth cookie or subscription tier doesn't clear) is otherwise a
-        // dead end -- the panel is left spinning forever with nothing but a
-        // console log. Reset the loading flag and surface it the same way an
-        // in-stream "error" event does (see handleWritingEvent above).
-        streamWritingEvaluation(event.sseUrl, handleWritingEvent).catch(
-          (err) => {
-            console.error(err);
-            setWritingLoading(false);
-            setWritingError(
-              err instanceof Error
-                ? err.message
-                : "Something went wrong while evaluating your essay. Please try again.",
-            );
-          },
-        );
-
+        // A chat message classified as WRITING intent -- Orchestration
+        // already created the essay server-side (see the Writing service's
+        // POST /essays) and hands back its id. Writing Practice now has its
+        // own page (Phase D); hand the id off via query param so that page
+        // picks up evaluating this essay instead of the user's typed text
+        // going to waste. See WritingPracticePanel's essayId effect.
+        router.push(`/practice/writing?essayId=${encodeURIComponent(event.essayId)}`);
         break;
 
       case "speaking_url":
-        // A chat message classified as SPEAKING intent — Orchestration tells
-        // us which endpoint to use.
-        openSpeakingSocket(event.wsUrl);
-
+        // A chat message classified as SPEAKING intent. Speaking Practice
+        // now has its own page (Phase D) that opens its own session, so
+        // there's nothing left for chat-shell to connect here -- just send
+        // the user to it.
+        router.push("/practice/speaking");
         break;
 
-      case "error":
+      case "error": {
+        // Orchestration sends the bare marker "subscription_required" for an
+        // intent the account's tier doesn't cover (app/api/chat.py). Printing
+        // that token was the chat-side version of the raw 403 the exam page
+        // used to show; it now opens the same upgrade dialog as everywhere
+        // else. Every other error is passed through the sanitiser so a
+        // stringified backend exception can never reach the transcript.
+        const isPaywall = isSubscriptionRequiredMessage(event.error);
+        if (isPaywall) upgrade.show();
+
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantMessageId
               ? {
                   ...m,
                   error: event.error,
-                  content:
-                    "Sorry, something went wrong while generating the response.",
+                  content: isPaywall
+                    ? "That one needs GOA Pro — I've opened the details for you."
+                    : sanitizeErrorMessage(event.error),
                   isStreaming: false,
                 }
               : m,
@@ -603,45 +406,8 @@ export default function ChatShell() {
         );
 
         setIsTyping(false);
-        // Only resets a session this response was itself trying to start —
-        // leaves an unrelated in-progress/connected session alone.
-        setSpeakingState((prev) => (prev === "connecting" ? "idle" : prev));
         break;
-    }
-  };
-
-  const handleWritingEvent = (event: WritingEvent) => {
-    switch (event.type) {
-      case "criterion":
-        setWritingEvaluations((prev) => ({
-          ...prev,
-          [event.criterion]: {
-            band: event.band,
-            feedback: event.feedback,
-          },
-        }));
-        break;
-
-      case "complete":
-        setWritingEvaluations(event.evaluations);
-
-        setWritingOverallBand(event.overall_band);
-
-        setInlineIssues(event.evaluations_full);
-
-        setImprovedEssay(event.improved_essay);
-
-        setWritingLoading(false);
-
-        break;
-
-      case "error":
-        console.error(event.error);
-
-        setWritingLoading(false);
-        setWritingError(event.error);
-
-        break;
+      }
     }
   };
 
@@ -649,17 +415,30 @@ export default function ChatShell() {
   const handleSendMessage = async (text: string) => {
     if (!text.trim()) return;
 
+    // Exactly one turn may be in flight. A second submit while a reply is
+    // streaming is dropped here rather than producing a second bubble and a
+    // second POST -- see sendingRef's declaration for why this is a ref.
+    if (sendingRef.current) return;
+    sendingRef.current = true;
+    hasSentRef.current = true;
+    setIsSending(true);
+
+    const controller = new AbortController();
+    // Supersede rather than accumulate: if a previous turn somehow survived
+    // (a reset raced the stream), its reader is cut loose here so it cannot
+    // keep writing tokens into a transcript that has moved on.
+    chatAbortRef.current?.abort();
+    chatAbortRef.current = controller;
+
     const userMessage: Message = {
-      id: `user-${Date.now()}`,
+      id: nextMessageId("user"),
       role: "user",
       content: text,
     };
 
-    setMessages((prev) => [...prev, userMessage]);
-
     setIsTyping(true);
 
-    const assistantMessageId = `assistant-${Date.now()}`;
+    const assistantMessageId = nextMessageId("assistant");
 
     const assistantMessage: Message = {
       id: assistantMessageId,
@@ -668,12 +447,15 @@ export default function ChatShell() {
       isStreaming: true,
     };
 
-    setMessages((prev) => [...prev, assistantMessage]);
+    // Both messages appended in one update. As two separate setMessages calls
+    // they could interleave with an event handler's own update between them.
+    setMessages((prev) => [...prev, userMessage, assistantMessage]);
 
     try {
       const response = await fetch(`${CHAT_API_BASE}/chat`, {
         method: "POST",
         credentials: "include",
+        signal: controller.signal,
         headers: {
           "Content-Type": "application/json",
         },
@@ -686,7 +468,12 @@ export default function ChatShell() {
       });
 
       if (!response.ok) {
-        throw new Error("Service unavailable");
+        // Chat itself is a free-tier route, but the intents it dispatches to
+        // are not all free. Surface the paywall as the paywall.
+        if (response.status === 403) {
+          throw new SubscriptionRequiredError(null);
+        }
+        throw new Error(`Chat request failed with status ${response.status}`);
       }
 
       await streamChatResponse(response, (event) =>
@@ -699,125 +486,70 @@ export default function ChatShell() {
             ? {
                 ...m,
                 isStreaming: false,
+                // A turn that produced no text at all (every event was an
+                // attachment, or the stream closed early) previously left an
+                // empty bubble with a blinking cursor forever.
+                content:
+                  m.content.trim() ||
+                  (m.opportunities?.length || m.sources?.length
+                    ? m.content
+                    : GENERIC_ASSISTANT_ERROR),
               }
             : m,
         ),
       );
-
-      setIsTyping(false);
-
-      // The message that triggered this request may not have classified as
-      // SPEAKING intent (e.g. supervisor routed it elsewhere), so no
-      // "speaking_url" event ever arrived to move speakingState past
-      // "connecting". Without this, the Start button would stay disabled
-      // forever with nothing left to un-stick it.
-      setSpeakingState((prev) => (prev === "connecting" ? "idle" : prev));
     } catch (error) {
-      console.error(error);
+      // An aborted turn is not a failure: the user reset the conversation or
+      // left the page. Writing an error into a bubble that no longer exists
+      // (or is about to be discarded) would be noise.
+      if (controller.signal.aborted) return;
 
-      setIsTyping(false);
-
-      setSpeakingState((prev) => (prev === "connecting" ? "idle" : prev));
+      const wasPaywall = upgrade.handle(error, "writing-practice");
+      if (!wasPaywall) console.error(error);
 
       setMessages((prev) =>
         prev.map((m) =>
           m.id === assistantMessageId
             ? {
                 ...m,
-                content:
-                  "Sorry, I am having trouble connecting right now. Please try again later.",
+                content: wasPaywall
+                  ? "That one needs GOA Pro — I've opened the details for you."
+                  : CONNECTION_ERROR,
                 isStreaming: false,
               }
             : m,
         ),
       );
+    } finally {
+      if (chatAbortRef.current === controller) chatAbortRef.current = null;
+      sendingRef.current = false;
+      setIsSending(false);
+      setIsTyping(false);
     }
-  };
-
-  const handleEssaySubmit = async (essay: string) => {
-    setWritingEvaluations({});
-    setWritingOverallBand(undefined);
-    setInlineIssues([]);
-    setSubmittedEssay(essay);
-    setImprovedEssay(undefined);
-    setWritingError(null);
-
-    await handleSendMessage(essay);
-  };
-
-  const startSpeaking = async () => {
-    setSpeakingOpen(true);
-    setSpeakingError(null);
-
-    try {
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        // This call only exists to trigger the permission prompt eagerly;
-        // the actual recording stream is acquired by AudioRecorder once the
-        // WebSocket connects. Stop these tracks immediately so we don't
-        // leave a live (but unused) mic stream open in the meantime.
-        const primingStream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-        });
-        primingStream.getTracks().forEach((track) => track.stop());
-      }
-    } catch (e) {
-      console.error("Mic permission error:", e);
-      setSpeakingError(
-        "Microphone permission is required to start a speaking session.",
-      );
-      return;
-    }
-
-    // Connect straight to the speaking service rather than routing this
-    // through /chat's LLM intent classifier.
-    //
-    // This button is unambiguous user intent, so there is nothing to
-    // classify. Going via /chat made a dedicated button depend on a paid,
-    // probabilistic LLM round trip, and when no Anthropic key is configured
-    // classify_intent() falls back to RAG — no speaking_url is emitted, no
-    // socket opens, and the whole speaking feature is dead. It also posted a
-    // synthetic "I want to practice speaking" turn into the chat log as a
-    // side effect of pressing a button.
-    //
-    // Free-text chat is genuinely ambiguous and still goes through the
-    // classifier; the "speaking_url" case in handleChatEvent above keeps
-    // that path working unchanged.
-    //
-    // speakingState stays out of "listening" until the socket actually
-    // reaches "connected" (see onStateChange) — it only goes to "connecting"
-    // here, which disables the button so a slow connect can't be
-    // double-triggered.
-    setSpeakingState("connecting");
-    openSpeakingSocket(SPEAKING_WS_URL);
-  };
-
-  const stopSpeaking = () => {
-    recorderRef.current?.stop();
-    setAudioStream(null);
-
-    speakingSocket.current?.finishRecording();
   };
 
   useEffect(() => {
     return () => {
-      clearTranscriptionTimeout();
-      recorderRef.current?.stop();
-      speakingSocket.current?.close();
+      // An unfinished SSE read left running past unmount kept calling
+      // setMessages on a dead component, and — because sessionStorage keeps
+      // the session id — its tokens reappeared in the transcript when the
+      // page was navigated back to.
+      chatAbortRef.current?.abort();
     };
   }, []);
 
   return (
-    <main className="min-h-screen flex flex-col bg-[#FAFBF9] text-[#1D291E]">
+    <main className="min-h-screen flex flex-col bg-canvas text-fg">
       {/* Top Banner indicating interactive session */}
       <motion.div
         initial={{ opacity: 0, y: -12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
-        className="border-b border-[#E8ECE7] px-8 py-4 bg-white flex items-center justify-between"
+        className="border-b border-border px-4 sm:px-8 py-4 bg-surface flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
       >
         <div>
-          <h1 className="text-lg font-bold text-[#0D3820]">GOA Assistant</h1>
-          <p className="text-xs text-[#526053]">
+          <h1 className="text-lg font-bold text-brand-fg">GOA Assistant</h1>
+          <p className="text-xs text-fg-muted">
             {profileStatus === "success" && user
               ? user.email
               : identityLoading
@@ -825,14 +557,17 @@ export default function ChatShell() {
                 : "Not signed in"}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        {/* flex-wrap: "New conversation" + "Forget what you know about me" +
+            the sync indicator don't fit in one unbroken row under ~500px --
+            they used to clip past the edge of the screen instead of wrapping. */}
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {/* GOA-038. Two different things, deliberately worded apart: one
               starts a new thread and keeps what the assistant knows about you,
               the other deletes it. */}
           <button
             type="button"
             onClick={handleNewConversation}
-            className="text-xs px-3 py-1.5 rounded-full border border-[#E8ECE7] text-[#0D3820] hover:bg-[#F2F5F1] transition-colors"
+            className="text-xs px-3 py-1.5 rounded-full border border-border text-brand-fg hover:bg-canvas-subtle transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted"
           >
             New conversation
           </button>
@@ -841,19 +576,21 @@ export default function ChatShell() {
             onClick={handleForgetMe}
             disabled={forgetting}
             title="Delete your saved profile facts and stored conversations"
-            className="text-xs px-3 py-1.5 rounded-full border border-[#E8ECE7] text-[#8A3324] hover:bg-[#FBF1EF] transition-colors disabled:opacity-50"
+            className="text-xs px-3 py-1.5 rounded-full border border-border text-danger-fg hover:bg-danger-subtle transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger-border disabled:opacity-50"
           >
             {forgetting ? "Deleting…" : "Forget what you know about me"}
           </button>
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-xs text-[#526053]">Sync Ready</span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-success animate-pulse" aria-hidden="true" />
+            <span className="text-xs text-fg-muted">Sync Ready</span>
+          </span>
         </div>
       </motion.div>
 
       {memoryNotice && (
         <div
           role="status"
-          className="px-8 py-2 text-xs text-[#0D3820] bg-[#F2F5F1] border-b border-[#E8ECE7]"
+          className="px-8 py-2 text-xs text-brand-fg bg-canvas-subtle border-b border-border"
         >
           {memoryNotice}
         </div>
@@ -864,9 +601,13 @@ export default function ChatShell() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.4, delay: 0.1 }}
-        className="flex-1 overflow-y-auto px-8 py-6"
+        className="flex-1 overflow-y-auto px-4 sm:px-8 py-6"
       >
-        <MessageList messages={messages} isTyping={isTyping} />
+        <MessageList
+          messages={messages}
+          isTyping={isTyping}
+          userInitials={userInitials}
+        />
       </motion.section>
 
       {/* Inputs Wrapper */}
@@ -874,76 +615,29 @@ export default function ChatShell() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.15, ease: "easeOut" }}
-        className="border-t border-[#E8ECE7] bg-white px-8 py-4"
+        className="border-t border-border bg-surface px-4 sm:px-8 py-4"
       >
-        <SpeakingSessionPanel
-          open={speakingOpen}
-          transcript={liveTranscript}
-          state={speakingState}
-          error={speakingError}
-          audioStream={audioStream}
-          sessionKey={speakingSessionKey}
-          disabledReason={
-            activePractice === "writing"
-              ? "Finish the current Writing session before starting Speaking Practice."
-              : undefined
-          }
-          onStart={startSpeaking}
-          onStop={stopSpeaking}
-          onClose={() => {
-            clearTranscriptionTimeout();
-            recorderRef.current?.stop();
-            setAudioStream(null);
-            setSpeakingOpen(false);
-            setSpeakingState("idle");
-            setLiveTranscript("");
-            setSpeakingError(null);
-          }}
-        />
         {profileStatus === "error" && (
-          <div className="mb-3">
-            <InlineAlert
-              title="Couldn't load your profile"
-              description={
-                profileError ??
-                "Chat will keep using a placeholder identity until this is retried."
-              }
-              onRetry={retryProfile}
-            />
-          </div>
+          <Alert
+            tone="danger"
+            title="Couldn't load your profile"
+            className="mb-3"
+            actions={
+              <Button variant="secondary" size="sm" leadingIcon={RotateCcw} onClick={retryProfile}>
+                Try again
+              </Button>
+            }
+          >
+            {profileError ??
+              "Chat will keep using a placeholder identity until this is retried."}
+          </Alert>
         )}
-        {chatMode === "chat" ? (
-          <ChatInput
-            onSendMessage={handleSendMessage}
-            onOpenSpeaking={() => setSpeakingOpen(true)}
-            onOpenWriting={() => setChatMode("writing")}
-            activePractice={activePractice}
-            disabled={identityLoading}
-          />
-        ) : (
-          <div className="space-y-4">
-            <EssayComposer
-              loading={writingLoading}
-              onSubmit={handleEssaySubmit}
-              onCancel={() => {
-                setChatMode("chat");
-                setWritingError(null);
-              }}
-            />
-
-            <WritingEvaluationPanel
-              evaluations={writingEvaluations}
-              overallBand={writingOverallBand}
-              loading={writingLoading}
-              inlineIssues={inlineIssues}
-              essayText={submittedEssay}
-              improvedEssay={improvedEssay}
-              isPaidTier={isPaidTier}
-              error={writingError}
-            />
-          </div>
-        )}
-        <div className="text-center text-[11px] text-[#A2ADA3] mt-2">
+        <ChatInput
+          onSendMessage={handleSendMessage}
+          disabled={identityLoading}
+          sending={isSending}
+        />
+        <div className="text-center text-[11px] text-fg-subtle mt-2">
           GOA can make mistakes. Verify university requirements before applying.
         </div>
       </motion.section>

@@ -12,15 +12,22 @@ export default function TypingIndicator() {
       className="flex gap-4 justify-start"
     >
       {/* Assistant Avatar */}
-      <div className="w-8 h-8 rounded-full bg-[#0E3D23] flex items-center justify-center text-white text-xs font-semibold shrink-0">
+      <div
+        className="w-8 h-8 rounded-full bg-brand flex items-center justify-center text-fg-on-brand text-xs font-semibold shrink-0"
+        aria-hidden="true"
+      >
         G
       </div>
 
       {/* Bubble */}
-      <div className="bg-white border border-[#EBEFEA] rounded-2xl rounded-tl-none px-4 py-3 shadow-sm">
-        <div className="flex items-center gap-1.5">
+      <div
+        className="bg-surface border border-border rounded-2xl rounded-tl-none px-4 py-3 shadow-sm"
+        role="status"
+        aria-label="GOA is typing a reply"
+      >
+        <div className="flex items-center gap-1.5" aria-hidden="true">
           <motion.span
-            className="w-2 h-2 rounded-full bg-emerald-500"
+            className="w-2 h-2 rounded-full bg-brand"
             animate={{ y: [0, -4, 0] }}
             transition={{
               repeat: Infinity,
@@ -29,7 +36,7 @@ export default function TypingIndicator() {
             }}
           />
           <motion.span
-            className="w-2 h-2 rounded-full bg-emerald-500"
+            className="w-2 h-2 rounded-full bg-brand"
             animate={{ y: [0, -4, 0] }}
             transition={{
               repeat: Infinity,
@@ -38,7 +45,7 @@ export default function TypingIndicator() {
             }}
           />
           <motion.span
-            className="w-2 h-2 rounded-full bg-emerald-500"
+            className="w-2 h-2 rounded-full bg-brand"
             animate={{ y: [0, -4, 0] }}
             transition={{
               repeat: Infinity,

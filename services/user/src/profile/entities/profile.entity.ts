@@ -1,5 +1,6 @@
 import { Entity, Column, OneToOne, JoinColumn, PrimaryColumn } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
+import { numericTransformer } from '../../common/database/numeric.transformer';
 
 @Entity('user_profiles')
 export class UserProfile {
@@ -10,10 +11,25 @@ export class UserProfile {
   @Column({ nullable: true })
   degreeLevel: string;
 
-  @Column({ type: 'decimal', precision: 3, scale: 2, nullable: true })
+  // transformer: `numeric` arrives from the driver as a string. Without it these
+  // two properties are typed `number` and are not one at runtime — see
+  // common/database/numeric.transformer.ts.
+  @Column({
+    type: 'decimal',
+    precision: 3,
+    scale: 2,
+    nullable: true,
+    transformer: numericTransformer,
+  })
   gpa: number;
 
-  @Column({ type: 'decimal', precision: 2, scale: 1, nullable: true })
+  @Column({
+    type: 'decimal',
+    precision: 2,
+    scale: 1,
+    nullable: true,
+    transformer: numericTransformer,
+  })
   ieltsScore: number;
 
   // maps to text[] in PostgreSQL for native array storage

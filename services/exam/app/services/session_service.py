@@ -5,6 +5,7 @@ from uuid import UUID, uuid4
 
 from fastapi import HTTPException, status
 
+from app.core.exam_observability import record_exam_completion
 from app.core.metrics import (
     goa_writing_exam_task1_evaluation_ms,
     goa_writing_exam_task2_evaluation_ms,
@@ -178,6 +179,16 @@ class SessionService:
         await self.session_repository.submit(session_id)
         await self.session_repository.mark_scored(session_id)
 
+        record_exam_completion(
+            session_id=session_id,
+            user_id=session["user_id"],
+            skill_area=session["skill_area"],
+            exam_type=session["exam_type"],
+            band_score=grading["band_score"],
+            duration_s=self.timer_service.elapsed_seconds(session["started_at"]),
+            question_bank_ref=question.get("book_ref"),
+        )
+
         return {
             "session_id": session_id,
             "status": "submitted",
@@ -335,6 +346,16 @@ class SessionService:
         await self.session_repository.submit(session_id)
         await self.session_repository.mark_scored(session_id)
 
+        record_exam_completion(
+            session_id=session_id,
+            user_id=session["user_id"],
+            skill_area="reading",
+            exam_type=session["exam_type"],
+            band_score=grading["band_score"],
+            duration_s=self.timer_service.elapsed_seconds(session["started_at"]),
+            question_bank_ref=question.get("book_ref"),
+        )
+
         return grading
 
     async def create_listening_session(
@@ -468,6 +489,17 @@ class SessionService:
         )
         await self.session_repository.submit(session_id)
         await self.session_repository.mark_scored(session_id)
+
+        record_exam_completion(
+            session_id=session_id,
+            user_id=session["user_id"],
+            skill_area="listening",
+            exam_type=session["exam_type"],
+            band_score=grading["band_score"],
+            duration_s=self.timer_service.elapsed_seconds(session["started_at"]),
+            question_bank_ref=question.get("book_ref"),
+        )
+
         return grading
 
     def _time_limit_for(self, skill_area: str) -> int:
@@ -634,6 +666,20 @@ class SessionService:
             await self.session_repository.submit(session_id)
             await self.session_repository.mark_scored(session_id)
 
+            overall_band = self._writing_overall_band(responses)
+            question = await self.question_repository.get_by_id(
+                session["question_id"]
+            )
+            record_exam_completion(
+                session_id=session_id,
+                user_id=session["user_id"],
+                skill_area="writing",
+                exam_type=session["exam_type"],
+                band_score=overall_band,
+                duration_s=self.timer_service.elapsed_seconds(session["started_at"]),
+                question_bank_ref=question.get("book_ref") if question else None,
+            )
+
         return {
             "session_id": session_id,
             "task_number": request.task_number,
@@ -750,8 +796,7 @@ class SessionService:
 
         band_task1 = tasks.get(1, {}).get("evaluation", {}).get("overall_band", 0.0)
         band_task2 = tasks.get(2, {}).get("evaluation", {}).get("overall_band", 0.0)
-        # IELTS weighting: Task 2 counts twice Task 1. Confirm this is what you want.
-        overall_band = round((band_task1 + 2 * band_task2) / 3 * 2) / 2  # nearest 0.5
+        overall_band = self._weight_writing_bands(band_task1, band_task2)
 
         return {
             "session_id": session_id,
@@ -760,3 +805,20 @@ class SessionService:
             "overall_band": overall_band,
             "tasks": tasks,
         }
+
+    def _weight_writing_bands(self, band_task1: float, band_task2: float) -> float:
+        # IELTS weighting: Task 2 counts twice Task 1, rounded to nearest 0.5.
+        return round((band_task1 + 2 * band_task2) / 3 * 2) / 2
+
+    def _writing_overall_band(self, responses: list[Any]) -> float:
+        """Overall writing band from the two stored task evaluations.
+
+        Shares ``_weight_writing_bands`` with ``_get_writing_result`` so the
+        completion log and the result endpoint never disagree.
+        """
+
+        bands: dict[int, float] = {}
+        for r in responses:
+            evaluation = self._decode_json(r["evaluation_result"]) or {}
+            bands[r["task_number"]] = evaluation.get("overall_band", 0.0)
+        return self._weight_writing_bands(bands.get(1, 0.0), bands.get(2, 0.0))

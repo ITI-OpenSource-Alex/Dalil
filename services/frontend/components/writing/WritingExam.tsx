@@ -230,7 +230,7 @@ export default function WritingExam({
       <div
         role="tablist"
         aria-label="Writing tasks"
-        className="mb-4 flex gap-1 border-b border-gray-200"
+        className="mb-4 flex gap-1 border-b border-border"
       >
         {([1, 2] as const).map((taskNumber) => {
           const active = taskNumber === activeTask;
@@ -244,13 +244,13 @@ export default function WritingExam({
               aria-selected={active}
               data-testid={`writing-task-tab-${taskNumber}`}
               onClick={() => setActiveTask(taskNumber)}
-              className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold transition ${
+              className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted ${
                 active
-                  ? "border-b-2 border-emerald-700 text-emerald-800"
-                  : "text-gray-500 hover:text-gray-800"
+                  ? "border-b-2 border-brand text-brand-fg"
+                  : "text-fg-subtle hover:text-fg-muted"
               }`}
             >
-              {done && <CheckCircle2 size={13} className="text-emerald-600" />}
+              {done && <CheckCircle2 size={13} className="text-success-fg" aria-hidden="true" />}
               Task {taskNumber}
             </button>
           );

@@ -3,14 +3,34 @@
 import Link from "next/link";
 import { ArrowRight, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { authApi, apiErrorMessage } from "@/lib/api";
 import { getMyProfile } from "@/lib/profile-api";
 import { isProfileComplete } from "@/app/types/profile";
 import { Alert, Button, Field, Icon, Input } from "@/components/ui";
 
+/**
+ * Where to go after a successful sign-in, when middleware.ts bounced the user
+ * here from a protected route.
+ *
+ * Rejects anything that is not a path-absolute, same-origin destination. The
+ * value comes from the query string, so `//evil.example` — which the URL parser
+ * happily treats as a host — would otherwise turn the login page into an open
+ * redirect, the most convincing kind of phishing hop because the victim really
+ * did start on this domain. The same check lives in middleware.ts for the
+ * already-signed-in case; both sides have to hold it.
+ */
+export function safeRedirectTarget(raw: string | null): string | null {
+  if (!raw) return null;
+  if (!raw.startsWith("/")) return null;
+  if (raw.startsWith("//") || raw.startsWith("/\\")) return null;
+  return raw;
+}
+
 export default function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = safeRedirectTarget(searchParams.get("redirectUrl"));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -32,9 +52,17 @@ export default function LoginForm() {
       // rather than blocking a successful login.
       try {
         const me = await getMyProfile();
-        router.push(isProfileComplete(me.profile) ? "/chat" : "/onboarding");
+        // A destination the user actually asked for wins over both defaults --
+        // being bounced to /chat after signing in to reach /opportunities is
+        // the whole reason middleware.ts passes redirectUrl along. Onboarding
+        // still wins for an unfinished profile: sending someone to a matching
+        // page with nothing to match on is a worse landing than the wizard.
+        const destination = isProfileComplete(me.profile)
+          ? (redirectTo ?? "/chat")
+          : "/onboarding";
+        router.push(destination);
       } catch {
-        router.push("/chat");
+        router.push(redirectTo ?? "/chat");
       }
     } catch (err) {
       // Surfaces the backend's own message where it has one (e.g. an

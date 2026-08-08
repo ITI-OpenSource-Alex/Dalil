@@ -1,4 +1,4 @@
-import { test, expect, Page, Route } from "@playwright/test";
+import { test, expect, Page, Route } from "./fixtures/auth";
 import {
   READING_PASSAGES,
   READING_QUESTIONS,

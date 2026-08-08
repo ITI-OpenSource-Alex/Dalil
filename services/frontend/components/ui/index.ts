@@ -8,8 +8,8 @@
  * Text, Icon, Spinner, Skeleton, Progress, EmptyState. Marketing pages built
  * from these ship zero client JS.
  *
- * Client-only (hooks or Radix): Field, Input, Textarea, Select, Checkbox,
- * Radio, Switch, Modal, Tabs, Tooltip.
+ * Client-only (hooks or Radix): Field, Input, Textarea, Select, Combobox,
+ * Checkbox, Radio, Switch, Modal, Tabs, Tooltip.
  *
  * Token reference: docs/DESIGN-TOKENS.md
  */
@@ -69,6 +69,13 @@ export {
   CONTROL_INVALID,
 } from "./input";
 export type { InputProps, TextareaProps, SelectProps, InputSize } from "./input";
+
+export { Combobox, MultiCombobox, filterOptions } from "./combobox";
+export type {
+  ComboboxOption,
+  ComboboxProps,
+  MultiComboboxProps,
+} from "./combobox";
 
 export { Checkbox } from "./checkbox";
 export type { CheckboxProps } from "./checkbox";

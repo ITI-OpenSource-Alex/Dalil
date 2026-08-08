@@ -1001,6 +1001,121 @@
         },
         "overrides": []
       }
+    },
+    {
+      "id": 25,
+      "type": "row",
+      "title": "Exam observability (GOA-066)",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 67
+      }
+    },
+    {
+      "id": 26,
+      "type": "timeseries",
+      "title": "Exam band score distribution p50 / p90 by skill",
+      "description": "Percentiles of graded band scores from goa_exam_score_distribution. A drifting median is a scoring or cohort change, not necessarily a bug.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 68
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le, skill_area) (rate(goa_exam_score_distribution_bucket[1h])))",
+          "legendFormat": "{{skill_area}} p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.90, sum by (le, skill_area) (rate(goa_exam_score_distribution_bucket[1h])))",
+          "legendFormat": "{{skill_area}} p90",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "max": 9,
+          "decimals": 1,
+          "custom": {
+            "fillOpacity": 0,
+            "showPoints": "auto",
+            "lineWidth": 2
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 27,
+      "type": "timeseries",
+      "title": "Question bank size by skill / exam type",
+      "description": "goa_question_bank_size gauge, refreshed on startup and on every /question-bank/stats call. An unexpected drop means the bank shrank — alarm-worthy.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 68
+      },
+      "targets": [
+        {
+          "expr": "goa_question_bank_size",
+          "legendFormat": "{{skill_area}} / {{exam_type}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "custom": {
+            "fillOpacity": 10,
+            "showPoints": "auto",
+            "lineWidth": 2
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
     }
   ]
 }

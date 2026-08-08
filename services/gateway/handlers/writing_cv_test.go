@@ -85,6 +85,52 @@ func newCVUploadRequest(t *testing.T) *http.Request {
 	return request
 }
 
+func TestLatestCVUsesAuthenticatedUserID(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/cv/latest" {
+			t.Fatalf("unexpected upstream path %q", r.URL.Path)
+		}
+		if got := r.URL.Query().Get("userId"); got != "user-123" {
+			t.Fatalf("expected authenticated user ID, got %q", got)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"cvId":1,"s3Key":"cvs/user-123/resume.pdf","originalFilename":"resume.pdf","status":"ready","uploadedAt":"2026-01-01T00:00:00Z"}`))
+	}))
+	defer upstream.Close()
+
+	handler := NewWritingHandler(upstream.Client(), nil, upstream.URL)
+	app := fiber.New()
+	app.Use(func(c *fiber.Ctx) error {
+		c.Locals(middleware.ContextKeyUserID, "user-123")
+		return c.Next()
+	})
+	app.Get("/cv/latest", handler.LatestCV)
+
+	response, err := app.Test(httptest.NewRequest(http.MethodGet, "/cv/latest", nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", response.StatusCode)
+	}
+}
+
+func TestLatestCVUnauthenticatedReturns401(t *testing.T) {
+	handler := NewWritingHandler(http.DefaultClient, nil, "http://unused")
+	app := fiber.New()
+	app.Get("/cv/latest", handler.LatestCV)
+
+	response, err := app.Test(httptest.NewRequest(http.MethodGet, "/cv/latest", nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", response.StatusCode)
+	}
+}
+
 func TestReviewCVInjectsAuthenticatedUserAndForwardsSSE(t *testing.T) {
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/cv/review" {

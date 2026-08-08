@@ -309,12 +309,33 @@ async def chat_endpoint(request: ChatRequest, req: Request):
             
         except Exception as e:
             status = "error"
-            logger.error("Error in chat event generator", error=str(e))
+            # The exception is logged in full, with the correlation id that ties
+            # it to this request -- and is NOT put on the wire.
+            #
+            # This used to yield f"Internal supervisor error: {str(e)}", and the
+            # frontend rendered whatever arrived straight into the chat bubble.
+            # str(e) on an httpx error carries the internal service URL; on an
+            # asyncpg error, the query; on a Pydantic ValidationError, the whole
+            # model schema. All of it went to the user, in a chat window, as
+            # though it were an answer. Anyone debugging has the log and the
+            # correlation id; the reader has neither the context to interpret it
+            # nor anything to do about it.
+            logger.error(
+                "Error in chat event generator",
+                error=str(e),
+                error_type=type(e).__name__,
+                correlation_id=correlation_id,
+                user_id=request.userId,
+                exc_info=True,
+            )
             yield ServerSentEvent(
                 event="error",
                 data=ChatStreamEvent(
                     type="error",
-                    error=f"Internal supervisor error: {str(e)}"
+                    error=(
+                        "Something went wrong while generating that response. "
+                        "Please try again."
+                    ),
                 ).model_dump_json()
             )
         finally:
@@ -356,8 +377,17 @@ async def session_history_endpoint(sessionId: str):
             
         return formatted
     except Exception as e:
-        logger.error("Failed to load session history", session_id=sessionId, error=str(e))
+        # Same reasoning as the stream's error path above: the detail reaches
+        # the browser, so it says what happened and not which internal call
+        # raised what.
+        logger.error(
+            "Failed to load session history",
+            session_id=sessionId,
+            error=str(e),
+            error_type=type(e).__name__,
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to load session history: {str(e)}"
+            detail="Failed to load session history."
         )

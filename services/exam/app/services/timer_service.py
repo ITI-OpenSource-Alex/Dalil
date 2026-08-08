@@ -12,6 +12,9 @@ class TimerService:
         elapsed_seconds = self._elapsed_seconds(started_at)
         return elapsed_seconds > limit_seconds + self.GRACE_PERIOD_SECONDS
 
+    def elapsed_seconds(self, started_at: datetime) -> float:
+        return self._elapsed_seconds(started_at)
+
     def _elapsed_seconds(self, started_at: datetime) -> float:
         started_at_utc = self._as_utc(started_at)
         return (datetime.now(timezone.utc) - started_at_utc).total_seconds()

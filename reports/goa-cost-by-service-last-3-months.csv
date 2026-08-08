@@ -1,0 +1,123 @@
+Date,Service,UnblendedCost_USD
+2026-06-29,AWS Data Transfer,-0.0000
+2026-06-29,Amazon Simple Storage Service,0.0000
+2026-06-30,AWS Data Transfer,-0.0000
+2026-06-30,Amazon Simple Storage Service,0.0000
+2026-07-01,AWS Data Transfer,-0.0000
+2026-07-01,Amazon Simple Storage Service,0.0000
+2026-07-04,AWS CloudShell,0.0000
+2026-07-04,AWS Data Transfer,-0.0000
+2026-07-04,EC2 - Other,-0.0000
+2026-07-05,AWS Data Transfer,-0.0000
+2026-07-05,EC2 - Other,-0.0000
+2026-07-05,Amazon Simple Storage Service,0.0000
+2026-07-06,AWS Data Transfer,-0.0000
+2026-07-06,Amazon Simple Storage Service,0.0000
+2026-07-07,AWS Data Transfer,-0.0000
+2026-07-07,EC2 - Other,0.0000
+2026-07-08,AWS Data Transfer,-0.0000
+2026-07-08,EC2 - Other,0.0000
+2026-07-09,AWS Data Transfer,-0.0000
+2026-07-09,EC2 - Other,0.0000
+2026-07-10,AWS Data Transfer,-0.0000
+2026-07-10,EC2 - Other,0.0000
+2026-07-11,AWS Data Transfer,-0.0000
+2026-07-11,EC2 - Other,0.0000
+2026-07-12,AWS Data Transfer,-0.0000
+2026-07-12,EC2 - Other,0.0000
+2026-07-13,AWS Data Transfer,-0.0000
+2026-07-13,EC2 - Other,0.0000
+2026-07-14,AWS Data Transfer,-0.0000
+2026-07-14,EC2 - Other,0.0000
+2026-07-15,AWS Data Transfer,-0.0000
+2026-07-15,EC2 - Other,0.0000
+2026-07-16,AWS Data Transfer,-0.0000
+2026-07-16,EC2 - Other,0.0000
+2026-07-16,Amazon Simple Storage Service,0.0000
+2026-07-17,AWS Data Transfer,-0.0000
+2026-07-17,EC2 - Other,0.0000
+2026-07-18,AWS Data Transfer,-0.0000
+2026-07-18,EC2 - Other,0.0000
+2026-07-19,EC2 - Other,-0.0000
+2026-07-21,AWS CloudShell,0.0000
+2026-07-21,AWS Data Transfer,-0.0000
+2026-07-21,Amazon Simple Storage Service,0.0000
+2026-07-22,AWS Data Transfer,-0.0000
+2026-07-22,AWS Secrets Manager,0.0000
+2026-07-22,Amazon EC2 Container Registry (ECR),0.0000
+2026-07-22,EC2 - Other,0.0000
+2026-07-22,Amazon Elastic Container Service,-0.0000
+2026-07-22,Amazon Elastic Load Balancing,0.0000
+2026-07-22,Amazon Relational Database Service,0.0000
+2026-07-23,AWS Data Transfer,-0.0000
+2026-07-23,EC2 - Other,0.0000
+2026-07-23,Amazon Elastic Container Service,0.0000
+2026-07-23,Amazon Elastic Load Balancing,0.0000
+2026-07-23,Amazon Relational Database Service,0.0000
+2026-07-23,Amazon Simple Storage Service,-0.0000
+2026-07-24,AWS Data Transfer,-0.0000
+2026-07-24,Amazon Relational Database Service,0.0000
+2026-07-24,Amazon Simple Storage Service,0.0000
+2026-07-25,Amazon Relational Database Service,0.0000
+2026-07-25,Amazon Simple Storage Service,-0.0000
+2026-07-26,AWS Data Transfer,-0.0000
+2026-07-26,Amazon Relational Database Service,0.0000
+2026-07-26,Amazon Simple Storage Service,0.0000
+2026-07-27,AWS Data Transfer,-0.0000
+2026-07-27,Amazon Relational Database Service,0.0000
+2026-07-27,Amazon Simple Storage Service,0.0000
+2026-07-28,AWS Data Transfer,-0.0000
+2026-07-28,AWS Secrets Manager,0.0000
+2026-07-28,Amazon EC2 Container Registry (ECR),0.0000
+2026-07-28,EC2 - Other,0.0000
+2026-07-28,Amazon Elastic Container Service,0.0000
+2026-07-28,Amazon Elastic Load Balancing,0.0000
+2026-07-28,Amazon Relational Database Service,0.0000
+2026-07-28,Amazon Simple Storage Service,0.0000
+2026-07-29,AWS Data Transfer,-0.0000
+2026-07-29,Amazon EC2 Container Registry (ECR),-0.0000
+2026-07-29,EC2 - Other,0.0000
+2026-07-29,Amazon Elastic Load Balancing,0.0000
+2026-07-29,Amazon Relational Database Service,0.0000
+2026-07-30,AWS Data Transfer,-0.0000
+2026-07-30,Amazon EC2 Container Registry (ECR),-0.0000
+2026-07-30,EC2 - Other,0.0000
+2026-07-30,Amazon Elastic Load Balancing,0.0000
+2026-07-30,Amazon Relational Database Service,0.0000
+2026-07-30,Amazon Simple Storage Service,0.0000
+2026-07-31,AWS Data Transfer,-0.0000
+2026-07-31,Amazon EC2 Container Registry (ECR),-0.0000
+2026-07-31,EC2 - Other,0.0000
+2026-07-31,Amazon Elastic Load Balancing,0.0000
+2026-07-31,Amazon Relational Database Service,0.0000
+2026-08-01,AWS Data Transfer,-0.0000
+2026-08-01,AWS Secrets Manager,0.0000
+2026-08-01,Amazon EC2 Container Registry (ECR),-0.0000
+2026-08-01,EC2 - Other,0.0000
+2026-08-01,Amazon Elastic Load Balancing,0.0000
+2026-08-01,Amazon Relational Database Service,0.0000
+2026-08-02,AWS Data Transfer,-0.0000
+2026-08-02,AWS Secrets Manager,0.0000
+2026-08-02,AWS WAF,-0.0000
+2026-08-02,Amazon EC2 Container Registry (ECR),-0.0000
+2026-08-02,Amazon Elastic Load Balancing,0.0000
+2026-08-02,Amazon Relational Database Service,-0.0000
+2026-08-02,Amazon Simple Storage Service,0.0000
+2026-08-03,AWS Data Transfer,-0.0000
+2026-08-03,AWS WAF,-0.0000
+2026-08-03,Amazon EC2 Container Registry (ECR),-0.0000
+2026-08-03,EC2 - Other,0.0000
+2026-08-03,Amazon Elastic Load Balancing,0.0000
+2026-08-03,Amazon Simple Storage Service,-0.0000
+2026-08-04,AWS Data Transfer,-0.0000
+2026-08-04,AWS WAF,-0.0000
+2026-08-04,Amazon EC2 Container Registry (ECR),-0.0000
+2026-08-04,EC2 - Other,0.0000
+2026-08-04,Amazon Elastic Load Balancing,0.0000
+2026-08-04,Amazon Simple Storage Service,0.0000
+2026-08-05,AWS Data Transfer,-0.0000
+2026-08-05,AWS Secrets Manager,-0.0000
+2026-08-05,Amazon EC2 Container Registry (ECR),-0.0000
+2026-08-05,EC2 - Other,0.0000
+2026-08-05,Amazon Elastic Load Balancing,0.0000
+2026-08-05,Amazon Simple Storage Service,-0.0000

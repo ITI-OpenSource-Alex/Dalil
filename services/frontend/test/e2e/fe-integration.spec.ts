@@ -1,6 +1,14 @@
 import { test, expect } from "@playwright/test";
+import { clearAuthCookie, seedAuthCookie } from "./fixtures/auth";
 
 test.describe("Frontend E2E & Browser Integration Tests (FE-01 to FE-06)", () => {
+  // These specs drive protected routes (/chat, /onboarding, /exam) which
+  // middleware.ts now guards on the access_token cookie. Seeded here rather
+  // than via the fixture's `test`, because FE-01 deliberately starts signed
+  // OUT to assert the login page renders -- a cookie would bounce it to /chat.
+  test.beforeEach(async ({ page }) => {
+    await seedAuthCookie(page);
+  });
 
   /**
    * FE-01: Visit /, /login, complete the onboarding wizard -> All pages render, wizard reaches /chat
@@ -8,6 +16,11 @@ test.describe("Frontend E2E & Browser Integration Tests (FE-01 to FE-06)", () =>
   test("FE-01: Visit landing page, login, and complete onboarding wizard to reach /chat", async ({
     page,
   }) => {
+    // Steps 1 and 2 are the signed-out experience: /login redirects a
+    // cookie-bearing visitor straight into the app, so the session seeded in
+    // beforeEach has to go before we can assert the form renders at all.
+    await clearAuthCookie(page);
+
     // 1. Visit Landing Page
     await page.goto("/");
     await expect(page.locator("nav")).toBeVisible();
@@ -16,6 +29,10 @@ test.describe("Frontend E2E & Browser Integration Tests (FE-01 to FE-06)", () =>
     await page.goto("/login");
     await expect(page.locator("#login-email")).toBeVisible();
     await expect(page.locator("#login-password")).toBeVisible();
+
+    // From here the test is exercising an authenticated wizard, which is what
+    // a real user reaches only after signing in.
+    await seedAuthCookie(page);
 
     // 3. Complete Onboarding Wizard Step 1: Academic
     // Skipping this wizard now persists via PUT /api/profile (Phase 3); mocked
@@ -43,22 +60,22 @@ test.describe("Frontend E2E & Browser Integration Tests (FE-01 to FE-06)", () =>
 
     // Step 3: Targets
     await expect(page.getByRole("heading", { name: "Where do you want to study?" })).toBeVisible();
-    // Country toggles are labelled checkboxes, not buttons -- and carry no
-    // emoji flag glyph, which does not reliably render on Windows (the same
-    // fix already applied to the landing page's hero demo in Phase 2).
-    await page.click('label:has-text("Germany")');
+    // Destinations are a searchable multi-select now, not six fixed
+    // checkboxes -- and they store the full country NAME, which is what RAG
+    // filters programmes on. Typing plus Enter commits the highlighted option.
+    await page.getByLabel("Destination countries").fill("Germany");
+    await page.getByRole("option", { name: "Germany" }).first().click();
     await page.selectOption('select[name="targetDegree"]', "Masters");
     await page.fill('input[name="targetMajor"]', "Data Science");
     await page.selectOption('select[name="targetIntake"]', "Fall 2026");
     await page.click('button[type="submit"]');
 
-    // Step 4: CV Upload -> Skip step
-    await expect(page.locator("text=Upload your latest CV")).toBeVisible();
-    await page.click('button:has-text("Skip step")');
-
-    // Wizard reaches /chat
-    await expect(page).toHaveURL(/\/chat/);
-    await expect(page.locator("h1")).toContainText("GOA Assistant");
+    // Wizard reaches /dashboard -- the whole point of completing it (Phase E,
+    // docs/IA-REDESIGN-PROPOSAL.md; previously a temporary redirect to
+    // /opportunities stood in for the Dashboard page before it existed).
+    // Onboarding is 3 steps (Phase C removed the CV upload step; CV upload
+    // now belongs to its own /cv-review page, built in Phase E).
+    await expect(page).toHaveURL(/\/dashboard/, { timeout: 5000 });
   });
 
   /**
@@ -98,68 +115,14 @@ test.describe("Frontend E2E & Browser Integration Tests (FE-01 to FE-06)", () =>
     await expect(assistantBubble).toContainText("Hello world, how can I assist you today?");
   });
 
-  /**
-   * FE-03: Upload a CV via onboarding UI -> Progress bar -> Processing... -> Ready state with filename
-   */
-  test("FE-03: CV upload displays real upload progress and a completion status", async ({
-    page,
-  }) => {
-    // The CV step now performs a real POST /api/writing/cv/upload (Phase 3
-    // fix -- it previously faked progress and success client-side and never
-    // called the network at all). Mocked here with an artificial delay so the
-    // uploading state is observable without a live Writing service.
-    await page.route("**/api/writing/cv/upload", async (route) => {
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      await route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
-    });
-    await page.route("**/api/profile", (route) =>
-      route.fulfill({ status: 200, contentType: "application/json", body: "{}" }),
-    );
-
-    // Navigate directly to Onboarding Step 4
-    await page.goto("/onboarding");
-    await page.selectOption('select[name="degree"]', "Bachelors");
-    await page.fill('input[name="major"]', "CS");
-    await page.fill('input[name="university"]', "MIT");
-    await page.fill('input[name="gradYear"]', "2025");
-    await page.fill('input[name="gpa"]', "4.0");
-    await page.fill('input[name="ECTScred"]', "180");
-    await page.click('button[type="submit"]');
-
-    await page.click('label:has-text("Not yet")');
-    await page.click('label:has-text("Not sure yet")');
-    await page.click('button[type="submit"]');
-
-    await page.click('label:has-text("Germany")');
-    await page.selectOption('select[name="targetDegree"]', "Masters");
-    await page.fill('input[name="targetMajor"]', "AI");
-    await page.selectOption('select[name="targetIntake"]', "Fall 2026");
-    await page.click('button[type="submit"]');
-
-    // On Step 4: Drop/select file
-    await expect(page.locator("text=Upload your latest CV")).toBeVisible();
-
-    const fileChooserPromise = page.waitForEvent("filechooser");
-    await page.click('button:has-text("Browse files")');
-    const fileChooser = await fileChooserPromise;
-
-    await fileChooser.setFiles({
-      name: "sample_cv.pdf",
-      mimeType: "application/pdf",
-      buffer: Buffer.from("%PDF-1.4 sample pdf content"),
-    });
-
-    // 1. Uploading state
-    await expect(page.locator("text=sample_cv.pdf")).toBeVisible();
-    await expect(page.locator("text=Uploading document to secure storage")).toBeVisible();
-
-    // 2. Uploaded state
-    await expect(page.locator("text=Uploaded successfully")).toBeVisible({ timeout: 5000 });
-
-    // 3. Finish persists the profile and reaches /chat
-    await page.click('button:has-text("Finish")');
-    await expect(page).toHaveURL(/\/chat/, { timeout: 5000 });
-  });
+  // FE-03 (CV upload displays real upload progress and a completion status,
+  // exercised from inside the onboarding wizard) is retired rather than
+  // rewritten: Phase C removed the CV upload step from onboarding entirely,
+  // and Phase E's /cv-review page (see cv-review.spec.ts) is a different
+  // screen with its own dedicated coverage, not a like-for-like replacement
+  // of this specific test. FE-04 through FE-06 keep their existing numbers
+  // rather than being renumbered, consistent with retiring a ticket number
+  // instead of reusing it.
 
   /**
    * FE-04: Navigate to /exam, select each of the 4 skills -> Exam shell loads correctly for all 4
@@ -228,7 +191,15 @@ test.describe("Frontend E2E & Browser Integration Tests (FE-01 to FE-06)", () =>
   });
 
   /**
-   * FE-05: Start a Speaking session from the UI -> Mic permission requested, live transcript/waveform updates
+   * FE-05: Deep-link from Chat into Speaking Practice -> Mic permission
+   * requested, live transcript/waveform updates.
+   *
+   * Phase D (docs/IA-REDESIGN-PROPOSAL.md): Speaking Practice moved out of
+   * Chat onto its own page. Chat's mic icon is now a plain deep link to
+   * /practice/speaking rather than an inline toggle, so this test's job
+   * changed from "does the inline panel open" to "does the link land on a
+   * working Speaking Practice page" -- the rest (start, transcript, Stop
+   * once genuinely connected) is unchanged.
    */
   test("FE-05: Speaking interface opens, grants mic permission, and displays live transcript panel", async ({
     page,
@@ -236,12 +207,8 @@ test.describe("Frontend E2E & Browser Integration Tests (FE-01 to FE-06)", () =>
     request,
   }) => {
     // The Stop button only replaces Start once the speaking WebSocket is
-    // genuinely connected. Reaching that state needs (a) a speaking_url SSE
-    // frame, which Orchestration only emits for SPEAKING-classified messages
-    // — an LLM call that needs an Anthropic key this environment lacks — and
-    // (b) a real Speaking Service to connect to. So stub only the
-    // classification hop, exactly as speaking-system.spec.ts does, and skip
-    // when the Speaking Service itself isn't up.
+    // genuinely connected, which needs a real Speaking Service. Skip when it
+    // isn't up, exactly as speaking-system.spec.ts does.
     //
     // This previously asserted Stop was visible immediately on click, which
     // only held because startSpeaking() used to set state to "listening"
@@ -260,30 +227,20 @@ test.describe("Frontend E2E & Browser Integration Tests (FE-01 to FE-06)", () =>
       `Speaking service not reachable at ${speakingServiceURL} — FE-05 needs a live WebSocket handshake.`,
     );
 
-    await page.route("**/api/chat", async (route) => {
-      const sse =
-        `event: metadata\n` +
-        `data: ${JSON.stringify({ type: "metadata", intent: "SPEAKING", confidence: 0.99 })}\n\n` +
-        `event: speaking_url\n` +
-        `data: ${JSON.stringify({ type: "speaking_url", wsUrl: "ws://localhost:8080/api/speaking/ws" })}\n\n`;
-      await route.fulfill({
-        status: 200,
-        contentType: "text/event-stream",
-        body: sse,
-      });
-    });
-
     // Grant microphone permissions
     await context.grantPermissions(["microphone"]);
 
     await page.goto("/chat");
 
-    // Click Speaking Practice button
-    const speakingBtn = page.getByTitle("Speaking Practice");
-    await expect(speakingBtn).toBeVisible();
-    await speakingBtn.click();
+    // Click Speaking Practice — a deep link into Practice now, not an inline
+    // toggle.
+    const speakingLink = page.getByTitle("Speaking Practice");
+    await expect(speakingLink).toBeVisible();
+    await speakingLink.click();
 
-    // Speaking panel opens
+    await expect(page).toHaveURL(/\/practice\/speaking/);
+
+    // Speaking panel is mounted on load.
     const speakingPanel = page.getByTestId("speaking-panel");
     await expect(speakingPanel).toBeVisible();
 

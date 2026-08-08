@@ -35,6 +35,7 @@ const MUST_BE_SERVER_RENDERABLE = [
 const CLIENT_BY_DESIGN = [
   "field.tsx", // useId
   "input.tsx", // consumes Field context
+  "combobox.tsx", // useState/useEffect for the listbox, consumes Field context
   "checkbox.tsx", // useRef/useEffect for indeterminate
   "radio.tsx",
   "switch.tsx",

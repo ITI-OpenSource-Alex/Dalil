@@ -1,4 +1,4 @@
-from prometheus_client import Counter, Histogram
+from prometheus_client import Counter, Gauge, Histogram
 
 
 goa_speaking_exam_evaluations_total = Counter(
@@ -71,6 +71,19 @@ goa_exam_grading_latency_ms = Histogram(
     "Grading latency in milliseconds",
     labelnames=["skill_area"],
     buckets=(10, 50, 100, 250, 500),
+)
+
+goa_exam_score_distribution = Histogram(
+    "goa_exam_score_distribution",
+    "Exam band score distribution by skill area and exam type",
+    labelnames=["skill_area", "exam_type"],
+    buckets=(4.0, 5.0, 6.0, 7.0, 8.0, 9.0),
+)
+
+goa_question_bank_size = Gauge(
+    "goa_question_bank_size",
+    "Number of questions in the bank by skill area and exam type",
+    labelnames=["skill_area", "exam_type"],
 )
 
 goa_exam_history_requests_total = Counter(

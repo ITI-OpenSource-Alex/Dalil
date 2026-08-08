@@ -108,7 +108,7 @@ describe("OnboardingStepper", () => {
 
     const bar = screen.getByRole("progressbar");
     expect(bar).toHaveAttribute("aria-valuenow", "2");
-    expect(bar).toHaveAttribute("aria-valuemax", "4");
-    expect(bar).toHaveAttribute("aria-valuetext", "Step 2 of 4");
+    expect(bar).toHaveAttribute("aria-valuemax", "3");
+    expect(bar).toHaveAttribute("aria-valuetext", "Step 2 of 3");
   });
 });

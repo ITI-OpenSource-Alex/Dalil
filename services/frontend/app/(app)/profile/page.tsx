@@ -6,6 +6,7 @@ import { useCurrentUser } from "@/app/hooks/useCurrentUser";
 import { isProfileComplete } from "@/app/types/profile";
 import { DEFAULT_UPGRADE_URL } from "@/lib/subscription";
 import { ProfileForm } from "@/components/profile/profile-form";
+import { CvUploadPanel } from "@/components/cv/cv-upload-panel";
 import Skeleton from "@/components/ui/skeleton";
 import {
   Alert,
@@ -122,6 +123,19 @@ export default function ProfilePage() {
               }}
             />
           </Card>
+
+          <section className="space-y-3">
+            <div>
+              <Heading as="h2" size="sm">
+                CV
+              </Heading>
+              <Text size="sm" tone="muted" className="mt-1">
+                Upload or replace your CV here. AI review stays on the CV Review
+                page.
+              </Text>
+            </div>
+            <CvUploadPanel showReviewLink />
+          </section>
         </div>
       )}
     </PageContainer>

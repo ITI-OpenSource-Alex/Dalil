@@ -123,9 +123,9 @@ export type MatchTone = "strong" | "possible" | "stretch" | "blocked";
 
 export function matchTone(program: MatchedProgram): MatchTone {
   if (program.result.blocked_by) return "blocked";
-  if (program.result.score >= 65) return "strong";
-  if (program.result.score >= 45) return "possible";
-  return "stretch";
+  if (program.result.score > 80) return "strong"; // green
+  if (program.result.score >= 60) return "possible"; // amber (60–80 inclusive of 60)
+  return "stretch"; // red <60
 }
 
 export const MATCH_TONE_LABEL: Record<MatchTone, string> = {

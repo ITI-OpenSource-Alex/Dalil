@@ -21,17 +21,20 @@ import {
 } from "@/lib/opportunities-api";
 import { Badge, Button, Card, Icon, Text } from "@/components/ui";
 
-const TONE_BADGE: Record<MatchTone, "success" | "brand" | "warning" | "neutral"> = {
+const TONE_BADGE: Record<
+  MatchTone,
+  "success" | "warning" | "danger" | "neutral"
+> = {
   strong: "success",
-  possible: "brand",
-  stretch: "warning",
+  possible: "warning",
+  stretch: "danger",
   blocked: "neutral",
 };
 
 const TONE_BAR: Record<MatchTone, string> = {
   strong: "bg-success",
-  possible: "bg-brand",
-  stretch: "bg-warning",
+  possible: "bg-warning",
+  stretch: "bg-danger",
   blocked: "bg-fg-subtle",
 };
 

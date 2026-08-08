@@ -78,8 +78,23 @@ func (c *Client) StreamCompletion(ctx context.Context, systemPrompt, userPrompt 
 	start := time.Now()
 	var firstTokenTime time.Time
 	params := anthropic.MessageNewParams{
-		Model:     anthropic.Model(c.model),
-		MaxTokens: 1024,
+		Model: anthropic.Model(c.model),
+		// 1024 was chosen when a response was a small JSON object and nothing
+		// else. It predates the model emitting an extended-thinking block first.
+		//
+		// On a full-length transcript the thinking alone reaches the cap, the
+		// response stops before any text is produced, and the agent receives
+		// stop_reason="max_tokens" with content_blocks=[thinking] and no JSON to
+		// parse. Every criterion then fails. SPEAK-EVAL-007's first benchmark run
+		// hit this on all 28 agent calls -- four dead agents on every item -- and
+		// the exam path, which concatenates all three parts into one transcript,
+		// is the production path with the same shape.
+		//
+		// The budget has to cover thinking AND the answer, so it is sized for the
+		// sum rather than for the answer alone. The agents return a band, a
+		// paragraph and a few citations, so the headroom is only spent when the
+		// model actually reasons at length; an unused ceiling costs nothing.
+		MaxTokens: 4096,
 		System: []anthropic.TextBlockParam{
 			{
 				Text: systemPrompt,

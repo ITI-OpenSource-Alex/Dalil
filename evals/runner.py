@@ -19,6 +19,11 @@ from evals.judge import (
     judge_evaluation,
     judge_all,
 )
+from evals.speaking.manifest.validate import (
+    gating_items as speaking_gating_items,
+    load_manifest as load_speaking_manifest,
+    validate as validate_speaking_manifest,
+)
 
 class RagItem(BaseModel):
     question: str
@@ -394,16 +399,66 @@ def run_scoring_eval(data: dict) -> dict:
 
 
 def run_speaking_eval(data: dict) -> dict:
-    reason = (
-        "not measured: the available speaking rows contain synthetic transcripts "
-        "but no audio, while the production Gateway WebSocket requires binary PCM "
-        "audio; fabricating acoustic evidence would make the score invalid"
-    )
-    print(f"Warning: Speaking accuracy {reason}.")
+    """Report what the governed dataset can currently support.
+
+    SPEAK-EVAL-004 makes the reason for the missing number checkable rather than
+    asserted. The manifest is the authority on which items may contribute to a
+    published figure; if it says none may, the run says so and names the count,
+    instead of a hardcoded sentence that would keep printing unchanged after the
+    dataset was fixed.
+
+    The scoring lanes that will consume `gating` land in SPEAK-EVAL-007.
+    """
+    manifest_problems: list[str] = []
+    gating_count = None
+    quarantined_count = None
+
+    try:
+        manifest = load_speaking_manifest()
+        gating_count = len(speaking_gating_items(manifest))
+        quarantined_count = len(manifest.get("items", [])) - gating_count
+        manifest_problems = [str(p) for p in validate_speaking_manifest(manifest)]
+    except Exception as exc:  # a missing or unreadable manifest is itself a finding
+        manifest_problems = [f"manifest could not be read: {type(exc).__name__}: {exc}"]
+
+    if manifest_problems:
+        # Governance failures are not a reason to publish a number with a caveat.
+        # They are a reason to publish no number.
+        reason = (
+            f"not measured: the speaking dataset manifest has "
+            f"{len(manifest_problems)} governance problem(s)"
+        )
+        print(f"Warning: Speaking accuracy {reason}.")
+        for problem in manifest_problems:
+            print(f"  {problem}")
+    elif not gating_count:
+        reason = (
+            f"not measured: {quarantined_count} speaking item(s) are registered and "
+            f"none is cleared to gate. The existing rows are model-written "
+            f"transcripts with model-assigned bands and no audio, so a number "
+            f"computed over them would measure agreement with a model rather than "
+            f"accuracy. Authorised, human-banded audio enters via SPEAK-EVAL-004/005"
+        )
+        print(f"Warning: Speaking accuracy {reason}.")
+    else:
+        reason = (
+            f"not measured: {gating_count} item(s) are cleared to gate, but the "
+            f"speaking scoring lanes are not implemented yet (SPEAK-EVAL-007)"
+        )
+        print(f"Warning: Speaking accuracy {reason}.")
+
     return {
         "speaking_accuracy": None,
         "speaking_reason": reason,
         "speaking_pipeline_exercised": False,
+        # Counts rather than prose, so a reader can tell an empty dataset from a
+        # quarantined one, and so the day the quarantine empties is visible in the
+        # report instead of needing someone to notice.
+        "speaking_manifest": {
+            "gating_items": gating_count,
+            "quarantined_items": quarantined_count,
+            "governance_problems": manifest_problems,
+        },
     }
 
 

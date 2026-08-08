@@ -1,0 +1,704 @@
+{
+  "manifest_version": "speaking-dataset-manifest/v1",
+  "description": "SPEAK-EVAL-004. Source governance for speaking evaluation items. An item may only contribute to a gating metric if this manifest says it may.",
+  "splits": {
+    "quarantine": {
+      "gating": false,
+      "purpose": "Items that exist but must not influence any published number. Nothing here can gate, by construction."
+    },
+    "smoke": {
+      "gating": true,
+      "purpose": "The small authorised set the speaking lanes run against in CI."
+    },
+    "dev": {
+      "gating": false,
+      "purpose": "Items used while iterating on prompts and thresholds. Non-gating so that tuning against them cannot become tuning against the gate."
+    },
+    "test": {
+      "gating": true,
+      "purpose": "Held out. Read for a release decision, never for iteration."
+    }
+  },
+  "items": [
+    {
+      "item_id": "s-01",
+      "candidate_id": "synthetic-01",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Band 5.0 overall; slow speech rate, simple sentences, basic vocabulary.",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 5.0,
+        "criteria": {
+          "fluency_coherence": 5.0,
+          "lexical_resource": 5.0,
+          "grammatical_range": 5.0,
+          "pronunciation": 5.0
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "s-02",
+      "candidate_id": "synthetic-02",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Band 5.5 overall; willing to speak at length, minor grammatical errors.",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 5.5,
+        "criteria": {
+          "fluency_coherence": 6.0,
+          "lexical_resource": 5.5,
+          "grammatical_range": 5.0,
+          "pronunciation": 5.5
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "s-03",
+      "candidate_id": "synthetic-03",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Band 5.5 overall; adequate vocabulary for familiar topics, simple grammar structures.",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 5.5,
+        "criteria": {
+          "fluency_coherence": 5.5,
+          "lexical_resource": 5.5,
+          "grammatical_range": 5.5,
+          "pronunciation": 5.5
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "s-04",
+      "candidate_id": "synthetic-04",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Band 5.5 overall; clear communication of main ideas, frequent small structural slips.",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 5.5,
+        "criteria": {
+          "fluency_coherence": 5.5,
+          "lexical_resource": 5.5,
+          "grammatical_range": 5.5,
+          "pronunciation": 5.5
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "s-05",
+      "candidate_id": "synthetic-05",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Band 6.0 overall; speaks at length, coherent discourse, clear pronunciation.",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 6.0,
+        "criteria": {
+          "fluency_coherence": 6.0,
+          "lexical_resource": 6.0,
+          "grammatical_range": 6.0,
+          "pronunciation": 6.0
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "s-06",
+      "candidate_id": "synthetic-06",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Band 6.0 overall; good range of environmental vocabulary, clear logical markers.",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 6.0,
+        "criteria": {
+          "fluency_coherence": 6.0,
+          "lexical_resource": 6.5,
+          "grammatical_range": 6.0,
+          "pronunciation": 5.5
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "s-07",
+      "candidate_id": "synthetic-07",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Band 6.0 overall; fluent delivery, contrast markers used effectively.",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 6.0,
+        "criteria": {
+          "fluency_coherence": 6.5,
+          "lexical_resource": 6.0,
+          "grammatical_range": 5.5,
+          "pronunciation": 6.0
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "s-08",
+      "candidate_id": "synthetic-08",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Band 6.0 overall; clear expression of career goals, appropriate technical terms.",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 6.0,
+        "criteria": {
+          "fluency_coherence": 6.0,
+          "lexical_resource": 6.0,
+          "grammatical_range": 6.0,
+          "pronunciation": 6.0
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "s-09",
+      "candidate_id": "synthetic-09",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Band 6.5 overall; fluent narrative, good range of vocabulary, natural intonation.",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 6.5,
+        "criteria": {
+          "fluency_coherence": 6.5,
+          "lexical_resource": 6.5,
+          "grammatical_range": 6.5,
+          "pronunciation": 6.5
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "s-10",
+      "candidate_id": "synthetic-10",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Band 6.5 overall; strong vocabulary range (democratized, curated, nuance), good discourse control.",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 6.5,
+        "criteria": {
+          "fluency_coherence": 6.5,
+          "lexical_resource": 7.0,
+          "grammatical_range": 6.5,
+          "pronunciation": 6.0
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "s-11",
+      "candidate_id": "synthetic-11",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Band 6.5 overall; sophisticated topic collocations (contemplative space, sensory experience).",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 6.5,
+        "criteria": {
+          "fluency_coherence": 6.5,
+          "lexical_resource": 6.5,
+          "grammatical_range": 6.5,
+          "pronunciation": 6.5
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "s-12",
+      "candidate_id": "synthetic-12",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Band 6.5 overall; fluent delivery without hesitation, good grammatical range.",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 6.5,
+        "criteria": {
+          "fluency_coherence": 7.0,
+          "lexical_resource": 6.5,
+          "grammatical_range": 6.5,
+          "pronunciation": 6.0
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "s-13",
+      "candidate_id": "synthetic-13",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Band 7.0 overall; fluent, flexible discourse, precise vocabulary, clear pronunciation.",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 7.0,
+        "criteria": {
+          "fluency_coherence": 7.0,
+          "lexical_resource": 7.0,
+          "grammatical_range": 7.0,
+          "pronunciation": 7.0
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "s-14",
+      "candidate_id": "synthetic-14",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Band 7.0 overall; advanced vocabulary (dynamic adjustment, robust cybersecurity), coherent ideas.",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 7.0,
+        "criteria": {
+          "fluency_coherence": 7.0,
+          "lexical_resource": 7.5,
+          "grammatical_range": 7.0,
+          "pronunciation": 6.5
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "s-15",
+      "candidate_id": "synthetic-15",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Band 7.0 overall; balanced arguments, natural use of idiomatic expressions (double-edged sword).",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 7.0,
+        "criteria": {
+          "fluency_coherence": 7.0,
+          "lexical_resource": 7.0,
+          "grammatical_range": 7.0,
+          "pronunciation": 7.0
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "s-16",
+      "candidate_id": "synthetic-16",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Band 7.5 overall; highly sophisticated vocabulary, complex grammar, effortless fluency.",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 7.5,
+        "criteria": {
+          "fluency_coherence": 7.5,
+          "lexical_resource": 8.0,
+          "grammatical_range": 7.5,
+          "pronunciation": 7.0
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "s-17",
+      "candidate_id": "synthetic-17",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Band 7.5 overall; seamless flow, natural discourse markers, rich vocabulary.",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 7.5,
+        "criteria": {
+          "fluency_coherence": 8.0,
+          "lexical_resource": 7.5,
+          "grammatical_range": 7.5,
+          "pronunciation": 7.0
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "s-18",
+      "candidate_id": "synthetic-18",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Band 8.0 overall; authoritative tone, effortless fluency, precise academic vocabulary.",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 8.0,
+        "criteria": {
+          "fluency_coherence": 8.0,
+          "lexical_resource": 8.0,
+          "grammatical_range": 8.0,
+          "pronunciation": 8.0
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "s-19",
+      "candidate_id": "synthetic-19",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Hard case: Fluent speech with rapid flow and zero hesitation (FC 8.0), but frequent basic tense/grammatical errors (GRA 5.0) and mispronunciations (PR 5.0), resulting in an overall Band 6.0.",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 6.0,
+        "criteria": {
+          "fluency_coherence": 8.0,
+          "lexical_resource": 6.5,
+          "grammatical_range": 5.0,
+          "pronunciation": 5.0
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "s-20",
+      "candidate_id": "synthetic-20",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Hard case: Noticeable hesitation and slow speaking rate with pauses (FC 5.5), but exceptional vocabulary precision (LR 8.5), advanced grammatical structures (GRA 8.0), and pristine pronunciation (PR 8.5), averaging Band 7.0.",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 7.0,
+        "criteria": {
+          "fluency_coherence": 5.5,
+          "lexical_resource": 8.5,
+          "grammatical_range": 8.0,
+          "pronunciation": 8.5
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    }
+  ]
+}

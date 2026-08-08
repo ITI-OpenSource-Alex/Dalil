@@ -80,6 +80,33 @@ export function formatBand(value: number): string {
 }
 
 /**
+ * The same one-decimal rendering, for a band that arrived over HTTP.
+ *
+ * `formatBand` takes the number its type says it takes. This takes whatever
+ * the API actually sent, because that is a boundary this app does not own:
+ * `ieltsScore` is a Postgres `numeric`, and node-postgres returns those as
+ * strings unless the owning service converts them (it now does — see
+ * services/user/src/common/database/numeric.transformer.ts). Calling
+ * `.toFixed(1)` on the string crashed the profile page, and the declared type
+ * `number | null` gave no warning because the lie started in the database
+ * driver.
+ *
+ * Returns null for anything that is not a finite number, so callers render
+ * "—" instead of "NaN" — which is also the honest answer for a band nobody
+ * has entered yet.
+ */
+export function formatBandValue(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+
+  const band = typeof value === "number" ? value : Number(String(value).trim());
+  // Number("") is 0, so an empty string would render as a band of 0.0 rather
+  // than as "not answered".
+  if (typeof value === "string" && value.trim() === "") return null;
+
+  return Number.isFinite(band) ? band.toFixed(1) : null;
+}
+
+/**
  * A short, plain description of what a band means, used as inline guidance so
  * a candidate can sanity-check the number they just entered.
  */

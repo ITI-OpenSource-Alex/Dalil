@@ -13,6 +13,7 @@ describe('UsersController', () => {
     register: jest.fn(),
     findAllPaginated: jest.fn(),
     findSubscription: jest.fn(),
+    updateSubscription: jest.fn(),
     deleteAccount: jest.fn(),
     exportUserData: jest.fn(),
   };
@@ -100,6 +101,35 @@ describe('UsersController', () => {
       const guards = Reflect.getMetadata(
         GUARDS_METADATA,
         controller.findSubscription,
+      );
+
+      expect(guards).toContain(InternalAuthGuard);
+    });
+  });
+
+  // GOA-039
+  describe('updateSubscription', () => {
+    it('delegates the tier change to the service', async () => {
+      mockUsersService.updateSubscription.mockResolvedValue({
+        subscriptionTier: 'paid',
+      });
+
+      await expect(
+        controller.updateSubscription('user-123', { tier: 'paid' }),
+      ).resolves.toEqual({ subscriptionTier: 'paid' });
+
+      expect(service.updateSubscription).toHaveBeenCalledWith(
+        'user-123',
+        'paid',
+      );
+    });
+
+    it('is protected by InternalAuthGuard', () => {
+      // This is the one route in the product that can hand out paid access.
+      // A user session must never be sufficient to reach it.
+      const guards = Reflect.getMetadata(
+        GUARDS_METADATA,
+        controller.updateSubscription,
       );
 
       expect(guards).toContain(InternalAuthGuard);

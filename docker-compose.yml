@@ -28,7 +28,10 @@ services:
       - SPEAKING_SERVICE_URL=http://speaking:8082
       - RAG_SERVICE_URL=http://rag:8084
       - OPPORTUNITY_SEARCHES_PER_HOUR=${OPPORTUNITY_SEARCHES_PER_HOUR:-20}
-      - SUBSCRIPTION_UPGRADE_URL=${SUBSCRIPTION_UPGRADE_URL:-http://localhost:3000/upgrade}
+      # Relative on purpose (GOA-039): the frontend's upgrade dialog treats an
+      # absolute value as an external billing host and opens it in a new tab.
+      # /upgrade, the previous default, is not a route that exists.
+      - SUBSCRIPTION_UPGRADE_URL=${SUBSCRIPTION_UPGRADE_URL:-/pricing}
       - SUBSCRIPTION_CACHE_TTL=5m
       - EXAM_START_LIMIT_PER_HOUR=3
       - EXAM_OWNERSHIP_CACHE_TTL=5m
@@ -77,8 +80,19 @@ services:
       # per-service SQS subscriber queues.
       - USER_EVENTS_TOPIC_ARN=arn:aws:sns:us-east-1:000000000000:user-events
 
+      # The Gateway's Redis, deliberately: this service writes two keys the
+      # Gateway reads -- user_revoked_before:{id} (GOA-083) and, as of
+      # GOA-039, subtier:v1:{id}, which is deleted the moment a payment
+      # upgrades a user so the paywall lifts immediately instead of after
+      # SUBSCRIPTION_CACHE_TTL.
       - REDIS_HOST=redis-gateway
       - REDIS_PORT=6379
+
+      # GOA-039 billing. "demo" simulates the payment locally; there is no
+      # payment provider, no API key and no external callback. The service
+      # refuses to serve billing at all when NODE_ENV=production, because a
+      # demo checkout grants the paid tier without taking money.
+      - BILLING_MODE=${BILLING_MODE:-demo}
 
     volumes:
       - ./services/user:/usr/src/app

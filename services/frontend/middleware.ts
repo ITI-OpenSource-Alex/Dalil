@@ -32,6 +32,12 @@ const PROTECTED_PREFIXES = [
   "/speaking/history",
   "/practice",
   "/cv-review",
+  // GOA-039. /billing/success is where Stripe returns the browser after
+  // checkout; it reads the signed-in user's profile to decide whether the
+  // subscription has activated, so an anonymous visitor there would get the
+  // app shell and a poll that can only ever fail. /pricing is deliberately
+  // NOT here — it has to be readable signed-out.
+  "/billing",
 ];
 
 /** Signed-in users have no business on these; send them into the app instead. */
@@ -104,6 +110,7 @@ export const config = {
     "/onboarding/:path*",
     "/practice/:path*",
     "/cv-review/:path*",
+    "/billing/:path*",
     "/login",
     "/register",
   ],

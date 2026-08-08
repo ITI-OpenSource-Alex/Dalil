@@ -106,7 +106,7 @@ async function gotoReadingExam(page: Page) {
   await expect(page.getByTestId("passage-panel")).toBeVisible();
 }
 
-test.describe("GOA Reading exam (mocked backend)", () => {
+test.describe("Dalil Reading exam (mocked backend)", () => {
   test("starts correctly with the passage and split, independently-scrollable layout", async ({
     page,
   }) => {

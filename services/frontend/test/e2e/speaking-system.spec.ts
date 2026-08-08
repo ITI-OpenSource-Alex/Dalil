@@ -20,7 +20,7 @@ async function isSpeakingServiceReachable(
 // file actually exercises (Start -> direct WebSocket) never went through
 // /api/chat even before this move, so nothing here depended on that mock in
 // the first place.
-test.describe("GOA Speaking Practice", () => {
+test.describe("Dalil Speaking Practice", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/practice/speaking");
   });

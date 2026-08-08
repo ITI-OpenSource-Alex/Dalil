@@ -268,7 +268,7 @@ async function installPausedClock(page: Page) {
   await page.clock.pauseAt(new Date(start.getTime() + 1_000));
 }
 
-test.describe("GOA Listening exam (mocked backend)", () => {
+test.describe("Dalil Listening exam (mocked backend)", () => {
   // First hit of /exam/shell often pays for a cold Next compile; keep headroom
   // above the default 30s so a slow webServer does not flake the suite.
   test.describe.configure({ timeout: 60_000 });

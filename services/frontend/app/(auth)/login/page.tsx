@@ -5,7 +5,7 @@ import LoginForm from "@/components/auth/LoginForm";
 import { AuthCard } from "@/components/auth/auth-card";
 import { Skeleton } from "@/components/ui";
 
-export const metadata: Metadata = { title: "Sign in — GOA" };
+export const metadata: Metadata = { title: "Sign in — Dalil" };
 
 export default function LoginPage() {
   return (
@@ -26,7 +26,7 @@ export default function LoginPage() {
       </Suspense>
 
       <p className="mt-6 text-center text-sm text-fg-muted">
-        New to GOA?{" "}
+        New to Dalil?{" "}
         <Link href="/register" className="font-medium text-brand-fg hover:text-brand-active">
           Create an account
         </Link>

@@ -9,7 +9,7 @@ import { Reveal } from "./reveal";
  * template.
  *
  * This is the slot a testimonial wall would normally occupy. There are no
- * real testimonials for GOA yet, and inventing quotes, names or outcome
+ * real testimonials for Dalil yet, and inventing quotes, names or outcome
  * statistics would be fabricating evidence on the one page whose entire
  * job is trust. So it argues the position instead, which is both honest
  * and, before a product has users, more persuasive than a wall of
@@ -53,7 +53,7 @@ export function Proof() {
 
       <Container>
         <Reveal className="max-w-3xl">
-          <Eyebrow tone="inverse-muted">Why GOA</Eyebrow>
+          <Eyebrow tone="inverse-muted">Why Dalil</Eyebrow>
 
           <Heading
             as="h2"
@@ -68,7 +68,7 @@ export function Proof() {
           <Text size="lg" tone="inverse-muted" className="mt-5">
             They shortlist from ranking tables, guess at their own odds, and
             find out about a missing certified translation three days before
-            the deadline. GOA replaces the guesswork with a computed answer at
+            the deadline. Dalil replaces the guesswork with a computed answer at
             every step.
           </Text>
         </Reveal>

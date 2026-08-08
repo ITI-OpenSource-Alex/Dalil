@@ -280,7 +280,7 @@ export default function OpportunitiesPage() {
                 <Link href="/profile">Adjust your targets</Link>
               </Button>
               <Button variant="secondary" asChild>
-                <Link href="/chat">Ask GOA for advice</Link>
+                <Link href="/chat">Ask Dalil for advice</Link>
               </Button>
             </>
           }

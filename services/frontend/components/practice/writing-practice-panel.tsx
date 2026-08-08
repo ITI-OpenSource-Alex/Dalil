@@ -67,7 +67,7 @@ export default function WritingPracticePanel() {
     streamWritingEvaluation(sseUrl, handleEvent).catch((err) => {
       setLoading(false);
       if (upgrade.handle(err, "essay-evaluation")) {
-        setError("Essay evaluation is part of GOA Pro — see the upgrade details.");
+        setError("Essay evaluation is part of Dalil Pro — see the upgrade details.");
         return;
       }
       console.error(err);
@@ -106,7 +106,7 @@ export default function WritingPracticePanel() {
     } catch (err) {
       setLoading(false);
       if (upgrade.handle(err, "writing-practice")) {
-        setError("Writing Practice is part of GOA Pro — see the upgrade details.");
+        setError("Writing Practice is part of Dalil Pro — see the upgrade details.");
         return;
       }
       console.error(err);

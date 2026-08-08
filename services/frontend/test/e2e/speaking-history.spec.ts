@@ -11,7 +11,7 @@ import { test, expect } from "./fixtures/auth";
 // to be down — depending on real infra state made it pass only by accident
 // when nothing was running, and fail as soon as the service was up.
 
-test.describe("GOA Speaking History", () => {
+test.describe("Dalil Speaking History", () => {
   test("history page shows an error state instead of crashing when the backend is unreachable", async ({
     page,
   }) => {

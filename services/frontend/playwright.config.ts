@@ -41,6 +41,13 @@ export default defineConfig({
         url: baseURL,
         reuseExistingServer: !process.env.CI,
         timeout: 120 * 1000,
+        env: {
+          // GOA-039. The billing flag is off by default because the Gateway
+          // does not serve /api/billing/* yet; the upgrade specs mock those
+          // routes with page.route, so the UI has to offer the action for
+          // them to have anything to intercept.
+          NEXT_PUBLIC_BILLING_ENABLED: "true",
+        },
       },
 });
 

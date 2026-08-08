@@ -23,7 +23,7 @@ export default function TypingIndicator() {
       <div
         className="bg-surface border border-border rounded-2xl rounded-tl-none px-4 py-3 shadow-sm"
         role="status"
-        aria-label="GOA is typing a reply"
+        aria-label="Dalil is typing a reply"
       >
         <div className="flex items-center gap-1.5" aria-hidden="true">
           <motion.span

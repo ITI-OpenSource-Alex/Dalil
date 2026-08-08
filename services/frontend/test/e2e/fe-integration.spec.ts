@@ -104,11 +104,11 @@ test.describe("Frontend E2E & Browser Integration Tests (FE-01 to FE-06)", () =>
     const input = page.getByTestId("chat-input");
     const sendBtn = page.getByTestId("send-message-button");
 
-    await input.fill("Hello GOA!");
+    await input.fill("Hello Dalil!");
     await sendBtn.click();
 
     // User message is displayed
-    await expect(page.getByTestId("user-message").last()).toContainText("Hello GOA!");
+    await expect(page.getByTestId("user-message").last()).toContainText("Hello Dalil!");
 
     // Assistant message streams in
     const assistantBubble = page.getByTestId("assistant-message").last();
@@ -270,7 +270,7 @@ test.describe("Frontend E2E & Browser Integration Tests (FE-01 to FE-06)", () =>
     await page.goto("/chat");
 
     // Verify header, message container, and chat input are visible
-    await expect(page.locator("h1")).toContainText("GOA Assistant");
+    await expect(page.locator("h1")).toContainText("Dalil Assistant");
 
     const input = page.getByTestId("chat-input");
     await expect(input).toBeVisible();

@@ -20,6 +20,7 @@ const testSessionID = "3f2504e0-4f89-11d3-9a0c-0305e82c3301"
 // sessionsMockRepo is a per-call-configurable mock satisfying db.Repository,
 // used to exercise the sessions_handler.go HTTP handlers in isolation.
 type sessionsMockRepo struct {
+	savedExplanations []*db.SpeakingExplanation
 	listByUserFn       func(ctx context.Context, userID string) ([]*db.SpeakingSessionSummary, error)
 	getByIDFn          func(ctx context.Context, id string) (*db.SpeakingSession, error)
 	createShareTokenFn func(ctx context.Context, sessionID string) (string, error)
@@ -358,4 +359,22 @@ func derefBand(v *float64) float64 {
 		return -1 // never a valid IELTS band
 	}
 	return *v
+}
+
+// SPEAK-EVAL-008. Records rather than discards: a test asserting that an
+// explanation was persisted at scoring time needs somewhere to look.
+func (m *sessionsMockRepo) SaveExplanation(ctx context.Context, e *db.SpeakingExplanation) error {
+	m.savedExplanations = append(m.savedExplanations, e)
+	return nil
+}
+
+func (m *sessionsMockRepo) GetExplanation(ctx context.Context, sessionID string) (*db.SpeakingExplanation, error) {
+	for _, e := range m.savedExplanations {
+		if e.SessionID == sessionID {
+			return e, nil
+		}
+	}
+	// (nil, nil) for a session with no stored explanation: history renders the
+	// score alone rather than fabricating one for an old session.
+	return nil, nil
 }

@@ -1,6 +1,10 @@
 package speaking
 
-import "github.com/ITI-OpenSource-Alex/GOA/services/speaking/agents"
+import (
+	"os"
+
+	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/agents"
+)
 
 // SPEAK-EVAL-003 — model identity for provenance.
 //
@@ -44,4 +48,16 @@ func EffectiveLLMModel(client agents.LLMClient) string {
 		return model
 	}
 	return unknownModel
+}
+
+// scorerVersion identifies the build that produced an explanation.
+//
+// Two explanations for the same band are only comparable if this matches. Read
+// from the environment so a container records its own image tag rather than a
+// constant that drifts from whatever is deployed.
+func scorerVersion() string {
+	if v := os.Getenv("GOA_SCORER_VERSION"); v != "" {
+		return v
+	}
+	return "speaking@dev"
 }

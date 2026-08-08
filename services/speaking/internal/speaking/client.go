@@ -14,6 +14,7 @@ import (
 
 	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/agents"
 	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/db"
+	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/internal/contract"
 	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/internal/telemetry"
 	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/langfuse"
 	"github.com/google/uuid"
@@ -717,6 +718,59 @@ func (c *Client) runEvaluationAndTTS(transcript string, transcriptionMs int64, f
 		err := c.dbRepo.Create(detachedCtx, sess)
 		if err != nil {
 			log.Error().Err(err).Str("session_id", c.id).Msg("Non-fatal error: failed to persist session to database")
+			// No explanation without its session: the row has a foreign key to
+			// speaking_sessions, and writing an orphan would fail anyway.
+			return
+		}
+
+		// SPEAK-EVAL-008: the explanation is built and stored HERE, at scoring
+		// time, against the transcript that produced it.
+		//
+		// Building it on read instead would give different text for the same
+		// band on every visit -- the model is not deterministic, prompts change
+		// as they are tuned, and the rubric is versioned. A student told "band 6
+		// because you paused five times" who returns to "band 6 because your
+		// vocabulary was limited" has two reasons for one score.
+		//
+		// This is also the only moment the transcript is in hand to verify quote
+		// offsets against. A later rebuild would have to trust them.
+		canonical := agents.CanonicalizeSwarm(swarmRes, agents.CanonicalMeta{
+			EvaluationID:  c.id,
+			Mode:          contract.ModePractice,
+			CreatedAt:     time.Now().UTC(),
+			ScorerVersion: scorerVersion(),
+			LLMProvider:   "agentrouter",
+			LLMModel:      EffectiveLLMModel(c.llmClient),
+		})
+		renderable := contract.BuildRenderable(canonical, transcript)
+
+		payload, marshalErr := json.Marshal(renderable)
+		if marshalErr != nil {
+			log.Error().Err(marshalErr).Str("session_id", c.id).
+				Msg("Non-fatal error: could not serialise explanation")
+			return
+		}
+
+		claims := 0
+		for _, criterion := range renderable.Criteria {
+			claims += len(criterion.Claims)
+		}
+
+		explanation := &db.SpeakingExplanation{
+			SessionID:     c.id,
+			Renderable:    payload,
+			RubricID:      canonical.Provenance.RubricID,
+			RubricVersion: canonical.Provenance.RubricVersion,
+			RubricSHA256:  canonical.Provenance.RubricSHA256,
+			ScorerVersion: canonical.Provenance.ScorerVersion,
+			LLMModel:      canonical.Provenance.LLMModel,
+			ClaimCount:    claims,
+			WithheldCount: renderable.WithheldCount(),
+			CreatedAt:     time.Now(),
+		}
+		if err := c.dbRepo.SaveExplanation(detachedCtx, explanation); err != nil {
+			log.Error().Err(err).Str("session_id", c.id).
+				Msg("Non-fatal error: failed to persist explanation")
 		}
 	}()
 

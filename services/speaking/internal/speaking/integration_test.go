@@ -48,7 +48,9 @@ func waitForActiveConns(t *testing.T, want int32, within time.Duration) {
 }
 
 // mockDBRepo satisfies db.Repository for testing.
-type mockDBRepo struct{}
+type mockDBRepo struct {
+	savedExplanations []*db.SpeakingExplanation
+}
 
 func (m *mockDBRepo) Create(
 	ctx context.Context,
@@ -453,4 +455,22 @@ func TestLoadConcurrentConnectionsAndLeaks(t *testing.T) {
 			finalGoroutines,
 		)
 	}
+}
+
+// SPEAK-EVAL-008. Records rather than discards: a test asserting that an
+// explanation was persisted at scoring time needs somewhere to look.
+func (m *mockDBRepo) SaveExplanation(ctx context.Context, e *db.SpeakingExplanation) error {
+	m.savedExplanations = append(m.savedExplanations, e)
+	return nil
+}
+
+func (m *mockDBRepo) GetExplanation(ctx context.Context, sessionID string) (*db.SpeakingExplanation, error) {
+	for _, e := range m.savedExplanations {
+		if e.SessionID == sessionID {
+			return e, nil
+		}
+	}
+	// (nil, nil) for a session with no stored explanation: history renders the
+	// score alone rather than fabricating one for an old session.
+	return nil, nil
 }

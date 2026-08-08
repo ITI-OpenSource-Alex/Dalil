@@ -4,25 +4,186 @@
     <meta charset="UTF-8">
     <title>GOA Evaluation Report — {{ report.run_id }}</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 2rem; background: #0f172a; color: #f8fafc; }
-        .card { background: #1e293b; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; border: 1px solid #334155; }
-        h1, h2, h3 { margin-top: 0; }
-        .badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 9999px; font-weight: bold; font-size: 0.875rem; }
-        .badge-pass { background: #15803d; color: #f0fdf4; }
-        .badge-fail { background: #b91c1c; color: #fef2f2; }
-        .badge-unmeasured { background: #475569; color: #f8fafc; }
-        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
-        th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #334155; }
-        th { background: #0f172a; color: #94a3b8; }
-        .accurate { color: #4ade80; font-weight: bold; }
-        .overscored { color: #f87171; font-weight: bold; }
-        .underscored { color: #fbbf24; font-weight: bold; }
-        .error { color: #ef4444; font-weight: bold; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; }
-        .stat-val { font-size: 1.875rem; font-weight: bold; margin-top: 0.5rem; }
-        .accuracy-caveat { margin-top: 0.5rem; padding: 0.75rem; border-left: 4px solid #f59e0b; background: #422006; color: #fef3c7; font-weight: 700; }
-        .muted { color: #94a3b8; }
-        .reason { margin-top: 0.75rem; color: #cbd5e1; }
+        /* GOA design tokens, mirrored from services/frontend/app/globals.css.
+
+           This report used a hardcoded slate palette belonging to no design
+           system, and several pairings failed contrast: #94a3b8 headers on
+           #0f172a, and verdict colours (#4ade80/#f87171/#fbbf24) that are the
+           400-level tints intended for dark backgrounds. The values below are
+           the product's semantic tokens, so the report reads as part of the same
+           product and inherits contrast ratios already validated there.
+
+           Duplicated rather than imported because this file must render as a
+           single self-contained artifact from an S3 bucket or a CI artifact
+           viewer, with no stylesheet fetch. This comment is the link back to the
+           source of truth. */
+        :root {
+            color-scheme: light;
+
+            --color-sage-50:  #fafcfb;
+            --color-sage-100: #f3f6f5;
+            --color-sage-200: #e6ebe8;
+            --color-sage-300: #d0d8d4;
+            --color-sage-400: #9daaa3;
+            --color-sage-600: #57665e;
+            --color-sage-700: #43514a;
+            --color-sage-800: #303b36;
+            --color-sage-900: #1f2824;
+            --color-sage-950: #121714;
+            --color-forest-300: #89d1bc;
+            --color-forest-400: #4fba9a;
+            --color-forest-800: #0d4d3a;
+            --color-forest-950: #07221b;
+
+            --canvas: var(--color-sage-50);
+            --canvas-subtle: var(--color-sage-100);
+            --surface: #ffffff;
+            --border: var(--color-sage-200);
+            --border-strong: var(--color-sage-300);
+
+            /* fg 15.9:1 - fg-muted 8.3:1 - fg-subtle 6.0:1 on surface */
+            --fg: var(--color-sage-900);
+            --fg-muted: var(--color-sage-700);
+            --fg-subtle: var(--color-sage-600);
+
+            --brand: var(--color-forest-800);
+            --brand-fg: var(--color-forest-800);
+
+            --success: #1f7a3d; --success-subtle: #ecf8ef;
+            --success-border: #c3e6cc; --success-fg: #17612f;
+            --warning: #a66a08; --warning-subtle: #fdf6e7;
+            --warning-border: #f2dda9; --warning-fg: #855307;
+            --danger: #b3341f; --danger-subtle: #fdf2f0;
+            --danger-border: #f7d5ce; --danger-fg: #96291a;
+            --info: #1f5fa6; --info-subtle: #eff5fc;
+            --info-border: #c8dcf2; --info-fg: #1a4e88;
+        }
+
+        /* The frontend ships light-only and says why: a half-applied dark mode
+           is worse than none, because only the page background changes while
+           components stay light. A standalone report has no such exposure --
+           every colour it uses is in this file -- so honouring the reader's
+           preference is safe here, and a CI report is often read at night. */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                color-scheme: dark;
+
+                --canvas: var(--color-sage-950);
+                --canvas-subtle: var(--color-sage-900);
+                --surface: var(--color-sage-900);
+                --border: var(--color-sage-800);
+                --border-strong: var(--color-sage-700);
+
+                --fg: var(--color-sage-50);
+                --fg-muted: var(--color-sage-300);
+                --fg-subtle: var(--color-sage-400);
+
+                --brand: var(--color-forest-400);
+                --brand-fg: var(--color-forest-300);
+
+                --success: #3fa45f; --success-subtle: #10241a;
+                --success-border: #1f4a30; --success-fg: #7fd39a;
+                --warning: #d99a2b; --warning-subtle: #2a1d08;
+                --warning-border: #57400f; --warning-fg: #f0c274;
+                --danger: #d9563c; --danger-subtle: #2a1210;
+                --danger-border: #5a2820; --danger-fg: #f0917d;
+                --info: #4a90d9; --info-subtle: #0f1c2a;
+                --info-border: #1f3b57; --info-fg: #8bbcea;
+            }
+        }
+
+        body {
+            font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            margin: 0 auto;
+            max-width: 72rem;
+            padding: 2rem 1.5rem 4rem;
+            background: var(--canvas);
+            color: var(--fg);
+            line-height: 1.55;
+        }
+        h1 { font-size: 1.75rem; letter-spacing: -0.01em; margin: 0 0 1.5rem; }
+        h2, h3 { margin-top: 0; letter-spacing: -0.005em; }
+        h2 { font-size: 1.25rem; }
+        h3 {
+            font-size: 0.8125rem; color: var(--fg-muted); font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.05em;
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .badge {
+            display: inline-block; padding: 0.25rem 0.75rem;
+            border-radius: 9999px; font-weight: 600; font-size: 0.8125rem;
+            border: 1px solid transparent;
+        }
+        /* Tinted rather than solid. A grid of saturated pass/fail pills is
+           harder to scan than tinted ones, and each tinted set carries a
+           validated text-on-tint colour, which the solid pairs did not. */
+        .badge-pass {
+            background: var(--success-subtle); color: var(--success-fg);
+            border-color: var(--success-border);
+        }
+        .badge-fail {
+            background: var(--danger-subtle); color: var(--danger-fg);
+            border-color: var(--danger-border);
+        }
+        .badge-unmeasured {
+            background: var(--canvas-subtle); color: var(--fg-muted);
+            border-color: var(--border-strong);
+        }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.9375rem; }
+        th, td { padding: 0.625rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border); }
+        th {
+            background: var(--canvas-subtle);
+            color: var(--fg-muted);
+            font-weight: 600; font-size: 0.75rem;
+            text-transform: uppercase; letter-spacing: 0.05em;
+            position: sticky; top: 0;
+        }
+        tbody tr:hover { background: var(--canvas-subtle); }
+
+        /* Verdict colours are the status foreground tokens, AA on both surfaces.
+           The previous values were readable on the old dark card and dropped to
+           roughly 2:1 anywhere else. */
+        .accurate { color: var(--success-fg); font-weight: 600; }
+        .overscored { color: var(--danger-fg); font-weight: 600; }
+        .underscored { color: var(--warning-fg); font-weight: 600; }
+        .error { color: var(--danger-fg); font-weight: 600; }
+
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1rem; }
+        .stat-val {
+            font-size: 2rem; font-weight: 700; margin: 0.5rem 0 0.75rem;
+            color: var(--fg); letter-spacing: -0.02em;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .accuracy-caveat {
+            margin-top: 0.75rem; padding: 0.75rem 1rem;
+            border-left: 3px solid var(--warning);
+            background: var(--warning-subtle); color: var(--warning-fg);
+            border-radius: 0 0.375rem 0.375rem 0; font-weight: 600;
+        }
+        .muted { color: var(--fg-subtle); font-size: 0.875rem; }
+        .reason { margin-top: 0.75rem; color: var(--fg-muted); font-size: 0.9375rem; }
+
+        code {
+            font-family: ui-monospace, monospace; font-size: 0.875em;
+            background: var(--canvas-subtle); padding: 0.1em 0.35em;
+            border-radius: 0.25rem;
+        }
+
+        @media print {
+            body { background: #fff; color: #000; max-width: none; }
+            .card { break-inside: avoid; border-color: #ccc; }
+            th { position: static; }
+        }
     </style>
 </head>
 <body>

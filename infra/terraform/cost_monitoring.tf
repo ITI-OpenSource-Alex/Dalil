@@ -49,9 +49,13 @@ resource "aws_budgets_budget" "monthly" {
   limit_unit   = "USD"
   time_unit    = "MONTHLY"
 
+  # NOTE: "$$" only escapes to a literal "$" when NOT immediately followed by
+  # interpolation syntax -- "$${var.x}" renders as the literal text
+  # "${var.x}", not "$" + the interpolated value. format() avoids the
+  # ambiguity and actually substitutes the project name.
   cost_filter {
     name   = "TagKeyValue"
-    values = ["user:Project$${var.project_name}"]
+    values = [format("user:Project$%s", var.project_name)]
   }
 
   notification {

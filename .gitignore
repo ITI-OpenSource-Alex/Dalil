@@ -26,6 +26,7 @@ coverage/
 *.tfstate.backup
 *.tfplan
 *.tfvars
+*.tfvars.json
 !*.tfvars.example
 !infra/terraform/environments/staging.tfvars
 !infra/terraform/environments/production.tfvars

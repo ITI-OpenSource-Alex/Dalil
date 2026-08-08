@@ -7,12 +7,14 @@ A multi-service backend architecture.
 This project uses Docker Compose to run all services locally.
 
 1. **Clone the repository:**
+
    ```bash
    git clone https://github.com/ITI-OpenSource-Alex/GOA.git
    cd GOA
    ```
 
 2. **Set up environment variables:**
+
    ```bash
    cp .env.example .env
    cp services/gateway/.env.example services/gateway/.env
@@ -46,7 +48,7 @@ This project uses Docker Compose to run all services locally.
    make up
    ```
 
-*(Note for Windows users: The Makefile automatically handles MSYS path conversion for Docker volume mounts).*
+_(Note for Windows users: The Makefile automatically handles MSYS path conversion for Docker volume mounts)._
 
 5. **Start the frontend:**
 
@@ -63,6 +65,7 @@ This project uses Docker Compose to run all services locally.
    — `next dev` compiles from the working tree, not from a build artefact.
 
 6. **Verify:**
+
 - Gateway Health: `curl http://localhost:8080/health`
 - Frontend: `http://localhost:3000`
 - Grafana: `http://localhost:3001` (admin/admin)

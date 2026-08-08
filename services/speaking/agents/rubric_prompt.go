@@ -54,7 +54,24 @@ polarity is one of:
 Cite ONLY ids that appear in the list above. An id that is not listed is
 discarded and the citation is lost, so omit the field rather than invent one.
 Prefer at least one "supports" and one "caps_below": a student can act on why
-they did not reach the next band, and cannot act on praise alone.`
+they did not reach the next band, and cannot act on praise alone.
+
+CALIBRATION. Use the whole scale. Award the band whose descriptor the candidate
+actually meets, including 8 and 9 when they meet it.
+
+Band 9 does not mean flawless and band 8 does not mean near-flawless. Read the
+descriptors literally: band 9 permits repetition, self-correction and
+hesitation where these are content-related, and band 8 explicitly allows
+occasional repetition, self-correction and inaccuracy. A strong candidate who
+hesitates while choosing an idea, corrects themselves once, or uses an
+occasional imprecise collocation is displaying band 8 or 9 behaviour, not
+falling short of it.
+
+Do not reserve the top bands for a performance no real candidate produces. A
+score is only useful if it discriminates: if every strong candidate receives 7,
+the score says nothing about them and misleads them about the work required.
+Anchor on the descriptor, not on an impression of how impressive the answer
+was.`
 
 // GroundedSystemPrompt returns a criterion's system prompt with its frozen
 // descriptors and the citation instruction appended.

@@ -256,6 +256,19 @@ func TestIntegrationE2EAudioStreaming(t *testing.T) {
 
 			criteriaSeen[name] = true
 
+			// This session wires no speech service, so the mock path supplies no
+			// prosody. Since SPEAK-EVAL-007 Pronunciation declines without
+			// acoustic evidence rather than guessing from the wording of a
+			// transcript, so it arrives unavailable here -- and that is the
+			// correct outcome, not a regression. A band for a criterion nothing
+			// measured is what cost a real candidate 2.5 bands.
+			if name == "Pronunciation" {
+				if f["timed_out"] != true {
+					t.Errorf("Pronunciation should decline without prosody, got timed_out=%v", f["timed_out"])
+				}
+				continue
+			}
+
 			if f["timed_out"] != false {
 				t.Errorf("criterion %q unexpectedly timed out", name)
 			}
@@ -291,9 +304,12 @@ func TestIntegrationE2EAudioStreaming(t *testing.T) {
 		)
 	}
 
-	if evaluation["completed_count"] != 4.0 {
+	// Three, not four: no speech service means no prosody, so Pronunciation
+	// declines. Still clears MinCriteriaForOverallBand, so an overall band is
+	// still produced.
+	if evaluation["completed_count"] != 3.0 {
 		t.Errorf(
-			"Expected completed_count 4, got %v",
+			"Expected completed_count 3, got %v",
 			evaluation["completed_count"],
 		)
 	}

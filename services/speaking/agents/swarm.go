@@ -20,6 +20,23 @@ const maxAgentErrorChars = 200
 // failing. Callers classify on this exact value, so it is a constant.
 const AgentErrorDeadline = "deadline exceeded"
 
+// AgentErrorInsufficientEvidence marks a criterion that could not be assessed
+// because the evidence it is defined over was never supplied.
+//
+// Distinct from a provider failure and from a deadline, because it is neither:
+// nothing went wrong, and retrying cannot help. The input simply did not
+// contain what this criterion measures.
+//
+// SPEAK-EVAL-007 found why this is needed. Asked to judge Pronunciation from a
+// transcript with no acoustic features, the agent wrote "pronunciation cannot
+// be assessed ... no measured speech features were supplied" -- and returned
+// band 0.0. Band 0.0 is a legal IELTS value, so the contract accepted it as a
+// real score and averaged it in, dragging a band 8 candidate to 5.5. The
+// contract defends against an agent that FAILS; it had no defence against one
+// that succeeds while saying it has no evidence. Refusing before the model is
+// called is the only place that can be closed.
+const AgentErrorInsufficientEvidence = "insufficient evidence"
+
 // errorSummary renders a provider failure as a short, safe breadcrumb.
 func errorSummary(err error) string {
 	if err == nil {

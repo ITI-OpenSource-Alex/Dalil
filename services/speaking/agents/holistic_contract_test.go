@@ -249,7 +249,7 @@ func TestSwarmAndHolisticAgreeOnBandContract(t *testing.T) {
 		sRes, _ := EvaluateSwarm(
 			sCtx,
 			&streamingMatrixMockClient{failCriteria: failFirstN(failures)},
-			"question", "part1", "transcript", nil, nil,
+			"question", "part1", "transcript", testProsody(), nil,
 		)
 		sCancel()
 

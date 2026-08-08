@@ -110,6 +110,10 @@ func classifyOutcome(band float64, timedOut bool, errMsg string) (contract.Crite
 	}
 
 	switch {
+	case errMsg == AgentErrorInsufficientEvidence:
+		// Nothing failed. The input did not contain what this criterion
+		// measures, and no retry changes that.
+		return contract.CriterionUnavailable, nil, contract.ReasonInsufficientEvidence
 	case errMsg == AgentErrorDeadline:
 		return contract.CriterionUnavailable, nil, contract.ReasonDeadlineExceeded
 	case strings.Contains(errMsg, "failed to parse JSON"):

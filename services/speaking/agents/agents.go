@@ -3,6 +3,7 @@ package agents
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -171,5 +172,17 @@ func EvaluateGrammar(ctx context.Context, client LLMClient, questionPrompt, ques
 
 // EvaluatePronunciation evaluates Pronunciation
 func EvaluatePronunciation(ctx context.Context, client LLMClient, questionPrompt, questionType, transcript string, features *ProsodyFeatures) (AgentResult, error) {
+	// GOA-133 established that this criterion reasons from recognition
+	// confidence and pause structure. With no measured features there is no
+	// evidence for it to reason from, so it declines rather than guessing from
+	// the wording of the transcript -- which carries no acoustic information at
+	// all.
+	//
+	// Declining costs the caller one criterion and leaves three, which still
+	// clears MinCriteriaForOverallBand. Guessing cost a band 8 candidate 2.5
+	// bands (SPEAK-EVAL-007).
+	if features == nil {
+		return AgentResult{}, errors.New(AgentErrorInsufficientEvidence)
+	}
 	return evaluateCriterion(ctx, client, "Pronunciation", PronunciationSystemPrompt, questionPrompt, questionType, transcript, features)
 }

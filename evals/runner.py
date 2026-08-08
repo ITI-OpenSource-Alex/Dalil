@@ -399,67 +399,122 @@ def run_scoring_eval(data: dict) -> dict:
 
 
 def run_speaking_eval(data: dict) -> dict:
-    """Report what the governed dataset can currently support.
+    """Report what each lane can currently measure (SPEAK-EVAL-007).
 
-    SPEAK-EVAL-004 makes the reason for the missing number checkable rather than
-    asserted. The manifest is the authority on which items may contribute to a
-    published figure; if it says none may, the run says so and names the count,
-    instead of a hardcoded sentence that would keep printing unchanged after the
-    dataset was fixed.
+    This used to return `None` with a hardcoded sentence. The sentence was
+    honest but frozen: it would have kept printing unchanged after the dataset
+    was fixed. Now each lane is asked what it can run, and says so.
 
-    The scoring lanes that will consume `gating` land in SPEAK-EVAL-007.
+    A lane with no eligible items reports `not_run` with the reason, never a
+    number. The acceptance criterion is that requesting speaking cannot return
+    null while the job passes -- so the structure is always present and always
+    names its state, which is a different thing from always having a score.
     """
-    manifest_problems: list[str] = []
-    gating_count = None
-    quarantined_count = None
+    from evals.speaking.agreement import compute_agreement
+    from evals.speaking.lanes import LANE_SPECS, Lane, eligible_items
 
     try:
         manifest = load_speaking_manifest()
-        gating_count = len(speaking_gating_items(manifest))
-        quarantined_count = len(manifest.get("items", [])) - gating_count
-        manifest_problems = [str(p) for p in validate_speaking_manifest(manifest)]
-    except Exception as exc:  # a missing or unreadable manifest is itself a finding
-        manifest_problems = [f"manifest could not be read: {type(exc).__name__}: {exc}"]
+        governance = [str(p) for p in validate_speaking_manifest(manifest)]
+    except Exception as exc:
+        return {
+            "speaking_accuracy": None,
+            "speaking_reason": (
+                f"not measured: the speaking dataset manifest could not be read "
+                f"({type(exc).__name__}: {exc})"
+            ),
+            "speaking_pipeline_exercised": False,
+            "speaking_lanes": {},
+        }
 
-    if manifest_problems:
-        # Governance failures are not a reason to publish a number with a caveat.
-        # They are a reason to publish no number.
+    lanes: dict[str, dict] = {}
+    for lane, spec in LANE_SPECS.items():
+        items = [] if governance else eligible_items(manifest, lane)
+        entry = {
+            "eligible_items": len(items),
+            "exercises": list(spec.exercises),
+            "requires": sorted(spec.requires),
+            "description": spec.description,
+            "state": "not_run",
+            "accuracy": None,
+            "metrics": None,
+        }
+        if governance:
+            entry["reason"] = (
+                f"the dataset manifest has {len(governance)} governance problem(s); "
+                f"no lane may publish a number over an unsafe dataset"
+            )
+        elif not items:
+            entry["reason"] = (
+                f"no item provides {' and '.join(sorted(spec.requires))}. "
+                f"{_speaking_source_hint(lane)}"
+            )
+        else:
+            # Scoring adapters land with the lane runners. Until then the lane
+            # reports that it HAS work rather than silently reporting nothing --
+            # the two states must not look alike.
+            entry["state"] = "pending_runner"
+            entry["reason"] = (
+                f"{len(items)} eligible item(s); the {lane.value} runner is not "
+                f"wired to the service yet"
+            )
+        lanes[lane.value] = entry
+
+    total_eligible = sum(entry["eligible_items"] for entry in lanes.values())
+    if governance:
         reason = (
-            f"not measured: the speaking dataset manifest has "
-            f"{len(manifest_problems)} governance problem(s)"
+            f"not measured: {len(governance)} dataset governance problem(s) must be "
+            f"resolved before any speaking number can be published"
         )
-        print(f"Warning: Speaking accuracy {reason}.")
-        for problem in manifest_problems:
-            print(f"  {problem}")
-    elif not gating_count:
+    elif total_eligible == 0:
+        quarantined = len(manifest.get("items", []))
         reason = (
-            f"not measured: {quarantined_count} speaking item(s) are registered and "
-            f"none is cleared to gate. The existing rows are model-written "
-            f"transcripts with model-assigned bands and no audio, so a number "
-            f"computed over them would measure agreement with a model rather than "
-            f"accuracy. Authorised, human-banded audio enters via SPEAK-EVAL-004/005"
+            f"not measured: {quarantined} speaking item(s) are registered and none is "
+            f"cleared to gate any lane. The official IELTS samples carry examiner "
+            f"bands but their permission status is unreviewed; the remaining rows are "
+            f"model-written with model-assigned bands"
         )
-        print(f"Warning: Speaking accuracy {reason}.")
     else:
         reason = (
-            f"not measured: {gating_count} item(s) are cleared to gate, but the "
-            f"speaking scoring lanes are not implemented yet (SPEAK-EVAL-007)"
+            f"not measured: {total_eligible} eligible item(s) across "
+            f"{sum(1 for e in lanes.values() if e['eligible_items'])} lane(s), "
+            f"runners not yet wired"
         )
-        print(f"Warning: Speaking accuracy {reason}.")
+
+    print(f"Warning: Speaking accuracy {reason}.")
+    for name, entry in lanes.items():
+        print(f"  {name:<14} {entry['eligible_items']:>3} items  {entry['state']}")
 
     return {
         "speaking_accuracy": None,
         "speaking_reason": reason,
+        # False until a lane that traverses audio actually runs. The scorer lane
+        # alone must never set this true: claiming the pipeline was exercised on
+        # transcript-only evidence is the reporting-layer version of the defect
+        # SPEAK-EVAL-002 fixed in the code.
         "speaking_pipeline_exercised": False,
-        # Counts rather than prose, so a reader can tell an empty dataset from a
-        # quarantined one, and so the day the quarantine empties is visible in the
-        # report instead of needing someone to notice.
+        "speaking_lanes": lanes,
         "speaking_manifest": {
-            "gating_items": gating_count,
-            "quarantined_items": quarantined_count,
-            "governance_problems": manifest_problems,
+            "total_items": len(manifest.get("items", [])),
+            "gating_items": len(speaking_gating_items(manifest)),
+            "governance_problems": governance,
         },
     }
+
+
+def _speaking_source_hint(lane) -> str:
+    """Say what would make this lane runnable, not just that it is not."""
+    from evals.speaking.lanes import Lane
+
+    if lane is Lane.SCORER_ONLY:
+        return (
+            "The official IELTS samples provide transcripts and examiner bands but "
+            "their permission status is `pending`; review the terms to clear them."
+        )
+    return (
+        "No licensed recording has been acquired. Audio lanes need a source with "
+        "both a recording and a human band (SPEAK-EVAL-004 source hierarchy)."
+    )
 
 
 # The writing service and the eval vocabulary disagree on two of the four criterion

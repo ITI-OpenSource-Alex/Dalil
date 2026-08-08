@@ -44,6 +44,9 @@ def _permitted_item(item_id: str, split: str, **overrides) -> dict:
         "candidate_id": f"cand-{item_id}",
         "series_id": f"series-{item_id}",
         "split": split,
+        # What the item provides. Gating keys off this rather than off a blanket
+        # audio requirement -- see the note in check_gating_eligibility.
+        "inputs": ["audio"],
         "source": {
             "kind": "public_recording",
             "origin_url": "https://example.org/ielts-speaking-band-7",
@@ -157,7 +160,7 @@ def test_promoting_a_synthetic_item_to_a_gating_split_is_rejected(real_manifest)
         ({"labels": {"source": "model_generated"}}, "agreement with a"),
         ({"labels": {"source": "none"}}, "agreement with a"),
         ({"labels": {"overall_band": None}}, "no band"),
-        ({"media": {"storage": "none"}}, "no audio"),
+        ({"media": {"storage": "none"}}, "declares audio input but stores no media"),
         ({"media": {"sha256": None}}, "no integrity hash"),
     ],
 )

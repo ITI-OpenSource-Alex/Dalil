@@ -52,6 +52,13 @@
       },
       "retention": {
         "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
       }
     },
     {
@@ -86,6 +93,13 @@
       },
       "retention": {
         "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
       }
     },
     {
@@ -120,6 +134,13 @@
       },
       "retention": {
         "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
       }
     },
     {
@@ -154,6 +175,13 @@
       },
       "retention": {
         "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
       }
     },
     {
@@ -188,6 +216,13 @@
       },
       "retention": {
         "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
       }
     },
     {
@@ -222,6 +257,13 @@
       },
       "retention": {
         "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
       }
     },
     {
@@ -256,6 +298,13 @@
       },
       "retention": {
         "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
       }
     },
     {
@@ -290,6 +339,13 @@
       },
       "retention": {
         "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
       }
     },
     {
@@ -324,6 +380,13 @@
       },
       "retention": {
         "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
       }
     },
     {
@@ -358,6 +421,13 @@
       },
       "retention": {
         "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
       }
     },
     {
@@ -392,6 +462,13 @@
       },
       "retention": {
         "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
       }
     },
     {
@@ -426,6 +503,13 @@
       },
       "retention": {
         "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
       }
     },
     {
@@ -460,6 +544,13 @@
       },
       "retention": {
         "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
       }
     },
     {
@@ -494,6 +585,13 @@
       },
       "retention": {
         "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
       }
     },
     {
@@ -528,6 +626,13 @@
       },
       "retention": {
         "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
       }
     },
     {
@@ -562,6 +667,13 @@
       },
       "retention": {
         "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
       }
     },
     {
@@ -596,6 +708,13 @@
       },
       "retention": {
         "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
       }
     },
     {
@@ -630,6 +749,13 @@
       },
       "retention": {
         "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
       }
     },
     {
@@ -664,6 +790,13 @@
       },
       "retention": {
         "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
       }
     },
     {
@@ -698,6 +831,13 @@
       },
       "retention": {
         "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
       }
     },
     {
@@ -729,6 +869,465 @@
         "source": "none",
         "validated": false,
         "overall_band": null
+      },
+      "retention": {
+        "policy": "indefinite"
+      },
+      "inputs": [
+        "audio"
+      ]
+    },
+    {
+      "item_id": "ielts-official-tina",
+      "candidate_id": "ielts-official-tina",
+      "series_id": "ielts-org-scoring-resources",
+      "split": "quarantine",
+      "notes": "Official IELTS speaking sample, Vietnam, examiner-assigned overall band 5.0. Transcript with examiner commentary; NO audio is published, and no per-criterion bands are given -- the examiner comments on all four criteria in prose but assigns one number. Usable for the scorer-only lane against the overall band; cannot exercise the audio path.",
+      "inputs": [
+        "transcript"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores",
+        "publisher": "IELTS Partners (British Council / IDP / Cambridge)",
+        "retrieved_at": "2026-08-08T00:00:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "pending",
+        "basis": "Publicly published by the IELTS Partners as scoring guidance. The page carries a general copyright notice and states no reuse permission either way. Nobody has reviewed the terms, so this stays `pending` -- which under rule 1 means it cannot gate. Recording it as `granted` would be deciding a rights question by assumption, which is the failure this field exists to prevent.",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "transcript": {
+        "storage": "external"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 5.0,
+        "rating_ref": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores"
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "ielts-official-katsuharu",
+      "candidate_id": "ielts-official-katsuharu",
+      "series_id": "ielts-org-scoring-resources",
+      "split": "quarantine",
+      "notes": "Official IELTS speaking sample, Japan, examiner-assigned overall band 5.0. Transcript with examiner commentary; NO audio is published, and no per-criterion bands are given -- the examiner comments on all four criteria in prose but assigns one number. Usable for the scorer-only lane against the overall band; cannot exercise the audio path.",
+      "inputs": [
+        "transcript"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores",
+        "publisher": "IELTS Partners (British Council / IDP / Cambridge)",
+        "retrieved_at": "2026-08-08T00:00:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "pending",
+        "basis": "Publicly published by the IELTS Partners as scoring guidance. The page carries a general copyright notice and states no reuse permission either way. Nobody has reviewed the terms, so this stays `pending` -- which under rule 1 means it cannot gate. Recording it as `granted` would be deciding a rights question by assumption, which is the failure this field exists to prevent.",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "transcript": {
+        "storage": "external"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 5.0,
+        "rating_ref": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores"
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "ielts-official-stephen",
+      "candidate_id": "ielts-official-stephen",
+      "series_id": "ielts-org-scoring-resources",
+      "split": "quarantine",
+      "notes": "Official IELTS speaking sample, China, examiner-assigned overall band 6.0. Transcript with examiner commentary; NO audio is published, and no per-criterion bands are given -- the examiner comments on all four criteria in prose but assigns one number. Usable for the scorer-only lane against the overall band; cannot exercise the audio path.",
+      "inputs": [
+        "transcript"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores",
+        "publisher": "IELTS Partners (British Council / IDP / Cambridge)",
+        "retrieved_at": "2026-08-08T00:00:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "pending",
+        "basis": "Publicly published by the IELTS Partners as scoring guidance. The page carries a general copyright notice and states no reuse permission either way. Nobody has reviewed the terms, so this stays `pending` -- which under rule 1 means it cannot gate. Recording it as `granted` would be deciding a rights question by assumption, which is the failure this field exists to prevent.",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "transcript": {
+        "storage": "external"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 6.0,
+        "rating_ref": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores"
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "ielts-official-maxim",
+      "candidate_id": "ielts-official-maxim",
+      "series_id": "ielts-org-scoring-resources",
+      "split": "quarantine",
+      "notes": "Official IELTS speaking sample, Russia, examiner-assigned overall band 6.0. Transcript with examiner commentary; NO audio is published, and no per-criterion bands are given -- the examiner comments on all four criteria in prose but assigns one number. Usable for the scorer-only lane against the overall band; cannot exercise the audio path.",
+      "inputs": [
+        "transcript"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores",
+        "publisher": "IELTS Partners (British Council / IDP / Cambridge)",
+        "retrieved_at": "2026-08-08T00:00:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "pending",
+        "basis": "Publicly published by the IELTS Partners as scoring guidance. The page carries a general copyright notice and states no reuse permission either way. Nobody has reviewed the terms, so this stays `pending` -- which under rule 1 means it cannot gate. Recording it as `granted` would be deciding a rights question by assumption, which is the failure this field exists to prevent.",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "transcript": {
+        "storage": "external"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 6.0,
+        "rating_ref": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores"
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "ielts-official-michal",
+      "candidate_id": "ielts-official-michal",
+      "series_id": "ielts-org-scoring-resources",
+      "split": "quarantine",
+      "notes": "Official IELTS speaking sample, Poland, examiner-assigned overall band 6.5. Transcript with examiner commentary; NO audio is published, and no per-criterion bands are given -- the examiner comments on all four criteria in prose but assigns one number. Usable for the scorer-only lane against the overall band; cannot exercise the audio path.",
+      "inputs": [
+        "transcript"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores",
+        "publisher": "IELTS Partners (British Council / IDP / Cambridge)",
+        "retrieved_at": "2026-08-08T00:00:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "pending",
+        "basis": "Publicly published by the IELTS Partners as scoring guidance. The page carries a general copyright notice and states no reuse permission either way. Nobody has reviewed the terms, so this stays `pending` -- which under rule 1 means it cannot gate. Recording it as `granted` would be deciding a rights question by assumption, which is the failure this field exists to prevent.",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "transcript": {
+        "storage": "external"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 6.5,
+        "rating_ref": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores"
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "ielts-official-hendrik",
+      "candidate_id": "ielts-official-hendrik",
+      "series_id": "ielts-org-scoring-resources",
+      "split": "quarantine",
+      "notes": "Official IELTS speaking sample, Germany, examiner-assigned overall band 7.0. Transcript with examiner commentary; NO audio is published, and no per-criterion bands are given -- the examiner comments on all four criteria in prose but assigns one number. Usable for the scorer-only lane against the overall band; cannot exercise the audio path.",
+      "inputs": [
+        "transcript"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores",
+        "publisher": "IELTS Partners (British Council / IDP / Cambridge)",
+        "retrieved_at": "2026-08-08T00:00:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "pending",
+        "basis": "Publicly published by the IELTS Partners as scoring guidance. The page carries a general copyright notice and states no reuse permission either way. Nobody has reviewed the terms, so this stays `pending` -- which under rule 1 means it cannot gate. Recording it as `granted` would be deciding a rights question by assumption, which is the failure this field exists to prevent.",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "transcript": {
+        "storage": "external"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 7.0,
+        "rating_ref": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores"
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "ielts-official-alexandra",
+      "candidate_id": "ielts-official-alexandra",
+      "series_id": "ielts-org-scoring-resources",
+      "split": "quarantine",
+      "notes": "Official IELTS speaking sample, Colombia, examiner-assigned overall band 7.0. Transcript with examiner commentary; NO audio is published, and no per-criterion bands are given -- the examiner comments on all four criteria in prose but assigns one number. Usable for the scorer-only lane against the overall band; cannot exercise the audio path.",
+      "inputs": [
+        "transcript"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores",
+        "publisher": "IELTS Partners (British Council / IDP / Cambridge)",
+        "retrieved_at": "2026-08-08T00:00:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "pending",
+        "basis": "Publicly published by the IELTS Partners as scoring guidance. The page carries a general copyright notice and states no reuse permission either way. Nobody has reviewed the terms, so this stays `pending` -- which under rule 1 means it cannot gate. Recording it as `granted` would be deciding a rights question by assumption, which is the failure this field exists to prevent.",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "transcript": {
+        "storage": "external"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 7.0,
+        "rating_ref": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores"
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "ielts-official-aashish",
+      "candidate_id": "ielts-official-aashish",
+      "series_id": "ielts-org-scoring-resources",
+      "split": "quarantine",
+      "notes": "Official IELTS speaking sample, Nepal, examiner-assigned overall band 7.5. Transcript with examiner commentary; NO audio is published, and no per-criterion bands are given -- the examiner comments on all four criteria in prose but assigns one number. Usable for the scorer-only lane against the overall band; cannot exercise the audio path.",
+      "inputs": [
+        "transcript"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores",
+        "publisher": "IELTS Partners (British Council / IDP / Cambridge)",
+        "retrieved_at": "2026-08-08T00:00:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "pending",
+        "basis": "Publicly published by the IELTS Partners as scoring guidance. The page carries a general copyright notice and states no reuse permission either way. Nobody has reviewed the terms, so this stays `pending` -- which under rule 1 means it cannot gate. Recording it as `granted` would be deciding a rights question by assumption, which is the failure this field exists to prevent.",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "transcript": {
+        "storage": "external"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 7.5,
+        "rating_ref": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores"
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "ielts-official-monika",
+      "candidate_id": "ielts-official-monika",
+      "series_id": "ielts-org-scoring-resources",
+      "split": "quarantine",
+      "notes": "Official IELTS speaking sample, Germany, examiner-assigned overall band 8.0. Transcript with examiner commentary; NO audio is published, and no per-criterion bands are given -- the examiner comments on all four criteria in prose but assigns one number. Usable for the scorer-only lane against the overall band; cannot exercise the audio path.",
+      "inputs": [
+        "transcript"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores",
+        "publisher": "IELTS Partners (British Council / IDP / Cambridge)",
+        "retrieved_at": "2026-08-08T00:00:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "pending",
+        "basis": "Publicly published by the IELTS Partners as scoring guidance. The page carries a general copyright notice and states no reuse permission either way. Nobody has reviewed the terms, so this stays `pending` -- which under rule 1 means it cannot gate. Recording it as `granted` would be deciding a rights question by assumption, which is the failure this field exists to prevent.",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "transcript": {
+        "storage": "external"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 8.0,
+        "rating_ref": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores"
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "ielts-official-kopi",
+      "candidate_id": "ielts-official-kopi",
+      "series_id": "ielts-org-scoring-resources",
+      "split": "quarantine",
+      "notes": "Official IELTS speaking sample, Botswana, examiner-assigned overall band 8.0. Transcript with examiner commentary; NO audio is published, and no per-criterion bands are given -- the examiner comments on all four criteria in prose but assigns one number. Usable for the scorer-only lane against the overall band; cannot exercise the audio path.",
+      "inputs": [
+        "transcript"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores",
+        "publisher": "IELTS Partners (British Council / IDP / Cambridge)",
+        "retrieved_at": "2026-08-08T00:00:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "pending",
+        "basis": "Publicly published by the IELTS Partners as scoring guidance. The page carries a general copyright notice and states no reuse permission either way. Nobody has reviewed the terms, so this stays `pending` -- which under rule 1 means it cannot gate. Recording it as `granted` would be deciding a rights question by assumption, which is the failure this field exists to prevent.",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "transcript": {
+        "storage": "external"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 8.0,
+        "rating_ref": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores"
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "ielts-official-kenn",
+      "candidate_id": "ielts-official-kenn",
+      "series_id": "ielts-org-scoring-resources",
+      "split": "quarantine",
+      "notes": "Official IELTS speaking sample, Singapore, examiner-assigned overall band 8.5. Transcript with examiner commentary; NO audio is published, and no per-criterion bands are given -- the examiner comments on all four criteria in prose but assigns one number. Usable for the scorer-only lane against the overall band; cannot exercise the audio path.",
+      "inputs": [
+        "transcript"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores",
+        "publisher": "IELTS Partners (British Council / IDP / Cambridge)",
+        "retrieved_at": "2026-08-08T00:00:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "pending",
+        "basis": "Publicly published by the IELTS Partners as scoring guidance. The page carries a general copyright notice and states no reuse permission either way. Nobody has reviewed the terms, so this stays `pending` -- which under rule 1 means it cannot gate. Recording it as `granted` would be deciding a rights question by assumption, which is the failure this field exists to prevent.",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "transcript": {
+        "storage": "external"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 8.5,
+        "rating_ref": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores"
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "ielts-official-anuradha",
+      "candidate_id": "ielts-official-anuradha",
+      "series_id": "ielts-org-scoring-resources",
+      "split": "quarantine",
+      "notes": "Official IELTS speaking sample, Malaysia, examiner-assigned overall band 9.0. Transcript with examiner commentary; NO audio is published, and no per-criterion bands are given -- the examiner comments on all four criteria in prose but assigns one number. Usable for the scorer-only lane against the overall band; cannot exercise the audio path.",
+      "inputs": [
+        "transcript"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores",
+        "publisher": "IELTS Partners (British Council / IDP / Cambridge)",
+        "retrieved_at": "2026-08-08T00:00:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "pending",
+        "basis": "Publicly published by the IELTS Partners as scoring guidance. The page carries a general copyright notice and states no reuse permission either way. Nobody has reviewed the terms, so this stays `pending` -- which under rule 1 means it cannot gate. Recording it as `granted` would be deciding a rights question by assumption, which is the failure this field exists to prevent.",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "transcript": {
+        "storage": "external"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 9.0,
+        "rating_ref": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores"
       },
       "retention": {
         "policy": "indefinite"

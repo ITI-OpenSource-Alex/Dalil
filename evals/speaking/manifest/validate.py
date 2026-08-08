@@ -182,24 +182,63 @@ def check_gating_eligibility(manifest: dict) -> list[Problem]:
                 Problem("gating", item_id, f"is in gating split {split!r} with no band")
             )
 
+        # What the item provides, rather than a blanket audio requirement.
+        #
+        # The earlier rule here refused any gating item without audio, on the
+        # reasoning that the speaking pipeline scores audio. That was written
+        # when every item was assumed to be a recording, and it is simply wrong
+        # for an officially banded transcript: such an item cannot exercise the
+        # audio path, but it can measure the scorer against an examiner label,
+        # which is the one thing this project has never been able to do.
+        #
+        # So the item declares what it has, and lanes.py decides which lanes may
+        # consume it. What must not happen is a transcript-only item feeding an
+        # audio lane and the report claiming the audio pipeline was validated.
+        inputs = item.get("inputs") or []
+        if not inputs:
+            problems.append(
+                Problem(
+                    "gating",
+                    item_id,
+                    f"is in gating split {split!r} without declaring what it provides; "
+                    f"`inputs` must list audio, transcript, or both",
+                )
+            )
+
         media = item.get("media", {})
-        if media.get("storage") == "none":
-            problems.append(
-                Problem(
-                    "gating",
-                    item_id,
-                    f"is in gating split {split!r} with no audio; the speaking "
-                    f"pipeline scores audio, and a transcript-only item cannot exercise it",
+        if "audio" in inputs:
+            if media.get("storage") == "none":
+                problems.append(
+                    Problem("gating", item_id, "declares audio input but stores no media")
                 )
-            )
-        elif not media.get("sha256"):
-            problems.append(
-                Problem(
-                    "gating",
-                    item_id,
-                    f"is in gating split {split!r} with no integrity hash",
+            elif not media.get("sha256"):
+                problems.append(
+                    Problem(
+                        "gating",
+                        item_id,
+                        f"is in gating split {split!r} with audio and no integrity hash",
+                    )
                 )
-            )
+
+        transcript = item.get("transcript", {})
+        if "transcript" in inputs:
+            if transcript.get("storage", "none") == "none":
+                problems.append(
+                    Problem(
+                        "gating",
+                        item_id,
+                        "declares transcript input but records no transcript location",
+                    )
+                )
+            elif not transcript.get("sha256"):
+                problems.append(
+                    Problem(
+                        "gating",
+                        item_id,
+                        f"is in gating split {split!r} with a transcript and no integrity "
+                        f"hash; a reference text that can change silently is not a reference",
+                    )
+                )
 
     return problems
 

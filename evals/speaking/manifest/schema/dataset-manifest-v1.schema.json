@@ -5,7 +5,11 @@
   "description": "SPEAK-EVAL-004. Every speaking evaluation item is declared here before it can be used, and the declaration is what decides whether it may gate a release. The manifest exists because the alternative -- a folder of audio files and a spreadsheet -- makes 'is this item licensed', 'who banded it', and 'is this the same candidate as that item' unanswerable at the moment they matter, which is when a number is about to be published.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["manifest_version", "splits", "items"],
+  "required": [
+    "manifest_version",
+    "splits",
+    "items"
+  ],
   "properties": {
     "manifest_version": {
       "const": "speaking-dataset-manifest/v1"
@@ -20,19 +24,26 @@
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["gating", "purpose"],
+        "required": [
+          "gating",
+          "purpose"
+        ],
         "properties": {
           "gating": {
             "type": "boolean",
             "description": "True when a metric computed over this split can block a release."
           },
-          "purpose": { "type": "string" }
+          "purpose": {
+            "type": "string"
+          }
         }
       }
     },
     "items": {
       "type": "array",
-      "items": { "$ref": "#/$defs/item" }
+      "items": {
+        "$ref": "#/$defs/item"
+      }
     }
   },
   "$defs": {
@@ -65,12 +76,18 @@
           "description": "The source series -- one recording, one video, one commissioned batch. Items from one series share editing, audio conditions and often the same examiner, so they leak across a split just as a candidate does.",
           "pattern": "^[a-z0-9][a-z0-9._-]*$"
         },
-        "split": { "type": "string" },
-        "notes": { "type": "string" },
+        "split": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "string"
+        },
         "source": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["kind"],
+          "required": [
+            "kind"
+          ],
           "properties": {
             "kind": {
               "enum": [
@@ -81,9 +98,16 @@
               ],
               "description": "synthetic is text with no audio and no human band; it can never gate."
             },
-            "origin_url": { "type": "string" },
-            "publisher": { "type": "string" },
-            "retrieved_at": { "type": "string", "format": "date-time" },
+            "origin_url": {
+              "type": "string"
+            },
+            "publisher": {
+              "type": "string"
+            },
+            "retrieved_at": {
+              "type": "string",
+              "format": "date-time"
+            },
             "governance_ref": {
               "type": "string",
               "description": "Ticket or document where the sourcing decision was recorded."
@@ -93,28 +117,50 @@
         "permission": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["status"],
+          "required": [
+            "status"
+          ],
           "properties": {
             "status": {
-              "enum": ["granted", "not_required", "pending", "denied", "unknown"],
+              "enum": [
+                "granted",
+                "not_required",
+                "pending",
+                "denied",
+                "unknown"
+              ],
               "description": "unknown is the default and is deliberately not a synonym for not_required. An unreviewed item is not a permitted one."
             },
             "basis": {
               "type": "string",
               "description": "Why permission holds: the licence, the grant, or why none is needed."
             },
-            "governance_ref": { "type": "string" },
-            "reviewed_by": { "type": "string" },
-            "reviewed_at": { "type": "string", "format": "date-time" }
+            "governance_ref": {
+              "type": "string"
+            },
+            "reviewed_by": {
+              "type": "string"
+            },
+            "reviewed_at": {
+              "type": "string",
+              "format": "date-time"
+            }
           }
         },
         "media": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["storage", "restricted"],
+          "required": [
+            "storage",
+            "restricted"
+          ],
           "properties": {
             "storage": {
-              "enum": ["none", "repo", "external"],
+              "enum": [
+                "none",
+                "repo",
+                "external"
+              ],
               "description": "none means this item has no audio at all -- a transcript-only row."
             },
             "restricted": {
@@ -129,14 +175,22 @@
               "type": "string",
               "pattern": "^[a-f0-9]{64}$"
             },
-            "duration_s": { "type": "number", "minimum": 0 },
-            "format": { "type": "string" }
+            "duration_s": {
+              "type": "number",
+              "minimum": 0
+            },
+            "format": {
+              "type": "string"
+            }
           }
         },
         "labels": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["source", "validated"],
+          "required": [
+            "source",
+            "validated"
+          ],
           "properties": {
             "source": {
               "enum": [
@@ -152,7 +206,10 @@
               "description": "True only when a named human confirmed the band."
             },
             "overall_band": {
-              "type": ["number", "null"],
+              "type": [
+                "number",
+                "null"
+              ],
               "minimum": 0,
               "maximum": 9,
               "multipleOf": 0.5
@@ -161,40 +218,106 @@
               "type": "object",
               "additionalProperties": false,
               "properties": {
-                "fluency_coherence": { "$ref": "#/$defs/band" },
-                "lexical_resource": { "$ref": "#/$defs/band" },
-                "grammatical_range": { "$ref": "#/$defs/band" },
-                "pronunciation": { "$ref": "#/$defs/band" }
+                "fluency_coherence": {
+                  "$ref": "#/$defs/band"
+                },
+                "lexical_resource": {
+                  "$ref": "#/$defs/band"
+                },
+                "grammatical_range": {
+                  "$ref": "#/$defs/band"
+                },
+                "pronunciation": {
+                  "$ref": "#/$defs/band"
+                }
               }
             },
             "raters": {
               "type": "array",
-              "items": { "type": "string" },
+              "items": {
+                "type": "string"
+              },
               "description": "Named raters. Two are required for commissioned_double_rated."
             },
             "adjudicated": {
               "type": "boolean",
               "description": "True when two raters disagreed and a third resolved it."
             },
-            "rating_ref": { "type": "string" }
+            "rating_ref": {
+              "type": "string"
+            }
           }
         },
         "retention": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["policy"],
+          "required": [
+            "policy"
+          ],
           "properties": {
             "policy": {
-              "enum": ["indefinite", "delete_by_date", "delete_on_request"]
+              "enum": [
+                "indefinite",
+                "delete_by_date",
+                "delete_on_request"
+              ]
             },
-            "delete_after": { "type": "string", "format": "date" },
-            "deletion_ref": { "type": ["string", "null"] }
+            "delete_after": {
+              "type": "string",
+              "format": "date"
+            },
+            "deletion_ref": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "inputs": {
+          "type": "array",
+          "description": "What this item can actually feed. `audio` means a recording exists; `transcript` means the words exist. An item provides one or both, and a lane may only consume items that provide what it needs. This replaces an earlier rule that required audio for any gating item -- written when every item was assumed to be a recording, and simply wrong for an officially banded transcript.",
+          "items": {
+            "enum": [
+              "audio",
+              "transcript"
+            ]
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "transcript": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Where the transcript text lives. The text itself is NEVER committed when it is third-party copyright: the band score is a fact and can be recorded, the wording is expression and cannot.",
+          "properties": {
+            "storage": {
+              "enum": [
+                "none",
+                "repo",
+                "external"
+              ]
+            },
+            "path": {
+              "type": "string"
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "word_count": {
+              "type": "integer",
+              "minimum": 0
+            }
           }
         }
       }
     },
     "band": {
-      "type": ["number", "null"],
+      "type": [
+        "number",
+        "null"
+      ],
       "minimum": 0,
       "maximum": 9,
       "multipleOf": 0.5

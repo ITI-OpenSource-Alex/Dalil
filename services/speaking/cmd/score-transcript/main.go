@@ -38,6 +38,7 @@ func main() {
 	question := flag.String("question", "IELTS Speaking interview", "question prompt given to the candidate")
 	questionType := flag.String("question-type", "part1", "part1, part2 or part3")
 	timeout := flag.Duration("timeout", 120*time.Second, "swarm deadline")
+	sttPath := flag.String("stt-json", "", "speech-sidecar response, to supply measured prosody (goa_audio lane)")
 	flag.Parse()
 
 	// Quiet by default: stdout carries JSON that a caller parses, so anything
@@ -74,13 +75,43 @@ func main() {
 
 	client := llm.NewClient(model, apiKey, baseURL)
 
+	// Prosody turns the scorer-only lane into the goa_audio lane. Without it
+	// Fluency judges flow from text that carries no timing, and Pronunciation
+	// declines outright -- so two of four criteria are working blind, and any
+	// conclusion about the scorer being harsh is partly a conclusion about that.
+	var features *agents.ProsodyFeatures
+	if *sttPath != "" {
+		raw, err := os.ReadFile(*sttPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "score-transcript: %v\n", err)
+			os.Exit(2)
+		}
+		var stt struct {
+			DurationS float64       `json:"duration_s"`
+			Words     []agents.Word `json:"words"`
+		}
+		if err := json.Unmarshal(raw, &stt); err != nil {
+			fmt.Fprintf(os.Stderr, "score-transcript: bad stt json: %v\n", err)
+			os.Exit(2)
+		}
+		computed, ok := agents.ComputeProsody(stt.Words, stt.DurationS)
+		if !ok {
+			// Refused rather than passed as zeros. A feature block reading "0
+			// words per minute" describes a candidate who said nothing, which is
+			// the BUG-055 shape applied to prosody.
+			fmt.Fprintln(os.Stderr, "score-transcript: prosody could not be computed; refusing to pass zeros")
+			os.Exit(2)
+		}
+		features = &computed
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
 	defer cancel()
 
 	started := time.Now()
 	result, swarmErr := agents.EvaluateSwarm(
 		ctx, client, *question, *questionType, transcript,
-		nil, // no audio in this lane, so no prosody -- never zeros
+		features,
 		nil,
 	)
 
@@ -96,6 +127,7 @@ func main() {
 	out := map[string]any{
 		"evaluation":  evaluation,
 		"latency_ms":  time.Since(started).Milliseconds(),
+		"lane":        laneName(features),
 		"swarm_error": errString(swarmErr),
 	}
 
@@ -111,6 +143,15 @@ func main() {
 	if swarmErr != nil {
 		os.Exit(1)
 	}
+}
+
+// laneName records which lane produced this result, so a number can never be
+// read as covering more of the stack than it did.
+func laneName(features *agents.ProsodyFeatures) string {
+	if features == nil {
+		return "scorer_only"
+	}
+	return "goa_audio"
 }
 
 func envOr(key, fallback string) string {

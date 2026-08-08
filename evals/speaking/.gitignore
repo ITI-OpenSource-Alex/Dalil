@@ -24,3 +24,5 @@ sources/
 candidate_text/
 scores/
 variance/
+anchors/
+scores_audio/

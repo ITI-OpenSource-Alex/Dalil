@@ -1,3 +1,12 @@
+# Pinned so the project name cannot drift.
+#
+# Without this, Compose derives the name from the directory -- and this repo is
+# reached through a symlink whose resolved case differs between shells. A
+# different derived name means a different set of containers, volumes and
+# `<project>-<service>` image tags: everything rebuilds, and the previous
+# containers are orphaned rather than replaced.
+name: goa
+
 services:
   gateway:
     build:

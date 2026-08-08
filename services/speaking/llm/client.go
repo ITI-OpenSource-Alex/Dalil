@@ -94,7 +94,7 @@ func (c *Client) StreamCompletion(ctx context.Context, systemPrompt, userPrompt 
 		// sum rather than for the answer alone. The agents return a band, a
 		// paragraph and a few citations, so the headroom is only spent when the
 		// model actually reasons at length; an unused ceiling costs nothing.
-		MaxTokens: 4096,
+		MaxTokens: 8192,
 		System: []anthropic.TextBlockParam{
 			{
 				Text: systemPrompt,
@@ -167,6 +167,24 @@ func (c *Client) StreamCompletion(ctx context.Context, systemPrompt, userPrompt 
 		return CompletionResult{}, fmt.Errorf(
 			"model returned no text (stop_reason=%q, content_blocks=%v, output_tokens=%d)",
 			msg.StopReason, blockTypes, msg.Usage.OutputTokens,
+		)
+	}
+
+	// Text that stopped at the ceiling is truncated, and truncated JSON parses
+	// as "unexpected end of JSON input" -- a message describing the symptom while
+	// hiding the cause, which is how this cost a whole benchmark run twice.
+	//
+	// services/writing/app/agents.go has carried this exact check for some time,
+	// with the same advice: raise the ceiling rather than retry, because a retry
+	// reproduces the same truncation at the same cost. The lesson had not crossed
+	// into this service. Saying so here is cheaper than rediscovering it a third
+	// time.
+	if msg.StopReason == "max_tokens" {
+		return CompletionResult{}, fmt.Errorf(
+			"model hit the max_tokens ceiling (%d output tokens); its response is "+
+				"truncated and will not parse. Raise MaxTokens rather than retrying -- "+
+				"a retry produces the same truncation",
+			msg.Usage.OutputTokens,
 		)
 	}
 

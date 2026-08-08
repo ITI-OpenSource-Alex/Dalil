@@ -88,10 +88,24 @@ export interface ExamResultResponse {
   answer_key: Record<string, unknown>;
 }
 
-export type ExamProgress = Partial<Record<
-  "reading" | "listening" | "speaking" | "writing",
-  { date: string; band: number }[]
->>;
+export type ExamHistoryItem = {
+  sessionId: string;
+  skill: string;
+  examType: string;
+  bandScore: number;
+  date: string;
+  duration?: number | null;
+  feedbackSummary?: string | null;
+};
+
+export type WeakAreas = Partial<Record<SkillArea, string>>;
+
+export type ExamProgress = Partial<
+  Record<
+    "reading" | "listening" | "speaking" | "writing",
+    { date: string; band: number }[]
+  >
+>;
 
 // ---------------------------------------------------------------------------
 // Writing exam (GOA-053 backend, surfaced by GOA-058)
@@ -209,6 +223,34 @@ export async function getExamProgress(): Promise<ExamProgress> {
       await throwForResponse(response, "exam");
     }
 
+    return response.json();
+  });
+}
+
+export async function getExamHistory(page = 1): Promise<ExamHistoryItem[]> {
+  return dedupe(`GET ${API_BASE}/history?page=${page}`, async () => {
+    const response = await fetch(`${API_BASE}/history?page=${page}`, {
+      ...fetchOptions,
+      headers,
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      await throwForResponse(response, "exam");
+    }
+    return response.json();
+  });
+}
+
+export async function getWeakAreas(): Promise<WeakAreas> {
+  return dedupe(`GET ${API_BASE}/weak-areas`, async () => {
+    const response = await fetch(`${API_BASE}/weak-areas`, {
+      ...fetchOptions,
+      headers,
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      await throwForResponse(response, "exam");
+    }
     return response.json();
   });
 }

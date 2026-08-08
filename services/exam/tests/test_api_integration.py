@@ -44,11 +44,11 @@ class FakeSessionService:
             "band_score": 4.5,
         }
 
-    async def get_result(self, session_id: Any) -> dict[str, Any]:
+    async def get_result(self, session_id: Any, requester_id: Any) -> dict[str, Any]:
         return {
             "id": uuid4(),
             "session_id": session_id,
-            "user_id": uuid4(),
+            "user_id": requester_id,
             "skill_area": "reading",
             "raw_score": 1,
             "band_score": 4.5,
@@ -87,12 +87,13 @@ def test_answer_key_is_absent_before_submission() -> None:
 def test_create_session_submit_answers_and_retrieve_result() -> None:
     client = _client()
     session_id = str(uuid4())
+    user_id = uuid4()
 
     create_response = client.post(
         "/sessions",
         headers=INTERNAL_HEADERS,
         json={
-            "user_id": str(uuid4()),
+            "user_id": str(user_id),
             "exam_type": "academic",
             "skill_area": "reading",
         },
@@ -104,7 +105,7 @@ def test_create_session_submit_answers_and_retrieve_result() -> None:
     )
     result_response = client.get(
         f"/sessions/{session_id}/result",
-        headers=INTERNAL_HEADERS,
+        headers={**INTERNAL_HEADERS, "X-User-Id": str(user_id)},
     )
 
     assert create_response.status_code == 200

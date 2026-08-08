@@ -17,12 +17,17 @@ import {
   Heading,
   Icon,
   PageContainer,
+  Tabs,
+  TabsList,
+  TabsPanel,
+  TabsTrigger,
   Text,
 } from "@/components/ui";
+import { ExamProgressTab } from "@/components/profile/exam-progress";
 
 /**
- * Profile hub — one page, five sections (GOA-029 Task 9):
- * header → account → always-on ProfileForm → CV → opportunity matches.
+ * Profile hub — header → account → always-on ProfileForm → CV →
+ * Opportunities | Exam Progress tabs (GOA-029 + GOA-062).
  * Autosave status lives in the form; hard load failures use the page Alert.
  */
 export default function ProfilePage() {
@@ -55,7 +60,11 @@ export default function ProfilePage() {
       </div>
 
       {status === "loading" && (
-        <div className="space-y-2" aria-busy="true" aria-label="Loading profile">
+        <div
+          className="space-y-2"
+          aria-busy="true"
+          aria-label="Loading profile"
+        >
           <Skeleton />
           <Skeleton />
           <Skeleton />
@@ -93,7 +102,9 @@ export default function ProfilePage() {
               <ReadOnlyField label="Email" value={user.email} />
               <ReadOnlyField
                 label="Subscription"
-                value={user.subscriptionTier === "paid" ? "GOA Pro" : "Free plan"}
+                value={
+                  user.subscriptionTier === "paid" ? "GOA Pro" : "Free plan"
+                }
               />
             </dl>
             {user.subscriptionTier !== "paid" && (
@@ -164,11 +175,24 @@ export default function ProfilePage() {
             <CvUploadPanel showReviewLink />
           </section>
 
-          {/* 5. Opportunity matches */}
-          <OpportunityMatchesSection
-            profileComplete={isProfileComplete(user.profile)}
-            onFocusProfile={focusApplicationProfile}
-          />
+          {/* 5. Opportunities | Exam Progress */}
+          <section className="space-y-4" aria-label="Profile tabs">
+            <Tabs defaultValue="opportunities">
+              <TabsList variant="underline">
+                <TabsTrigger value="opportunities">Opportunities</TabsTrigger>
+                <TabsTrigger value="exam-progress">Exam Progress</TabsTrigger>
+              </TabsList>
+              <TabsPanel value="opportunities" className="pt-4">
+                <OpportunityMatchesSection
+                  profileComplete={isProfileComplete(user.profile)}
+                  onFocusProfile={focusApplicationProfile}
+                />
+              </TabsPanel>
+              <TabsPanel value="exam-progress" className="pt-4">
+                <ExamProgressTab />
+              </TabsPanel>
+            </Tabs>
+          </section>
         </div>
       )}
     </PageContainer>

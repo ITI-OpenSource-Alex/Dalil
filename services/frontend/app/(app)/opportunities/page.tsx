@@ -22,6 +22,7 @@ import { useCurrentUser } from "@/app/hooks/useCurrentUser";
 import { isProfileComplete } from "@/app/types/profile";
 import { useUpgradePrompt } from "@/components/subscription/upgrade-dialog";
 import { OpportunityCard } from "@/components/opportunities/opportunity-card";
+import { OpportunityDetailModal } from "@/components/opportunities/opportunity-detail-modal";
 import {
   Alert,
   Badge,
@@ -61,6 +62,7 @@ export default function OpportunitiesPage() {
   const upgrade = useUpgradePrompt();
 
   const [programs, setPrograms] = useState<MatchedProgram[]>([]);
+  const [selected, setSelected] = useState<MatchedProgram | null>(null);
   const [status, setStatus] = useState<Status>("loading");
   const [error, setError] = useState<string | null>(null);
   const [sort, setSort] = useState<SortKey>("match");
@@ -348,7 +350,7 @@ export default function OpportunitiesPage() {
             <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {visible.map((program) => (
                 <li key={program.programId} className="flex">
-                  <OpportunityCard program={program} />
+                  <OpportunityCard program={program} onOpen={setSelected} />
                 </li>
               ))}
             </ul>
@@ -365,6 +367,12 @@ export default function OpportunitiesPage() {
           </div>
         </>
       )}
+
+      <OpportunityDetailModal
+        program={selected}
+        open={!!selected}
+        onOpenChange={(open) => !open && setSelected(null)}
+      />
     </PageContainer>
   );
 }

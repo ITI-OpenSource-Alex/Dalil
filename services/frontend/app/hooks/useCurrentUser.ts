@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { getMyProfile } from "@/lib/profile-api";
-import type { CurrentUser } from "@/app/types/profile";
+import type { CurrentUser, UserProfileDetail } from "@/app/types/profile";
 
 export type FetchStatus = "idle" | "loading" | "success" | "error";
 
@@ -30,5 +30,13 @@ export function useCurrentUser() {
     load();
   }, [load]);
 
-  return { user, status, error, retry: load };
+  /** Optimistic patch for blur autosave; call `retry()` to roll back on failure. */
+  const patchProfile = useCallback((partial: Partial<UserProfileDetail>) => {
+    setUser((prev) => {
+      if (!prev?.profile) return prev;
+      return { ...prev, profile: { ...prev.profile, ...partial } };
+    });
+  }, []);
+
+  return { user, status, error, retry: load, patchProfile };
 }

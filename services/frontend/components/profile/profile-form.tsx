@@ -1,9 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Save, X } from "lucide-react";
-import { authApi, apiErrorMessage, type UpdateProfilePayload } from "@/lib/api";
-import { isValidBand, parseBand } from "@/lib/ielts";
+import { useEffect, useMemo } from "react";
+import { Controller, useForm } from "react-hook-form";
+import { Pencil, RotateCcw } from "lucide-react";
+import {
+  bandDescriptor,
+  computeOverallBand,
+  formatBand,
+  parseBand,
+} from "@/lib/ielts";
 import {
   DEGREE_LEVELS,
   FIELDS_OF_STUDY,
@@ -12,6 +17,7 @@ import {
   hasCatalogueCoverage,
 } from "@/lib/reference-data";
 import type { UserProfileDetail } from "@/app/types/profile";
+import { BandScoreInput } from "@/components/onboarding/ielts-score-input";
 import {
   Alert,
   Button,
@@ -22,160 +28,93 @@ import {
   Select,
   Text,
 } from "@/components/ui";
+import {
+  valuesFromProfile,
+  type ProfileFormValues,
+} from "./profile-form-model";
+import { useProfileAutosave } from "./use-profile-autosave";
 
-/* ------------------------------------------------------------------ *
- * The editable half of the profile page.
- *
- * PUT /api/profile already existed and was called from exactly one place --
- * the last step of the onboarding wizard. So every field the wizard collects
- * was write-once: the profile page rendered them into a <dl> and offered no
- * way to change any of them, and the only route back to the wizard was the
- * sidebar's "Complete Profile" nudge, which disappears the moment one field
- * is filled in. A user whose IELTS result improved, or who decided to look at
- * a different country, had no way to say so.
- *
- * Field constraints below mirror UpdateProfileDto exactly
- * (services/user/src/profile/dto/update-profile.dto.ts) so a rejection is
- * caught here rather than surfacing as a class-validator message array.
- * ------------------------------------------------------------------ */
+export type { ProfileFormValues } from "./profile-form-model";
+export {
+  payloadFromValues,
+  parsedDetailFromValues,
+  validateProfile,
+  valuesFromProfile,
+} from "./profile-form-model";
 
-export interface ProfileFormValues {
-  degreeLevel: string;
-  fieldOfStudy: string;
-  gpa: string;
-  gpaScale: "4.0" | "100";
-  ects: string;
-  ieltsScore: string;
-  workExperienceYears: string;
-  extracurricularsScore: string;
-  targetCountries: string[];
-}
-
-type Errors = Partial<Record<keyof ProfileFormValues, string>>;
-
-export function valuesFromProfile(
-  profile: UserProfileDetail | null,
-): ProfileFormValues {
-  return {
-    degreeLevel: profile?.degreeLevel ?? "",
-    fieldOfStudy: profile?.fieldOfStudy ?? "",
-    gpa: profile?.gpa != null ? String(profile.gpa) : "",
-    gpaScale: profile?.gpaScale ?? "4.0",
-    ects: profile?.ects != null ? String(profile.ects) : "",
-    ieltsScore: profile?.ieltsScore != null ? String(profile.ieltsScore) : "",
-    workExperienceYears:
-      profile?.workExperienceYears != null
-        ? String(profile.workExperienceYears)
-        : "",
-    extracurricularsScore:
-      profile?.extracurricularsScore != null
-        ? String(profile.extracurricularsScore)
-        : "",
-    targetCountries: profile?.targetCountries ?? [],
-  };
-}
-
-export function validateProfile(values: ProfileFormValues): Errors {
-  const errors: Errors = {};
-
-  if (values.gpa.trim()) {
-    const gpa = Number(values.gpa);
-    const max = values.gpaScale === "4.0" ? 4 : 100;
-    if (Number.isNaN(gpa)) errors.gpa = "Enter a number, e.g. 3.4.";
-    else if (gpa < 0 || gpa > max) {
-      errors.gpa = `On the ${values.gpaScale} scale, that should be between 0 and ${max}.`;
-    }
-  }
-
-  if (values.ects.trim()) {
-    const ects = Number(values.ects);
-    if (Number.isNaN(ects) || ects < 0) {
-      errors.ects = "Enter a whole number of credits, e.g. 180.";
-    } else if (ects > 600) {
-      errors.ects = "That looks too high — ECTS totals are usually under 400.";
-    }
-  }
-
-  if (values.ieltsScore.trim()) {
-    const band = Number(values.ieltsScore);
-    if (Number.isNaN(band)) errors.ieltsScore = "Enter a band between 0 and 9.";
-    else if (band < 0 || band > 9) errors.ieltsScore = "Bands run from 0 to 9.";
-    else if (!isValidBand(band)) {
-      errors.ieltsScore = "Bands go in half steps — 6.5, not 6.4.";
-    }
-  }
-
-  if (values.workExperienceYears.trim()) {
-    const years = Number(values.workExperienceYears);
-    if (!Number.isInteger(years) || years < 0) {
-      errors.workExperienceYears = "Enter a whole number of years, e.g. 2.";
-    } else if (years > 60) {
-      errors.workExperienceYears = "That looks too high — enter years, not months.";
-    }
-  }
-
-  if (values.extracurricularsScore.trim()) {
-    const score = Number(values.extracurricularsScore);
-    if (!Number.isInteger(score) || score < 0 || score > 10) {
-      errors.extracurricularsScore = "Rate your activities from 0 to 10.";
-    }
-  }
-
-  return errors;
-}
-
-/**
- * Builds the PUT body.
- *
- * Every field is optional in UpdateProfileDto, so an emptied box is sent as an
- * omission rather than as null — the backend has no "clear this field"
- * semantics, and inventing one client-side by sending 0 would be worse than
- * leaving the old value in place.
- */
-export function payloadFromValues(
-  values: ProfileFormValues,
-): UpdateProfilePayload {
-  const payload: UpdateProfilePayload = {};
-
-  if (values.degreeLevel) payload.degreeLevel = values.degreeLevel;
-  if (values.fieldOfStudy.trim()) payload.fieldOfStudy = values.fieldOfStudy.trim();
-
-  if (values.gpa.trim()) {
-    payload.gpa = Number(values.gpa);
-    payload.gpaScale = values.gpaScale;
-  }
-  if (values.ects.trim()) payload.ects = Number(values.ects);
-
-  const band = parseBand(values.ieltsScore);
-  if (band !== null) payload.ieltsScore = band;
-
-  if (values.workExperienceYears.trim()) {
-    payload.workExperienceYears = Number(values.workExperienceYears);
-  }
-  if (values.extracurricularsScore.trim()) {
-    payload.extracurricularsScore = Number(values.extracurricularsScore);
-  }
-
-  payload.targetCountries = values.targetCountries;
-
-  return payload;
-}
+const IELTS_SECTIONS = [
+  { name: "ieltsListening" as const, label: "Listening" },
+  { name: "ieltsReading" as const, label: "Reading" },
+  { name: "ieltsWriting" as const, label: "Writing" },
+  { name: "ieltsSpeaking" as const, label: "Speaking" },
+];
 
 export function ProfileForm({
   profile,
-  onCancel,
-  onSaved,
+  onOptimisticUser,
+  onSaveError,
 }: {
   profile: UserProfileDetail | null;
-  onCancel: () => void;
-  onSaved: () => void | Promise<void>;
+  onOptimisticUser?: (partial: Partial<UserProfileDetail>) => void;
+  onSaveError?: (message: string) => void;
 }) {
-  const [values, setValues] = useState<ProfileFormValues>(() =>
-    valuesFromProfile(profile),
+  const defaults = useMemo(() => valuesFromProfile(profile), [profile]);
+
+  const { control, register, getValues, setValue, watch } =
+    useForm<ProfileFormValues>({
+      defaultValues: defaults,
+      mode: "onBlur",
+    });
+
+  const { saveState, saveError, fieldErrors, saveFromBlur, seedLastSaved } =
+    useProfileAutosave({
+      getValues,
+      onOptimisticUser,
+      onSaveError,
+    });
+
+  // Seed the fingerprint once on mount. Optimistic parent patches must not
+  // reset the form (that would fight in-progress edits). A failed save calls
+  // retry() which unmounts this form while status=loading, then remounts with
+  // server values — that is the rollback path.
+  useEffect(() => {
+    seedLastSaved(defaults);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount only
+  }, []);
+
+  const listening = watch("ieltsListening");
+  const reading = watch("ieltsReading");
+  const writing = watch("ieltsWriting");
+  const speaking = watch("ieltsSpeaking");
+  const overrideOverall = watch("overrideOverall");
+  const ieltsScore = watch("ieltsScore");
+  const gpaScale = watch("gpaScale");
+
+  const computedOverall = useMemo(
+    () =>
+      computeOverallBand({
+        listening: parseBand(listening),
+        reading: parseBand(reading),
+        writing: parseBand(writing),
+        speaking: parseBand(speaking),
+      }),
+    [listening, reading, writing, speaking],
   );
-  const [errors, setErrors] = useState<Errors>({});
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (overrideOverall) return;
+    const next = computedOverall === null ? "" : formatBand(computedOverall);
+    if (next !== getValues("ieltsScore")) {
+      setValue("ieltsScore", next, { shouldDirty: false });
+    }
+  }, [computedOverall, overrideOverall, getValues, setValue]);
+
+  const overallValue = parseBand(ieltsScore);
+  const overrideDiffers =
+    overrideOverall &&
+    overallValue !== null &&
+    computedOverall !== null &&
+    overallValue !== computedOverall;
 
   const countryOptions = useMemo(
     () =>
@@ -195,183 +134,319 @@ export function ProfileForm({
     [],
   );
 
-  function set<K extends keyof ProfileFormValues>(
-    key: K,
-    value: ProfileFormValues[K],
-  ) {
-    setValues((prev) => ({ ...prev, [key]: value }));
-    if (errors[key]) setErrors((prev) => ({ ...prev, [key]: undefined }));
-  }
-
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    setSaveError(null);
-
-    const nextErrors = validateProfile(values);
-    setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) return;
-
-    setSaving(true);
-    try {
-      await authApi.updateProfile(payloadFromValues(values));
-      await onSaved();
-    } catch (err) {
-      setSaveError(
-        apiErrorMessage(err) ??
-          "Could not save your profile. Your changes are still here — please try again.",
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
+  const fieldError = (name: keyof ProfileFormValues) => fieldErrors[name];
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
+    <form
+      noValidate
+      className="flex flex-col gap-5"
+      onSubmit={(e) => e.preventDefault()}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div aria-live="polite" className="sr-only">
+          {saveState === "saving" ? "Saving profile" : null}
+          {saveState === "saved" ? "Profile saved" : null}
+          {saveState === "error" && saveError ? saveError : null}
+        </div>
+        <Text size="sm" tone="subtle" aria-live="polite">
+          {saveState === "saving"
+            ? "Saving…"
+            : saveState === "saved"
+              ? "Saved"
+              : saveState === "error"
+                ? "Couldn’t save"
+                : "Changes save when you leave a field"}
+        </Text>
+      </div>
+
       {saveError && (
         <Alert tone="danger" announce="assertive">
           {saveError}
         </Alert>
       )}
 
-      <Field label="Degree level" error={errors.degreeLevel}>
-        <Select
+      <Field label="Degree level" error={fieldError("degreeLevel")}>
+        <Controller
           name="degreeLevel"
-          placeholder="Select your degree"
-          value={values.degreeLevel}
-          onChange={(e) => set("degreeLevel", e.target.value)}
-        >
-          {DEGREE_LEVELS.map((level) => (
-            <option key={level.value} value={level.value}>
-              {level.label}
-            </option>
-          ))}
-        </Select>
+          control={control}
+          render={({ field }) => (
+            <Select
+              name={field.name}
+              placeholder="Select your degree"
+              value={field.value}
+              onChange={(e) => {
+                field.onChange(e.target.value);
+                void saveFromBlur();
+              }}
+              onBlur={field.onBlur}
+            >
+              {DEGREE_LEVELS.map((level) => (
+                <option key={level.value} value={level.value}>
+                  {level.label}
+                </option>
+              ))}
+            </Select>
+          )}
+        />
       </Field>
 
       <Field
         label="Field of study"
-        error={errors.fieldOfStudy}
+        error={fieldError("fieldOfStudy")}
         hint="Not listed? Type your own and press Enter."
       >
-        <Combobox
+        <Controller
           name="fieldOfStudy"
-          options={fieldOptions}
-          value={values.fieldOfStudy}
-          onChange={(v) => set("fieldOfStudy", v)}
-          allowCustomValue
-          placeholder="e.g. Computer Science"
+          control={control}
+          render={({ field }) => (
+            <Combobox
+              name={field.name}
+              options={fieldOptions}
+              value={field.value}
+              onChange={(v) => {
+                field.onChange(v);
+                void saveFromBlur();
+              }}
+              allowCustomValue
+              placeholder="e.g. Computer Science"
+            />
+          )}
         />
       </Field>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_auto] sm:items-start">
-        <Field label="GPA" error={errors.gpa}>
+        <Field label="GPA" error={fieldError("gpa")}>
           <Input
             type="number"
-            name="gpa"
             inputMode="decimal"
             step="0.01"
             min={0}
-            max={values.gpaScale === "4.0" ? 4 : 100}
-            placeholder={values.gpaScale === "4.0" ? "e.g. 3.8" : "e.g. 85"}
-            value={values.gpa}
-            onChange={(e) => set("gpa", e.target.value)}
+            max={gpaScale === "4.0" ? 4 : 100}
+            placeholder={gpaScale === "4.0" ? "e.g. 3.8" : "e.g. 85"}
+            {...register("gpa", {
+              onBlur: () => {
+                void saveFromBlur();
+              },
+            })}
           />
         </Field>
 
         <Field label="Scale">
-          <Select
-            value={values.gpaScale}
-            onChange={(e) => {
-              set("gpaScale", e.target.value as "4.0" | "100");
-              setErrors((prev) => ({ ...prev, gpa: undefined }));
-            }}
-            className="sm:w-28"
-          >
-            <option value="4.0">/ 4.0</option>
-            <option value="100">/ 100</option>
-          </Select>
-        </Field>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field
-          label="ECTS credits"
-          error={errors.ects}
-          hint="A Bachelor's is typically 180–240."
-        >
-          <Input
-            type="number"
-            name="ects"
-            inputMode="numeric"
-            min={0}
-            placeholder="e.g. 180"
-            value={values.ects}
-            onChange={(e) => set("ects", e.target.value)}
-          />
-        </Field>
-
-        <Field
-          label="IELTS overall band"
-          error={errors.ieltsScore}
-          hint="Half steps only — 6.0, 6.5, 7.0."
-        >
-          <Input
-            type="number"
-            name="ieltsScore"
-            inputMode="decimal"
-            step={0.5}
-            min={0}
-            max={9}
-            placeholder="e.g. 7.0"
-            value={values.ieltsScore}
-            onChange={(e) => set("ieltsScore", e.target.value)}
+          <Controller
+            name="gpaScale"
+            control={control}
+            render={({ field }) => (
+              <Select
+                value={field.value}
+                onChange={(e) => {
+                  field.onChange(e.target.value as "4.0" | "100");
+                  void saveFromBlur();
+                }}
+                onBlur={field.onBlur}
+                className="sm:w-28"
+              >
+                <option value="4.0">/ 4.0</option>
+                <option value="100">/ 100</option>
+              </Select>
+            )}
           />
         </Field>
       </div>
 
+      <Field
+        label="ECTS credits"
+        error={fieldError("ects")}
+        hint="A Bachelor's is typically 180–240."
+      >
+        <Input
+          type="number"
+          inputMode="numeric"
+          min={0}
+          placeholder="e.g. 180"
+          {...register("ects", {
+            onBlur: () => {
+              void saveFromBlur();
+            },
+          })}
+        />
+      </Field>
+
+      <div className="flex flex-col gap-5 rounded-card border border-border bg-canvas-subtle p-4 sm:p-5">
+        <Text size="sm" tone="muted">
+          Enter the four section bands from your IELTS report. Overall is
+          calculated for you unless you edit it.
+        </Text>
+
+        <div className="flex flex-col gap-5">
+          {IELTS_SECTIONS.map((section) => (
+            <Controller
+              key={section.name}
+              name={section.name}
+              control={control}
+              render={({ field }) => (
+                <BandScoreInput
+                  id={section.name}
+                  label={section.label}
+                  value={field.value}
+                  onChange={(v) => {
+                    field.onChange(v);
+                    void saveFromBlur();
+                  }}
+                  error={fieldError(section.name)}
+                  compact
+                />
+              )}
+            />
+          ))}
+        </div>
+
+        <div className="rounded-card border border-brand-border bg-brand-subtle p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <Text size="sm" className="font-semibold text-brand-fg">
+                Overall band
+              </Text>
+              <Text size="sm" tone="muted" className="mt-0.5">
+                {overrideOverall
+                  ? "Entered manually"
+                  : computedOverall === null
+                    ? "Fill in all four sections above"
+                    : "Calculated from your four sections"}
+              </Text>
+            </div>
+
+            {overrideOverall ? (
+              <Input
+                type="number"
+                step={0.5}
+                min={0}
+                max={9}
+                inputMode="decimal"
+                aria-label="Overall band score"
+                className="w-24 text-center text-base font-bold"
+                {...register("ieltsScore", {
+                  onBlur: () => {
+                    void saveFromBlur();
+                  },
+                })}
+              />
+            ) : (
+              <span
+                aria-live="polite"
+                className="shrink-0 text-3xl font-bold tabular-nums text-brand-fg"
+              >
+                {overallValue === null ? "—" : formatBand(overallValue)}
+              </span>
+            )}
+          </div>
+
+          {overallValue !== null && !overrideOverall && (
+            <Text size="sm" tone="muted" className="mt-2">
+              {bandDescriptor(overallValue)}
+            </Text>
+          )}
+
+          {fieldError("ieltsScore") && (
+            <p role="alert" className="mt-2 text-sm text-danger-fg">
+              {fieldError("ieltsScore")}
+            </p>
+          )}
+
+          {overrideDiffers && computedOverall !== null && (
+            <Alert tone="warning" announce="none" className="mt-3">
+              Your sections average to {formatBand(computedOverall)}. If your
+              report says {formatBand(overallValue!)}, keep it — otherwise
+              double-check the four bands above.
+            </Alert>
+          )}
+
+          <div className="mt-3">
+            {overrideOverall ? (
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                leadingIcon={RotateCcw}
+                onClick={() => {
+                  setValue("overrideOverall", false);
+                  if (computedOverall !== null) {
+                    setValue("ieltsScore", formatBand(computedOverall));
+                  }
+                  void saveFromBlur();
+                }}
+              >
+                Calculate it for me
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                leadingIcon={Pencil}
+                onClick={() => setValue("overrideOverall", true)}
+              >
+                Edit overall
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field label="Work experience" error={errors.workExperienceYears}>
+        <Field label="Work experience" error={fieldError("workExperienceYears")}>
           <Input
             type="number"
-            name="workExperienceYears"
             inputMode="numeric"
             min={0}
             placeholder="Years, e.g. 2"
-            value={values.workExperienceYears}
-            onChange={(e) => set("workExperienceYears", e.target.value)}
+            {...register("workExperienceYears", {
+              onBlur: () => {
+                void saveFromBlur();
+              },
+            })}
           />
         </Field>
 
         <Field
           label="Extracurriculars"
-          error={errors.extracurricularsScore}
+          error={fieldError("extracurricularsScore")}
           hint="Self-rated 0–10: volunteering, research, leadership."
         >
           <Input
             type="number"
-            name="extracurricularsScore"
             inputMode="numeric"
             min={0}
             max={10}
             placeholder="e.g. 6"
-            value={values.extracurricularsScore}
-            onChange={(e) => set("extracurricularsScore", e.target.value)}
+            {...register("extracurricularsScore", {
+              onBlur: () => {
+                void saveFromBlur();
+              },
+            })}
           />
         </Field>
       </div>
 
       <Field
         label="Target countries"
-        error={errors.targetCountries}
+        error={fieldError("targetCountries")}
         hint="Where you'd like to study. This is what programme matching filters on."
       >
-        {/* See TargetStep: the Field supplies the control id. */}
-        <MultiCombobox
-          options={countryOptions}
-          values={values.targetCountries}
-          onChange={(v) => set("targetCountries", v)}
-          max={5}
-          placeholder="Search countries…"
+        <Controller
+          name="targetCountries"
+          control={control}
+          render={({ field }) => (
+            <MultiCombobox
+              options={countryOptions}
+              values={field.value}
+              onChange={(v) => {
+                field.onChange(v);
+                void saveFromBlur();
+              }}
+              max={5}
+              placeholder="Search countries…"
+            />
+          )}
         />
       </Field>
 
@@ -379,26 +454,6 @@ export function ProfileForm({
         Leaving a field blank keeps whatever is already saved — there is no way
         to clear a single value yet.
       </Text>
-
-      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-        <Button
-          type="button"
-          variant="secondary"
-          leadingIcon={X}
-          onClick={onCancel}
-          disabled={saving}
-        >
-          Cancel
-        </Button>
-        <Button
-          type="submit"
-          leadingIcon={Save}
-          loading={saving}
-          loadingLabel="Saving your profile"
-        >
-          Save changes
-        </Button>
-      </div>
     </form>
   );
 }

@@ -23,7 +23,7 @@ class HistoryResponseItem(BaseModel):
     content: str
 
 class ChatStreamEvent(BaseModel):
-    type: Literal["metadata", "token", "error", "speaking_url", "writing_url", "match_results", "sources", "exam_prep"]
+    type: Literal["metadata", "token", "error", "speaking_url", "writing_url", "match_results", "sources", "exam_prep", "general"]
     intent: Optional[str] = None
     confidence: Optional[float] = None
     content: Optional[str] = None

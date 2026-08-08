@@ -1,0 +1,2241 @@
+{
+  "audio_duration_s": 52.544,
+  "estimated_cost_usd": null,
+  "idempotency_key": "8a92dec3162fb425daa4f500a134a97f8029d0a60ff12bafc04d53ab5a60bb0e",
+  "identity": {
+    "api_version": "v2",
+    "external_docs_reviewed_at": "2026-08-08",
+    "provider": "gladia",
+    "request_profile_hash": "aa1a761fba36f839df4d1ebbc8bd16842a69baac11cf9fe9dc634601d4fe779e"
+  },
+  "job_id": "4a1ef664-d730-4025-af8a-5992b79b1f4b",
+  "provider_latency_s": 9.359,
+  "raw": {
+    "completed_at": "2026-08-08T10:06:45.627Z",
+    "created_at": "2026-08-08T10:06:41.847Z",
+    "custom_metadata": {
+      "benchmark_item_id": "smoke-two-speaker",
+      "idempotency_key": "8a92dec3162fb425daa4f500a134a97f8029d0a60ff12bafc04d53ab5a60bb0e"
+    },
+    "error_code": null,
+    "file": {
+      "audio_duration": 52.544,
+      "filename": "two_speaker_part1.wav",
+      "id": "fe2526da-871c-4a47-a2f5-fde6baebafc8",
+      "number_of_channels": 1,
+      "source": null
+    },
+    "id": "4a1ef664-d730-4025-af8a-5992b79b1f4b",
+    "kind": "pre-recorded",
+    "request_id": "G-4a1ef664",
+    "request_params": {
+      "accurate_words_timestamps": false,
+      "audio_enhancer": false,
+      "audio_to_llm": false,
+      "audio_url": "https://api.gladia.io/file/fe2526da-871c-4a47-a2f5-fde6baebafc8",
+      "chapterization": false,
+      "custom_spelling": false,
+      "detect_language": true,
+      "diarization": true,
+      "diarization_config": {
+        "enhanced": false,
+        "max_speakers": 4,
+        "min_speakers": 1,
+        "number_of_speakers": 2,
+        "utterance_split": false
+      },
+      "diarization_enhanced": false,
+      "display_mode": false,
+      "enable_code_switching": false,
+      "language_config": {
+        "code_switching": false,
+        "languages": [
+          "en"
+        ]
+      },
+      "model": "solaria-1",
+      "moderation": false,
+      "name_consistency": false,
+      "named_entity_recognition": false,
+      "pii_redaction": false,
+      "punctuation_enhanced": false,
+      "sentences": false,
+      "sentiment_analysis": false,
+      "skip_channel_deduplication": false,
+      "structured_data_extraction": false,
+      "subtitles": false,
+      "summarization": false,
+      "translation": false
+    },
+    "result": {
+      "diarization": {
+        "error": null,
+        "exec_time": 3,
+        "is_empty": false,
+        "results": [
+          {
+            "channel": 0,
+            "confidence": 0.37,
+            "end": 0.668,
+            "language": "en",
+            "speaker": 0,
+            "start": 0.128,
+            "text": "Good morning.",
+            "words": [
+              {
+                "confidence": 0.36,
+                "end": 0.28800000000000003,
+                "start": 0.128,
+                "word": "Good"
+              },
+              {
+                "confidence": 0.38,
+                "end": 0.668,
+                "start": 0.34800000000000003,
+                "word": " morning."
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 0.99,
+            "end": 3.369,
+            "language": "en",
+            "speaker": 0,
+            "start": 1.629,
+            "text": "Can you tell me about your hometown?",
+            "words": [
+              {
+                "confidence": 0.99,
+                "end": 1.7690000000000001,
+                "start": 1.629,
+                "word": " Can"
+              },
+              {
+                "confidence": 1,
+                "end": 1.929,
+                "start": 1.809,
+                "word": " you"
+              },
+              {
+                "confidence": 0.98,
+                "end": 2.189,
+                "start": 1.989,
+                "word": " tell"
+              },
+              {
+                "confidence": 1,
+                "end": 2.349,
+                "start": 2.229,
+                "word": " me"
+              },
+              {
+                "confidence": 0.99,
+                "end": 2.669,
+                "start": 2.429,
+                "word": " about"
+              },
+              {
+                "confidence": 1,
+                "end": 2.849,
+                "start": 2.709,
+                "word": " your"
+              },
+              {
+                "confidence": 0.96,
+                "end": 3.369,
+                "start": 2.909,
+                "word": " hometown?"
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 1,
+            "end": 5.029999999999999,
+            "language": "en",
+            "speaker": 1,
+            "start": 4.77,
+            "text": "Yes,",
+            "words": [
+              {
+                "confidence": 1,
+                "end": 5.029999999999999,
+                "start": 4.77,
+                "word": " Yes,"
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 0.96,
+            "end": 6.071,
+            "language": "en",
+            "speaker": 1,
+            "start": 5.51,
+            "text": "of course.",
+            "words": [
+              {
+                "confidence": 0.99,
+                "end": 5.63,
+                "start": 5.51,
+                "word": " of"
+              },
+              {
+                "confidence": 0.92,
+                "end": 6.071,
+                "start": 5.67,
+                "word": " course."
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 0.95,
+            "end": 9.272,
+            "language": "en",
+            "speaker": 1,
+            "start": 6.991,
+            "text": "I grew up in a small city in the Nile Delta.",
+            "words": [
+              {
+                "confidence": 1,
+                "end": 7.111,
+                "start": 6.991,
+                "word": " I"
+              },
+              {
+                "confidence": 1,
+                "end": 7.311,
+                "start": 7.130999999999999,
+                "word": " grew"
+              },
+              {
+                "confidence": 1,
+                "end": 7.470999999999999,
+                "start": 7.351,
+                "word": " up"
+              },
+              {
+                "confidence": 0.85,
+                "end": 7.611,
+                "start": 7.491,
+                "word": " in"
+              },
+              {
+                "confidence": 1,
+                "end": 7.691,
+                "start": 7.611999999999999,
+                "word": " a"
+              },
+              {
+                "confidence": 0.88,
+                "end": 8.032,
+                "start": 7.731,
+                "word": " small"
+              },
+              {
+                "confidence": 1,
+                "end": 8.312000000000001,
+                "start": 8.112,
+                "word": " city"
+              },
+              {
+                "confidence": 1,
+                "end": 8.512,
+                "start": 8.392000000000001,
+                "word": " in"
+              },
+              {
+                "confidence": 0.97,
+                "end": 8.612,
+                "start": 8.513,
+                "word": " the"
+              },
+              {
+                "confidence": 0.77,
+                "end": 8.912,
+                "start": 8.632,
+                "word": " Nile"
+              },
+              {
+                "confidence": 1,
+                "end": 9.272,
+                "start": 8.952,
+                "word": " Delta."
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 0.98,
+            "end": 11.753,
+            "language": "en",
+            "speaker": 1,
+            "start": 10.253,
+            "text": "It is a fairly quiet place,",
+            "words": [
+              {
+                "confidence": 1,
+                "end": 10.373000000000001,
+                "start": 10.253,
+                "word": " It"
+              },
+              {
+                "confidence": 1,
+                "end": 10.493,
+                "start": 10.374,
+                "word": " is"
+              },
+              {
+                "confidence": 1,
+                "end": 10.573,
+                "start": 10.494,
+                "word": " a"
+              },
+              {
+                "confidence": 0.92,
+                "end": 10.913,
+                "start": 10.613000000000001,
+                "word": " fairly"
+              },
+              {
+                "confidence": 0.96,
+                "end": 11.313,
+                "start": 10.973,
+                "word": " quiet"
+              },
+              {
+                "confidence": 1,
+                "end": 11.753,
+                "start": 11.373000000000001,
+                "word": " place,"
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 0.95,
+            "end": 15.335,
+            "language": "en",
+            "speaker": 1,
+            "start": 12.213000000000001,
+            "text": "and most of the families there have known each other for generations.",
+            "words": [
+              {
+                "confidence": 0.52,
+                "end": 12.333,
+                "start": 12.213000000000001,
+                "word": " and"
+              },
+              {
+                "confidence": 1,
+                "end": 12.614,
+                "start": 12.373000000000001,
+                "word": " most"
+              },
+              {
+                "confidence": 1,
+                "end": 12.734,
+                "start": 12.615,
+                "word": " of"
+              },
+              {
+                "confidence": 0.93,
+                "end": 12.854000000000001,
+                "start": 12.735000000000001,
+                "word": " the"
+              },
+              {
+                "confidence": 1,
+                "end": 13.294,
+                "start": 12.874,
+                "word": " families"
+              },
+              {
+                "confidence": 0.95,
+                "end": 13.514000000000001,
+                "start": 13.334,
+                "word": " there"
+              },
+              {
+                "confidence": 0.99,
+                "end": 13.674000000000001,
+                "start": 13.534,
+                "word": " have"
+              },
+              {
+                "confidence": 0.99,
+                "end": 13.914,
+                "start": 13.694,
+                "word": " known"
+              },
+              {
+                "confidence": 0.99,
+                "end": 14.154,
+                "start": 14.014000000000001,
+                "word": " each"
+              },
+              {
+                "confidence": 1,
+                "end": 14.394,
+                "start": 14.214,
+                "word": " other"
+              },
+              {
+                "confidence": 1,
+                "end": 14.554,
+                "start": 14.434000000000001,
+                "word": " for"
+              },
+              {
+                "confidence": 1,
+                "end": 15.335,
+                "start": 14.614,
+                "word": " generations."
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 0.97,
+            "end": 17.936,
+            "language": "en",
+            "speaker": 1,
+            "start": 16.275,
+            "text": "I still live there with my parents.",
+            "words": [
+              {
+                "confidence": 1,
+                "end": 16.395,
+                "start": 16.275,
+                "word": " I"
+              },
+              {
+                "confidence": 0.95,
+                "end": 16.634999999999998,
+                "start": 16.415,
+                "word": " still"
+              },
+              {
+                "confidence": 1,
+                "end": 16.875,
+                "start": 16.715,
+                "word": " live"
+              },
+              {
+                "confidence": 0.97,
+                "end": 17.075,
+                "start": 16.915,
+                "word": " there"
+              },
+              {
+                "confidence": 0.99,
+                "end": 17.256,
+                "start": 17.116,
+                "word": " with"
+              },
+              {
+                "confidence": 1,
+                "end": 17.416,
+                "start": 17.296,
+                "word": " my"
+              },
+              {
+                "confidence": 0.9,
+                "end": 17.936,
+                "start": 17.476,
+                "word": " parents."
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 0.98,
+            "end": 21.017,
+            "language": "en",
+            "speaker": 0,
+            "start": 19.316,
+            "text": "And what do you do in your free time?",
+            "words": [
+              {
+                "confidence": 0.93,
+                "end": 19.436999999999998,
+                "start": 19.316,
+                "word": " And"
+              },
+              {
+                "confidence": 0.96,
+                "end": 19.616999999999997,
+                "start": 19.477,
+                "word": " what"
+              },
+              {
+                "confidence": 0.99,
+                "end": 19.776999999999997,
+                "start": 19.657,
+                "word": " do"
+              },
+              {
+                "confidence": 1,
+                "end": 19.936999999999998,
+                "start": 19.817,
+                "word": " you"
+              },
+              {
+                "confidence": 1,
+                "end": 20.076999999999998,
+                "start": 19.956999999999997,
+                "word": " do"
+              },
+              {
+                "confidence": 1,
+                "end": 20.256999999999998,
+                "start": 20.137,
+                "word": " in"
+              },
+              {
+                "confidence": 1,
+                "end": 20.416999999999998,
+                "start": 20.276999999999997,
+                "word": " your"
+              },
+              {
+                "confidence": 1,
+                "end": 20.657,
+                "start": 20.456999999999997,
+                "word": " free"
+              },
+              {
+                "confidence": 0.97,
+                "end": 21.017,
+                "start": 20.697,
+                "word": " time?"
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 0.91,
+            "end": 22.637999999999998,
+            "language": "en",
+            "speaker": 1,
+            "start": 22.398,
+            "text": "Well,",
+            "words": [
+              {
+                "confidence": 0.91,
+                "end": 22.637999999999998,
+                "start": 22.398,
+                "word": " Well,"
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 0.98,
+            "end": 25.418999999999997,
+            "language": "en",
+            "speaker": 1,
+            "start": 23.137999999999998,
+            "text": "I spend quite a lot of my free time reading,",
+            "words": [
+              {
+                "confidence": 1,
+                "end": 23.258,
+                "start": 23.137999999999998,
+                "word": " I"
+              },
+              {
+                "confidence": 0.97,
+                "end": 23.538,
+                "start": 23.278,
+                "word": " spend"
+              },
+              {
+                "confidence": 0.97,
+                "end": 23.878,
+                "start": 23.618,
+                "word": " quite"
+              },
+              {
+                "confidence": 1,
+                "end": 23.959,
+                "start": 23.878999999999998,
+                "word": " a"
+              },
+              {
+                "confidence": 1,
+                "end": 24.179,
+                "start": 23.999,
+                "word": " lot"
+              },
+              {
+                "confidence": 1,
+                "end": 24.319,
+                "start": 24.198999999999998,
+                "word": " of"
+              },
+              {
+                "confidence": 1,
+                "end": 24.459,
+                "start": 24.339,
+                "word": " my"
+              },
+              {
+                "confidence": 0.9,
+                "end": 24.718999999999998,
+                "start": 24.538999999999998,
+                "word": " free"
+              },
+              {
+                "confidence": 0.99,
+                "end": 25.058999999999997,
+                "start": 24.779,
+                "word": " time"
+              },
+              {
+                "confidence": 1,
+                "end": 25.418999999999997,
+                "start": 25.099,
+                "word": " reading,"
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 0.96,
+            "end": 27.099999999999998,
+            "language": "en",
+            "speaker": 1,
+            "start": 25.939,
+            "text": "mostly history books.",
+            "words": [
+              {
+                "confidence": 0.99,
+                "end": 26.279999999999998,
+                "start": 25.939,
+                "word": " mostly"
+              },
+              {
+                "confidence": 0.96,
+                "end": 26.7,
+                "start": 26.38,
+                "word": " history"
+              },
+              {
+                "confidence": 0.93,
+                "end": 27.099999999999998,
+                "start": 26.799999999999997,
+                "word": " books."
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 0.96,
+            "end": 31.586,
+            "language": "en",
+            "speaker": 1,
+            "start": 28.104,
+            "text": "I also meet friends at a coffee shop near my house on Fridays,",
+            "words": [
+              {
+                "confidence": 0.99,
+                "end": 28.224,
+                "start": 28.104,
+                "word": " I"
+              },
+              {
+                "confidence": 1,
+                "end": 28.503999999999998,
+                "start": 28.264,
+                "word": " also"
+              },
+              {
+                "confidence": 0.98,
+                "end": 28.764,
+                "start": 28.584,
+                "word": " meet"
+              },
+              {
+                "confidence": 0.94,
+                "end": 29.165,
+                "start": 28.823999999999998,
+                "word": " friends"
+              },
+              {
+                "confidence": 1,
+                "end": 29.325,
+                "start": 29.205,
+                "word": " at"
+              },
+              {
+                "confidence": 1,
+                "end": 29.404999999999998,
+                "start": 29.326,
+                "word": " a"
+              },
+              {
+                "confidence": 0.67,
+                "end": 29.785,
+                "start": 29.424999999999997,
+                "word": " coffee"
+              },
+              {
+                "confidence": 0.97,
+                "end": 30.104999999999997,
+                "start": 29.884999999999998,
+                "word": " shop"
+              },
+              {
+                "confidence": 1,
+                "end": 30.345,
+                "start": 30.205,
+                "word": " near"
+              },
+              {
+                "confidence": 1,
+                "end": 30.544999999999998,
+                "start": 30.404999999999998,
+                "word": " my"
+              },
+              {
+                "confidence": 0.94,
+                "end": 30.845,
+                "start": 30.584999999999997,
+                "word": " house"
+              },
+              {
+                "confidence": 1,
+                "end": 31.006,
+                "start": 30.884999999999998,
+                "word": " on"
+              },
+              {
+                "confidence": 0.98,
+                "end": 31.586,
+                "start": 31.066,
+                "word": " Fridays,"
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 0.97,
+            "end": 34.446999999999996,
+            "language": "en",
+            "speaker": 1,
+            "start": 32.066,
+            "text": "although recently I have been rather busy with work.",
+            "words": [
+              {
+                "confidence": 1,
+                "end": 32.346,
+                "start": 32.066,
+                "word": " although"
+              },
+              {
+                "confidence": 0.99,
+                "end": 32.826,
+                "start": 32.385999999999996,
+                "word": " recently"
+              },
+              {
+                "confidence": 1,
+                "end": 33.027,
+                "start": 32.906,
+                "word": " I"
+              },
+              {
+                "confidence": 1,
+                "end": 33.167,
+                "start": 33.028,
+                "word": " have"
+              },
+              {
+                "confidence": 1,
+                "end": 33.327,
+                "start": 33.187,
+                "word": " been"
+              },
+              {
+                "confidence": 0.99,
+                "end": 33.626999999999995,
+                "start": 33.387,
+                "word": " rather"
+              },
+              {
+                "confidence": 0.76,
+                "end": 33.907,
+                "start": 33.687,
+                "word": " busy"
+              },
+              {
+                "confidence": 1,
+                "end": 34.126999999999995,
+                "start": 33.986999999999995,
+                "word": " with"
+              },
+              {
+                "confidence": 1,
+                "end": 34.446999999999996,
+                "start": 34.187,
+                "word": " work."
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 0.99,
+            "end": 37.849,
+            "language": "en",
+            "speaker": 0,
+            "start": 35.768,
+            "text": "Do you think you will stay there in the future?",
+            "words": [
+              {
+                "confidence": 1,
+                "end": 35.888,
+                "start": 35.768,
+                "word": " Do"
+              },
+              {
+                "confidence": 1,
+                "end": 36.048,
+                "start": 35.928,
+                "word": " you"
+              },
+              {
+                "confidence": 1,
+                "end": 36.308,
+                "start": 36.108,
+                "word": " think"
+              },
+              {
+                "confidence": 1,
+                "end": 36.467999999999996,
+                "start": 36.348,
+                "word": " you"
+              },
+              {
+                "confidence": 1,
+                "end": 36.647999999999996,
+                "start": 36.507999999999996,
+                "word": " will"
+              },
+              {
+                "confidence": 1,
+                "end": 36.928,
+                "start": 36.708,
+                "word": " stay"
+              },
+              {
+                "confidence": 1,
+                "end": 37.169,
+                "start": 36.989,
+                "word": " there"
+              },
+              {
+                "confidence": 1,
+                "end": 37.329,
+                "start": 37.208999999999996,
+                "word": " in"
+              },
+              {
+                "confidence": 0.99,
+                "end": 37.429,
+                "start": 37.33,
+                "word": " the"
+              },
+              {
+                "confidence": 0.96,
+                "end": 37.849,
+                "start": 37.449,
+                "word": " future?"
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 0.99,
+            "end": 40.489999999999995,
+            "language": "en",
+            "speaker": 1,
+            "start": 39.17,
+            "text": "That is a difficult question.",
+            "words": [
+              {
+                "confidence": 1,
+                "end": 39.33,
+                "start": 39.17,
+                "word": " That"
+              },
+              {
+                "confidence": 1,
+                "end": 39.47,
+                "start": 39.349999999999994,
+                "word": " is"
+              },
+              {
+                "confidence": 0.99,
+                "end": 39.55,
+                "start": 39.471,
+                "word": " a"
+              },
+              {
+                "confidence": 1,
+                "end": 39.97,
+                "start": 39.57,
+                "word": " difficult"
+              },
+              {
+                "confidence": 0.96,
+                "end": 40.489999999999995,
+                "start": 40.03,
+                "word": " question."
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 0.91,
+            "end": 41.831,
+            "language": "en",
+            "speaker": 1,
+            "start": 41.451,
+            "text": "Honestly,",
+            "words": [
+              {
+                "confidence": 0.91,
+                "end": 41.831,
+                "start": 41.451,
+                "word": " Honestly,"
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 0.97,
+            "end": 43.232,
+            "language": "en",
+            "speaker": 1,
+            "start": 42.391,
+            "text": "I am not sure.",
+            "words": [
+              {
+                "confidence": 1,
+                "end": 42.510999999999996,
+                "start": 42.391,
+                "word": " I"
+              },
+              {
+                "confidence": 1,
+                "end": 42.631,
+                "start": 42.512,
+                "word": " am"
+              },
+              {
+                "confidence": 0.98,
+                "end": 42.870999999999995,
+                "start": 42.691,
+                "word": " not"
+              },
+              {
+                "confidence": 0.91,
+                "end": 43.232,
+                "start": 42.971999999999994,
+                "word": " sure."
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 1,
+            "end": 46.093,
+            "language": "en",
+            "speaker": 1,
+            "start": 44.172,
+            "text": "I would like to stay close to my family,",
+            "words": [
+              {
+                "confidence": 1,
+                "end": 44.292,
+                "start": 44.172,
+                "word": " I"
+              },
+              {
+                "confidence": 1,
+                "end": 44.452,
+                "start": 44.312,
+                "word": " would"
+              },
+              {
+                "confidence": 1,
+                "end": 44.692,
+                "start": 44.512,
+                "word": " like"
+              },
+              {
+                "confidence": 1,
+                "end": 44.812,
+                "start": 44.693,
+                "word": " to"
+              },
+              {
+                "confidence": 1,
+                "end": 45.013,
+                "start": 44.831999999999994,
+                "word": " stay"
+              },
+              {
+                "confidence": 1,
+                "end": 45.373,
+                "start": 45.073,
+                "word": " close"
+              },
+              {
+                "confidence": 1,
+                "end": 45.492999999999995,
+                "start": 45.373999999999995,
+                "word": " to"
+              },
+              {
+                "confidence": 1,
+                "end": 45.653,
+                "start": 45.533,
+                "word": " my"
+              },
+              {
+                "confidence": 1,
+                "end": 46.093,
+                "start": 45.712999999999994,
+                "word": " family,"
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 0.98,
+            "end": 49.515,
+            "language": "en",
+            "speaker": 1,
+            "start": 46.593,
+            "text": "but the opportunities in my field are mostly in the capital,",
+            "words": [
+              {
+                "confidence": 1,
+                "end": 46.712999999999994,
+                "start": 46.593,
+                "word": " but"
+              },
+              {
+                "confidence": 0.99,
+                "end": 46.852999999999994,
+                "start": 46.733,
+                "word": " the"
+              },
+              {
+                "confidence": 0.99,
+                "end": 47.614,
+                "start": 46.95399999999999,
+                "word": " opportunities"
+              },
+              {
+                "confidence": 1,
+                "end": 47.754,
+                "start": 47.634,
+                "word": " in"
+              },
+              {
+                "confidence": 1,
+                "end": 47.894,
+                "start": 47.774,
+                "word": " my"
+              },
+              {
+                "confidence": 1,
+                "end": 48.214,
+                "start": 47.95399999999999,
+                "word": " field"
+              },
+              {
+                "confidence": 0.93,
+                "end": 48.373999999999995,
+                "start": 48.254,
+                "word": " are"
+              },
+              {
+                "confidence": 0.94,
+                "end": 48.754,
+                "start": 48.414,
+                "word": " mostly"
+              },
+              {
+                "confidence": 1,
+                "end": 48.935,
+                "start": 48.814,
+                "word": " in"
+              },
+              {
+                "confidence": 1,
+                "end": 49.055,
+                "start": 48.936,
+                "word": " the"
+              },
+              {
+                "confidence": 0.97,
+                "end": 49.515,
+                "start": 49.075,
+                "word": " capital,"
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 0.99,
+            "end": 51.676,
+            "language": "en",
+            "speaker": 1,
+            "start": 50.055,
+            "text": "so I may have to move eventually.",
+            "words": [
+              {
+                "confidence": 1,
+                "end": 50.175,
+                "start": 50.055,
+                "word": " so"
+              },
+              {
+                "confidence": 1,
+                "end": 50.375,
+                "start": 50.254999999999995,
+                "word": " I"
+              },
+              {
+                "confidence": 1,
+                "end": 50.535,
+                "start": 50.394999999999996,
+                "word": " may"
+              },
+              {
+                "confidence": 1,
+                "end": 50.754999999999995,
+                "start": 50.595,
+                "word": " have"
+              },
+              {
+                "confidence": 1,
+                "end": 50.876,
+                "start": 50.756,
+                "word": " to"
+              },
+              {
+                "confidence": 1,
+                "end": 51.096000000000004,
+                "start": 50.896,
+                "word": " move"
+              },
+              {
+                "confidence": 0.96,
+                "end": 51.676,
+                "start": 51.135999999999996,
+                "word": " eventually."
+              }
+            ]
+          }
+        ],
+        "success": true
+      },
+      "metadata": {
+        "audio_duration": 52.544,
+        "billing_time": 52.544,
+        "number_of_distinct_channels": 1,
+        "transcription_time": 3.78
+      },
+      "transcription": {
+        "full_transcript": "Good morning. Can you tell me about your hometown? Yes, of course. I grew up in a small city in the Nile Delta. It is a fairly quiet place, and most of the families there have known each other for generations. I still live there with my parents. And what do you do in your free time? Well, I spend quite a lot of my free time reading, mostly history books. I also meet friends at a coffee shop near my house on Fridays, although recently I have been rather busy with work. Do you think you will stay there in the future? That is a difficult question. Honestly, I am not sure. I would like to stay close to my family, but the opportunities in my field are mostly in the capital, so I may have to move eventually.",
+        "languages": [
+          "en"
+        ],
+        "utterances": [
+          {
+            "channel": 0,
+            "confidence": 0.37,
+            "end": 0.668,
+            "language": "en",
+            "speaker": 0,
+            "start": 0.128,
+            "text": "Good morning.",
+            "words": [
+              {
+                "confidence": 0.36,
+                "end": 0.28800000000000003,
+                "start": 0.128,
+                "word": "Good"
+              },
+              {
+                "confidence": 0.38,
+                "end": 0.668,
+                "start": 0.34800000000000003,
+                "word": " morning."
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 0.99,
+            "end": 3.369,
+            "language": "en",
+            "speaker": 0,
+            "start": 1.629,
+            "text": "Can you tell me about your hometown?",
+            "words": [
+              {
+                "confidence": 0.99,
+                "end": 1.7690000000000001,
+                "start": 1.629,
+                "word": " Can"
+              },
+              {
+                "confidence": 1,
+                "end": 1.929,
+                "start": 1.809,
+                "word": " you"
+              },
+              {
+                "confidence": 0.98,
+                "end": 2.189,
+                "start": 1.989,
+                "word": " tell"
+              },
+              {
+                "confidence": 1,
+                "end": 2.349,
+                "start": 2.229,
+                "word": " me"
+              },
+              {
+                "confidence": 0.99,
+                "end": 2.669,
+                "start": 2.429,
+                "word": " about"
+              },
+              {
+                "confidence": 1,
+                "end": 2.849,
+                "start": 2.709,
+                "word": " your"
+              },
+              {
+                "confidence": 0.96,
+                "end": 3.369,
+                "start": 2.909,
+                "word": " hometown?"
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 1,
+            "end": 5.029999999999999,
+            "language": "en",
+            "speaker": 1,
+            "start": 4.77,
+            "text": "Yes,",
+            "words": [
+              {
+                "confidence": 1,
+                "end": 5.029999999999999,
+                "start": 4.77,
+                "word": " Yes,"
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 0.96,
+            "end": 6.071,
+            "language": "en",
+            "speaker": 1,
+            "start": 5.51,
+            "text": "of course.",
+            "words": [
+              {
+                "confidence": 0.99,
+                "end": 5.63,
+                "start": 5.51,
+                "word": " of"
+              },
+              {
+                "confidence": 0.92,
+                "end": 6.071,
+                "start": 5.67,
+                "word": " course."
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 0.95,
+            "end": 9.272,
+            "language": "en",
+            "speaker": 1,
+            "start": 6.991,
+            "text": "I grew up in a small city in the Nile Delta.",
+            "words": [
+              {
+                "confidence": 1,
+                "end": 7.111,
+                "start": 6.991,
+                "word": " I"
+              },
+              {
+                "confidence": 1,
+                "end": 7.311,
+                "start": 7.130999999999999,
+                "word": " grew"
+              },
+              {
+                "confidence": 1,
+                "end": 7.470999999999999,
+                "start": 7.351,
+                "word": " up"
+              },
+              {
+                "confidence": 0.85,
+                "end": 7.611,
+                "start": 7.491,
+                "word": " in"
+              },
+              {
+                "confidence": 1,
+                "end": 7.691,
+                "start": 7.611999999999999,
+                "word": " a"
+              },
+              {
+                "confidence": 0.88,
+                "end": 8.032,
+                "start": 7.731,
+                "word": " small"
+              },
+              {
+                "confidence": 1,
+                "end": 8.312000000000001,
+                "start": 8.112,
+                "word": " city"
+              },
+              {
+                "confidence": 1,
+                "end": 8.512,
+                "start": 8.392000000000001,
+                "word": " in"
+              },
+              {
+                "confidence": 0.97,
+                "end": 8.612,
+                "start": 8.513,
+                "word": " the"
+              },
+              {
+                "confidence": 0.77,
+                "end": 8.912,
+                "start": 8.632,
+                "word": " Nile"
+              },
+              {
+                "confidence": 1,
+                "end": 9.272,
+                "start": 8.952,
+                "word": " Delta."
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 0.98,
+            "end": 11.753,
+            "language": "en",
+            "speaker": 1,
+            "start": 10.253,
+            "text": "It is a fairly quiet place,",
+            "words": [
+              {
+                "confidence": 1,
+                "end": 10.373000000000001,
+                "start": 10.253,
+                "word": " It"
+              },
+              {
+                "confidence": 1,
+                "end": 10.493,
+                "start": 10.374,
+                "word": " is"
+              },
+              {
+                "confidence": 1,
+                "end": 10.573,
+                "start": 10.494,
+                "word": " a"
+              },
+              {
+                "confidence": 0.92,
+                "end": 10.913,
+                "start": 10.613000000000001,
+                "word": " fairly"
+              },
+              {
+                "confidence": 0.96,
+                "end": 11.313,
+                "start": 10.973,
+                "word": " quiet"
+              },
+              {
+                "confidence": 1,
+                "end": 11.753,
+                "start": 11.373000000000001,
+                "word": " place,"
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 0.95,
+            "end": 15.335,
+            "language": "en",
+            "speaker": 1,
+            "start": 12.213000000000001,
+            "text": "and most of the families there have known each other for generations.",
+            "words": [
+              {
+                "confidence": 0.52,
+                "end": 12.333,
+                "start": 12.213000000000001,
+                "word": " and"
+              },
+              {
+                "confidence": 1,
+                "end": 12.614,
+                "start": 12.373000000000001,
+                "word": " most"
+              },
+              {
+                "confidence": 1,
+                "end": 12.734,
+                "start": 12.615,
+                "word": " of"
+              },
+              {
+                "confidence": 0.93,
+                "end": 12.854000000000001,
+                "start": 12.735000000000001,
+                "word": " the"
+              },
+              {
+                "confidence": 1,
+                "end": 13.294,
+                "start": 12.874,
+                "word": " families"
+              },
+              {
+                "confidence": 0.95,
+                "end": 13.514000000000001,
+                "start": 13.334,
+                "word": " there"
+              },
+              {
+                "confidence": 0.99,
+                "end": 13.674000000000001,
+                "start": 13.534,
+                "word": " have"
+              },
+              {
+                "confidence": 0.99,
+                "end": 13.914,
+                "start": 13.694,
+                "word": " known"
+              },
+              {
+                "confidence": 0.99,
+                "end": 14.154,
+                "start": 14.014000000000001,
+                "word": " each"
+              },
+              {
+                "confidence": 1,
+                "end": 14.394,
+                "start": 14.214,
+                "word": " other"
+              },
+              {
+                "confidence": 1,
+                "end": 14.554,
+                "start": 14.434000000000001,
+                "word": " for"
+              },
+              {
+                "confidence": 1,
+                "end": 15.335,
+                "start": 14.614,
+                "word": " generations."
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 0.97,
+            "end": 17.936,
+            "language": "en",
+            "speaker": 1,
+            "start": 16.275,
+            "text": "I still live there with my parents.",
+            "words": [
+              {
+                "confidence": 1,
+                "end": 16.395,
+                "start": 16.275,
+                "word": " I"
+              },
+              {
+                "confidence": 0.95,
+                "end": 16.634999999999998,
+                "start": 16.415,
+                "word": " still"
+              },
+              {
+                "confidence": 1,
+                "end": 16.875,
+                "start": 16.715,
+                "word": " live"
+              },
+              {
+                "confidence": 0.97,
+                "end": 17.075,
+                "start": 16.915,
+                "word": " there"
+              },
+              {
+                "confidence": 0.99,
+                "end": 17.256,
+                "start": 17.116,
+                "word": " with"
+              },
+              {
+                "confidence": 1,
+                "end": 17.416,
+                "start": 17.296,
+                "word": " my"
+              },
+              {
+                "confidence": 0.9,
+                "end": 17.936,
+                "start": 17.476,
+                "word": " parents."
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 0.98,
+            "end": 21.017,
+            "language": "en",
+            "speaker": 0,
+            "start": 19.316,
+            "text": "And what do you do in your free time?",
+            "words": [
+              {
+                "confidence": 0.93,
+                "end": 19.436999999999998,
+                "start": 19.316,
+                "word": " And"
+              },
+              {
+                "confidence": 0.96,
+                "end": 19.616999999999997,
+                "start": 19.477,
+                "word": " what"
+              },
+              {
+                "confidence": 0.99,
+                "end": 19.776999999999997,
+                "start": 19.657,
+                "word": " do"
+              },
+              {
+                "confidence": 1,
+                "end": 19.936999999999998,
+                "start": 19.817,
+                "word": " you"
+              },
+              {
+                "confidence": 1,
+                "end": 20.076999999999998,
+                "start": 19.956999999999997,
+                "word": " do"
+              },
+              {
+                "confidence": 1,
+                "end": 20.256999999999998,
+                "start": 20.137,
+                "word": " in"
+              },
+              {
+                "confidence": 1,
+                "end": 20.416999999999998,
+                "start": 20.276999999999997,
+                "word": " your"
+              },
+              {
+                "confidence": 1,
+                "end": 20.657,
+                "start": 20.456999999999997,
+                "word": " free"
+              },
+              {
+                "confidence": 0.97,
+                "end": 21.017,
+                "start": 20.697,
+                "word": " time?"
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 0.91,
+            "end": 22.637999999999998,
+            "language": "en",
+            "speaker": 1,
+            "start": 22.398,
+            "text": "Well,",
+            "words": [
+              {
+                "confidence": 0.91,
+                "end": 22.637999999999998,
+                "start": 22.398,
+                "word": " Well,"
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 0.98,
+            "end": 25.418999999999997,
+            "language": "en",
+            "speaker": 1,
+            "start": 23.137999999999998,
+            "text": "I spend quite a lot of my free time reading,",
+            "words": [
+              {
+                "confidence": 1,
+                "end": 23.258,
+                "start": 23.137999999999998,
+                "word": " I"
+              },
+              {
+                "confidence": 0.97,
+                "end": 23.538,
+                "start": 23.278,
+                "word": " spend"
+              },
+              {
+                "confidence": 0.97,
+                "end": 23.878,
+                "start": 23.618,
+                "word": " quite"
+              },
+              {
+                "confidence": 1,
+                "end": 23.959,
+                "start": 23.878999999999998,
+                "word": " a"
+              },
+              {
+                "confidence": 1,
+                "end": 24.179,
+                "start": 23.999,
+                "word": " lot"
+              },
+              {
+                "confidence": 1,
+                "end": 24.319,
+                "start": 24.198999999999998,
+                "word": " of"
+              },
+              {
+                "confidence": 1,
+                "end": 24.459,
+                "start": 24.339,
+                "word": " my"
+              },
+              {
+                "confidence": 0.9,
+                "end": 24.718999999999998,
+                "start": 24.538999999999998,
+                "word": " free"
+              },
+              {
+                "confidence": 0.99,
+                "end": 25.058999999999997,
+                "start": 24.779,
+                "word": " time"
+              },
+              {
+                "confidence": 1,
+                "end": 25.418999999999997,
+                "start": 25.099,
+                "word": " reading,"
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 0.96,
+            "end": 27.099999999999998,
+            "language": "en",
+            "speaker": 1,
+            "start": 25.939,
+            "text": "mostly history books.",
+            "words": [
+              {
+                "confidence": 0.99,
+                "end": 26.279999999999998,
+                "start": 25.939,
+                "word": " mostly"
+              },
+              {
+                "confidence": 0.96,
+                "end": 26.7,
+                "start": 26.38,
+                "word": " history"
+              },
+              {
+                "confidence": 0.93,
+                "end": 27.099999999999998,
+                "start": 26.799999999999997,
+                "word": " books."
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 0.96,
+            "end": 31.586,
+            "language": "en",
+            "speaker": 1,
+            "start": 28.104,
+            "text": "I also meet friends at a coffee shop near my house on Fridays,",
+            "words": [
+              {
+                "confidence": 0.99,
+                "end": 28.224,
+                "start": 28.104,
+                "word": " I"
+              },
+              {
+                "confidence": 1,
+                "end": 28.503999999999998,
+                "start": 28.264,
+                "word": " also"
+              },
+              {
+                "confidence": 0.98,
+                "end": 28.764,
+                "start": 28.584,
+                "word": " meet"
+              },
+              {
+                "confidence": 0.94,
+                "end": 29.165,
+                "start": 28.823999999999998,
+                "word": " friends"
+              },
+              {
+                "confidence": 1,
+                "end": 29.325,
+                "start": 29.205,
+                "word": " at"
+              },
+              {
+                "confidence": 1,
+                "end": 29.404999999999998,
+                "start": 29.326,
+                "word": " a"
+              },
+              {
+                "confidence": 0.67,
+                "end": 29.785,
+                "start": 29.424999999999997,
+                "word": " coffee"
+              },
+              {
+                "confidence": 0.97,
+                "end": 30.104999999999997,
+                "start": 29.884999999999998,
+                "word": " shop"
+              },
+              {
+                "confidence": 1,
+                "end": 30.345,
+                "start": 30.205,
+                "word": " near"
+              },
+              {
+                "confidence": 1,
+                "end": 30.544999999999998,
+                "start": 30.404999999999998,
+                "word": " my"
+              },
+              {
+                "confidence": 0.94,
+                "end": 30.845,
+                "start": 30.584999999999997,
+                "word": " house"
+              },
+              {
+                "confidence": 1,
+                "end": 31.006,
+                "start": 30.884999999999998,
+                "word": " on"
+              },
+              {
+                "confidence": 0.98,
+                "end": 31.586,
+                "start": 31.066,
+                "word": " Fridays,"
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 0.97,
+            "end": 34.446999999999996,
+            "language": "en",
+            "speaker": 1,
+            "start": 32.066,
+            "text": "although recently I have been rather busy with work.",
+            "words": [
+              {
+                "confidence": 1,
+                "end": 32.346,
+                "start": 32.066,
+                "word": " although"
+              },
+              {
+                "confidence": 0.99,
+                "end": 32.826,
+                "start": 32.385999999999996,
+                "word": " recently"
+              },
+              {
+                "confidence": 1,
+                "end": 33.027,
+                "start": 32.906,
+                "word": " I"
+              },
+              {
+                "confidence": 1,
+                "end": 33.167,
+                "start": 33.028,
+                "word": " have"
+              },
+              {
+                "confidence": 1,
+                "end": 33.327,
+                "start": 33.187,
+                "word": " been"
+              },
+              {
+                "confidence": 0.99,
+                "end": 33.626999999999995,
+                "start": 33.387,
+                "word": " rather"
+              },
+              {
+                "confidence": 0.76,
+                "end": 33.907,
+                "start": 33.687,
+                "word": " busy"
+              },
+              {
+                "confidence": 1,
+                "end": 34.126999999999995,
+                "start": 33.986999999999995,
+                "word": " with"
+              },
+              {
+                "confidence": 1,
+                "end": 34.446999999999996,
+                "start": 34.187,
+                "word": " work."
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 0.99,
+            "end": 37.849,
+            "language": "en",
+            "speaker": 0,
+            "start": 35.768,
+            "text": "Do you think you will stay there in the future?",
+            "words": [
+              {
+                "confidence": 1,
+                "end": 35.888,
+                "start": 35.768,
+                "word": " Do"
+              },
+              {
+                "confidence": 1,
+                "end": 36.048,
+                "start": 35.928,
+                "word": " you"
+              },
+              {
+                "confidence": 1,
+                "end": 36.308,
+                "start": 36.108,
+                "word": " think"
+              },
+              {
+                "confidence": 1,
+                "end": 36.467999999999996,
+                "start": 36.348,
+                "word": " you"
+              },
+              {
+                "confidence": 1,
+                "end": 36.647999999999996,
+                "start": 36.507999999999996,
+                "word": " will"
+              },
+              {
+                "confidence": 1,
+                "end": 36.928,
+                "start": 36.708,
+                "word": " stay"
+              },
+              {
+                "confidence": 1,
+                "end": 37.169,
+                "start": 36.989,
+                "word": " there"
+              },
+              {
+                "confidence": 1,
+                "end": 37.329,
+                "start": 37.208999999999996,
+                "word": " in"
+              },
+              {
+                "confidence": 0.99,
+                "end": 37.429,
+                "start": 37.33,
+                "word": " the"
+              },
+              {
+                "confidence": 0.96,
+                "end": 37.849,
+                "start": 37.449,
+                "word": " future?"
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 0.99,
+            "end": 40.489999999999995,
+            "language": "en",
+            "speaker": 1,
+            "start": 39.17,
+            "text": "That is a difficult question.",
+            "words": [
+              {
+                "confidence": 1,
+                "end": 39.33,
+                "start": 39.17,
+                "word": " That"
+              },
+              {
+                "confidence": 1,
+                "end": 39.47,
+                "start": 39.349999999999994,
+                "word": " is"
+              },
+              {
+                "confidence": 0.99,
+                "end": 39.55,
+                "start": 39.471,
+                "word": " a"
+              },
+              {
+                "confidence": 1,
+                "end": 39.97,
+                "start": 39.57,
+                "word": " difficult"
+              },
+              {
+                "confidence": 0.96,
+                "end": 40.489999999999995,
+                "start": 40.03,
+                "word": " question."
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 0.91,
+            "end": 41.831,
+            "language": "en",
+            "speaker": 1,
+            "start": 41.451,
+            "text": "Honestly,",
+            "words": [
+              {
+                "confidence": 0.91,
+                "end": 41.831,
+                "start": 41.451,
+                "word": " Honestly,"
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 0.97,
+            "end": 43.232,
+            "language": "en",
+            "speaker": 1,
+            "start": 42.391,
+            "text": "I am not sure.",
+            "words": [
+              {
+                "confidence": 1,
+                "end": 42.510999999999996,
+                "start": 42.391,
+                "word": " I"
+              },
+              {
+                "confidence": 1,
+                "end": 42.631,
+                "start": 42.512,
+                "word": " am"
+              },
+              {
+                "confidence": 0.98,
+                "end": 42.870999999999995,
+                "start": 42.691,
+                "word": " not"
+              },
+              {
+                "confidence": 0.91,
+                "end": 43.232,
+                "start": 42.971999999999994,
+                "word": " sure."
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 1,
+            "end": 46.093,
+            "language": "en",
+            "speaker": 1,
+            "start": 44.172,
+            "text": "I would like to stay close to my family,",
+            "words": [
+              {
+                "confidence": 1,
+                "end": 44.292,
+                "start": 44.172,
+                "word": " I"
+              },
+              {
+                "confidence": 1,
+                "end": 44.452,
+                "start": 44.312,
+                "word": " would"
+              },
+              {
+                "confidence": 1,
+                "end": 44.692,
+                "start": 44.512,
+                "word": " like"
+              },
+              {
+                "confidence": 1,
+                "end": 44.812,
+                "start": 44.693,
+                "word": " to"
+              },
+              {
+                "confidence": 1,
+                "end": 45.013,
+                "start": 44.831999999999994,
+                "word": " stay"
+              },
+              {
+                "confidence": 1,
+                "end": 45.373,
+                "start": 45.073,
+                "word": " close"
+              },
+              {
+                "confidence": 1,
+                "end": 45.492999999999995,
+                "start": 45.373999999999995,
+                "word": " to"
+              },
+              {
+                "confidence": 1,
+                "end": 45.653,
+                "start": 45.533,
+                "word": " my"
+              },
+              {
+                "confidence": 1,
+                "end": 46.093,
+                "start": 45.712999999999994,
+                "word": " family,"
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 0.98,
+            "end": 49.515,
+            "language": "en",
+            "speaker": 1,
+            "start": 46.593,
+            "text": "but the opportunities in my field are mostly in the capital,",
+            "words": [
+              {
+                "confidence": 1,
+                "end": 46.712999999999994,
+                "start": 46.593,
+                "word": " but"
+              },
+              {
+                "confidence": 0.99,
+                "end": 46.852999999999994,
+                "start": 46.733,
+                "word": " the"
+              },
+              {
+                "confidence": 0.99,
+                "end": 47.614,
+                "start": 46.95399999999999,
+                "word": " opportunities"
+              },
+              {
+                "confidence": 1,
+                "end": 47.754,
+                "start": 47.634,
+                "word": " in"
+              },
+              {
+                "confidence": 1,
+                "end": 47.894,
+                "start": 47.774,
+                "word": " my"
+              },
+              {
+                "confidence": 1,
+                "end": 48.214,
+                "start": 47.95399999999999,
+                "word": " field"
+              },
+              {
+                "confidence": 0.93,
+                "end": 48.373999999999995,
+                "start": 48.254,
+                "word": " are"
+              },
+              {
+                "confidence": 0.94,
+                "end": 48.754,
+                "start": 48.414,
+                "word": " mostly"
+              },
+              {
+                "confidence": 1,
+                "end": 48.935,
+                "start": 48.814,
+                "word": " in"
+              },
+              {
+                "confidence": 1,
+                "end": 49.055,
+                "start": 48.936,
+                "word": " the"
+              },
+              {
+                "confidence": 0.97,
+                "end": 49.515,
+                "start": 49.075,
+                "word": " capital,"
+              }
+            ]
+          },
+          {
+            "channel": 0,
+            "confidence": 0.99,
+            "end": 51.676,
+            "language": "en",
+            "speaker": 1,
+            "start": 50.055,
+            "text": "so I may have to move eventually.",
+            "words": [
+              {
+                "confidence": 1,
+                "end": 50.175,
+                "start": 50.055,
+                "word": " so"
+              },
+              {
+                "confidence": 1,
+                "end": 50.375,
+                "start": 50.254999999999995,
+                "word": " I"
+              },
+              {
+                "confidence": 1,
+                "end": 50.535,
+                "start": 50.394999999999996,
+                "word": " may"
+              },
+              {
+                "confidence": 1,
+                "end": 50.754999999999995,
+                "start": 50.595,
+                "word": " have"
+              },
+              {
+                "confidence": 1,
+                "end": 50.876,
+                "start": 50.756,
+                "word": " to"
+              },
+              {
+                "confidence": 1,
+                "end": 51.096000000000004,
+                "start": 50.896,
+                "word": " move"
+              },
+              {
+                "confidence": 0.96,
+                "end": 51.676,
+                "start": 51.135999999999996,
+                "word": " eventually."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "status": "done",
+    "version": 2
+  },
+  "recorded_for_item": "smoke-two-speaker",
+  "retries": 0
+}

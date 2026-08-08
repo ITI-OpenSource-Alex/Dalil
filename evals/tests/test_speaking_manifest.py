@@ -109,17 +109,26 @@ def test_the_synthetic_items_are_quarantined_and_cannot_gate(real_manifest):
     """
     assert manifest_validate.gating_items(real_manifest) == []
 
-    synthetic = [
+    # The 20 golden-dataset rows specifically: model-written transcripts with
+    # model-assigned bands. Selected on the label source rather than on
+    # `source.kind`, because the pipeline fixture is synthetic too and would
+    # otherwise be counted here -- it is a different kind of unusable.
+    model_banded = [
         item
         for item in real_manifest["items"]
-        if item["source"]["kind"] == "synthetic"
+        if item["labels"]["source"] == "model_generated"
     ]
-    assert len(synthetic) == 20
+    assert len(model_banded) == 20
 
-    for item in synthetic:
+    for item in model_banded:
         assert item["split"] == "quarantine"
-        assert item["labels"]["source"] == "model_generated"
         assert item["labels"]["validated"] is False
+
+    # And nothing synthetic, of either kind, is anywhere near a gating split.
+    for item in real_manifest["items"]:
+        if item["source"]["kind"] == "synthetic":
+            assert item["split"] == "quarantine"
+            assert item["labels"]["validated"] is False
 
 
 def test_promoting_a_synthetic_item_to_a_gating_split_is_rejected(real_manifest):

@@ -34,6 +34,17 @@ HERE = Path(__file__).resolve().parent
 DEFAULT_MANIFEST = HERE / "manifest.json"
 SCHEMA = HERE / "schema" / "dataset-manifest-v1.schema.json"
 
+# The sweep covers all of evals/speaking, not just the manifest directory:
+# .gitignore protects the whole subtree, so the guard has to look at the whole
+# subtree or the two disagree about what is protected.
+SPEAKING_ROOT = HERE.parent
+
+# Generated outputs. Excluded from the sweep because they are rebuilt from
+# declared sources on every run and are themselves gitignored -- flagging them
+# would train whoever runs this to ignore the output, which is the one outcome
+# a guard must never produce.
+SWEEP_EXCLUDED_DIRS = {"artifacts"}
+
 # Audio extensions the tree is swept for. A file with one of these under the
 # manifest directory must be declared, or rule 4 fails.
 AUDIO_SUFFIXES = {".wav", ".mp3", ".m4a", ".mp4", ".webm", ".ogg", ".flac", ".opus", ".aac"}
@@ -280,7 +291,9 @@ def check_permission_records(manifest: dict) -> list[Problem]:
     return problems
 
 
-def check_restricted_media(manifest: dict, root: Path = HERE) -> list[Problem]:
+def check_restricted_media(
+    manifest: dict, root: Path = HERE, sweep_root: Path | None = None
+) -> list[Problem]:
     """Rule 4 -- restricted audio stays out of the repository.
 
     Two directions, because either alone leaves the hole open. The manifest is
@@ -332,8 +345,11 @@ def check_restricted_media(manifest: dict, root: Path = HERE) -> list[Problem]:
                     )
 
     declared_names = {Path(p).name for p in declared_paths}
-    for found in sorted(root.rglob("*")):
+    sweep = sweep_root or root
+    for found in sorted(sweep.rglob("*")):
         if not found.is_file() or found.suffix.lower() not in AUDIO_SUFFIXES:
+            continue
+        if SWEEP_EXCLUDED_DIRS & set(found.relative_to(sweep).parts):
             continue
         if found.name not in declared_names:
             problems.append(
@@ -341,7 +357,7 @@ def check_restricted_media(manifest: dict, root: Path = HERE) -> list[Problem]:
                     "restricted-media",
                     None,
                     f"undeclared audio file in the dataset tree: "
-                    f"{found.relative_to(root)}. Every audio file must be declared "
+                    f"{found.relative_to(sweep)}. Every audio file must be declared "
                     f"in the manifest, or it has no recorded licence.",
                 )
             )
@@ -349,14 +365,16 @@ def check_restricted_media(manifest: dict, root: Path = HERE) -> list[Problem]:
     return problems
 
 
-def validate(manifest: dict, root: Path = HERE) -> list[Problem]:
+def validate(
+    manifest: dict, root: Path = HERE, sweep_root: Path | None = None
+) -> list[Problem]:
     """Run every rule and return the problems, most structural first."""
     return (
         check_schema(manifest)
         + check_gating_eligibility(manifest)
         + check_split_leakage(manifest)
         + check_permission_records(manifest)
-        + check_restricted_media(manifest, root)
+        + check_restricted_media(manifest, root, sweep_root or SPEAKING_ROOT)
     )
 
 

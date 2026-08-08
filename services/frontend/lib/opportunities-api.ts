@@ -23,6 +23,13 @@ export interface MatchedProgram {
   university: string;
   country: string;
   deadline: string | null;
+  requirements?: {
+    minEcts: number | null;
+    minGpa: number | null;
+    minIelts: number | null;
+    degreeLevel: string | null;
+    minWorkExperience: number | null;
+  };
   result: {
     score: number;
     blocked_by: string | null;

@@ -41,6 +41,21 @@ SOURCE_URL = (
     "understanding-ielts-scoring/resources-for-setting-your-ielts-scores"
 )
 
+KNOWN_NAMES = (
+    "Tina", "Katsuharu", "Stephen", "Maxim", "Michal", "Hendrik",
+    "Alexandra", "Aashish", "Monika", "Kopi", "Kenn", "Anuradha",
+)
+
+# Each candidate's transcript sits behind this marker in the page's accordions.
+TRANSCRIPT_MARKER = "View transcript"
+
+# A speaking response runs to hundreds of words across several turns. Anything
+# much shorter is a fragment, and a fragment that gets scored becomes a
+# reference text that scores low -- after which "the model is too harsh" is a
+# conclusion we manufactured ourselves.
+MIN_TRANSCRIPT_WORDS = 150
+MIN_SPEAKER_TURNS = 4
+
 
 def _candidates_from_manifest() -> list[dict]:
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
@@ -50,25 +65,72 @@ def _candidates_from_manifest() -> list[dict]:
     ]
 
 
-def _extract(page_text: str, name: str) -> str | None:
-    """Pull one candidate's section out of the page text.
+def _strip_tags(fragment: str) -> str:
+    return " ".join(re.sub(r"<[^>]+>", " ", fragment).split())
 
-    Deliberately conservative: it returns None rather than a guess when the
-    section cannot be located unambiguously. A silently truncated transcript
-    would become a reference text that scores lower than it should, and the
-    resulting 'the model is too harsh' conclusion would be entirely our own
-    doing.
+
+def segments(html: str) -> dict[str, str]:
+    """Split the page into candidate name -> transcript text.
+
+    Anchored on a structural marker rather than on candidate names.
+
+    The first version of this matched a name and captured until the next name
+    appeared. It failed silently and completely: the examiner opens by
+    addressing the candidate -- "Examiner: Tina, now I'm going to give you a
+    topic" -- so the terminator fired inside the first line and every transcript
+    came out around fifty words long. The run reported 12 of 12 successful.
+
+    Anchoring on structure removes that entire class of mistake, and _validate
+    below is the backstop for whatever the next one turns out to be.
     """
-    pattern = re.compile(
-        rf"\b{re.escape(name)}\b(.{{200,}}?)(?=\b(?:Tina|Katsuharu|Stephen|Maxim|"
-        rf"Michal|Hendrik|Alexandra|Aashish|Monika|Kopi|Kenn|Anuradha)\b|\Z)",
-        re.IGNORECASE | re.DOTALL,
-    )
-    match = pattern.search(page_text)
-    if not match:
-        return None
-    text = " ".join(match.group(1).split())
-    return text if len(text) >= 200 else None
+    positions = [m.start() for m in re.finditer(re.escape(TRANSCRIPT_MARKER), html)]
+    if not positions:
+        return {}
+
+    found: dict[str, str] = {}
+    for index, start in enumerate(positions):
+        end = positions[index + 1] if index + 1 < len(positions) else len(html)
+
+        body = _strip_tags(html[start:end])
+
+        # The candidate is named on both sides of the marker: in the heading
+        # before it, and again in the examiner's opening line ("Examiner: Tina,
+        # now I'm going to give you a topic"). Searching the heading alone found
+        # nothing, because the page's markup puts more between the two than the
+        # window covered. Searching both is what makes the mapping robust to the
+        # page's layout rather than dependent on it.
+        window = _strip_tags(html[max(0, start - 400):start]) + " " + body[:300]
+
+        name = None
+        for known in KNOWN_NAMES:
+            if re.search(rf"\b{known}\b", window, re.IGNORECASE):
+                name = known.lower()
+                break
+        if name is None or name in found:
+            continue
+
+        found[name] = body
+
+    return found
+
+
+def validate_transcript(text: str) -> str | None:
+    """Return the problem with this transcript, or None if it is usable.
+
+    Checked rather than assumed, because the failure mode is silent: a truncated
+    transcript looks exactly like a successful extraction and only surfaces
+    later as an inexplicably low score that reads like a finding about the
+    model.
+    """
+    words = len(text.split())
+    if words < MIN_TRANSCRIPT_WORDS:
+        return f"only {words} words; a speaking response runs to hundreds"
+
+    turns = len(re.findall(r"\b(?:Examiner|Candidate)\s*:", text))
+    if turns < MIN_SPEAKER_TURNS:
+        return f"only {turns} speaker turn(s); expected an exchange"
+
+    return None
 
 
 def main() -> int:
@@ -98,38 +160,48 @@ def main() -> int:
         print(f"could not fetch the page: {exc}", file=sys.stderr)
         return 1
 
-    page_text = re.sub(r"<[^>]+>", " ", response.text)
-    page_text = re.sub(r"\s+", " ", page_text)
+    by_name = segments(response.text)
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    found, missing = 0, []
+    found: list[str] = []
+    rejected: list[tuple[str, str]] = []
 
     for item in items:
         name = item["item_id"].removeprefix("ielts-official-")
-        text = _extract(page_text, name)
+        text = by_name.get(name)
+
         if text is None:
-            missing.append(name)
+            rejected.append((name, "no transcript section found on the page"))
+            continue
+
+        problem = validate_transcript(text)
+        if problem:
+            # Refused, not written. A partial reference is worse than none: it
+            # still produces a number, and the number is wrong in a direction
+            # that looks like a finding.
+            rejected.append((name, problem))
             continue
 
         destination = OUT_DIR / f"{item['item_id']}.txt"
         destination.write_text(text, encoding="utf-8")
         digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
-        found += 1
+        found.append(name)
 
         print(
             f"  {item['item_id']:<28} band {item['labels']['overall_band']:<4} "
             f"{len(text.split()):>5} words  sha256 {digest}"
         )
 
-    print(f"\nwrote {found} of {len(items)} transcripts to {OUT_DIR}")
+    for name, problem in rejected:
+        print(f"  {'ielts-official-' + name:<28} REJECTED: {problem}")
 
-    if missing:
+    print(f"\nwrote {len(found)} of {len(items)} transcripts to {OUT_DIR}")
+
+    if rejected:
         print(
-            f"\ncould not locate: {', '.join(missing)}.\n"
-            f"The page structure has probably changed. Copy those sections in by\n"
-            f"hand rather than loosening the matcher -- a truncated transcript\n"
-            f"becomes a reference that scores low, and the 'model is too harsh'\n"
-            f"conclusion would be our own doing."
+            f"\n{len(rejected)} item(s) were refused. Do not loosen the checks to "
+            f"make them pass -- copy those sections in by hand, or leave them out. "
+            f"A fragment that gets scored is worse than an item that is missing."
         )
 
     print(
@@ -141,7 +213,7 @@ def main() -> int:
         "  4. Run: python evals/speaking/manifest/validate.py\n"
         "Until step 2, these items cannot gate anything, which is intended."
     )
-    return 0
+    return 0 if found else 1
 
 
 if __name__ == "__main__":

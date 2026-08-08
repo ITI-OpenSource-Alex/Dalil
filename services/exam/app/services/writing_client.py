@@ -24,12 +24,12 @@ class ExamTaskEvaluationRequest(BaseModel):
     taskPrompt: str | None = Field(default=None, max_length=2000)
 
 
-class HighlightedIssue(BaseModel):
+class InlineIssue(BaseModel):
     text: str
-    issue: str
+    issue_type: str
     suggestion: str
-    start: int = Field(ge=0)
-    end: int = Field(ge=0)
+    start_char: int = Field(ge=0)
+    end_char: int = Field(ge=0)
 
 
 class CriterionEvaluation(BaseModel):
@@ -41,7 +41,9 @@ class CriterionEvaluation(BaseModel):
     ]
     band_score: float = Field(ge=0.0, le=9.0)
     feedback: str
-    highlighted_issues: list[HighlightedIssue]
+    improvement_tip: str
+    word_count: int = Field(ge=0)
+    inline_issues: list[InlineIssue]
 
 
 class ExamTaskEvaluationResponse(BaseModel):

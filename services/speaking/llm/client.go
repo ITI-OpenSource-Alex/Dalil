@@ -56,7 +56,7 @@ func (c *Client) StreamCompletion(ctx context.Context, systemPrompt, userPrompt 
 	var firstTokenTime time.Time
 	params := anthropic.MessageNewParams{
 		Model:     anthropic.Model(c.model),
-		MaxTokens: 1024,
+		MaxTokens: 8000,
 		System: []anthropic.TextBlockParam{
 			{
 				Text: systemPrompt,
@@ -79,9 +79,16 @@ func (c *Client) StreamCompletion(ctx context.Context, systemPrompt, userPrompt 
 		if err != nil {
 			return CompletionResult{}, fmt.Errorf("failed to accumulate stream chunk: %w", err)
 		}
-		// When text content is first populated, record first token timestamp
-		if len(msg.Content) > 0 && msg.Content[0].Text != "" && firstTokenTime.IsZero() {
-			firstTokenTime = time.Now()
+		// When text content is first populated, record first token timestamp.
+		// The gateway may prepend a thinking block (empty .Text), so scan every
+		// block rather than assuming Content[0] is the answer text.
+		if firstTokenTime.IsZero() {
+			for _, block := range msg.Content {
+				if block.Text != "" {
+					firstTokenTime = time.Now()
+					break
+				}
+			}
 		}
 	}
 
@@ -94,9 +101,14 @@ func (c *Client) StreamCompletion(ctx context.Context, systemPrompt, userPrompt 
 	if !firstTokenTime.IsZero() {
 		firstTokenMs = firstTokenTime.Sub(start).Milliseconds()
 	}
+	// Concatenate every text block, skipping any thinking block the gateway
+	// prepends (its .Text is empty), so we never return an empty answer while
+	// a thinking block sits at Content[0].
 	var fullText string
-	if len(msg.Content) > 0 {
-		fullText = msg.Content[0].Text
+	for _, block := range msg.Content {
+		if block.Text != "" {
+			fullText += block.Text
+		}
 	}
 	
 	userID, ok := ctx.Value("userID").(string)

@@ -106,6 +106,7 @@ class HistoryService:
         )
         return [
             ExamHistoryItem(
+                session_id=row["session_id"],
                 skill=row["skill_area"],
                 exam_type=row["exam_type"],
                 band_score=float(row["band_score"]),

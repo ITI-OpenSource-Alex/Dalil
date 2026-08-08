@@ -176,3 +176,28 @@ func recordProsodyMetrics(f agents.ProsodyFeatures) {
 	prosodyPauseRatio.Observe(f.PauseRatio)
 	prosodyMeanWordConfidence.Observe(f.MeanWordConfidence)
 }
+
+// SPEAK-EVAL-002 — audio contract observability.
+var (
+	// Labelled by reason, never by the declared format itself: that string is
+	// client-controlled and would be unbounded Prometheus cardinality.
+	audioFormatRejectedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "goa_speaking_audio_format_rejected_total",
+		Help: "Sessions refused because the declared audio format was missing, malformed or unsupported",
+	}, []string{"reason"}) // missing | unsupported | malformed | unknown
+
+	// A v1 client sends no audioFormat, so a sustained non-zero rate on the
+	// "missing" label after deploy means stale browser tabs are still connecting.
+	audioEndTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "goa_speaking_audio_end_total",
+		Help: "Explicit end-of-audio frames received, i.e. utterances completed without waiting out the VAD fallback",
+	})
+
+	// The transcription_ratio SLO is skipped rather than recorded as zero when
+	// the duration is unknown. Without this counter that skip is invisible, and
+	// a silent budget is indistinguishable from a passing one.
+	transcriptionDurationUnknownTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "goa_speaking_transcription_duration_unknown_total",
+		Help: "Transcriptions where no audio duration was available, so transcription_ratio could not be computed",
+	})
+)

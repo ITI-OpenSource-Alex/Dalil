@@ -21,6 +21,53 @@ class TTSRequest(BaseModel):
     text: str
 
 
+# Container magic numbers, used only to catch a payload whose declared type
+# contradicts its bytes. This is not format detection -- the declared type is
+# still what decides the decode path -- it is a lie detector for the one branch
+# that cannot verify itself.
+_CONTAINER_SIGNATURES = (
+    (b"\x1a\x45\xdf\xa3", "Matroska/WebM"),
+    (b"OggS", "Ogg"),
+    (b"RIFF", "RIFF/WAV"),
+    (b"ID3", "MP3"),
+    (b"fLaC", "FLAC"),
+)
+
+_SUFFIX_BY_MEDIA_TYPE = {
+    "audio/webm": ".webm",
+    "video/webm": ".webm",
+    "audio/ogg": ".ogg",
+    "audio/mp4": ".m4a",
+    "audio/aac": ".aac",
+    "audio/mpeg": ".mp3",
+    "audio/wav": ".wav",
+    "audio/x-wav": ".wav",
+    "audio/wave": ".wav",
+}
+
+
+def _detect_container(data: bytes) -> str | None:
+    """Name the container this payload starts with, if it is a known one."""
+    for signature, name in _CONTAINER_SIGNATURES:
+        if data.startswith(signature):
+            return name
+    # ISO base media (MP4/M4A) puts a size field first, then 'ftyp'.
+    if len(data) >= 12 and data[4:8] == b"ftyp":
+        return "ISO base media (MP4)"
+    return None
+
+
+def _suffix_for(declared: str) -> str:
+    """Temp-file suffix matching the declared media type.
+
+    Falls back to .bin rather than .wav: an unknown payload is not a WAV, and
+    naming it one is a small false claim of the kind this ticket exists to
+    remove. ffmpeg sniffs content, so the suffix costs nothing but honesty.
+    """
+    media_type = declared.split(";")[0].strip()
+    return _SUFFIX_BY_MEDIA_TYPE.get(media_type, ".bin")
+
+
 # GOA-133. `def`, not `async def`.
 #
 # whisper_model.transcribe() is synchronous and CPU-bound. Called inside an
@@ -40,12 +87,50 @@ class TTSRequest(BaseModel):
 def stt(audio: UploadFile = File(...)):
     data = audio.file.read()
 
-    if audio.content_type and "audio/pcm" in audio.content_type.lower():
-        # Decode raw PCM (16kHz 16-bit little endian)
+    if not data:
+        raise HTTPException(status_code=400, detail="Empty audio payload")
+
+    declared = (audio.content_type or "").lower()
+
+    if "audio/pcm" in declared:
+        # SPEAK-EVAL-002. Raw PCM is headerless, so this branch cannot verify
+        # what it was given -- it can only trust the label. That is precisely how
+        # the original defect worked: the speaking service asserted audio/pcm for
+        # every session, browsers actually record WebM/Opus, and a compressed
+        # container reinterpreted as int16 samples is noise. Whisper transcribed
+        # the noise and four agents scored it.
+        #
+        # A container signature in a payload declared as raw PCM is therefore a
+        # hard error, not something to work around. It means a caller is lying
+        # about its bytes, and guessing on its behalf would restore the defect.
+        container = _detect_container(data)
+        if container:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Payload declared as {declared} but begins with a {container} "
+                    f"container signature. Raw PCM is headerless; declaring an "
+                    f"encoded container as PCM makes it decode as noise."
+                ),
+            )
+        if len(data) % 2:
+            raise HTTPException(
+                status_code=400,
+                detail="Raw 16-bit PCM must contain an even number of bytes",
+            )
         audio_input = np.frombuffer(data, dtype=np.int16).astype(np.float32) / 32768.0
     else:
-        # Write to temp file and let faster-whisper handle decoding (e.g. WAV, MP3)
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
+        # Encoded audio: WebM/Opus (Chrome), Ogg/Opus (Firefox), MP4/AAC
+        # (Safari), WAV, MP3. faster-whisper decodes these through ffmpeg, which
+        # this image installs.
+        #
+        # The suffix follows the declared type rather than always being ".wav".
+        # ffmpeg sniffs content and would cope either way, but a temp file whose
+        # name contradicts its bytes is exactly the kind of small lie that made
+        # the original defect survive review.
+        with tempfile.NamedTemporaryFile(
+            delete=False, suffix=_suffix_for(declared)
+        ) as tmp:
             tmp.write(data)
             tmp_path = tmp.name
         audio_input = tmp_path
@@ -67,7 +152,22 @@ def stt(audio: UploadFile = File(...)):
         #
         # `info` also carries the audio duration, which the Go side previously had
         # to infer for its transcription_ratio SLO (GOA-032).
-        segments, info = whisper_model.transcribe(audio_input, word_timestamps=True)
+        try:
+            segments, info = whisper_model.transcribe(audio_input, word_timestamps=True)
+        except HTTPException:
+            raise
+        except Exception as exc:
+            # SPEAK-EVAL-002: a payload ffmpeg cannot decode is the caller's
+            # problem, not ours, and it must surface as a typed 400 rather than
+            # a 500. A 500 reads as "the sidecar is broken" and sends whoever is
+            # on call to the wrong service.
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Could not decode audio declared as "
+                    f"{declared or 'an unspecified type'}: {exc}"
+                ),
+            ) from exc
 
         # `segments` is a generator: it must be materialised once and reused, or
         # the second pass over it yields nothing and the words array comes back

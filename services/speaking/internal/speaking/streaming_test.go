@@ -124,6 +124,8 @@ func openSession(t *testing.T, s *speakingTestServer, headers http.Header) *webs
 	init, _ := json.Marshal(map[string]string{
 		"type": "session_init", "userId": "user-1",
 		"questionPrompt": "Describe a book.", "questionType": "IELTS Part 2",
+		// Mandatory since SPEAK-EVAL-002. These frames are synthetic PCM.
+		"audioFormat": "audio/pcm;rate=16000",
 	})
 	if err := ws.WriteMessage(websocket.TextMessage, init); err != nil {
 		t.Fatalf("session_init: %v", err)

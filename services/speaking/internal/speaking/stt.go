@@ -30,9 +30,32 @@ func (c *Client) transcribeAudio(audio []byte) {
 		c.runEvaluationAndTTS("Mock transcript (Speech URL missing)", apiDuration.Milliseconds(), nil)
 		return
 	}
+	// SPEAK-EVAL-002. The upload is labelled with what the client declared at
+	// session_init, not with an assertion.
+	//
+	// This used to be a hardcoded filename="audio.pcm" and
+	// Content-Type: audio/pcm;rate=16000 for every session. The sidecar decodes
+	// anything matching audio/pcm with np.frombuffer(dtype=int16), so a browser's
+	// WebM/Opus container was reinterpreted as raw samples and the transcript --
+	// and every band derived from it -- described noise.
+	//
+	// An unknown format is refused here rather than guessed. Transcribing bytes
+	// whose encoding nobody knows is the defect with an extra step.
+	format, ok := lookupAudioFormat(c.audioFormat)
+	if !ok {
+		log.Error().
+			Str("session_id", c.id).
+			Str("declared_format", c.audioFormat).
+			Msg("Cannot transcribe: session has no usable declared audio format")
+		c.setOutcome("error")
+		c.sendError("This recording's audio format was not recognised. Please refresh and try again.")
+		return
+	}
+
 	log.Info().
 		Str("session_id", c.id).
 		Int("audio_size_bytes", len(audio)).
+		Str("audio_format", format.mediaType).
 		Msg("Calling local Speech-to-Text sidecar...")
 	var resp *http.Response
 	var err error
@@ -41,8 +64,10 @@ func (c *Client) transcribeAudio(audio []byte) {
 		writer := multipart.NewWriter(body)
 
 		h := make(textproto.MIMEHeader)
-		h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, "audio", "audio.pcm"))
-		h.Set("Content-Type", "audio/pcm;rate=16000")
+		h.Set("Content-Disposition", fmt.Sprintf(
+			`form-data; name="%s"; filename="%s"`, "audio", "audio"+format.extension,
+		))
+		h.Set("Content-Type", format.uploadContentType)
 		part, errPart := writer.CreatePart(h)
 		if errPart != nil {
 			log.Error().Err(errPart).Str("session_id", c.id).Msg("Failed to create form file field")
@@ -76,19 +101,6 @@ func (c *Client) transcribeAudio(audio []byte) {
 			transcriptionLatencyMetric.Observe(float64(apiDuration.Milliseconds()))
 			atomic.StoreInt64(&c.lastTransMs, apiDuration.Milliseconds())
 
-			// GOA-032: the transcription SLO is a *ratio*, because CPU Whisper
-			// scales with utterance length -- an absolute millisecond budget is
-			// meaningless across a 30s Part 1 answer and a two-minute Part 2 one.
-			//
-			// Skipped entirely (not recorded as zero) when the duration is
-			// unknown: a recorded 0 is a claim that STT was instantaneous, which
-			// drags P95 down and hides real breaches.
-			if audioMs := pcmDurationMs(len(audio)); audioMs > 0 {
-				ratio := float64(apiDuration.Milliseconds()) / float64(audioMs)
-				transcriptionRatioMetric.Observe(ratio)
-				c.checkSLO(budgetTranscriptionRatio, ratio)
-			}
-
 			// Decode response
 			defer resp.Body.Close()
 			// The speech sidecar returns {"transcript": "..."} -- see
@@ -113,6 +125,41 @@ func (c *Client) transcribeAudio(audio []byte) {
 				c.setOutcome("error")
 				c.sendError("Could not read the transcription result.")
 				return
+			}
+
+			// GOA-032's transcription SLO is a *ratio*, because CPU Whisper
+			// scales with utterance length -- an absolute millisecond budget is
+			// meaningless across a 30s Part 1 answer and a two-minute Part 2 one.
+			//
+			// SPEAK-EVAL-002: the denominator now comes from the sidecar's
+			// measured duration_s (added by GOA-133) instead of being inferred
+			// from the byte count. Inference assumed raw PCM at 16kHz/16-bit, and
+			// Opus compresses roughly 9.5x -- measured on the test fixtures, 6
+			// seconds of speech is 20,218 bytes as WebM and 192,000 as PCM. So on
+			// the browser path this budget was dividing by a denominator an order
+			// of magnitude too small and breaching continuously for a reason
+			// nobody could act on.
+			//
+			// Skipped entirely (not recorded as zero) when the duration is
+			// unknown: a recorded 0 is a claim that STT was instantaneous, which
+			// drags P95 down and hides real breaches.
+			audioMs := int64(sttResp.DurationS * 1000)
+			if audioMs <= 0 && format.isRawPCM {
+				// An older sidecar returns no duration. Only raw PCM can be
+				// recovered from the byte count; for compressed audio the
+				// measurement is simply unavailable.
+				audioMs = pcmDurationMs(len(audio))
+			}
+			if audioMs > 0 {
+				ratio := float64(apiDuration.Milliseconds()) / float64(audioMs)
+				transcriptionRatioMetric.Observe(ratio)
+				c.checkSLO(budgetTranscriptionRatio, ratio)
+			} else {
+				transcriptionDurationUnknownTotal.Inc()
+				log.Warn().
+					Str("session_id", c.id).
+					Str("audio_format", format.mediaType).
+					Msg("No audio duration available; transcription_ratio not recorded for this session")
 			}
 
 			// 1. Send text transcript to client

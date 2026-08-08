@@ -130,11 +130,16 @@ func TestIntegrationE2EAudioStreaming(t *testing.T) {
 	defer ws.Close()
 
 	// 1. Write the mandatory session_init control frame first
+	// audioFormat is mandatory since SPEAK-EVAL-002. These tests stream real
+	// PCM, so they declare PCM -- which is exactly the point: this suite stayed
+	// green through the original defect precisely because it sends a format the
+	// browser never produces, and it must keep testing that path honestly.
 	initMsg := map[string]string{
 		"type":           "session_init",
 		"userId":         "user-123",
 		"questionPrompt": "Describe a book you read.",
 		"questionType":   "IELTS Part 2",
+		"audioFormat":    "audio/pcm;rate=16000",
 	}
 	initBytes, _ := json.Marshal(initMsg)
 	err = ws.WriteMessage(websocket.TextMessage, initBytes)

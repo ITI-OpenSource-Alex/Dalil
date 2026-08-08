@@ -5,7 +5,10 @@ import { streamChatResponse, ChatEvent } from "@/lib/chat-stream";
 import MessageList from "./message-list";
 import ChatInput from "./chat-input";
 import SpeakingSessionPanel, { SpeakingState } from "./speaking-session-panel";
-import { AudioRecorder } from "@/lib/audio-recorder";
+import {
+  AudioRecorder,
+  selectRecordingMimeType,
+} from "@/lib/audio-recorder";
 import {
   SpeakingWebSocket,
   SpeakingEvaluation,
@@ -310,7 +313,7 @@ export default function ChatShell() {
   // Opens a speaking session against `wsUrl`. Shared by the two ways a
   // session can start: the "Start Speaking" button (which knows the endpoint
   // directly) and a speaking_url SSE event (where Orchestration supplies it).
-  const openSpeakingSocket = (wsUrl: string) => {
+  const openSpeakingSocket = async (wsUrl: string) => {
     // Every real "a new take is starting" entry point funnels through here
     // (the mic button and the chat-classified speaking_url path alike), so
     // this is the one place the timer's reset signal needs to fire.
@@ -318,11 +321,38 @@ export default function ChatShell() {
     clearTranscriptionTimeout();
     speakingSocket.current?.close();
 
+    // SPEAK-EVAL-002: session_init must declare the recorded audio format, so
+    // the format is resolved before the socket is constructed. Previously the
+    // recorder was created inside the socket's "connected" handler — after
+    // session_init had already been sent — so no format could have been
+    // declared even if anyone had tried, and the backend asserted PCM for
+    // whatever the browser happened to record.
+    //
+    // The order is: pick format (pure, no microphone) -> open socket -> start
+    // recorder. Starting the recorder last means there is never a window where
+    // audio exists and no socket does; chunks arriving during the handshake are
+    // queued by SpeakingWebSocket and flushed on open. Only the first chunk
+    // carries the container header, so losing it would cost the whole utterance.
+    let audioFormat: string;
+    try {
+      audioFormat = selectRecordingMimeType();
+    } catch (err) {
+      console.error("No supported recording format:", err);
+      setSpeakingError(
+        err instanceof Error
+          ? err.message
+          : "This browser cannot record audio we can transcribe.",
+      );
+      setSpeakingState("idle");
+      return;
+    }
+
     speakingSocket.current = new SpeakingWebSocket({
       wsUrl,
       userId,
       questionPrompt: speakingQuestion.prompt,
       questionType: speakingQuestion.type,
+      audioFormat,
 
       onTranscript: (text, isFinal) => {
         setLiveTranscript(text);
@@ -369,11 +399,33 @@ export default function ChatShell() {
               .start()
               .then(() => {
                 setAudioStream(recorderRef.current?.getStream() ?? null);
+
+                // The browser is allowed to normalise the requested type. If
+                // what it actually produces differs from what session_init
+                // declared, the upload would be mislabelled — the exact defect
+                // this ticket removes — so fail loudly rather than transcribe
+                // bytes under the wrong name.
+                const actual = recorderRef.current?.getMimeType();
+                if (actual && actual.split(";")[0] !== audioFormat.split(";")[0]) {
+                  console.error(
+                    `Recorder produced ${actual} but session declared ${audioFormat}`,
+                  );
+                  speakingSocket.current?.close();
+                  recorderRef.current?.stop();
+                  recorderRef.current = null;
+                  setSpeakingError(
+                    "Your browser recorded an unexpected audio format. Please try again.",
+                  );
+                  setSpeakingState("idle");
+                  setAudioStream(null);
+                }
               })
               .catch((err) => {
                 console.error("Failed to start audio recorder:", err);
                 setSpeakingError(
-                  "Could not start recording from your microphone.",
+                  err instanceof Error && err.name === "UnsupportedRecordingError"
+                    ? err.message
+                    : "Could not start recording from your microphone.",
                 );
                 setSpeakingState("idle");
               });

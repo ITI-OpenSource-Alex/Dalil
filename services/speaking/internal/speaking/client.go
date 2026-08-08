@@ -80,6 +80,21 @@ type Client struct {
 	ctx          context.Context
 	cancel       context.CancelFunc
 	speechURL    string
+	// audioFormat is the MIME type the client declared in session_init, e.g.
+	// "audio/webm;codecs=opus". SPEAK-EVAL-002.
+	//
+	// It exists because the browser records with MediaRecorder, which emits an
+	// encoded container -- WebM/Opus on Chrome, Ogg/Opus on Firefox, MP4/AAC on
+	// Safari -- and this service used to forward those bytes to the speech
+	// sidecar labelled "audio/pcm;rate=16000". The sidecar decodes anything
+	// matching audio/pcm with np.frombuffer(dtype=int16), so a compressed
+	// container was reinterpreted as raw samples and every browser-originated
+	// score was computed on noise.
+	//
+	// Empty means the session never declared a format. That is not a default to
+	// guess around: audio of unknown encoding cannot be transcribed honestly, so
+	// the session is refused rather than scored.
+	audioFormat string
 	// Session metrics tracking variables
 	userID string
 	// outcome is written by the transcription goroutine and read by readPump's
@@ -292,10 +307,12 @@ func (c *Client) readPump() {
 			}
 
 			var initMsg struct {
-				Type           string `json:"type"`
-				UserID         string `json:"userId"`
-				QuestionPrompt string `json:"questionPrompt"`
-				QuestionType   string `json:"questionType"`
+				Type            string `json:"type"`
+				ProtocolVersion int    `json:"protocolVersion"`
+				UserID          string `json:"userId"`
+				QuestionPrompt  string `json:"questionPrompt"`
+				QuestionType    string `json:"questionType"`
+				AudioFormat     string `json:"audioFormat"`
 			}
 			err := json.Unmarshal(msg, &initMsg)
 			if err != nil || initMsg.Type != "session_init" || initMsg.UserID == "" || initMsg.QuestionPrompt == "" || initMsg.QuestionType == "" {
@@ -303,6 +320,30 @@ func (c *Client) readPump() {
 				c.sendErrorAndClose("Invalid session_init payload.")
 				break
 			}
+
+			// SPEAK-EVAL-002. The declared format is validated here, before any
+			// audio is accepted, because the alternative is discovering at
+			// transcription time that we have bytes of unknown encoding — and
+			// the previous behaviour at that point was to assert PCM and score
+			// the result.
+			//
+			// A v1 client sends no audioFormat. Those are refused rather than
+			// defaulted: a default is a guess, and a wrong guess here produces a
+			// confident band from noise. The error names the fix so an old tab
+			// gets an explanation rather than a silent failure.
+			normalizedFormat, formatErr := normalizeAudioFormat(initMsg.AudioFormat)
+			if formatErr != nil {
+				log.Warn().
+					Str("session_id", c.id).
+					Str("declared_format", initMsg.AudioFormat).
+					Int("protocol_version", initMsg.ProtocolVersion).
+					Err(formatErr).
+					Msg("session_init declared an unusable audio format")
+				audioFormatRejectedTotal.WithLabelValues(formatRejectReason(formatErr)).Inc()
+				c.sendErrorAndClose(formatErr.Error())
+				break
+			}
+			c.audioFormat = normalizedFormat
 
 			c.userID = initMsg.UserID
 
@@ -330,6 +371,31 @@ func (c *Client) readPump() {
 			c.questionType = initMsg.QuestionType
 			c.initialized = true
 			log.Info().Str("session_id", c.id).Str("user_id", c.userID).Msg("Session initialized successfully")
+			continue
+		}
+
+		// SPEAK-EVAL-002: an explicit end-of-audio control frame.
+		//
+		// Completion used to be decided solely by 1.5s of silence, which cannot
+		// distinguish "the user finished" from "the client stalled" and charged
+		// every session 1.5s of latency to find out. The VAD timer remains as the
+		// fallback for a client that vanishes mid-recording; this is the normal
+		// path. triggerTranscription is idempotent on an empty buffer, so a
+		// duplicate frame, or one racing the timer, cannot transcribe twice.
+		if messageType == websocket.TextMessage {
+			var control struct {
+				Type string `json:"type"`
+			}
+			if err := json.Unmarshal(msg, &control); err == nil && control.Type == "audio_end" {
+				log.Info().Str("session_id", c.id).Msg("Client signalled end of audio")
+				audioEndTotal.Inc()
+				c.triggerTranscription()
+				continue
+			}
+			// Any other text frame after init is ignored rather than fatal: a
+			// future protocol version may add control frames this build predates,
+			// and dropping the socket for an unknown one would make the protocol
+			// impossible to extend without lockstep deploys.
 			continue
 		}
 

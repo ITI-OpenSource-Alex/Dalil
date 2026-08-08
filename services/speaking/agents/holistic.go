@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 // TranscriptExample represents a specific quote from a part of the exam.
@@ -37,8 +40,23 @@ type HolisticSwarmResult struct {
 }
 
 func evaluateHolisticCriterion(ctx context.Context, client LLMClient, criterion, systemPrompt, concatenatedTranscript string) (HolisticAgentResult, error) {
-	// Build prompt
-	userPrompt := fmt.Sprintf("Candidate Transcript (All Parts):\n%s", concatenatedTranscript)
+	// Build prompt. The grading rubric and JSON contract are passed as the system
+	// prompt, but the opus-4-8 gateway intermittently drops the system role and
+	// falls back to a generic "Claude Code" identity — the model then refuses,
+	// replying "I don't have any IELTS grading instructions in my system prompt"
+	// as prose, which fails JSON parsing. To survive that, we ALSO inline the
+	// full spec into the user turn (which the gateway always honors), so the task
+	// is fully specified regardless of whether the system role reaches the model.
+	// Never reference "your system prompt" here — when it has been dropped, that
+	// phrasing makes the model refuse instead of grade.
+	userPrompt := fmt.Sprintf(
+		"%s\n\n"+
+			"Grade the following IELTS candidate transcript using the rubric and JSON "+
+			"schema above. Output ONLY the raw JSON object — no preamble, no "+
+			"explanation, no markdown fences. If the transcript is short, still "+
+			"return a best-effort band; do not ask for more information.\n\n"+
+			"Candidate Transcript (All Parts):\n%s",
+		systemPrompt, concatenatedTranscript)
 	res, err := client.StreamCompletion(ctx, systemPrompt, userPrompt)
 	if err != nil {
 		return HolisticAgentResult{}, err
@@ -77,6 +95,31 @@ func evaluateHolisticCriterion(ctx context.Context, client LLMClient, criterion,
 	}, nil
 }
 
+// attemptTimeout bounds a single criterion's gateway stream. Measured latency
+// against the opus-4-8 gateway is highly variable: ~20s at best and ~40s in a
+// healthy patch, but the gateway also has slow patches where a call legitimately
+// needs 60-100s (most of it the server-side thinking block that streams before
+// any answer text). The slowness is correlated in time — when the gateway is
+// slow, every concurrent call and any retry hits the same slow moment — so a
+// retry against a tight cap does not recover, it just burns another timeout. We
+// therefore use a SINGLE attempt with a generous cap. Because all four criteria
+// stream concurrently, the cap is also the swarm's worst-case wall-clock, so we
+// keep it just under the handler's 120s deadline: 110s absorbs almost the whole
+// latency tail while leaving the handler a small margin to encode the response.
+// Only a criterion that truly hangs past 110s is abandoned, and it is then
+// excluded from the average (see EvaluateHolisticSwarm) so the request still
+// returns a valid band from the survivors.
+const attemptTimeout = 110 * time.Second
+
+// evaluateHolisticCriterionCapped runs one criterion under a per-call cap
+// derived from the parent context. One attempt only — see attemptTimeout for why
+// a retry does not help against this gateway's time-correlated latency.
+func evaluateHolisticCriterionCapped(ctx context.Context, client LLMClient, criterion, systemPrompt, concatenatedTranscript string) (HolisticAgentResult, error) {
+	attemptCtx, cancel := context.WithTimeout(ctx, attemptTimeout)
+	defer cancel()
+	return evaluateHolisticCriterion(attemptCtx, client, criterion, systemPrompt, concatenatedTranscript)
+}
+
 // EvaluateHolisticSwarm orchestrates parallel evaluations for the full exam.
 func EvaluateHolisticSwarm(ctx context.Context, client LLMClient, concatenatedTranscript string) (HolisticSwarmResult, error) {
 	var wg sync.WaitGroup
@@ -85,6 +128,13 @@ func EvaluateHolisticSwarm(ctx context.Context, client LLMClient, concatenatedTr
 	var mu sync.Mutex
 	results := make(map[string]HolisticAgentResult)
 
+	// All four criterion agents stream concurrently. Measured 4-way concurrency
+	// against the opus-4-8 gateway completes in ~40s wall-clock (= the slowest
+	// single call) with no failures, so there is no need to throttle. An earlier
+	// Semaphore(2) here serialized the calls into two waves and pushed the
+	// second wave into the deadline — it was masking the old MaxTokens=1024 /
+	// thinking-block bug, not a real gateway concurrency limit.
+
 	runAgent := func(criterionName string, systemPrompt string) {
 		defer wg.Done()
 
@@ -92,7 +142,7 @@ func EvaluateHolisticSwarm(ctx context.Context, client LLMClient, concatenatedTr
 		errChan := make(chan error, 1)
 
 		go func() {
-			res, err := evaluateHolisticCriterion(ctx, client, criterionName, systemPrompt, concatenatedTranscript)
+			res, err := evaluateHolisticCriterionCapped(ctx, client, criterionName, systemPrompt, concatenatedTranscript)
 			if err != nil {
 				errChan <- err
 				return
@@ -105,7 +155,12 @@ func EvaluateHolisticSwarm(ctx context.Context, client LLMClient, concatenatedTr
 			mu.Lock()
 			results[criterionName] = res
 			mu.Unlock()
-		case <-errChan:
+		case err := <-errChan:
+			// Surface WHY this criterion failed — malformed LLM JSON, a gateway
+			// error response, or a per-call timeout all land here. Without this
+			// the criterion silently becomes a band-0 hole in the result.
+			log.Error().Err(err).Str("criterion", criterionName).
+				Msg("Holistic criterion agent failed")
 			mu.Lock()
 			results[criterionName] = HolisticAgentResult{
 				Criterion:       criterionName,
@@ -115,6 +170,8 @@ func EvaluateHolisticSwarm(ctx context.Context, client LLMClient, concatenatedTr
 			}
 			mu.Unlock()
 		case <-ctx.Done():
+			log.Error().Err(ctx.Err()).Str("criterion", criterionName).
+				Msg("Holistic criterion agent hit the swarm deadline")
 			mu.Lock()
 			results[criterionName] = HolisticAgentResult{
 				Criterion:       criterionName,

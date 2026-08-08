@@ -70,7 +70,7 @@ func (c *Client) StreamCompletion(ctx context.Context, systemPrompt, userPrompt 
 	var firstTokenTime time.Time
 	params := anthropic.MessageNewParams{
 		Model:     anthropic.Model(c.model),
-		MaxTokens: 1024,
+		MaxTokens: 8000,
 		System: []anthropic.TextBlockParam{
 			{
 				Text: systemPrompt,

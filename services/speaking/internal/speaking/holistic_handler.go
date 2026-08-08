@@ -61,7 +61,13 @@ func HandleHolisticEvaluation(w http.ResponseWriter, r *http.Request, cfg *Confi
 		payload.UserID = "anonymous"
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	// The four criterion agents stream concurrently; each is capped at 110s
+	// (see attemptTimeout in holistic.go), so the swarm's worst-case wall-clock
+	// is ~110s and the common case is ~40s. 120s gives headroom over the cap
+	// while staying under the exam client's 130s call timeout. A criterion that
+	// genuinely hangs past 110s is dropped from the average rather than sinking
+	// the whole request.
+	ctx, cancel := context.WithTimeout(r.Context(), 120*time.Second)
 	ctx = context.WithValue(ctx, "userID", payload.UserID)
 	defer cancel()
 

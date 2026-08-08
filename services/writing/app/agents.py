@@ -97,7 +97,11 @@ def _task_instructions(exam_type: str, task_number: int) -> str:
         return TASK1_ACADEMIC_INSTRUCTIONS
     return TASK2_INSTRUCTIONS
 
-SYSTEM_PROMPT = """You are a certified IELTS Writing examiner. Apply the public IELTS
+SYSTEM_PROMPT = """You are a strict JSON API. You MUST output ONLY valid JSON. Do not
+include any extended thinking, reasoning blocks, or conversational text. Start your
+response immediately with { and end with }.
+
+You are a certified IELTS Writing examiner. Apply the public IELTS
 Writing band descriptors conservatively and evaluate only the requested criterion.
 The input is computer-typed text; never discuss handwriting, OCR, or image quality.
 
@@ -342,7 +346,14 @@ async def extract_chart_context(s3_key: str, *, trace: Any = None) -> str:
             # only some requests land on the backend that enforces it — the same erratic
             # routing seen elsewhere on this gateway. Determinism now comes from the
             # rubric and the JSON schema, not from a sampling parameter.
-            max_tokens=500,
+            #
+            # opus-4-8 is an extended-thinking model: at 500 the ThinkingBlock alone
+            # exhausted the budget (stop_reason='max_tokens', a single ThinkingBlock
+            # and no text), so no chart description was emitted and _response_text
+            # raised "no text content" — a fast raw 500 before the grading swarm even
+            # started. The text prompt below now forbids reasoning blocks, and 4000
+            # leaves ample room for the factual chart description.
+            max_tokens=4000,
             messages=[
                 {
                     "role": "user",
@@ -357,7 +368,7 @@ async def extract_chart_context(s3_key: str, *, trace: Any = None) -> str:
                         },
                         {
                             "type": "text",
-                            "text": "You objectively describe IELTS Writing Task 1 (Academic) stimulus images (line/bar charts, pie charts, tables, or process diagrams) so an examiner who cannot see the image can verify the candidate's data accuracy. List the exact axis labels, units, categories, and key data points/trends visible in the image. Do not evaluate or judge; describe only, factually and neutrally.\n\nDescribe this IELTS Task 1 chart/graph/table/diagram.",
+                            "text": "You are a strict text API. Do not include any extended thinking, reasoning blocks, or conversational preamble. Start immediately with the factual chart description. You objectively describe IELTS Writing Task 1 (Academic) stimulus images (line/bar charts, pie charts, tables, or process diagrams) so an examiner who cannot see the image can verify the candidate's data accuracy. List the exact axis labels, units, categories, and key data points/trends visible in the image. Do not evaluate or judge; describe only, factually and neutrally.\n\nDescribe this IELTS Task 1 chart/graph/table/diagram.",
                         },
                     ],
                 }
@@ -367,7 +378,11 @@ async def extract_chart_context(s3_key: str, *, trace: Any = None) -> str:
         _fail_vision_span(span, exc)
         raise
 
-    description = response.content[0].text.strip()
+    # Extended-thinking backends (claude-opus-4-8 via the gateway) prepend a
+    # ThinkingBlock, which has no `.text`, so response.content[0] is not the
+    # answer. _response_text iterates every block and keeps only the text ones —
+    # the same reader the grading agents use.
+    description = _response_text(response).strip()
     _end_vision_span(span, description=description, usage=getattr(response, "usage", None))
     return description
 

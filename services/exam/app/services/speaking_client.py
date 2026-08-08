@@ -14,7 +14,7 @@ class SpeakingServiceClient:
         async with httpx.AsyncClient(
             base_url=self.base_url,
             headers={"x-Internal-Api-Key": self.internal_api_key},
-            timeout=30.0,
+            timeout=130.0,
         ) as client:
             response = await client.post(
                 url="/internal/evaluate/holistic",

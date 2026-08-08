@@ -108,9 +108,11 @@ def _make_row(
     duration_seconds: int = 3600,
     section_scores: dict[str, Any] | None = None,
     agent_responses: dict[str, Any] | None = None,
+    session_id: UUID | None = None,
 ) -> dict[str, Any]:
     return {
         "user_id": user_id,
+        "session_id": session_id or uuid4(),
         "skill_area": skill,
         "exam_type": exam_type,
         "band_score": band,
@@ -510,3 +512,25 @@ async def test_history_endpoint_increments_prometheus_counter():
     )._value.get()
 
     assert after == before + 1
+
+@pytest.mark.asyncio
+async def test_history_includes_session_id():
+    user_id = uuid4()
+    session_id = uuid4()
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    rows = [
+        _make_row(
+            user_id=user_id,
+            skill="reading",
+            band=6.5,
+            graded_at=base,
+            session_id=session_id,
+        )
+    ]
+
+    async with _build_client(rows) as client:
+        resp = await client.get(f"/users/{user_id}/exam-history")
+
+    assert resp.status_code == 200
+    item = resp.json()[0]
+    assert item["sessionId"] == str(session_id)

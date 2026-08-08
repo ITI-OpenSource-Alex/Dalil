@@ -8,6 +8,21 @@ nothing about whether anyone can reach it.
 Created by GOA-038, which was the first ticket to need one. GOA-063 and GOA-081
 are expected to add to this directory rather than start a second harness.
 
+GOA-039 added `test_goa_039_subscription_lifecycle.py`, which drives the whole
+billing lifecycle — paywall, checkout authorisation, payment, cache
+invalidation, cancellation — against the real Gateway, User service, Postgres
+and Redis. Billing is a self-contained demo payment, so there is nothing
+external to configure and the definition-of-done card scenarios really run:
+
+```bash
+docker compose up -d
+python -m pytest tests/e2e/test_goa_039_subscription_lifecycle.py -v
+```
+
+Every test creates its own account. That is not incidental: the Gateway limits
+`/api` to 60 requests per user per minute, and a suite that drove the whole
+lifecycle through one account exhausted that budget and started failing on 429.
+
 ## What belongs here
 
 - Flows that cross a service boundary and need real dependencies: a real

@@ -1332,6 +1332,138 @@
       "retention": {
         "policy": "indefinite"
       }
+    },
+    {
+      "item_id": "yt-BFS1z24aZaM",
+      "candidate_id": "yt-BFS1z24aZaM-candidate",
+      "series_id": "yt-ielts-examiner-playlist",
+      "split": "quarantine",
+      "notes": "IELTS Speaking Test- Band 6.5. Full two-speaker exam. Band claimed in the video title and asserted by the channel owner, a certified examiner. Per the source hierarchy a title is metadata to investigate, not a label -- the band below records the examiner's stated assessment, and no per-criterion scores are published. Second reviewer still required before gating.",
+      "inputs": [
+        "audio"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://www.youtube.com/watch?v=BFS1z24aZaM",
+        "publisher": "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)",
+        "retrieved_at": "2026-08-08T22:05:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "granted",
+        "basis": "The channel owner replied by email granting use of the playlist recordings for this project's evaluation. Keep that email as the permission evidence. Grant covers download and internal evaluation; it does NOT cover redistribution, which is why the audio is marked restricted and is never committed.",
+        "governance_ref": "SPEAK-EVAL-007",
+        "reviewed_by": "ahmed-mounir",
+        "reviewed_at": "2026-08-08T22:00:00+00:00"
+      },
+      "media": {
+        "storage": "external",
+        "restricted": true,
+        "path": "evals/speaking/sources/BFS1z24aZaM.wav",
+        "sha256": "c9c21b17800afcf85e57e30a21dd86973b4489495556f16965e7364b14855e83",
+        "format": "audio/wav"
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 6.5,
+        "raters": [
+          "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)"
+        ],
+        "rating_ref": "https://www.youtube.com/watch?v=BFS1z24aZaM"
+      },
+      "retention": {
+        "policy": "delete_on_request",
+        "deletion_ref": null
+      }
+    },
+    {
+      "item_id": "yt-S8Y5D3RMBes",
+      "candidate_id": "yt-S8Y5D3RMBes-candidate",
+      "series_id": "yt-ielts-examiner-playlist",
+      "split": "quarantine",
+      "notes": "Band 8.0 IELTS Practice Speaking Exam. Full two-speaker exam. Band claimed in the video title and asserted by the channel owner, a certified examiner. Per the source hierarchy a title is metadata to investigate, not a label -- the band below records the examiner's stated assessment, and no per-criterion scores are published. Second reviewer still required before gating.",
+      "inputs": [
+        "audio"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://www.youtube.com/watch?v=S8Y5D3RMBes",
+        "publisher": "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)",
+        "retrieved_at": "2026-08-08T22:05:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "granted",
+        "basis": "The channel owner replied by email granting use of the playlist recordings for this project's evaluation. Keep that email as the permission evidence. Grant covers download and internal evaluation; it does NOT cover redistribution, which is why the audio is marked restricted and is never committed.",
+        "governance_ref": "SPEAK-EVAL-007",
+        "reviewed_by": "ahmed-mounir",
+        "reviewed_at": "2026-08-08T22:00:00+00:00"
+      },
+      "media": {
+        "storage": "external",
+        "restricted": true,
+        "path": "evals/speaking/sources/S8Y5D3RMBes.wav",
+        "sha256": "2dcd428aa943ecdcc54c4677a8f9f5a6ba7628b66cc67db692479464a5c4b56b",
+        "format": "audio/wav"
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 8.0,
+        "raters": [
+          "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)"
+        ],
+        "rating_ref": "https://www.youtube.com/watch?v=S8Y5D3RMBes"
+      },
+      "retention": {
+        "policy": "delete_on_request",
+        "deletion_ref": null
+      }
+    },
+    {
+      "item_id": "yt-IevmdO16GuE",
+      "candidate_id": "yt-IevmdO16GuE-candidate",
+      "series_id": "yt-ielts-examiner-playlist",
+      "split": "quarantine",
+      "notes": "IELTS Speaking Test- Perfect Band 9. Full two-speaker exam. Band claimed in the video title and asserted by the channel owner, a certified examiner. Per the source hierarchy a title is metadata to investigate, not a label -- the band below records the examiner's stated assessment, and no per-criterion scores are published. Second reviewer still required before gating.",
+      "inputs": [
+        "audio"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://www.youtube.com/watch?v=IevmdO16GuE",
+        "publisher": "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)",
+        "retrieved_at": "2026-08-08T22:05:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "granted",
+        "basis": "The channel owner replied by email granting use of the playlist recordings for this project's evaluation. Keep that email as the permission evidence. Grant covers download and internal evaluation; it does NOT cover redistribution, which is why the audio is marked restricted and is never committed.",
+        "governance_ref": "SPEAK-EVAL-007",
+        "reviewed_by": "ahmed-mounir",
+        "reviewed_at": "2026-08-08T22:00:00+00:00"
+      },
+      "media": {
+        "storage": "external",
+        "restricted": true,
+        "path": "evals/speaking/sources/IevmdO16GuE.wav",
+        "sha256": "a91d792cf2288410a931535331e7ac09e11a963dd4fbe40455fd62f59930b4b1",
+        "format": "audio/wav"
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 9.0,
+        "raters": [
+          "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)"
+        ],
+        "rating_ref": "https://www.youtube.com/watch?v=IevmdO16GuE"
+      },
+      "retention": {
+        "policy": "delete_on_request",
+        "deletion_ref": null
+      }
     }
   ]
 }

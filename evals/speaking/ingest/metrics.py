@@ -130,6 +130,43 @@ def intersect(a: Sequence[Interval], b: Sequence[Interval]) -> list[Interval]:
 # -- metrics -----------------------------------------------------------------
 
 
+def _answer_spans(
+    utterances: list[Interval], *, split_gap_s: float = 1.5
+) -> list[Interval]:
+    """Group candidate utterances into answer spans, pauses included.
+
+    This distinction is the whole reason the precision figure means anything.
+
+    Section 8.4 defines candidate precision as included candidate duration over
+    all included duration. Read as "time inside a candidate *utterance*", it
+    punishes the clipper for the one thing section 8.3 requires it to do:
+    preserve the silence inside an answer. A candidate who pauses to think would
+    lower precision, and a clipper that stripped their hesitation -- destroying
+    the evidence Fluency and Coherence is assessed on -- would raise it.
+
+    Read as "time inside a candidate *answer*", precision measures what it is
+    for: how much of the audio we are about to score is something other than
+    this candidate answering. Contamination by another speaker is reported
+    separately and is the thing precision should fall on.
+
+    The grouping mirrors clips.group_into_answers, but is computed from the
+    transcript rather than from the clips, so the measurement stays independent
+    of the boundaries it is checking.
+    """
+    merged = merge(utterances)
+    if not merged:
+        return []
+
+    spans = [merged[0]]
+    for start, end in merged[1:]:
+        last_start, last_end = spans[-1]
+        if start - last_end <= split_gap_s:
+            spans[-1] = (last_start, end)
+        else:
+            spans.append((start, end))
+    return spans
+
+
 def compute_metrics(
     manifest: ClipManifest,
     transcript: NormalizedTranscript,
@@ -151,7 +188,7 @@ def compute_metrics(
 
     if ground_truth:
         truth_turns = ground_truth.get("turns", [])
-        true_candidate = merge(
+        true_candidate = _answer_spans(
             [(t["start_s"], t["end_s"]) for t in truth_turns if t["role"] == ROLE_CANDIDATE]
         )
         true_examiner = merge(
@@ -161,7 +198,7 @@ def compute_metrics(
     else:
         # Fall back to the annotated transcript. Honest but weaker: it measures
         # the clipper against the diarizer, and cannot see an error they share.
-        true_candidate = merge(
+        true_candidate = _answer_spans(
             [(u.start_s, u.end_s) for u in transcript.utterances if u.role == ROLE_CANDIDATE]
         )
         true_examiner = merge(

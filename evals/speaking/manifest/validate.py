@@ -357,6 +357,13 @@ def check_restricted_media(
                 )
             )
 
+        # Any declared path counts as declared, whatever the storage class.
+        # `external` media lives on the machine that runs the eval and is
+        # gitignored rather than committed -- it still has to be declared, or the
+        # tree sweep below cannot tell it from a file somebody dropped in.
+        if storage == "external" and media.get("path"):
+            declared_paths[media["path"]] = item_id
+
         if storage == "repo":
             path = media.get("path")
             if not path:

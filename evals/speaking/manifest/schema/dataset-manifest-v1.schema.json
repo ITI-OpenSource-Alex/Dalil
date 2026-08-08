@@ -64,17 +64,17 @@
       "properties": {
         "item_id": {
           "type": "string",
-          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
         },
         "candidate_id": {
           "type": "string",
           "description": "The person who spoke. Two items from the same speaker share this, so a split assignment cannot put the same voice on both sides of a comparison.",
-          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
         },
         "series_id": {
           "type": "string",
           "description": "The source series -- one recording, one video, one commissioned batch. Items from one series share editing, audio conditions and often the same examiner, so they leak across a split just as a candidate does.",
-          "pattern": "^[a-z0-9][a-z0-9._-]*$"
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
         },
         "split": {
           "type": "string"

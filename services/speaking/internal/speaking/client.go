@@ -786,9 +786,12 @@ func (c *Client) runEvaluationAndTTS(transcript string, transcriptionMs int64, f
 					Name:                name,
 					StartTime:           ttsStart.Add(-swarmDuration),
 					EndTime:             ttsStart,
-					Model:               "claude-3-5-haiku-20241022",
-					Input:               transcript,
-					Output:              dim.Feedback,
+					// Read from the client that made the call, not a literal. See
+					// EffectiveLLMModel: this was a hardcoded Haiku id while the
+					// service ran a configured practice model.
+					Model:  EffectiveLLMModel(c.llmClient),
+					Input:  transcript,
+					Output: dim.Feedback,
 					Usage: map[string]int{
 						"inputTokens":  dim.PromptTokens,
 						"outputTokens": dim.CompletionTokens,

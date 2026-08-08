@@ -4,20 +4,26 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/llm"
 	"strings"
+
+	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/internal/contract"
+	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/llm"
 )
 
 // AgentResult represents the output metrics and feedback for a single IELTS criterion
 
 type AgentResult struct {
-	Criterion        string   `json:"criterion"`
-	Band             float64  `json:"band"`
-	Feedback         string   `json:"feedback"`
-	Examples         []string `json:"examples"`
-	PromptTokens     int      `json:"prompt_tokens"`
-	CompletionTokens int      `json:"completion_tokens"`
-	LatencyMs        int64    `json:"latency_ms"`
+	Criterion string   `json:"criterion"`
+	Band      float64  `json:"band"`
+	Feedback  string   `json:"feedback"`
+	Examples  []string `json:"examples"`
+	// RubricMatches are the official descriptors this band was justified
+	// against, already resolved to the frozen rubric. Empty when the model cited
+	// nothing resolvable -- a citation the code could not verify is not shown.
+	RubricMatches    []contract.RubricMatch `json:"rubric_matches,omitempty"`
+	PromptTokens     int                    `json:"prompt_tokens"`
+	CompletionTokens int                    `json:"completion_tokens"`
+	LatencyMs        int64                  `json:"latency_ms"`
 	// FirstTokenMs is time-to-first-token, distinct from LatencyMs (total
 	// completion). llm.CompletionResult has always measured it; nothing carried
 	// it up, so goa_speaking_llm_first_token_ms was fed LatencyMs and reported
@@ -74,7 +80,10 @@ func evaluateCriterion(ctx context.Context, client LLMClient, criterion, systemP
 		prosody = features.Render() + "\n"
 	}
 	userPrompt := fmt.Sprintf("%sQuestion Prompt: %s\nQuestion Type: %s\nCandidate Transcript: %s", prosody, questionPrompt, questionType, transcript)
-	res, err := client.StreamCompletion(ctx, systemPrompt, userPrompt)
+	// SPEAK-EVAL-003: the prompt is grounded at call time -- the frozen
+	// descriptors, with ids, appended to the criterion's own instructions. It is
+	// additive: a model that returns no citations scores exactly as before.
+	res, err := client.StreamCompletion(ctx, groundedPromptFor(systemPrompt, criterion), userPrompt)
 	if err != nil {
 		return AgentResult{}, err
 	}
@@ -98,6 +107,9 @@ func evaluateCriterion(ctx context.Context, client LLMClient, criterion, systemP
 		BandScore *float64 `json:"band_score"`
 		Feedback  string   `json:"feedback"`
 		Examples  []string `json:"examples"`
+		// Optional, and not believed until parseRubricMatches resolves each id
+		// against the frozen rubric.
+		RubricMatches []rawRubricMatch `json:"rubric_matches"`
 	}
 	err = json.Unmarshal([]byte(cleanedText), &parsed)
 	if err != nil {
@@ -131,6 +143,7 @@ func evaluateCriterion(ctx context.Context, client LLMClient, criterion, systemP
 		Band:             band,
 		Feedback:         parsed.Feedback,
 		Examples:         parsed.Examples,
+		RubricMatches:    parseRubricMatches(parsed.RubricMatches, canonicalCriterionID[criterion]),
 		PromptTokens:     res.PromptTokens,
 		CompletionTokens: res.CompletionTokens,
 		LatencyMs:        res.LatencyMs,

@@ -200,18 +200,19 @@ func EvaluateSwarm(
 
 	wg.Wait()
 
-	var totalBand float64
-	var completedCount int
-	var partial bool
-
+	// The arithmetic lives in aggregateBands (canonical.go), shared with
+	// EvaluateHolisticSwarm. It used to be a second copy of these lines, kept
+	// aligned by a KEEP IN SYNC comment; GOA-134 is what such a comment is worth
+	// as a synchronisation mechanism.
+	var scored []float64
 	for _, res := range results {
 		if !res.TimedOut {
-			totalBand += res.Band
-			completedCount++
-		} else {
-			partial = true
+			scored = append(scored, res.Band)
 		}
 	}
+	agg := aggregateBands(scored, len(CriterionOrder))
+	completedCount := agg.CompletedCount
+	partial := agg.Partial
 
 	// If all 4 agents failed, return top-level failed status. Kept distinct from
 	// the "fewer than 3 completed" branch below: the client shows an error for
@@ -227,14 +228,10 @@ func EvaluateSwarm(
 		}, fmt.Errorf("all evaluation agents timed out or failed")
 	}
 
-	// Average only successfully completed criteria, and only once enough of them
-	// completed for the average to describe the candidate rather than describe
-	// which agents happened to survive.
-	var overallBand *float64
-	if completedCount >= MinCriteriaForOverallBand {
-		rounded := RoundIELTSBand(totalBand / float64(completedCount))
-		overallBand = &rounded
-	}
+	// Nil below the threshold: only successfully completed criteria are averaged,
+	// and only once enough of them completed for the average to describe the
+	// candidate rather than describe which agents happened to survive.
+	overallBand := agg.OverallBand
 
 	// Synthesize overall feedback deterministically using templates
 	var feedbackLines []string

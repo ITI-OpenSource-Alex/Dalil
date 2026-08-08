@@ -65,6 +65,15 @@ func NewClient(model, apiKey, baseURL string) *Client {
 	}
 }
 
+// Model returns the effective model id this client calls with.
+//
+// SPEAK-EVAL-003: the Langfuse generation span used to carry a hardcoded
+// "claude-3-5-haiku-20241022" while main() constructs two clients from
+// configuration -- one for practice, one for exam -- and neither was Haiku. Every
+// model-to-model comparison in the telemetry was therefore comparing one label
+// against itself. Provenance has to be read from the thing that made the call.
+func (c *Client) Model() string { return c.model }
+
 func (c *Client) StreamCompletion(ctx context.Context, systemPrompt, userPrompt string) (CompletionResult, error) {
 	start := time.Now()
 	var firstTokenTime time.Time

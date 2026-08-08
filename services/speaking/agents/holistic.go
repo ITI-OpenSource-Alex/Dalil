@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/internal/contract"
 	"github.com/rs/zerolog/log"
 )
 
@@ -31,7 +32,10 @@ type HolisticAgentResult struct {
 	PartNotes       map[string]string   `json:"part_notes"`
 	Examples        []TranscriptExample `json:"examples"`
 	ImprovementTip  string              `json:"improvement_tip"`
-	TimedOut        bool                `json:"timed_out"`
+	// RubricMatches mirrors AgentResult.RubricMatches: descriptors already
+	// resolved against the frozen rubric, never the raw ids the model returned.
+	RubricMatches []contract.RubricMatch `json:"rubric_matches,omitempty"`
+	TimedOut      bool                   `json:"timed_out"`
 	// Error is a short breadcrumb for a criterion that did not complete, matching
 	// AgentResult.Error. json:"-" for the same reason: Dimensions is serialised
 	// wholesale to the browser and persisted as JSONB, so a tagged field would
@@ -69,7 +73,9 @@ func evaluateHolisticCriterion(ctx context.Context, client LLMClient, criterion,
 		prosody = features.Render() + "\n"
 	}
 	userPrompt := fmt.Sprintf("%sCandidate Transcript (All Parts):\n%s", prosody, concatenatedTranscript)
-	res, err := client.StreamCompletion(ctx, systemPrompt, userPrompt)
+	// Grounded identically to the practice path. The two prompts differ; the
+	// rubric they are judged against must not.
+	res, err := client.StreamCompletion(ctx, groundedPromptFor(systemPrompt, criterion), userPrompt)
 	if err != nil {
 		return HolisticAgentResult{}, err
 	}
@@ -82,6 +88,7 @@ func evaluateHolisticCriterion(ctx context.Context, client LLMClient, criterion,
 		PartNotes       map[string]string   `json:"part_notes"`
 		Examples        []TranscriptExample `json:"examples"`
 		ImprovementTip  string              `json:"improvement_tip"`
+		RubricMatches   []rawRubricMatch    `json:"rubric_matches"`
 	}
 
 	err = json.Unmarshal([]byte(cleanedText), &parsed)
@@ -103,6 +110,7 @@ func evaluateHolisticCriterion(ctx context.Context, client LLMClient, criterion,
 		PartNotes:       parsed.PartNotes,
 		Examples:        parsed.Examples,
 		ImprovementTip:  parsed.ImprovementTip,
+		RubricMatches:   parseRubricMatches(parsed.RubricMatches, canonicalCriterionID[criterion]),
 		TimedOut:        false,
 	}, nil
 }
@@ -192,18 +200,19 @@ func EvaluateHolisticSwarm(ctx context.Context, client LLMClient, concatenatedTr
 
 	wg.Wait()
 
-	var totalBand float64
-	var completedCount int
-	var partial bool
-
+	// Same aggregateBands call as EvaluateSwarm. Not a copy of it: the constant
+	// was already shared, the arithmetic around it was not, and sharing only the
+	// constant is what let the two paths agree on the threshold while
+	// disagreeing about everything else.
+	var scored []float64
 	for _, res := range results {
 		if !res.TimedOut {
-			totalBand += res.Band
-			completedCount++
-		} else {
-			partial = true
+			scored = append(scored, res.Band)
 		}
 	}
+	agg := aggregateBands(scored, len(CriterionOrder))
+	completedCount := agg.CompletedCount
+	partial := agg.Partial
 
 	if completedCount == 0 {
 		return HolisticSwarmResult{
@@ -216,15 +225,8 @@ func EvaluateHolisticSwarm(ctx context.Context, client LLMClient, concatenatedTr
 		}, fmt.Errorf("all evaluation agents timed out or failed")
 	}
 
-	// Average only once enough criteria completed for the average to describe the
-	// candidate rather than describe which agents happened to survive. The
-	// constant is imported from swarm.go, not redeclared: a second constant with
-	// the same value in the same package is how these two paths drifted.
-	var overallBand *float64
-	if completedCount >= MinCriteriaForOverallBand {
-		rounded := RoundIELTSBand(totalBand / float64(completedCount))
-		overallBand = &rounded
-	}
+	// Nil below the threshold, for the reason spelled out in aggregateBands.
+	overallBand := agg.OverallBand
 
 	// CriterionOrder rather than a local slice literal, for the reason it exists:
 	// ranging a map is randomised in Go, and a duplicated order list is one more

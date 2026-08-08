@@ -1,0 +1,83 @@
+{
+  "schema_version": "speaking-evaluation/v1",
+  "evaluation_id": "eval-01J8ZQ8Y4L3N5P6Q7R8S9T0V1W",
+  "mode": "exam",
+  "status": "partial",
+  "score_semantics": "estimated_ielts_practice_band",
+  "criteria": [
+    {
+      "criterion_id": "fluency_coherence",
+      "status": "scored",
+      "band": 6.0,
+      "summary": "Willing to speak at length, though coherence slipped during longer turns.",
+      "rubric_matches": [
+        {
+          "rubric_id": "ielts-speaking-public",
+          "rubric_version": "2023-06",
+          "descriptor_id": "fc.6",
+          "descriptor_band": 6.0,
+          "polarity": "supports"
+        }
+      ],
+      "evidence": [
+        { "kind": "measurement_ref", "supports_claim": "Speech rate within range.", "measurement_id": "m.wpm" }
+      ],
+      "measurements": ["m.wpm"],
+      "limitations": [],
+      "improvement_actions": []
+    },
+    {
+      "criterion_id": "lexical_resource",
+      "status": "unavailable",
+      "unavailable_reason": "deadline_exceeded",
+      "summary": "This criterion could not be scored in time.",
+      "rubric_matches": [],
+      "evidence": [],
+      "measurements": [],
+      "limitations": ["The evaluation deadline elapsed before this agent returned."],
+      "improvement_actions": []
+    },
+    {
+      "criterion_id": "grammatical_range",
+      "status": "unavailable",
+      "unavailable_reason": "provider_error",
+      "summary": "This criterion could not be scored.",
+      "rubric_matches": [],
+      "evidence": [],
+      "measurements": [],
+      "limitations": [],
+      "improvement_actions": []
+    },
+    {
+      "criterion_id": "pronunciation",
+      "status": "unavailable",
+      "unavailable_reason": "insufficient_evidence",
+      "summary": "Pronunciation was not assessed because no acoustic measurements were available for this session.",
+      "rubric_matches": [],
+      "evidence": [],
+      "measurements": [],
+      "limitations": [
+        "No word timings or recognition confidence were supplied, so there was nothing to assess intelligibility or phrasing from. Inferring them from the transcript would be a guess."
+      ],
+      "improvement_actions": []
+    }
+  ],
+  "overall": {
+    "included_criteria": ["fluency_coherence"],
+    "excluded_criteria": ["lexical_resource", "grammatical_range", "pronunciation"],
+    "rounding_rule": "ielts_half_band_v1",
+    "min_criteria_required": 3
+  },
+  "provenance": {
+    "created_at": "2026-08-08T10:22:11Z",
+    "scorer_version": "speaking@6fb6490",
+    "rubric_id": "ielts-speaking-public",
+    "rubric_version": "2023-06",
+    "llm_provider": "agentrouter",
+    "llm_model": "claude-opus-4-8",
+    "measurements": [
+      { "id": "m.wpm", "name": "words_per_minute", "value": 141, "unit": "words_per_minute", "extractor_version": "prosody-v1", "scope": "session" }
+    ]
+  },
+  "telemetry": { "total_latency_ms": 61004, "cost_usd": null }
+}

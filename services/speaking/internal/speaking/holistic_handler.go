@@ -136,7 +136,7 @@ func HandleHolisticEvaluation(w http.ResponseWriter, r *http.Request, cfg *Confi
 	// same ingestion client as the practice path (client.go) — this is the exam
 	// counterpart of that WebSocket trace, not a second tracing system. Done in
 	// a detached goroutine so reporting never blocks or fails the HTTP response.
-	reportHolisticTrace(langfuseClient, payload.UserID, payload.ExamSessionID, payload.ConcatenatedTranscript, res, swarmStart, swarmEnd)
+	reportHolisticTrace(langfuseClient, payload.UserID, payload.ExamSessionID, payload.ConcatenatedTranscript, res, swarmStart, swarmEnd, EffectiveLLMModel(llmClient))
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(res); err != nil {
@@ -155,6 +155,7 @@ func reportHolisticTrace(
 	userID, examSessionID, transcript string,
 	res agents.HolisticSwarmResult,
 	swarmStart, swarmEnd time.Time,
+	llmModel string,
 ) {
 	if client == nil {
 		return
@@ -210,9 +211,13 @@ func reportHolisticTrace(
 					Name:      criterion,
 					StartTime: swarmStart,
 					EndTime:   swarmEnd,
-					Input:     transcript,
-					Output:    dim.OverallFeedback,
-					Metadata:  metadata,
+					// The exam path recorded no model at all, so its generations
+					// were unattributable and could not be compared against the
+					// practice path's -- which was itself reporting a hardcoded id.
+					Model:    llmModel,
+					Input:    transcript,
+					Output:   dim.OverallFeedback,
+					Metadata: metadata,
 				},
 			})
 		}

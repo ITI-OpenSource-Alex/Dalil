@@ -60,7 +60,18 @@ def stitch(clips: list[dict]) -> dict:
                 "word": word.get("word", ""),
                 "start": round(offset + float(word.get("start", 0.0)), 4),
                 "end": round(offset + float(word.get("end", 0.0)), 4),
-                "confidence": word.get("confidence"),
+                # `probability`, not `confidence`. The sidecar emits
+                # `probability` and agents.Word unmarshals `probability`; this
+                # driver was the only thing calling it `confidence`, so every
+                # word arrived at 0.0 and the Pronunciation agent was handed
+                # "mean confidence 0.00, 100% of words below 0.5" for a
+                # perfectly intelligible speaker. It correctly refused to treat
+                # that as evidence -- but it should never have been sent.
+                #
+                # Same shape as BUG-035: a field name that did not match between
+                # two services, producing a plausible-looking zero rather than a
+                # loud failure.
+                "probability": word.get("probability"),
             })
         offset += float(clip.get("duration_s") or 0.0)
 

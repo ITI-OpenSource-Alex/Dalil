@@ -77,6 +77,10 @@ async def upsert_local_profiles(profile_dict: dict) -> None:
         gpa = profile_dict["gpa"]
         gpa_scale = profile_dict["gpaScale"]
         ielts_score = profile_dict["ieltsScore"]
+        ielts_listening = profile_dict.get("ieltsListening")
+        ielts_reading = profile_dict.get("ieltsReading")
+        ielts_writing = profile_dict.get("ieltsWriting")
+        ielts_speaking = profile_dict.get("ieltsSpeaking")
         degree_level = profile_dict["degreeLevel"]
         work_exp = profile_dict["workExperienceYears"]
         extracurriculars = profile_dict["extracurricularsScore"]
@@ -94,17 +98,22 @@ async def upsert_local_profiles(profile_dict: dict) -> None:
 
         query = """
             INSERT INTO local_user_profiles (
-                user_id, ects, gpa, gpa_scale, ielts_score, degree_level,
-                work_exp, extracurriculars, target_countries, field_of_study,
+                user_id, ects, gpa, gpa_scale, ielts_score,
+                ielts_listening, ielts_reading, ielts_writing, ielts_speaking,
+                degree_level, work_exp, extracurriculars, target_countries, field_of_study,
                 last_synced_at
             ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
             )
             ON CONFLICT (user_id) DO UPDATE SET
                 ects = EXCLUDED.ects,
                 gpa = EXCLUDED.gpa,
                 gpa_scale = EXCLUDED.gpa_scale,
                 ielts_score = EXCLUDED.ielts_score,
+                ielts_listening = EXCLUDED.ielts_listening,
+                ielts_reading = EXCLUDED.ielts_reading,
+                ielts_writing = EXCLUDED.ielts_writing,
+                ielts_speaking = EXCLUDED.ielts_speaking,
                 degree_level = EXCLUDED.degree_level,
                 work_exp = EXCLUDED.work_exp,
                 extracurriculars = EXCLUDED.extracurriculars,
@@ -124,6 +133,10 @@ async def upsert_local_profiles(profile_dict: dict) -> None:
                 gpa,
                 gpa_scale,
                 ielts_score,
+                ielts_listening,
+                ielts_reading,
+                ielts_writing,
+                ielts_speaking,
                 degree_level,
                 work_exp,
                 extracurriculars,

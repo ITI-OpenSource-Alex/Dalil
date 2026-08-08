@@ -1464,6 +1464,314 @@
         "policy": "delete_on_request",
         "deletion_ref": null
       }
+    },
+    {
+      "item_id": "yt-666eP6xBhzI",
+      "candidate_id": "yt-666eP6xBhzI-candidate",
+      "series_id": "yt-ielts-examiner-playlist",
+      "split": "quarantine",
+      "notes": "Full two-speaker exam, band 6.5 as stated by the channel owner (a certified examiner). Roles assigned by heuristic, single reviewer -- non-gating until a second review.",
+      "inputs": [
+        "audio"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://www.youtube.com/watch?v=666eP6xBhzI",
+        "publisher": "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)",
+        "retrieved_at": "2026-08-08T22:30:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "granted",
+        "basis": "The channel owner granted use of the playlist recordings for this project's evaluation by email. Covers download and internal evaluation, NOT redistribution -- hence restricted, and never committed.",
+        "governance_ref": "SPEAK-EVAL-007",
+        "reviewed_by": "ahmed-mounir",
+        "reviewed_at": "2026-08-08T22:00:00+00:00"
+      },
+      "media": {
+        "storage": "external",
+        "restricted": true,
+        "path": "evals/speaking/sources/666eP6xBhzI.wav",
+        "sha256": "0b5eb74fe289adcbb76ef04bf9d6c0974f3206c2de138a03bbfb15e5b5970dc0",
+        "format": "audio/wav"
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 6.5,
+        "raters": [
+          "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)"
+        ],
+        "rating_ref": "https://www.youtube.com/watch?v=666eP6xBhzI"
+      },
+      "retention": {
+        "policy": "delete_on_request",
+        "deletion_ref": null
+      }
+    },
+    {
+      "item_id": "yt-OicvdCp5wrM",
+      "candidate_id": "yt-OicvdCp5wrM-candidate",
+      "series_id": "yt-ielts-examiner-playlist",
+      "split": "quarantine",
+      "notes": "Full two-speaker exam, band 6.5 as stated by the channel owner (a certified examiner). Roles assigned by heuristic, single reviewer -- non-gating until a second review.",
+      "inputs": [
+        "audio"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://www.youtube.com/watch?v=OicvdCp5wrM",
+        "publisher": "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)",
+        "retrieved_at": "2026-08-08T22:30:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "granted",
+        "basis": "The channel owner granted use of the playlist recordings for this project's evaluation by email. Covers download and internal evaluation, NOT redistribution -- hence restricted, and never committed.",
+        "governance_ref": "SPEAK-EVAL-007",
+        "reviewed_by": "ahmed-mounir",
+        "reviewed_at": "2026-08-08T22:00:00+00:00"
+      },
+      "media": {
+        "storage": "external",
+        "restricted": true,
+        "path": "evals/speaking/sources/OicvdCp5wrM.wav",
+        "sha256": "6d5aa1d9c40731d55b520fd040dbdf0664f8c93e7450fcdea34c13fbe9e7df52",
+        "format": "audio/wav"
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 6.5,
+        "raters": [
+          "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)"
+        ],
+        "rating_ref": "https://www.youtube.com/watch?v=OicvdCp5wrM"
+      },
+      "retention": {
+        "policy": "delete_on_request",
+        "deletion_ref": null
+      }
+    },
+    {
+      "item_id": "yt-ZDv9njERj0s",
+      "candidate_id": "yt-ZDv9njERj0s-candidate",
+      "series_id": "yt-ielts-examiner-playlist",
+      "split": "quarantine",
+      "notes": "Full two-speaker exam, band 8.0 as stated by the channel owner (a certified examiner). Roles assigned by heuristic, single reviewer -- non-gating until a second review.",
+      "inputs": [
+        "audio"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://www.youtube.com/watch?v=ZDv9njERj0s",
+        "publisher": "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)",
+        "retrieved_at": "2026-08-08T22:30:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "granted",
+        "basis": "The channel owner granted use of the playlist recordings for this project's evaluation by email. Covers download and internal evaluation, NOT redistribution -- hence restricted, and never committed.",
+        "governance_ref": "SPEAK-EVAL-007",
+        "reviewed_by": "ahmed-mounir",
+        "reviewed_at": "2026-08-08T22:00:00+00:00"
+      },
+      "media": {
+        "storage": "external",
+        "restricted": true,
+        "path": "evals/speaking/sources/ZDv9njERj0s.wav",
+        "sha256": "3f42237bdaa929ad9f5b53706d00ca45fa47d59bb6f9dc63ccf29a212f066f12",
+        "format": "audio/wav"
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 8.0,
+        "raters": [
+          "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)"
+        ],
+        "rating_ref": "https://www.youtube.com/watch?v=ZDv9njERj0s"
+      },
+      "retention": {
+        "policy": "delete_on_request",
+        "deletion_ref": null
+      }
+    },
+    {
+      "item_id": "yt-lvF8q44170Q",
+      "candidate_id": "yt-lvF8q44170Q-candidate",
+      "series_id": "yt-ielts-examiner-playlist",
+      "split": "quarantine",
+      "notes": "Full two-speaker exam, band 8.5 as stated by the channel owner (a certified examiner). Roles assigned by heuristic, single reviewer -- non-gating until a second review.",
+      "inputs": [
+        "audio"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://www.youtube.com/watch?v=lvF8q44170Q",
+        "publisher": "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)",
+        "retrieved_at": "2026-08-08T22:30:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "granted",
+        "basis": "The channel owner granted use of the playlist recordings for this project's evaluation by email. Covers download and internal evaluation, NOT redistribution -- hence restricted, and never committed.",
+        "governance_ref": "SPEAK-EVAL-007",
+        "reviewed_by": "ahmed-mounir",
+        "reviewed_at": "2026-08-08T22:00:00+00:00"
+      },
+      "media": {
+        "storage": "external",
+        "restricted": true,
+        "path": "evals/speaking/sources/lvF8q44170Q.wav",
+        "sha256": "9f726a661d62a4cf757a9a15dc6318cedfdc3d9964f4d112b2f8a55aa8e736ec",
+        "format": "audio/wav"
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 8.5,
+        "raters": [
+          "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)"
+        ],
+        "rating_ref": "https://www.youtube.com/watch?v=lvF8q44170Q"
+      },
+      "retention": {
+        "policy": "delete_on_request",
+        "deletion_ref": null
+      }
+    },
+    {
+      "item_id": "yt-GKr5n9aa2Zw",
+      "candidate_id": "yt-GKr5n9aa2Zw-candidate",
+      "series_id": "yt-ielts-examiner-playlist",
+      "split": "quarantine",
+      "notes": "Full two-speaker exam, band 8.5 as stated by the channel owner (a certified examiner). Roles assigned by heuristic, single reviewer -- non-gating until a second review.",
+      "inputs": [
+        "audio"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://www.youtube.com/watch?v=GKr5n9aa2Zw",
+        "publisher": "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)",
+        "retrieved_at": "2026-08-08T22:30:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "granted",
+        "basis": "The channel owner granted use of the playlist recordings for this project's evaluation by email. Covers download and internal evaluation, NOT redistribution -- hence restricted, and never committed.",
+        "governance_ref": "SPEAK-EVAL-007",
+        "reviewed_by": "ahmed-mounir",
+        "reviewed_at": "2026-08-08T22:00:00+00:00"
+      },
+      "media": {
+        "storage": "external",
+        "restricted": true,
+        "path": "evals/speaking/sources/GKr5n9aa2Zw.wav",
+        "sha256": "7d82b061ee42a502ecc822cbdaeec602fef0738e73366847ee54d2b6f9437ee4",
+        "format": "audio/wav"
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 8.5,
+        "raters": [
+          "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)"
+        ],
+        "rating_ref": "https://www.youtube.com/watch?v=GKr5n9aa2Zw"
+      },
+      "retention": {
+        "policy": "delete_on_request",
+        "deletion_ref": null
+      }
+    },
+    {
+      "item_id": "yt-gfKS-p7thDU",
+      "candidate_id": "yt-gfKS-p7thDU-candidate",
+      "series_id": "yt-ielts-examiner-playlist",
+      "split": "quarantine",
+      "notes": "Full two-speaker exam, band 9.0 as stated by the channel owner (a certified examiner). Roles assigned by heuristic, single reviewer -- non-gating until a second review.",
+      "inputs": [
+        "audio"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://www.youtube.com/watch?v=gfKS-p7thDU",
+        "publisher": "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)",
+        "retrieved_at": "2026-08-08T22:30:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "granted",
+        "basis": "The channel owner granted use of the playlist recordings for this project's evaluation by email. Covers download and internal evaluation, NOT redistribution -- hence restricted, and never committed.",
+        "governance_ref": "SPEAK-EVAL-007",
+        "reviewed_by": "ahmed-mounir",
+        "reviewed_at": "2026-08-08T22:00:00+00:00"
+      },
+      "media": {
+        "storage": "external",
+        "restricted": true,
+        "path": "evals/speaking/sources/gfKS-p7thDU.wav",
+        "sha256": "ec0eafe511bc900f6b87e9daaa3a80579fe1e963b013dca5957a30cdd8d8ae2f",
+        "format": "audio/wav"
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 9.0,
+        "raters": [
+          "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)"
+        ],
+        "rating_ref": "https://www.youtube.com/watch?v=gfKS-p7thDU"
+      },
+      "retention": {
+        "policy": "delete_on_request",
+        "deletion_ref": null
+      }
+    },
+    {
+      "item_id": "yt-4nrG6SHM-rY",
+      "candidate_id": "yt-4nrG6SHM-rY-candidate",
+      "series_id": "yt-ielts-examiner-playlist",
+      "split": "quarantine",
+      "notes": "Full two-speaker exam, band 9.0 as stated by the channel owner (a certified examiner). Roles assigned by heuristic, single reviewer -- non-gating until a second review.",
+      "inputs": [
+        "audio"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://www.youtube.com/watch?v=4nrG6SHM-rY",
+        "publisher": "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)",
+        "retrieved_at": "2026-08-08T22:30:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "granted",
+        "basis": "The channel owner granted use of the playlist recordings for this project's evaluation by email. Covers download and internal evaluation, NOT redistribution -- hence restricted, and never committed.",
+        "governance_ref": "SPEAK-EVAL-007",
+        "reviewed_by": "ahmed-mounir",
+        "reviewed_at": "2026-08-08T22:00:00+00:00"
+      },
+      "media": {
+        "storage": "external",
+        "restricted": true,
+        "path": "evals/speaking/sources/4nrG6SHM-rY.wav",
+        "sha256": "58e8a32c525508c380723ee42c54717ab145ebf81d954e7755adfe4262e1cdf9",
+        "format": "audio/wav"
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 9.0,
+        "raters": [
+          "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)"
+        ],
+        "rating_ref": "https://www.youtube.com/watch?v=4nrG6SHM-rY"
+      },
+      "retention": {
+        "policy": "delete_on_request",
+        "deletion_ref": null
+      }
     }
   ]
 }

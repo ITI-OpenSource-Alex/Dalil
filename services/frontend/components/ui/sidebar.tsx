@@ -146,13 +146,16 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Mobile top bar with hamburger trigger */}
-      <div className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-surface px-4 py-3 lg:hidden print:hidden">
-        <Link href="/" className="flex items-center gap-2.5">
-          <Wordmark />
+      {/* Mobile top bar with hamburger trigger. Same dark brand header as the
+          marketing navbar -- it is the app's header at this breakpoint, and
+          the two must not disagree about what a header looks like. The drawer
+          below stays on --surface: it is a sidebar, not a header. */}
+      <div className="sticky top-0 z-30 flex items-center justify-between border-b border-nav-border bg-nav-surface px-4 py-3 lg:hidden print:hidden">
+        <Link href="/" className="flex items-center gap-2.5 rounded-chip focus-visible:outline-sand-300">
+          <Wordmark tone="inverse" className="h-7" />
         </Link>
         <Button
-          variant="ghost"
+          variant="ghost-inverse"
           size="sm"
           iconOnly
           onClick={() => setIsOpen(true)}
@@ -313,25 +316,59 @@ export function Sidebar() {
             </Link>
           )}
 
-          <div className="space-y-3 rounded-panel border border-brand-border bg-brand-subtle p-4">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-brand-fg">
-              <Icon icon={Sparkles} size="xs" />
-              <span>Free plan</span>
+          {/* The plan badge said "Free plan" to everyone, including paying
+              subscribers, on every authenticated page -- and then offered
+              them the chance to buy what they already had. It is bound to the
+              real tier now (GOA-039).
+
+              Nothing renders while identity is in flight: guessing Free would
+              flash a paywall at a subscriber on every page load, which is the
+              same reasoning as the exam landing page's isFreeTier. */}
+          {!identityLoading && user && (
+            <div className="space-y-3 rounded-panel border border-brand-border bg-brand-subtle p-4">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-brand-fg">
+                <Icon icon={Sparkles} size="xs" />
+                <span>
+                  {user.subscriptionTier === "paid" ? "Dalil Pro" : "Free plan"}
+                </span>
+              </div>
+
+              {user.subscriptionTier === "paid" ? (
+                <>
+                  <div>
+                    <h4 className="text-sm leading-tight font-bold text-fg">
+                      Every feature unlocked
+                    </h4>
+                    <p className="mt-1 text-[11px] leading-normal text-fg-muted">
+                      Exams, AI scoring and CV review are all yours.
+                    </p>
+                  </div>
+                  <Button size="sm" variant="outline" asChild>
+                    <Link href="/profile">Manage subscription</Link>
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <h4 className="text-sm leading-tight font-bold text-fg">
+                      Unlock Dalil Pro
+                    </h4>
+                    <p className="mt-1 text-[11px] leading-normal text-fg-muted">
+                      Unlimited AI, CV review, IELTS scoring.
+                    </p>
+                  </div>
+                  {/* Was an inert <Button> with no handler -- the one place in
+                      the app that advertises the paid tier did nothing when
+                      clicked. It now lands on /pricing (GOA-039), which knows
+                      the caller's tier, rather than an anchor on the public
+                      marketing page. */}
+                  <Button size="sm" trailingIcon={ArrowRight} asChild>
+                    <Link href={DEFAULT_UPGRADE_URL}>Upgrade</Link>
+                  </Button>
+                </>
+              )}
             </div>
-            <div>
-              <h4 className="text-sm leading-tight font-bold text-fg">
-                Unlock GOA Pro
-              </h4>
-              <p className="mt-1 text-[11px] leading-normal text-fg-muted">
-                Unlimited AI, CV review, IELTS scoring.
-              </p>
-            </div>
-            {/* Was an inert <Button> with no handler -- the one place in the
-                app that advertises the paid tier did nothing when clicked. */}
-            <Button size="sm" trailingIcon={ArrowRight} asChild>
-              <Link href={DEFAULT_UPGRADE_URL}>Upgrade</Link>
-            </Button>
-          </div>
+          )}
 
           <UserMenu
             user={user}

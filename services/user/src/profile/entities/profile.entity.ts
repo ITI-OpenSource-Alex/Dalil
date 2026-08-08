@@ -51,6 +51,42 @@ export class UserProfile {
   @Column({ name: 'gpa_scale', type: 'varchar', length: 4, default: '100' })
   gpaScale: '4.0' | '100';
 
+  @Column({
+    name: 'ielts_listening',
+    type: 'decimal',
+    precision: 2,
+    scale: 1,
+    nullable: true,
+  })
+  ieltsListening: number | null;
+
+  @Column({
+    name: 'ielts_reading',
+    type: 'decimal',
+    precision: 2,
+    scale: 1,
+    nullable: true,
+  })
+  ieltsReading: number | null;
+
+  @Column({
+    name: 'ielts_writing',
+    type: 'decimal',
+    precision: 2,
+    scale: 1,
+    nullable: true,
+  })
+  ieltsWriting: number | null;
+
+  @Column({
+    name: 'ielts_speaking',
+    type: 'decimal',
+    precision: 2,
+    scale: 1,
+    nullable: true,
+  })
+  ieltsSpeaking: number | null;
+
   @OneToOne(() => User, (user) => user.profile, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'userId' })
   user: User;

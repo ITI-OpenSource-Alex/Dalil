@@ -17,8 +17,22 @@
 
 export const SUBSCRIPTION_REQUIRED = "subscription_required";
 
-/** Where the Upgrade CTA points when the Gateway does not name a URL itself. */
-export const DEFAULT_UPGRADE_URL = "/#pricing";
+/**
+ * Where the Upgrade CTA points when the Gateway does not name a URL itself.
+ *
+ * GOA-039: was "/#pricing", an anchor into the landing page's marketing
+ * section — which meant every upgrade CTA in the authenticated app threw the
+ * user out to the public homepage, scrolled them to a card, and offered them
+ * a "Get started free" button they had already used. /pricing is a real route
+ * that knows who is asking (see components/pricing/plan-grid.tsx).
+ *
+ * The Gateway's own SUBSCRIPTION_UPGRADE_URL should be set to this same
+ * relative path. An absolute value (its docker-compose default is
+ * http://localhost:3000/upgrade, a route that does not exist) makes
+ * UpgradeDialog treat it as an external billing host and open it in a new
+ * tab — see the isExternal branch there.
+ */
+export const DEFAULT_UPGRADE_URL = "/pricing";
 
 /**
  * Thrown instead of a generic Error so call sites can branch on the *reason*
@@ -29,7 +43,7 @@ export class SubscriptionRequiredError extends Error {
   readonly feature?: PaidFeatureId;
 
   constructor(upgradeUrl?: string | null, feature?: PaidFeatureId) {
-    super("This feature requires GOA Pro.");
+    super("This feature requires Dalil Pro.");
     this.name = "SubscriptionRequiredError";
     this.upgradeUrl = upgradeUrl || DEFAULT_UPGRADE_URL;
     this.feature = feature;
@@ -144,7 +158,7 @@ export interface PaidFeatureCopy {
 }
 
 const GENERIC: PaidFeatureCopy = {
-  title: "This feature is part of GOA Pro",
+  title: "This feature is part of Dalil Pro",
   description:
     "Your account is on the Free plan, which covers programme matching, application checklists and chat. This feature belongs to the paid tier.",
   benefits: [
@@ -156,7 +170,7 @@ const GENERIC: PaidFeatureCopy = {
 
 const FEATURE_COPY: Partial<Record<PaidFeatureId, PaidFeatureCopy>> = {
   exam: {
-    title: "IELTS practice exams are part of GOA Pro",
+    title: "IELTS practice exams are part of Dalil Pro",
     description:
       "Full, timed IELTS simulations and their scored results are a paid-tier feature. Your Free plan still covers programme matching, checklists and chat.",
     benefits: [
@@ -166,7 +180,7 @@ const FEATURE_COPY: Partial<Record<PaidFeatureId, PaidFeatureCopy>> = {
     ],
   },
   "cv-review": {
-    title: "CV review is part of GOA Pro",
+    title: "CV review is part of Dalil Pro",
     description:
       "Uploading a CV for AI review is a paid-tier feature. You can finish your profile and get matched without one.",
     benefits: [
@@ -176,7 +190,7 @@ const FEATURE_COPY: Partial<Record<PaidFeatureId, PaidFeatureCopy>> = {
     ],
   },
   "essay-evaluation": {
-    title: "Essay evaluation is part of GOA Pro",
+    title: "Essay evaluation is part of Dalil Pro",
     description:
       "Scoring a Writing task against the four IELTS criteria is a paid-tier feature.",
     benefits: [
@@ -186,7 +200,7 @@ const FEATURE_COPY: Partial<Record<PaidFeatureId, PaidFeatureCopy>> = {
     ],
   },
   "speaking-practice": {
-    title: "Speaking practice is part of GOA Pro",
+    title: "Speaking practice is part of Dalil Pro",
     description:
       "Live speaking sessions with an AI examiner are a paid-tier feature.",
     benefits: [
@@ -196,7 +210,7 @@ const FEATURE_COPY: Partial<Record<PaidFeatureId, PaidFeatureCopy>> = {
     ],
   },
   "writing-practice": {
-    title: "Writing practice is part of GOA Pro",
+    title: "Writing practice is part of Dalil Pro",
     description:
       "Submitting an essay for AI evaluation is a paid-tier feature.",
     benefits: [

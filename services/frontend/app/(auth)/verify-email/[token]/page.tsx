@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import VerifyEmailStatus from "@/components/auth/VerifyEmailStatus";
 import { AuthCard } from "@/components/auth/auth-card";
 
-export const metadata: Metadata = { title: "Verify your email — GOA" };
+export const metadata: Metadata = { title: "Verify your email — Dalil" };
 
 export default async function VerifyEmailPage({
   params,

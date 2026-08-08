@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   computeOverallBand,
   formatBand,
+  formatBandValue,
   isValidBand,
   parseBand,
   roundToBand,
@@ -132,5 +133,39 @@ describe("formatBand", () => {
   it("always shows one decimal place", () => {
     expect(formatBand(7)).toBe("7.0");
     expect(formatBand(6.5)).toBe("6.5");
+  });
+});
+
+
+/**
+ * GOA-039 follow-up. `ieltsScore` is a Postgres `numeric`, which
+ * node-postgres returns as a string; the profile page called `.toFixed(1)` on
+ * it and threw. The owning service now converts it (numeric.transformer.ts),
+ * and this is the display-side guard for a boundary the frontend does not own.
+ */
+describe("formatBandValue", () => {
+  it("formats a numeric band, which is what the API now sends", () => {
+    expect(formatBandValue(6.5)).toBe("6.5");
+    expect(formatBandValue(7)).toBe("7.0");
+    expect(formatBandValue(0)).toBe("0.0");
+  });
+
+  it("formats a numeric string, which is what it used to send", () => {
+    // The exact payload that crashed the page: {"ieltsScore": "6.5"}.
+    expect(formatBandValue("6.5")).toBe("6.5");
+    expect(formatBandValue("7")).toBe("7.0");
+  });
+
+  it("renders nothing for a missing score rather than inventing one", () => {
+    expect(formatBandValue(null)).toBeNull();
+    expect(formatBandValue(undefined)).toBeNull();
+    // Number("") is 0 -- an empty string must not become a band of 0.0.
+    expect(formatBandValue("")).toBeNull();
+    expect(formatBandValue("   ")).toBeNull();
+  });
+
+  it("returns null rather than NaN for junk", () => {
+    expect(formatBandValue("not-a-band")).toBeNull();
+    expect(formatBandValue({})).toBeNull();
   });
 });

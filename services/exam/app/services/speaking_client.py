@@ -22,6 +22,12 @@ class SpeakingServiceClient:
         async with httpx.AsyncClient(
             base_url=self.base_url,
             headers={"x-Internal-Api-Key": self.internal_api_key},
+            # Configurable rather than dev's hardcoded 130.0, so the invariant
+            # against the speaking service's swarm deadline stays testable in
+            # one place. The DEFAULT must clear that deadline: the holistic
+            # swarm now runs to 120s (holisticSwarmTimeout), above the 110s
+            # per-criterion cap, so a client timeout below 130s would abandon a
+            # request the server was still legitimately working on.
             timeout=self.timeout_s,
         ) as client:
             response = await client.post(

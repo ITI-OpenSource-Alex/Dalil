@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import RegisterForm from "@/components/auth/RegisterForm";
 import { AuthCard } from "@/components/auth/auth-card";
 
-export const metadata: Metadata = { title: "Create your account — GOA" };
+export const metadata: Metadata = { title: "Create your account — Dalil" };
 
 export default function RegisterPage() {
   return (

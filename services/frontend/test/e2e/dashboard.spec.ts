@@ -27,6 +27,10 @@ const PROFILE = {
     degreeLevel: "Bachelors",
     gpa: 3.8,
     ieltsScore: null as number | null,
+    ieltsListening: null as number | null,
+    ieltsReading: null as number | null,
+    ieltsWriting: null as number | null,
+    ieltsSpeaking: null as number | null,
     targetCountries: ["Germany"],
     fieldOfStudy: "Computer Science",
     ects: 180,
@@ -45,7 +49,7 @@ async function mockEmptyDashboardData(page: Page, profile = PROFILE) {
   );
 }
 
-test.describe("GOA Dashboard", () => {
+test.describe("Dalil Dashboard", () => {
   test("greets the signed-in user and shows every widget's empty state for a brand-new account", async ({
     page,
   }) => {
@@ -55,7 +59,7 @@ test.describe("GOA Dashboard", () => {
 
     await expect(page.getByText(/Welcome back, Amina Hassan/)).toBeVisible();
     await expect(page.getByText("No practice sessions yet")).toBeVisible();
-    await expect(page.getByText("IELTS scoring is part of GOA Pro")).toBeVisible();
+    await expect(page.getByText("IELTS scoring is part of Dalil Pro")).toBeVisible();
     // Recommendations only render once there's exam data to derive a real
     // suggestion from -- a Free account never sees it.
     await expect(page.getByText("Recommended for you")).toHaveCount(0);

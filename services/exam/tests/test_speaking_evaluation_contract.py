@@ -357,15 +357,21 @@ def test_speaking_client_timeout_exceeds_speaking_swarm_budget() -> None:
     from app.core.config import settings
 
     for parent in Path(__file__).resolve().parents:
-        candidate = parent / "services" / "speaking" / "internal" / "speaking" / "client.go"
+        candidate = parent / "services" / "speaking" / "internal" / "speaking" / "holistic_handler.go"
         if candidate.exists():
             source = candidate.read_text(encoding="utf-8")
             break
     else:
         pytest.skip("speaking service source not reachable from this checkout")
 
-    match = re.search(r"swarmEvaluationTimeout\s*=\s*(\d+)\s*\*\s*time\.Second", source)
-    assert match, "could not read swarmEvaluationTimeout from client.go"
+    # holisticSwarmTimeout, not swarmEvaluationTimeout. This test read the
+    # streaming path's constant while the exam client calls the HOLISTIC
+    # endpoint, so it was comparing the client timeout against a budget that
+    # bounds a different request. It passed (75 > 60) while the real
+    # relationship had inverted (75 < 120) -- a guard watching the wrong number
+    # is worse than no guard, because it reports safety it never checked.
+    match = re.search(r"holisticSwarmTimeout\s*=\s*(\d+)\s*\*\s*time\.Second", source)
+    assert match, "could not read holisticSwarmTimeout from holistic_handler.go"
     inner_budget_s = float(match.group(1))
 
     assert settings.speaking_evaluation_timeout_s > inner_budget_s, (

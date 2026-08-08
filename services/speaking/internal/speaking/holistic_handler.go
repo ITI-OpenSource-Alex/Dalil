@@ -55,6 +55,10 @@ var holisticCriteria = []string{
 }
 
 // HandleHolisticEvaluation processes the full exam transcript and returns a holistic band score with extended feedback.
+// holisticSwarmTimeout bounds the whole four-agent holistic swarm. Must stay
+// above attemptTimeout (110s) and below the exam client's call timeout.
+const holisticSwarmTimeout = 120 * time.Second
+
 func HandleHolisticEvaluation(w http.ResponseWriter, r *http.Request, cfg *Config, llmClient agents.LLMClient, langfuseClient *langfuse.Client) {
 	start := time.Now()
 	defer func() {
@@ -89,17 +93,21 @@ func HandleHolisticEvaluation(w http.ResponseWriter, r *http.Request, cfg *Confi
 		payload.UserID = "anonymous"
 	}
 
-	// swarmEvaluationTimeout, not a literal. This was 15s against a measured p95
-	// time-to-first-criterion of 28,728ms (GOA-032, 8 real sessions through the
-	// Gateway) -- so the whole four-agent swarm was given roughly half the budget
-	// one agent needs. Worse here than on the streaming path: holistic grades the
-	// concatenated three-part transcript, so its prompts are larger and its
-	// completions slower, not faster.
+	// The four criterion agents stream concurrently; each is capped at 110s
+	// (attemptTimeout in holistic.go), so the swarm's worst-case wall-clock is
+	// ~110s and the common case is ~40s. 120s gives headroom over the cap while
+	// staying under the exam client's call timeout. A criterion that genuinely
+	// hangs past 110s is dropped from the average rather than sinking the whole
+	// request.
 	//
-	// The exam service's HTTP client must stay ABOVE this; see
-	// services/exam/app/services/speaking_client.py and the invariant test that
-	// pins the two together.
-	ctx, cancel := context.WithTimeout(r.Context(), swarmEvaluationTimeout)
+	// This supersedes the earlier use of swarmEvaluationTimeout (60s), which was
+	// sized before the per-call cap existed and is now below it -- the swarm
+	// deadline would have fired before a single slow criterion could finish.
+	//
+	// Named rather than a bare literal because the exam service's HTTP client
+	// must stay ABOVE it; see services/exam/app/services/speaking_client.py and
+	// the invariant test that pins the two together.
+	ctx, cancel := context.WithTimeout(r.Context(), holisticSwarmTimeout)
 	ctx = context.WithValue(ctx, "userID", payload.UserID)
 	defer cancel()
 

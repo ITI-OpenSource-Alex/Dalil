@@ -177,14 +177,17 @@ func (h *ExamHandler) SubmitSession(c *fiber.Ctx) error {
 }
 
 func (h *ExamHandler) GetSessionResult(c *fiber.Ctx) error {
-	if _, err := authenticatedUserID(c); err != nil {
+	userID, err := authenticatedUserID(c)
+	if err != nil {
 		return err
 	}
 	target, err := h.sessionURL(c.Params("sessionId"), "result")
 	if err != nil {
 		return err
 	}
-	return h.forward(c, http.MethodGet, target, nil)
+	return h.forwardWith(c, http.MethodGet, target, nil, map[string]string{
+		"X-User-Id": userID,
+	})
 }
 
 // GetProgress returns the authenticated candidate's score trends. The user ID

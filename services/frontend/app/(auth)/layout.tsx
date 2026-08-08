@@ -68,7 +68,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         </div>
 
         <p className="hidden text-sm text-forest-200/60 lg:block">
-          © {new Date().getFullYear()} GOA. Not affiliated with the IELTS
+          © {new Date().getFullYear()} Dalil. Not affiliated with the IELTS
           test owners.
         </p>
       </div>

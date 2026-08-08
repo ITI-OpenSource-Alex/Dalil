@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import ForgotPasswordForm from "@/components/auth/ForgotPasswordForm";
 import { AuthCard } from "@/components/auth/auth-card";
 
-export const metadata: Metadata = { title: "Forgot password — GOA" };
+export const metadata: Metadata = { title: "Forgot password — Dalil" };
 
 export default function ForgotPasswordPage() {
   return (

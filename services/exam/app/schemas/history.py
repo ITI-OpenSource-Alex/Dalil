@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
+from uuid import UUID
 
 
 class ExamHistoryItem(BaseModel):
@@ -9,6 +10,7 @@ class ExamHistoryItem(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
+    session_id: UUID = Field(alias="sessionId")
     skill: str
     exam_type: str = Field(alias="examType")
     # GOA-134: nullable. A speaking session where fewer than 3 of 4 criteria

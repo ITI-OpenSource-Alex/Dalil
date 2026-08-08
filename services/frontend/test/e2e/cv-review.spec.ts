@@ -33,7 +33,7 @@ const READY_CV = {
   uploadedAt: "2026-01-01T00:00:00Z",
 };
 
-test.describe("GOA CV Review", () => {
+test.describe("Dalil CV Review", () => {
   test("shows the upload dropzone when no CV has been uploaded yet", async ({ page }) => {
     await mockNoCvUploaded(page);
 
@@ -110,7 +110,7 @@ test.describe("GOA CV Review", () => {
     await page.getByRole("button", { name: "Start CV Review" }).click();
 
     await expect(
-      page.getByRole("heading", { name: "CV review is part of GOA Pro" }),
+      page.getByRole("heading", { name: "CV review is part of Dalil Pro" }),
     ).toBeVisible();
   });
 

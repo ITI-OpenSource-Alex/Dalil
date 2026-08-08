@@ -1,5 +1,6 @@
 from typing import Any
 from uuid import UUID
+from fastapi import Header
 
 from fastapi import APIRouter, Depends
 
@@ -69,6 +70,7 @@ async def submit_session(
 @router.get("/{session_id}/result")
 async def get_result(
     session_id: UUID,
+    x_user_id: UUID = Header(),
     service: SessionService = Depends(get_session_service),
 ) -> dict[str, Any]:
-    return await service.get_result(session_id)
+    return await service.get_result(session_id, requester_id=x_user_id)

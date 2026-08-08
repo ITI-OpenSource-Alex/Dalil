@@ -31,8 +31,8 @@ import {
 import { InteractiveExamples } from "./interactive";
 
 export const metadata: Metadata = {
-  title: "Design System — GOA",
-  description: "Living reference for GOA's UI primitives and design tokens.",
+  title: "Design System — Dalil",
+  description: "Living reference for Dalil's UI primitives and design tokens.",
   robots: { index: false, follow: false },
 };
 
@@ -104,7 +104,7 @@ export default function DesignSystemPage() {
         <header className="flex flex-col gap-3">
           <Eyebrow>Internal reference</Eyebrow>
           <Heading as="h1" size="xl">
-            GOA Design System
+            Dalil Design System
           </Heading>
           <Text tone="muted" measure>
             Every primitive, every variant, every state. Tokens are documented
@@ -144,6 +144,19 @@ export default function DesignSystemPage() {
                 <Swatch name="brand-subtle" className="bg-brand-subtle" />
                 <Swatch name="accent" className="bg-accent" />
                 <Swatch name="accent-subtle" className="bg-accent-subtle" />
+              </div>
+            </div>
+
+            <div>
+              <Text size="sm" weight="semibold" className="mb-3">
+                Navigation chrome — the dark branded header
+              </Text>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-6">
+                <Swatch name="nav-surface" className="bg-nav-surface" note="#0a382b" />
+                <Swatch name="nav-hover" className="bg-nav-hover" />
+                <Swatch name="nav-border" className="bg-nav-border" />
+                <Swatch name="nav-fg" className="bg-nav-fg" />
+                <Swatch name="nav-fg-muted" className="bg-nav-fg-muted" />
               </div>
             </div>
 
@@ -207,7 +220,7 @@ export default function DesignSystemPage() {
         <Section
           id="button"
           title="Button"
-          description="Seven variants, three sizes. Default height is 44px, the WCAG 2.5.5 target size. Server-renderable: no client JS."
+          description="Eight variants, three sizes. Default height is 44px, the WCAG 2.5.5 target size. Server-renderable: no client JS."
         >
           <div className="rounded-card border border-border bg-surface px-6">
             <Row label="Variants">
@@ -224,6 +237,7 @@ export default function DesignSystemPage() {
                 <Button variant="inverse" trailingIcon={ArrowRight}>
                   Get started
                 </Button>
+                <Button variant="ghost-inverse">Ghost inverse</Button>
               </span>
             </Row>
             <Row label="Sizes">
@@ -514,7 +528,7 @@ export default function DesignSystemPage() {
               <EmptyState
                 icon={Compass}
                 title="No opportunities yet"
-                description="Complete your profile and GOA will rank Master's programmes by how well they fit."
+                description="Complete your profile and Dalil will rank Master's programmes by how well they fit."
                 actions={
                   <>
                     <Button trailingIcon={ArrowRight}>Complete profile</Button>

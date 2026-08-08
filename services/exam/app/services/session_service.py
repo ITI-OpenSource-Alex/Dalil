@@ -196,12 +196,17 @@ class SessionService:
             "band_score": grading["band_score"],
         }
 
-    async def get_result(self, session_id: UUID) -> dict[str, Any]:
+    async def get_result(self, session_id: UUID, requester_id: UUID) -> dict[str, Any]:
         session = await self.session_repository.get_by_id(session_id)
         if session is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Session not found",
+            )
+        if str(session["user_id"]) != str(requester_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Session belongs to another user",
             )
         if session["status"] not in {"submitted", "scored"}:
             raise HTTPException(

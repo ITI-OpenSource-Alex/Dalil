@@ -23,7 +23,7 @@ const FAQS = [
   },
   {
     q: "How accurate is the AI band scoring?",
-    a: "It is guidance, not an official result. GOA scores Writing and Speaking against the public IELTS band descriptors and explains its reasoning line by line, which is useful for finding weaknesses and tracking progress between attempts. It is not affiliated with the IELTS test owners and cannot predict your exam-day score.",
+    a: "It is guidance, not an official result. Dalil scores Writing and Speaking against the public IELTS band descriptors and explains its reasoning line by line, which is useful for finding weaknesses and tracking progress between attempts. It is not affiliated with the IELTS test owners and cannot predict your exam-day score.",
   },
   {
     q: "Which countries and programmes are covered?",
@@ -31,15 +31,15 @@ const FAQS = [
   },
   {
     q: "How does the matching actually work?",
-    a: "GOA compares your academic profile — degree, GPA, ECTS credits, language scores, work experience — against each programme's published entry requirements, and returns a confidence score with the factors behind it. It is a computed fit against stated requirements, not a keyword search and not a prediction of an admissions decision.",
+    a: "Dalil compares your academic profile — degree, GPA, ECTS credits, language scores, work experience — against each programme's published entry requirements, and returns a confidence score with the factors behind it. It is a computed fit against stated requirements, not a keyword search and not a prediction of an admissions decision.",
   },
   {
     q: "What do you do with my CV and personal data?",
-    a: "Your CV is used to fill in your profile, and your profile is used to rank programmes and generate checklists. You can delete everything GOA has stored about you at any time from the chat screen, which removes both your saved profile facts and your conversation history.",
+    a: "Your CV is used to fill in your profile, and your profile is used to rank programmes and generate checklists. You can delete everything Dalil has stored about you at any time from the chat screen, which removes both your saved profile facts and your conversation history.",
   },
   {
     q: "Do I need an IELTS score before I start?",
-    a: "No. Matching works without one — GOA will show you which programmes are within reach and what band each requires, so you know the target before you book a test.",
+    a: "No. Matching works without one — Dalil will show you which programmes are within reach and what band each requires, so you know the target before you book a test.",
   },
 ];
 

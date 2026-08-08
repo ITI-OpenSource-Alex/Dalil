@@ -63,6 +63,15 @@ export function buildProfilePayload(
     // parseBand, not parseNumber: only a reportable band reaches the profile.
     // `ieltsScore` is what RAG's hard gate compares against `min_ielts`, so a
     // value like 6.4 slipping through would silently mis-gate every programme.
+    const listening = parseBand(language.listeningScore);
+    if (listening !== null) payload.ieltsListening = listening;
+    const reading = parseBand(language.readingScore);
+    if (reading !== null) payload.ieltsReading = reading;
+    const writing = parseBand(language.writingScore);
+    if (writing !== null) payload.ieltsWriting = writing;
+    const speaking = parseBand(language.speakingScore);
+    if (speaking !== null) payload.ieltsSpeaking = speaking;
+
     const overall = parseBand(language.overallScore);
     if (overall !== null) payload.ieltsScore = overall;
   }
@@ -294,7 +303,7 @@ export default function OnboardingWizardPage() {
       <Text size="sm" tone="subtle">
         Rather do this later?{" "}
         <Button variant="link" size="sm" asChild>
-          <Link href="/chat">Skip to GOA</Link>
+          <Link href="/chat">Skip to Dalil</Link>
         </Button>
       </Text>
     </div>

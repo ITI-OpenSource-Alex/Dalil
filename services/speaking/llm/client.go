@@ -90,10 +90,12 @@ func (c *Client) StreamCompletion(ctx context.Context, systemPrompt, userPrompt 
 		// the exam path, which concatenates all three parts into one transcript,
 		// is the production path with the same shape.
 		//
-		// The budget has to cover thinking AND the answer, so it is sized for the
-		// sum rather than for the answer alone. The agents return a band, a
-		// paragraph and a few citations, so the headroom is only spent when the
-		// model actually reasons at length; an unused ceiling costs nothing.
+		// dev reached the same conclusion independently while stabilising the
+		// holistic swarm, and set 8000. The exact figure does not matter -- both
+		// clear the thinking block comfortably -- so this keeps 8192 for the round
+		// number and records that two investigations converged on it. What dev's
+		// fix did NOT include is the stop_reason guard below, which is what turns
+		// the next occurrence into a named error instead of a parse failure.
 		MaxTokens: 8192,
 		System: []anthropic.TextBlockParam{
 			{

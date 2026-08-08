@@ -50,6 +50,7 @@ class ExamHistoryRepository:
         query = """
         SELECT
             r.id,
+            r.session_id,
             r.skill_area,
             s.exam_type,
             r.band_score,

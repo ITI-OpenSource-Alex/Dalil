@@ -63,6 +63,15 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	notificationHandler := handlers.NewNotificationHandler(httpClient, cfg.NotificationServiceURL, cfg.InternalApiKey)
 	checklistHandler := handlers.NewChecklistHandler(httpClient, cfg.RAGServiceURL)
 	profileHandler := handlers.NewProfileHandler(httpClient, cfg.UserServiceURL, cfg.InternalApiKey)
+	// GOA-039. The CORS allow-list doubles as the allow-list for billing return
+	// URLs -- both answer the same question ("is this one of our front ends?"),
+	// and a second list would drift from the first.
+	billingHandler := handlers.NewBillingHandler(
+		httpClient,
+		cfg.UserServiceURL,
+		cfg.InternalApiKey,
+		cfg.CORSAllowedOrigins,
+	)
 	examOwnership := middleware.NewExamSessionOwnership(
 		redisClient,
 		httpClient,
@@ -165,6 +174,15 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	api.Get("/ping", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"status": "ok"})
 	})
+
+	// GOA-039 demo billing. Deliberately NOT behind RequirePaid: a paywall on
+	// the routes that sell and manage the paid tier would be a closed loop.
+	// They inherit the /api chain above -- JWT, the 60/min limiter and
+	// subscription resolution -- so every one of them is authenticated, and
+	// the identity always comes from the token rather than the payload.
+	api.Post("/billing/create-checkout", billingHandler.CreateCheckout)
+	api.Post("/billing/demo/confirm", billingHandler.ConfirmPayment)
+	api.Post("/billing/cancel", billingHandler.CancelSubscription)
 
 	admin := app.Group("/admin", middleware.AdminKey(cfg.AdminAPIKey))
 	admin.Get("/costs", handlers.AdminCosts(

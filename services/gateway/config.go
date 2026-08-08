@@ -48,7 +48,13 @@ type Config struct {
 	AWSRegion               string        `envconfig:"AWS_REGION" default:"us-east-1"`
 	AWSEndpointURL          string        `envconfig:"AWS_ENDPOINT_URL"`
 	IngestionQueueURL       string        `envconfig:"INGESTION_QUEUE_URL"`
-	SubscriptionUpgradeURL  string        `envconfig:"SUBSCRIPTION_UPGRADE_URL" default:"/upgrade"`
+	// GOA-039: was "/upgrade", a route that has never existed in the frontend.
+	// Every paid-tier 403 carries this as `upgradeUrl`, and the browser's
+	// upgrade dialog navigates to it -- so the product's primary upgrade CTA
+	// pointed at a 404. /pricing is the real route. Keep it relative: the
+	// dialog treats an absolute value as an external billing host and opens it
+	// in a new tab (see components/subscription/upgrade-dialog.tsx).
+	SubscriptionUpgradeURL  string        `envconfig:"SUBSCRIPTION_UPGRADE_URL" default:"/pricing"`
 	SubscriptionCacheTTL    time.Duration `envconfig:"SUBSCRIPTION_CACHE_TTL" default:"5m"`
 	// Exam sessions a single candidate may open per hour. Sitting a full exam
 	// takes far longer than 20 minutes, so a legitimate candidate never reaches

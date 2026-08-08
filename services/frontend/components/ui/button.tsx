@@ -22,6 +22,7 @@ export type ButtonVariant =
   | "ghost"
   | "danger"
   | "inverse"
+  | "ghost-inverse"
   | "link";
 
 export type ButtonSize = "sm" | "md" | "lg";
@@ -41,6 +42,11 @@ const VARIANT: Record<ButtonVariant, string> = {
   // re-coloured because the default forest ring is invisible on forest.
   inverse:
     "bg-surface text-brand-fg shadow-e2 hover:bg-brand-subtle active:bg-brand-muted focus-visible:outline-sand-300",
+  // `ghost` on a dark bar: its text-fg-muted/canvas-subtle pair is invisible
+  // there. Pairs with `inverse` in the navbar, where the secondary action
+  // must not compete with the white primary button.
+  "ghost-inverse":
+    "text-nav-fg-muted bg-transparent hover:bg-nav-hover hover:text-nav-fg active:bg-forest-700 focus-visible:outline-sand-300",
   // Renders as a button but reads as a link. No padding, so it aligns with
   // surrounding text rather than sitting in its own box.
   link: "text-brand-fg underline underline-offset-4 decoration-brand-border hover:decoration-brand-fg active:text-brand-active",

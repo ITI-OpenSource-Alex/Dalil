@@ -43,17 +43,17 @@ export const metadata: Metadata = {
   // default when unset (see lib/api.ts's NEXT_PUBLIC_API_URL for the same
   // pattern).
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
-  title: "GOA - Global Opportunity Assistant",
+  title: "Dalil - Global Opportunity Assistant",
   description: "AI-Powered Study Abroad & IELTS Companion",
   openGraph: {
-    title: "GOA - Global Opportunity Assistant",
+    title: "Dalil - Global Opportunity Assistant",
     description: "AI-Powered Study Abroad & IELTS Companion",
     type: "website",
     images: [{ url: "/og-image.svg", width: 1200, height: 630 }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "GOA - Global Opportunity Assistant",
+    title: "Dalil - Global Opportunity Assistant",
     description: "AI-Powered Study Abroad & IELTS Companion",
     images: ["/og-image.svg"],
   },

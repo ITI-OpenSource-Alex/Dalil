@@ -84,7 +84,7 @@ export function HeroDemo() {
                   <Icon icon={Sparkles} size="xs" />
                 </span>
                 <span className="text-sm font-semibold text-fg">
-                  GOA Assistant
+                  Dalil Assistant
                 </span>
               </div>
               <Badge tone="success" variant="subtle" size="sm" dot>

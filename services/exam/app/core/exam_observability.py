@@ -12,7 +12,11 @@ from uuid import UUID
 
 import structlog
 
-from app.core.metrics import goa_exam_score_distribution, goa_question_bank_size
+from app.core.metrics import (
+    goa_exam_score_distribution,
+    goa_exam_unscored_total,
+    goa_question_bank_size,
+)
 
 logger = structlog.get_logger("exam_service.completion")
 
@@ -57,7 +61,7 @@ def record_exam_completion(
     user_id: UUID | str,
     skill_area: str,
     exam_type: str,
-    band_score: float,
+    band_score: float | None,
     duration_s: float | None,
     question_bank_ref: str | None,
 ) -> None:
@@ -68,12 +72,27 @@ def record_exam_completion(
     question_bank_ref``. Correlation ID is attached automatically by the
     structlog ``inject_correlation_id`` processor already configured for the
     service.
+
+    ``band_score`` is optional since GOA-134: a speaking session where fewer than
+    three of the four criteria completed produces no band, and the exam service
+    persists NULL rather than a fabricated 0.0.
     """
 
-    goa_exam_score_distribution.labels(
-        skill_area=skill_area,
-        exam_type=exam_type,
-    ).observe(band_score)
+    if band_score is None:
+        # A histogram cannot represent "not scored". Observing 0.0 would put a
+        # band the candidate never received into the distribution and drag the
+        # reported percentiles down -- the BUG-055 shape, in a dashboard.
+        # Skipping the observation and counting the session separately keeps the
+        # distribution honest while leaving the absence visible.
+        goa_exam_unscored_total.labels(
+            skill_area=skill_area,
+            exam_type=exam_type,
+        ).inc()
+    else:
+        goa_exam_score_distribution.labels(
+            skill_area=skill_area,
+            exam_type=exam_type,
+        ).observe(band_score)
 
     logger.info(
         "exam_completed",

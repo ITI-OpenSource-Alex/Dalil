@@ -368,7 +368,13 @@ services:
       # before it ever binds :8084 -- which the Gateway reports as a 502 from
       # /api/opportunities/query. The Writing service already pins it here and
       # was unaffected; this makes RAG match.
-      - PYTHONPATH=/app:/opt/goa
+      # /opt/goa-pricing is the shared LLM price table (GOA-135), delivered by
+      # its own bind mount below. It has to be listed here for the same reason
+      # /opt/goa is: pinning the path in compose overrides the image's ENV, so
+      # anything the image adds after this line was written is dropped. This
+      # pin and the GOA-135 mount arrived on separate branches, merged without
+      # a textual conflict, and together made goa_pricing unimportable.
+      - PYTHONPATH=/app:/opt/goa:/opt/goa-pricing
       - DATABASE_URL=postgresql://goa:goa_pass@postgres:5432/rag_db
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
@@ -448,7 +454,13 @@ services:
       # Same reason as RAG above: the shared security package arrives on the
       # bind mount at /opt/goa, so the path to it belongs next to the mount
       # rather than only in the image.
-      - PYTHONPATH=/app:/opt/goa
+      # /opt/goa-pricing is the shared LLM price table (GOA-135), delivered by
+      # its own bind mount below. It has to be listed here for the same reason
+      # /opt/goa is: pinning the path in compose overrides the image's ENV, so
+      # anything the image adds after this line was written is dropped. This
+      # pin and the GOA-135 mount arrived on separate branches, merged without
+      # a textual conflict, and together made goa_pricing unimportable.
+      - PYTHONPATH=/app:/opt/goa:/opt/goa-pricing
       - DATABASE_URL=postgresql://goa:goa_pass@postgres:5432/orchestration_db
       - REDIS_URL=redis://redis-cache:6379/1
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}

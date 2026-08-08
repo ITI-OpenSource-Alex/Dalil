@@ -124,7 +124,14 @@ def test_unscored_evaluation_persists_null_band_not_zero(
 
     session = mock_session_repo.return_value
     session.get_by_id = AsyncMock(
-        return_value={"status": "in_progress", "user_id": uuid4(), "skill_area": "speaking"}
+        return_value={
+            "status": "in_progress",
+            "user_id": uuid4(),
+            "skill_area": "speaking",
+            # Read by record_exam_completion, added on dev after these fixtures
+            # were written.
+            "exam_type": "academic",
+        }
     )
     session.try_submit = AsyncMock(return_value=True)
     session.mark_scored = AsyncMock()
@@ -187,7 +194,14 @@ def test_failed_evaluation_does_not_orphan_session(
 
     session = mock_session_repo.return_value
     session.get_by_id = AsyncMock(
-        return_value={"status": "in_progress", "user_id": uuid4(), "skill_area": "speaking"}
+        return_value={
+            "status": "in_progress",
+            "user_id": uuid4(),
+            "skill_area": "speaking",
+            # Read by record_exam_completion, added on dev after these fixtures
+            # were written.
+            "exam_type": "academic",
+        }
     )
     session.try_submit = AsyncMock(return_value=True)
     session.mark_scored = AsyncMock()
@@ -237,7 +251,14 @@ def test_persist_failure_also_reverts(
 
     session = mock_session_repo.return_value
     session.get_by_id = AsyncMock(
-        return_value={"status": "in_progress", "user_id": uuid4(), "skill_area": "speaking"}
+        return_value={
+            "status": "in_progress",
+            "user_id": uuid4(),
+            "skill_area": "speaking",
+            # Read by record_exam_completion, added on dev after these fixtures
+            # were written.
+            "exam_type": "academic",
+        }
     )
     session.try_submit = AsyncMock(return_value=True)
     session.mark_scored = AsyncMock()
@@ -289,7 +310,12 @@ def test_resubmit_guard_still_idempotent(
 
     session = mock_session_repo.return_value
     session.get_by_id = AsyncMock(
-        return_value={"status": "scored", "user_id": uuid4(), "skill_area": "speaking"}
+        return_value={
+            "status": "scored",
+            "user_id": uuid4(),
+            "skill_area": "speaking",
+            "exam_type": "academic",
+        }
     )
     transcripts = mock_transcript_repo.return_value
     transcripts.create_or_update = AsyncMock()
@@ -357,3 +383,58 @@ def test_speaking_client_uses_configured_timeout() -> None:
 
     assert client.timeout_s == settings.speaking_evaluation_timeout_s
     assert client.timeout_s != 30.0, "the hardcoded 30.0 is the value this ticket removed"
+
+
+# --- observability must tolerate an unscored exam --------------------------
+
+
+def test_record_exam_completion_accepts_a_null_band() -> None:
+    """A merge-interaction bug, caught when dev's GOA-066 observability met
+    GOA-134's nullable band.
+
+    `record_exam_completion` observed band_score into a Prometheus histogram
+    unconditionally. A partial speaking evaluation produces no band, and
+    `float += None` inside prometheus_client crashed the endpoint -- after the
+    result row had already been written, so the surrounding try/except reverted
+    a submission that had in fact succeeded.
+
+    Neither change was wrong on its own and they did not conflict textually.
+    """
+    from app.core.exam_observability import record_exam_completion
+
+    record_exam_completion(
+        session_id=uuid4(),
+        user_id=uuid4(),
+        skill_area="speaking",
+        exam_type="academic",
+        band_score=None,
+        duration_s=120,
+        question_bank_ref=None,
+    )
+
+
+def test_unscored_exam_is_counted_but_not_observed_as_zero() -> None:
+    """0.0 in the histogram would be a band no candidate received, dragging every
+    reported percentile down -- BUG-055 in a dashboard."""
+    from app.core.metrics import (
+        goa_exam_score_distribution,
+        goa_exam_unscored_total,
+    )
+    from app.core.exam_observability import record_exam_completion
+
+    labels = {"skill_area": "speaking", "exam_type": "general"}
+    before_unscored = goa_exam_unscored_total.labels(**labels)._value.get()
+    before_observed = goa_exam_score_distribution.labels(**labels)._sum.get()
+
+    record_exam_completion(
+        session_id=uuid4(),
+        user_id=uuid4(),
+        skill_area="speaking",
+        exam_type="general",
+        band_score=None,
+        duration_s=90,
+        question_bank_ref=None,
+    )
+
+    assert goa_exam_unscored_total.labels(**labels)._value.get() == before_unscored + 1
+    assert goa_exam_score_distribution.labels(**labels)._sum.get() == before_observed

@@ -103,15 +103,25 @@ export default function ProfilePage() {
               <ReadOnlyField
                 label="Subscription"
                 value={
-                  user.subscriptionTier === "paid" ? "GOA Pro" : "Free plan"
+                  user.subscriptionTier === "paid" ? "Dalil Pro" : "Free plan"
                 }
               />
             </dl>
-            {user.subscriptionTier !== "paid" && (
+            {user.subscriptionTier === "paid" ? (
               <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-border pt-4">
                 <Icon icon={Sparkles} size="sm" className="text-brand-fg" />
                 <Text size="sm" tone="muted" className="flex-1">
-                  IELTS exams, essay scoring and CV review are part of GOA Pro.
+                  Review your plan or cancel any time.
+                </Text>
+                <Button size="sm" variant="outline" asChild>
+                  <Link href="/billing/manage">Manage subscription</Link>
+                </Button>
+              </div>
+            ) : (
+              <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-border pt-4">
+                <Icon icon={Sparkles} size="sm" className="text-brand-fg" />
+                <Text size="sm" tone="muted" className="flex-1">
+                  IELTS exams, essay scoring and CV review are part of Dalil Pro.
                 </Text>
                 <Button size="sm" variant="outline" asChild>
                   <Link href={DEFAULT_UPGRADE_URL}>See plans</Link>

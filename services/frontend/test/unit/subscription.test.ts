@@ -117,7 +117,7 @@ describe("paidFeatureCopy", () => {
 
   it("falls back to generic copy for an unnamed feature", () => {
     const copy = paidFeatureCopy(undefined);
-    expect(copy.title).toMatch(/GOA Pro/);
+    expect(copy.title).toMatch(/Dalil Pro/);
     expect(copy.benefits.length).toBeGreaterThan(0);
   });
 });

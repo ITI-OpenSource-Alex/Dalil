@@ -32,7 +32,7 @@ export function IeltsSummaryWidget() {
         </Text>
         <EmptyState
           icon={Sparkles}
-          title="IELTS scoring is part of GOA Pro"
+          title="IELTS scoring is part of Dalil Pro"
           description="Upgrade to sit full practice exams and track your band scores here."
           size="sm"
           actions={

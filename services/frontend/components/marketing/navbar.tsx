@@ -90,8 +90,10 @@ export function Navbar({ signedIn = false }: { signedIn?: boolean }) {
     }
   }
 
-  // Transparent over the hero, solid once the page moves. Passive listener:
-  // this must never block scrolling.
+  // The bar is now a solid dark brand surface at every scroll position, so
+  // this drives elevation only: flat while the page is at the top, lifted off
+  // the content once it moves. Passive listener: it must never block
+  // scrolling.
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
     onScroll();
@@ -127,20 +129,22 @@ export function Navbar({ signedIn = false }: { signedIn?: boolean }) {
   return (
     <header
       className={cn(
-        "sticky top-0 z-1100 transition-[background-color,border-color,backdrop-filter] duration-200 ease-out",
+        "sticky top-0 z-1100 border-b bg-nav-surface transition-[border-color,box-shadow] duration-200 ease-out",
         scrolled || open
-          ? "border-b border-border bg-canvas/85 backdrop-blur-md"
-          : "border-b border-transparent bg-transparent",
+          ? "border-nav-border shadow-e3"
+          : "border-transparent shadow-none",
       )}
     >
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-6 px-6 lg:px-8">
         {/* No aria-label: overriding the name of a link whose visible text is
             the wordmark trips axe's label-content-name-mismatch, because the
-            override ("GOA — home") does not contain the visible text. Letting
+            override ("Dalil — home") does not contain the visible text. Letting
             the name come from content, plus an sr-only suffix, says the same
             thing without the conflict. */}
-        <Link href="/" className="rounded-chip">
-          <Wordmark />
+        <Link href="/" className="rounded-chip focus-visible:outline-sand-300">
+          {/* Inverse variant: the artwork ships in forest ink, which would be
+              all but invisible on the forest-900 bar. */}
+          <Wordmark tone="inverse" className="h-7 sm:h-8" />
           <span className="sr-only">home</span>
         </Link>
 
@@ -150,7 +154,7 @@ export function Navbar({ signedIn = false }: { signedIn?: boolean }) {
               <li key={link.href}>
                 <Link
                   href={link.href}
-                  className="rounded-control px-3 py-2 text-sm font-medium text-fg-muted transition-colors duration-120 ease-out hover:bg-canvas-subtle hover:text-fg"
+                  className="rounded-control px-3 py-2 text-sm font-medium text-nav-fg-muted transition-colors duration-120 ease-out hover:bg-nav-hover hover:text-nav-fg focus-visible:outline-sand-300"
                 >
                   {link.label}
                 </Link>
@@ -162,7 +166,7 @@ export function Navbar({ signedIn = false }: { signedIn?: boolean }) {
         <div className="hidden items-center gap-2 lg:flex">
           {signedIn ? (
             <>
-              <Button asChild size="sm" leadingIcon={LayoutGrid}>
+              <Button asChild variant="inverse" size="sm" leadingIcon={LayoutGrid}>
                 <Link href={APP_HOME}>Open app</Link>
               </Button>
 
@@ -172,11 +176,11 @@ export function Navbar({ signedIn = false }: { signedIn?: boolean }) {
                   onClick={() => setAccountOpen((value) => !value)}
                   aria-expanded={accountOpen}
                   aria-haspopup="menu"
-                  className="flex items-center gap-2 rounded-control px-1.5 py-1.5 transition-colors duration-120 ease-out hover:bg-canvas-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted"
+                  className="flex items-center gap-2 rounded-control px-1.5 py-1.5 transition-colors duration-120 ease-out hover:bg-nav-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sand-300"
                 >
                   <span
                     aria-hidden="true"
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-forest-800 text-xs font-bold text-white"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-forest-700 text-xs font-bold text-nav-fg"
                   >
                     {email ? emailInitials(email) : "···"}
                   </span>
@@ -190,7 +194,7 @@ export function Navbar({ signedIn = false }: { signedIn?: boolean }) {
                     icon={ChevronDown}
                     size="xs"
                     className={cn(
-                      "text-fg-subtle transition-transform duration-120",
+                      "text-nav-fg-muted transition-transform duration-120",
                       accountOpen && "rotate-180",
                     )}
                   />
@@ -240,10 +244,10 @@ export function Navbar({ signedIn = false }: { signedIn?: boolean }) {
             </>
           ) : (
             <>
-              <Button asChild variant="ghost" size="sm">
+              <Button asChild variant="ghost-inverse" size="sm">
                 <Link href="/login">Sign in</Link>
               </Button>
-              <Button asChild size="sm">
+              <Button asChild variant="inverse" size="sm">
                 <Link href="/register">Get started</Link>
               </Button>
             </>
@@ -257,7 +261,7 @@ export function Navbar({ signedIn = false }: { signedIn?: boolean }) {
           aria-expanded={open}
           aria-controls="mobile-nav"
           aria-label={open ? "Close menu" : "Open menu"}
-          className="inline-flex h-11 w-11 items-center justify-center rounded-control text-fg transition-colors duration-120 ease-out hover:bg-canvas-subtle lg:hidden"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-control text-nav-fg transition-colors duration-120 ease-out hover:bg-nav-hover focus-visible:outline-sand-300 lg:hidden"
         >
           <Icon icon={open ? X : Menu} size="md" />
         </button>
@@ -270,7 +274,7 @@ export function Navbar({ signedIn = false }: { signedIn?: boolean }) {
           id="mobile-nav"
           ref={panelRef}
           tabIndex={-1}
-          className="border-t border-border bg-canvas lg:hidden focus-visible:outline-none"
+          className="border-t border-nav-border bg-nav-surface lg:hidden focus-visible:outline-none"
         >
           <nav aria-label="Mobile" className="px-6 py-4">
             <ul className="flex flex-col">
@@ -279,7 +283,7 @@ export function Navbar({ signedIn = false }: { signedIn?: boolean }) {
                   <Link
                     href={link.href}
                     onClick={() => setOpen(false)}
-                    className="block rounded-control px-3 py-3 text-base font-medium text-fg transition-colors duration-120 ease-out hover:bg-canvas-subtle"
+                    className="block rounded-control px-3 py-3 text-base font-medium text-nav-fg transition-colors duration-120 ease-out hover:bg-nav-hover focus-visible:outline-sand-300"
                   >
                     {link.label}
                   </Link>
@@ -287,26 +291,26 @@ export function Navbar({ signedIn = false }: { signedIn?: boolean }) {
               ))}
             </ul>
 
-            <div className="mt-4 flex flex-col gap-2 border-t border-border pt-4">
+            <div className="mt-4 flex flex-col gap-2 border-t border-nav-border pt-4">
               {signedIn ? (
                 <>
                   {email && (
-                    <p className="truncate px-3 pb-1 text-xs font-semibold text-fg-subtle">
+                    <p className="truncate px-3 pb-1 text-xs font-semibold text-nav-fg-muted">
                       Signed in as {email}
                     </p>
                   )}
-                  <Button asChild fullWidth leadingIcon={LayoutGrid}>
+                  <Button asChild variant="inverse" fullWidth leadingIcon={LayoutGrid}>
                     <Link href={APP_HOME} onClick={() => setOpen(false)}>
                       Open app
                     </Link>
                   </Button>
-                  <Button asChild variant="secondary" fullWidth>
+                  <Button asChild variant="ghost-inverse" fullWidth>
                     <Link href="/profile" onClick={() => setOpen(false)}>
                       Profile
                     </Link>
                   </Button>
                   <Button
-                    variant="ghost"
+                    variant="ghost-inverse"
                     fullWidth
                     leadingIcon={LogOut}
                     onClick={() => {
@@ -319,12 +323,12 @@ export function Navbar({ signedIn = false }: { signedIn?: boolean }) {
                 </>
               ) : (
                 <>
-                  <Button asChild variant="secondary" fullWidth>
+                  <Button asChild variant="ghost-inverse" fullWidth>
                     <Link href="/login" onClick={() => setOpen(false)}>
                       Sign in
                     </Link>
                   </Button>
-                  <Button asChild fullWidth>
+                  <Button asChild variant="inverse" fullWidth>
                     <Link href="/register" onClick={() => setOpen(false)}>
                       Get started free
                     </Link>

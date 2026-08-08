@@ -225,8 +225,8 @@ function FeedbackVisual() {
 const STEPS = [
   {
     number: "01",
-    title: "Tell GOA who you are",
-    body: "Enter your degree, GPA and target countries — or upload your CV and let GOA read them out of it. This is the only form you fill in.",
+    title: "Tell Dalil who you are",
+    body: "Enter your degree, GPA and target countries — or upload your CV and let Dalil read them out of it. This is the only form you fill in.",
     visual: <ProfileVisual />,
   },
   {
@@ -257,7 +257,7 @@ export function HowItWorks() {
           id="how-it-works-heading"
           eyebrow="How it works"
           title="From first search to submitted application"
-          lead="Four steps. The first one takes two minutes; GOA does the compounding work after that."
+          lead="Four steps. The first one takes two minutes; Dalil does the compounding work after that."
         />
 
         <div className="mt-16 flex flex-col gap-20 lg:gap-28">

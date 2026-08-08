@@ -83,7 +83,7 @@ export function Footer() {
 
         <div className="mt-14 flex flex-col gap-3 border-t border-forest-800 pt-8 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-forest-200/60">
-            © {new Date().getFullYear()} GOA. All rights reserved.
+            © {new Date().getFullYear()} Dalil. All rights reserved.
           </p>
           <p className="text-sm text-forest-200/60">
             Not affiliated with the IELTS test owners.

@@ -67,6 +67,23 @@ semantic token instead.
 **Accent:** `accent` · `accent-hover` · `accent-subtle` · `accent-border` · `accent-fg`
 — one accent moment per view, on the single most important action or datum.
 
+**Navigation chrome** — the global header is a solid dark brand surface (`forest-900`,
+one step darker than `brand`, and within a hair of the logo artwork's own ink):
+
+| Token | Use |
+|---|---|
+| `nav-surface` | Header background — marketing navbar, app mobile top bar, public share header |
+| `nav-border` | Hairline under the bar and between its sections |
+| `nav-hover` | Hover fill for links and controls sitting on the bar |
+| `nav-fg` | 14.9:1 — active links, the mobile trigger |
+| `nav-fg-muted` | 12.5:1 — inactive links, metadata |
+
+> These are deliberately *not* `surface-inverse`. That token flips to a light value under
+> `[data-theme="dark"]` because its job is "the opposite of the page"; the header's job is
+> "always the brand's dark", so it keeps its own set and is not overridden in the dark block.
+> Buttons on the bar use the `inverse` (primary) and `ghost-inverse` (secondary) variants;
+> focus rings there switch to `outline-sand-300`, since the forest ring is invisible on forest.
+
 **Status** — each is a four-part set (`X` solid / `X-subtle` tint / `X-border` / `X-fg` text-on-tint):
 `success` · `warning` · `danger` · `info`
 

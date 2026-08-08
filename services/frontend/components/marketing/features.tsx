@@ -231,14 +231,14 @@ export function Features() {
           id="features-heading"
           eyebrow="What it does"
           title="Everything the application needs, in one place"
-          lead="From your first search to the final upload, GOA replaces a dozen browser tabs and a spreadsheet you keep forgetting to update."
+          lead="From your first search to the final upload, Dalil replaces a dozen browser tabs and a spreadsheet you keep forgetting to update."
         />
 
         <div className="mt-14 grid gap-5 lg:grid-cols-3">
           <FeatureCard
             icon={Target}
             title="Opportunity matching"
-            description="GOA scores your profile against a European catalogue of Master's programmes and scholarships, then ranks the ones you are genuinely competitive for — with the reasoning behind every score."
+            description="Dalil scores your profile against a European catalogue of Master's programmes and scholarships, then ranks the ones you are genuinely competitive for — with the reasoning behind every score."
             className="lg:col-span-2"
           >
             <MatchVisual />

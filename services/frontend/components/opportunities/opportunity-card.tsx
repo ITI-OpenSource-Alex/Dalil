@@ -58,32 +58,10 @@ export function OpportunityCard({
 
   const open = () => onOpen?.(program);
 
-  return (
-    <Card
-      variant={onOpen ? "interactive" : "flat"}
-      className={cn(
-        "flex h-full flex-col gap-4",
-        onOpen && "cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-brand-muted",
-      )}
-      role={onOpen ? "button" : undefined}
-      tabIndex={onOpen ? 0 : undefined}
-      aria-label={
-        onOpen
-          ? `View details for ${program.programName} at ${program.university}`
-          : undefined
-      }
-      onClick={onOpen ? open : undefined}
-      onKeyDown={
-        onOpen
-          ? (event) => {
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                open();
-              }
-            }
-          : undefined
-      }
-    >
+  // Primary region is the activatable control; footer links stay outside so
+  // Tab order is open → checklist → Ask GOA (no nested interactive).
+  const details = (
+    <>
       <div className="flex items-start justify-between gap-3">
         <h3 className="min-w-0 text-sm font-bold text-fg">
           {program.programName}
@@ -150,13 +128,37 @@ export function OpportunityCard({
           </Text>
         </div>
       )}
+    </>
+  );
+
+  return (
+    <Card
+      variant={onOpen ? "interactive" : "flat"}
+      className="flex h-full flex-col gap-4"
+    >
+      {onOpen ? (
+        <div
+          role="button"
+          tabIndex={0}
+          className="flex flex-1 flex-col gap-4 rounded-control outline-none focus-visible:ring-2 focus-visible:ring-brand-muted"
+          aria-label={`View details for ${program.programName} at ${program.university}`}
+          onClick={open}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              open();
+            }
+          }}
+        >
+          {details}
+        </div>
+      ) : (
+        <div className="flex flex-1 flex-col gap-4">{details}</div>
+      )}
 
       <div className="mt-auto flex flex-wrap gap-2 pt-1">
         <Button size="sm" leadingIcon={ListChecks} asChild>
-          <Link
-            href={`/checklist/${encodeURIComponent(program.programId)}`}
-            onClick={(event) => event.stopPropagation()}
-          >
+          <Link href={`/checklist/${encodeURIComponent(program.programId)}`}>
             Get checklist
           </Link>
         </Button>
@@ -165,7 +167,6 @@ export function OpportunityCard({
             href={`/chat?ask=${encodeURIComponent(
               `Tell me more about ${program.programName} at ${program.university}.`,
             )}`}
-            onClick={(event) => event.stopPropagation()}
           >
             Ask GOA
           </Link>

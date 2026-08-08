@@ -20,20 +20,27 @@ import {
   Text,
 } from "@/components/ui";
 
+/**
+ * Profile hub — one page, five sections (GOA-029 Task 9):
+ * header → account → always-on ProfileForm → CV → opportunity matches.
+ * Autosave status lives in the form; hard load failures use the page Alert.
+ */
 export default function ProfilePage() {
   const { user, status, error, retry, patchProfile } = useCurrentUser();
 
   const focusApplicationProfile = () => {
     const section = document.getElementById("application-profile");
     section?.scrollIntoView({ behavior: "smooth", block: "start" });
+    section?.focus({ preventScroll: true });
     const firstField = section?.querySelector<HTMLElement>(
-      "input, select, textarea, button",
+      "input:not([type='hidden']), select, textarea, button, [tabindex]:not([tabindex='-1'])",
     );
     firstField?.focus({ preventScroll: true });
   };
 
   return (
     <PageContainer size="md">
+      {/* 1. Header */}
       <div className="mb-8">
         <Badge tone="brand" pill>
           Your Profile
@@ -55,9 +62,11 @@ export default function ProfilePage() {
         </div>
       )}
 
+      {/* Page-level Alert for hard load failures only */}
       {status === "error" && (
         <Alert
           tone="danger"
+          announce="assertive"
           actions={
             <>
               <Button variant="danger" size="sm" onClick={retry}>
@@ -74,11 +83,12 @@ export default function ProfilePage() {
       )}
 
       {status === "success" && user && (
-        <div className="space-y-6">
+        <div className="space-y-8">
+          {/* 2. Account card — read-only */}
           <Card>
-            <Text size="sm" tone="muted" className="mb-4 font-semibold">
+            <Heading as="h2" size="xs" className="mb-4 text-fg-muted">
               Account
-            </Text>
+            </Heading>
             <dl className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
               <ReadOnlyField label="Email" value={user.email} />
               <ReadOnlyField
@@ -99,11 +109,16 @@ export default function ProfilePage() {
             )}
           </Card>
 
-          <Card id="application-profile">
+          {/* 3. Application profile — always ProfileForm (no Edit/Cancel/Save) */}
+          <Card
+            id="application-profile"
+            tabIndex={-1}
+            className="scroll-mt-6 outline-none focus-visible:ring-2 focus-visible:ring-brand-muted"
+          >
             <div className="mb-4 flex items-center justify-between gap-3">
-              <Text size="sm" tone="muted" className="font-semibold">
+              <Heading as="h2" size="xs" className="text-fg-muted">
                 Application Profile
-              </Text>
+              </Heading>
               {!isProfileComplete(user.profile) && (
                 <Badge tone="warning" size="sm" pill>
                   Incomplete
@@ -129,14 +144,16 @@ export default function ProfilePage() {
               profile={user.profile}
               onOptimisticUser={patchProfile}
               onSaveError={() => {
+                // Hard autosave failure: resync from server (rolls form back).
                 void retry();
               }}
             />
           </Card>
 
-          <section className="space-y-3">
+          {/* 4. CV upload */}
+          <section className="space-y-3" aria-labelledby="profile-cv-heading">
             <div>
-              <Heading as="h2" size="sm">
+              <Heading as="h2" size="sm" id="profile-cv-heading">
                 CV
               </Heading>
               <Text size="sm" tone="muted" className="mt-1">
@@ -147,6 +164,7 @@ export default function ProfilePage() {
             <CvUploadPanel showReviewLink />
           </section>
 
+          {/* 5. Opportunity matches */}
           <OpportunityMatchesSection
             profileComplete={isProfileComplete(user.profile)}
             onFocusProfile={focusApplicationProfile}

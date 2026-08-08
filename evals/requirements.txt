@@ -4,6 +4,7 @@ anthropic
 boto3
 jinja2
 beautifulsoup4
+asyncpg==0.29.0
 pytest
 pytest-asyncio
 pytest-mock

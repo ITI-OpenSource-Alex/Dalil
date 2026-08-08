@@ -637,6 +637,209 @@
       "expected_answer_concepts": [],
       "unanswerable": true,
       "rationale": "No corpus document mentions this topic (verified: 0 ILIKE matches)."
+    },
+    {
+      "id": "rag-entity-01",
+      "subset": "entity",
+      "question": "Who can apply for a Chevening Scholarship?",
+      "relevant_document_ids": ["0390f4de-1934-5d0a-9445-071997dadcc8"],
+      "unanswerable": false,
+      "category": "scholarships",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The labelled chunk is the only document containing Chevening and directly describes applicant eligibility."
+    },
+    {
+      "id": "rag-entity-02",
+      "subset": "entity",
+      "question": "How long may a Stipendium Hungaricum holder stay outside Hungary?",
+      "relevant_document_ids": ["279bf6f6-09f4-58d4-8a17-ceb30fddcb4d"],
+      "unanswerable": false,
+      "category": "scholarships",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The labelled scholarship chunk states the 30-day rule and termination consequence."
+    },
+    {
+      "id": "rag-entity-03",
+      "subset": "entity",
+      "question": "Which university offers QuanTEEM, the Erasmus Mundus quantum technologies programme?",
+      "relevant_document_ids": ["1f7920a9-f630-5037-b9a0-7565fc14dccf"],
+      "unanswerable": false,
+      "category": "universities",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The labelled listing names QuanTEEM and Aarhus University; no other corpus row contains QuanTEEM."
+    },
+    {
+      "id": "rag-entity-04",
+      "subset": "entity",
+      "question": "What is the ReSound European Joint Masters programme about?",
+      "relevant_document_ids": ["96ef970d-35ea-55d3-8d73-2ec6aab15ee8"],
+      "unanswerable": false,
+      "category": "universities",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The labelled listing is the corpus's ReSound programme and explains its focus on sound in culture and creative industries."
+    },
+    {
+      "id": "rag-entity-05",
+      "subset": "entity",
+      "question": "What does the IT4BI Erasmus Mundus programme train students to do?",
+      "relevant_document_ids": ["90afd047-694b-5d72-9b35-13c506821b88"],
+      "unanswerable": false,
+      "category": "universities",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The labelled listing expands IT4BI and describes its business-intelligence training objective."
+    },
+    {
+      "id": "rag-entity-06",
+      "subset": "entity",
+      "question": "Which institutions in this corpus offer Renewable Energy in the Marine Environment (REM)?",
+      "relevant_document_ids": [
+        "5edce7dc-3aa0-5b3d-a44a-e7c6e45af777",
+        "9f343058-969f-505c-b442-6009c1e0bce8"
+      ],
+      "unanswerable": false,
+      "category": "universities",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The two labelled listings are the only REM programme rows and name Centrale Nantes and the University of the Basque Country."
+    },
+    {
+      "id": "rag-entity-07",
+      "subset": "entity",
+      "question": "What does the BDMA Erasmus Mundus master's programme cover?",
+      "relevant_document_ids": ["ea21497d-902b-5f33-ba63-117d107302ab"],
+      "unanswerable": false,
+      "category": "universities",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The labelled listing expands BDMA as Big Data Management and Analytics and describes its subject."
+    },
+    {
+      "id": "rag-entity-08",
+      "subset": "entity",
+      "question": "What does WAVES stand for in the University of Coimbra Erasmus Mundus programme?",
+      "relevant_document_ids": ["f2ff27b2-ba6c-5aed-84b5-32bda13534fa"],
+      "unanswerable": false,
+      "category": "universities",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The labelled listing explicitly expands WAVES as Waves, Acoustics, Vibrations, Engineering and Sound."
+    },
+    {
+      "id": "rag-entity-09",
+      "subset": "entity",
+      "question": "Which institutions collaborate on Erasmus Mundus META 4.0?",
+      "relevant_document_ids": ["fcf304a2-c27f-54cc-ad2c-a4e9df95ca1d"],
+      "unanswerable": false,
+      "category": "universities",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The labelled META 4.0 listing enumerates the collaborating institutions."
+    },
+    {
+      "id": "rag-entity-10",
+      "subset": "entity",
+      "question": "Which universities cooperate on TUM's Erasmus Mundus Cartography programme?",
+      "relevant_document_ids": ["d61bac62-c0f4-57b0-b52c-e06ed37c0ad2"],
+      "unanswerable": false,
+      "category": "universities",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The labelled Cartography listing names TUM, Vienna University of Technology, TU Dresden and the University of Twente."
+    },
+    {
+      "id": "rag-numeric-01",
+      "subset": "numeric",
+      "question": "What IELTS requirement is listed for Hull's Immersive Design in Extended Realities pre-master's programme?",
+      "relevant_document_ids": ["98ee82bc-3f35-5610-b528-4cff24126cf1"],
+      "unanswerable": false,
+      "category": "universities",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The labelled listing states IELTS 4.5; the corpus contains thousands of otherwise similar programme listings with nearby IELTS values."
+    },
+    {
+      "id": "rag-numeric-02",
+      "subset": "numeric",
+      "question": "What IELTS requirement is listed for Computer Science Engineering at Budapest University of Technology and Economics?",
+      "relevant_document_ids": ["3e1b1de0-1ba1-5310-88bc-81a2f61de400"],
+      "unanswerable": false,
+      "category": "universities",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The labelled listing states IELTS 5.0; near-miss programme listings with 4.5 and 5.5 are present."
+    },
+    {
+      "id": "rag-numeric-03",
+      "subset": "numeric",
+      "question": "What IELTS requirement is listed for Business Process Management at Vilnius University?",
+      "relevant_document_ids": ["3f2cd161-7065-565f-975d-eccb50f8fdb5"],
+      "unanswerable": false,
+      "category": "universities",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The labelled listing states IELTS 5.5; near-miss listings with 5.0 and 6.0 are present."
+    },
+    {
+      "id": "rag-numeric-04",
+      "subset": "numeric",
+      "question": "What IELTS requirement is listed for Information Security and Risk (Learning at Work) at Portsmouth?",
+      "relevant_document_ids": ["0908c43f-c46a-54d4-8010-a0477a8793a3"],
+      "unanswerable": false,
+      "category": "universities",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The labelled listing states IELTS 6.0; dense retrieval was manually observed returning similarly named 6.5 security programmes instead."
+    },
+    {
+      "id": "rag-numeric-05",
+      "subset": "numeric",
+      "question": "What IELTS requirement is listed for Biomedical Engineering at Kaunas University of Technology?",
+      "relevant_document_ids": ["4757d1a8-bbde-5ce0-a50c-cdd638b4c2db"],
+      "unanswerable": false,
+      "category": "universities",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The labelled listing states IELTS 6.0; the corpus has many Biomedical Engineering and 6.5 programme distractors."
+    },
+    {
+      "id": "rag-numeric-06",
+      "subset": "numeric",
+      "question": "What IELTS requirement is listed for Business Analytics at the University of West London?",
+      "relevant_document_ids": ["a9161d44-6d89-5de3-ae51-cc1e529a68cc"],
+      "unanswerable": false,
+      "category": "universities",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The labelled listing states IELTS 6.5; similarly named Business Analytics programmes with other thresholds are present."
+    },
+    {
+      "id": "rag-numeric-07",
+      "subset": "numeric",
+      "question": "What IELTS requirement is listed for Emerging Digital Technologies at UCL?",
+      "relevant_document_ids": ["e2d3a26d-525b-5c8d-bb49-32483fb27195"],
+      "unanswerable": false,
+      "category": "universities",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The labelled listing states IELTS 7.0; nearby 6.5 and 7.5 UCL programme listings are present."
+    },
+    {
+      "id": "rag-numeric-08",
+      "subset": "numeric",
+      "question": "What IELTS requirement is listed for Data Science for Public Policy at Hertie School Berlin?",
+      "relevant_document_ids": ["bdef5c62-4677-5ffc-8e54-c3bacc342fa7"],
+      "unanswerable": false,
+      "category": "universities",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The labelled listing states IELTS 7.0; the corpus contains similarly named Data Science programmes with lower thresholds."
+    },
+    {
+      "id": "rag-numeric-09",
+      "subset": "numeric",
+      "question": "What IELTS requirement is listed for Software Engineering at the University of Oxford?",
+      "relevant_document_ids": ["b9055641-e145-5c71-8559-54fbb4ffa33a"],
+      "unanswerable": false,
+      "category": "universities",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The labelled listing states IELTS 7.5; many similarly named Software Engineering listings have lower thresholds."
+    },
+    {
+      "id": "rag-numeric-10",
+      "subset": "numeric",
+      "question": "What IELTS requirement is listed for Media and Convergence Management at the University of Klagenfurt?",
+      "relevant_document_ids": ["1acb4bb5-c192-562c-8b34-c5c4e210324f"],
+      "unanswerable": false,
+      "category": "universities",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The labelled listing states IELTS 8.0, while the rest of the corpus supplies numerous near-miss thresholds from 4.5 through 7.5."
     }
   ],
   "speaking": [

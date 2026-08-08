@@ -1067,6 +1067,7 @@ class TestWritingEngine:
         service, _, _ = self._make_service(question, writing_client)
         app = self._make_app(service)
 
+        user_id = uuid4()
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app), base_url=BASE_URL
         ) as client:
@@ -1074,7 +1075,7 @@ class TestWritingEngine:
                 "/sessions",
                 headers=INTERNAL_HEADERS,
                 json={
-                    "user_id": str(uuid4()),
+                    "user_id": str(user_id),
                     "exam_type": "academic",
                     "skill_area": "writing",
                 },
@@ -1101,7 +1102,7 @@ class TestWritingEngine:
             )
             result = await client.get(
                 f"/sessions/{actual_session_id}/result",
-                headers=INTERNAL_HEADERS,
+                headers={**INTERNAL_HEADERS, "X-User-Id": str(user_id)},
             )
 
         assert first.status_code == 200, first.text

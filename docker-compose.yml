@@ -424,6 +424,7 @@ services:
       - AWS_SECRET_ACCESS_KEY=test
       - AWS_ENDPOINT_URL=http://localstack:4566
       - S3_BUCKET=goa-exam-audio
+      - WRITING_IMAGE_BUCKET=goa-writing-files
       - SQS_QUEUE_NAME=user-events-exam
     volumes:
       - ./services/exam:/app

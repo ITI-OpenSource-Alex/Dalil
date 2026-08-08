@@ -6,6 +6,7 @@ import { useCurrentUser } from "@/app/hooks/useCurrentUser";
 import { isProfileComplete } from "@/app/types/profile";
 import { DEFAULT_UPGRADE_URL } from "@/lib/subscription";
 import { ProfileForm } from "@/components/profile/profile-form";
+import { OpportunityMatchesSection } from "@/components/profile/opportunity-matches-section";
 import { CvUploadPanel } from "@/components/cv/cv-upload-panel";
 import Skeleton from "@/components/ui/skeleton";
 import {
@@ -21,6 +22,15 @@ import {
 
 export default function ProfilePage() {
   const { user, status, error, retry, patchProfile } = useCurrentUser();
+
+  const focusApplicationProfile = () => {
+    const section = document.getElementById("application-profile");
+    section?.scrollIntoView({ behavior: "smooth", block: "start" });
+    const firstField = section?.querySelector<HTMLElement>(
+      "input, select, textarea, button",
+    );
+    firstField?.focus({ preventScroll: true });
+  };
 
   return (
     <PageContainer size="md">
@@ -89,7 +99,7 @@ export default function ProfilePage() {
             )}
           </Card>
 
-          <Card>
+          <Card id="application-profile">
             <div className="mb-4 flex items-center justify-between gap-3">
               <Text size="sm" tone="muted" className="font-semibold">
                 Application Profile
@@ -136,6 +146,11 @@ export default function ProfilePage() {
             </div>
             <CvUploadPanel showReviewLink />
           </section>
+
+          <OpportunityMatchesSection
+            profileComplete={isProfileComplete(user.profile)}
+            onFocusProfile={focusApplicationProfile}
+          />
         </div>
       )}
     </PageContainer>

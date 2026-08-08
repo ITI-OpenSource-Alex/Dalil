@@ -263,7 +263,7 @@ export default function ChatShell() {
    */
   const handleForgetMe = async () => {
     const confirmed = window.confirm(
-      "Delete everything GOA remembers about you?\n\n" +
+      "Delete everything Dalil remembers about you?\n\n" +
         "This removes your saved profile facts (degree, GPA, target country, " +
         "programmes and concerns) and your stored conversations. It cannot be undone.",
     );
@@ -397,7 +397,7 @@ export default function ChatShell() {
                   ...m,
                   error: event.error,
                   content: isPaywall
-                    ? "That one needs GOA Pro — I've opened the details for you."
+                    ? "That one needs Dalil Pro — I've opened the details for you."
                     : sanitizeErrorMessage(event.error),
                   isStreaming: false,
                 }
@@ -513,7 +513,7 @@ export default function ChatShell() {
             ? {
                 ...m,
                 content: wasPaywall
-                  ? "That one needs GOA Pro — I've opened the details for you."
+                  ? "That one needs Dalil Pro — I've opened the details for you."
                   : CONNECTION_ERROR,
                 isStreaming: false,
               }
@@ -548,7 +548,7 @@ export default function ChatShell() {
         className="border-b border-border px-4 sm:px-8 py-4 bg-surface flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
       >
         <div>
-          <h1 className="text-lg font-bold text-brand-fg">GOA Assistant</h1>
+          <h1 className="text-lg font-bold text-brand-fg">Dalil Assistant</h1>
           <p className="text-xs text-fg-muted">
             {profileStatus === "success" && user
               ? user.email
@@ -638,7 +638,7 @@ export default function ChatShell() {
           sending={isSending}
         />
         <div className="text-center text-[11px] text-fg-subtle mt-2">
-          GOA can make mistakes. Verify university requirements before applying.
+          Dalil can make mistakes. Verify university requirements before applying.
         </div>
       </motion.section>
     </main>

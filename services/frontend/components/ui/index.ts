@@ -1,5 +1,5 @@
 /**
- * GOA UI primitives.
+ * Dalil UI primitives.
  *
  * Import from "@/components/ui" rather than reaching into individual files,
  * so the surface of the design system stays visible in one place.

@@ -208,6 +208,22 @@
   --accent-border: var(--color-sand-200);
   --accent-fg: var(--color-sand-800);
 
+  /* Navigation chrome. The global header is a solid dark brand surface, one
+     step darker than --brand (forest-800) so the logo, the primary buttons
+     and the header read as three separate planes rather than one flat block.
+     forest-900 is also within a hair of the logo artwork's own ink (#0A373B),
+     which is what makes the lockup sit *in* the bar rather than on it.
+
+     Deliberately NOT --surface-inverse: that token flips to a light value
+     under [data-theme="dark"], because its job is "the opposite of the page".
+     The header's job is "always the brand's dark", so it keeps its own set,
+     defined once here and intentionally not overridden in the dark block. */
+  --nav-surface: var(--color-forest-900);
+  --nav-border: var(--color-forest-800);
+  --nav-hover: var(--color-forest-800); /* row/control hover on the bar  */
+  --nav-fg: var(--color-sage-50); /* 14.9:1 on --nav-surface       */
+  --nav-fg-muted: var(--color-forest-100); /*  12.5:1, for inactive links   */
+
   /* Status. Each is a four-part set: solid / tinted bg / border / text-on-tint.
      `success` stays green despite the green brand because users expect it —
      it is reserved strictly for state feedback and never for branding or
@@ -358,6 +374,12 @@
   --color-accent-subtle: var(--accent-subtle);
   --color-accent-border: var(--accent-border);
   --color-accent-fg: var(--accent-fg);
+
+  --color-nav-surface: var(--nav-surface);
+  --color-nav-border: var(--nav-border);
+  --color-nav-hover: var(--nav-hover);
+  --color-nav-fg: var(--nav-fg);
+  --color-nav-fg-muted: var(--nav-fg-muted);
 
   --color-success: var(--success);
   --color-success-subtle: var(--success-subtle);

@@ -1,12 +1,12 @@
 import { test, expect } from "./fixtures/auth";
 
-test.describe("GOA Chat System", () => {
+test.describe("Dalil Chat System", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/chat");
   });
 
   test("should open chat page and load UI", async ({ page }) => {
-    await expect(page.getByText("GOA Assistant")).toBeVisible();
+    await expect(page.getByText("Dalil Assistant")).toBeVisible();
 
     await expect(page.getByTestId("chat-input")).toBeVisible();
 
@@ -25,7 +25,7 @@ test.describe("GOA Chat System", () => {
           "",
           'data: {"type":"token","content":"Hello"}',
           "",
-          'data: {"type":"token","content":" from GOA"}',
+          'data: {"type":"token","content":" from Dalil"}',
           "",
         ].join("\n"),
       });
@@ -44,7 +44,7 @@ test.describe("GOA Chat System", () => {
     );
 
     await expect(page.getByTestId("assistant-message").last()).toContainText(
-      "Hello from GOA",
+      "Hello from Dalil",
     );
   });
 

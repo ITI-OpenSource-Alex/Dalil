@@ -131,13 +131,13 @@ export function UpgradeDialog({
             {isExternal ? (
               <Button asChild trailingIcon={ArrowRight}>
                 <a href={upgradeUrl} target="_blank" rel="noopener noreferrer">
-                  Upgrade to GOA Pro
+                  Upgrade to Dalil Pro
                 </a>
               </Button>
             ) : (
               <Button asChild trailingIcon={ArrowRight}>
                 <Link href={upgradeUrl} onClick={() => onOpenChange(false)}>
-                  Upgrade to GOA Pro
+                  Upgrade to Dalil Pro
                 </Link>
               </Button>
             )}
@@ -148,7 +148,7 @@ export function UpgradeDialog({
           <div className="flex items-center gap-2 rounded-panel border border-brand-border bg-brand-subtle px-3.5 py-2.5">
             <Icon icon={Sparkles} size="sm" className="shrink-0 text-brand-fg" />
             <Text size="sm" className="font-semibold text-brand-fg">
-              GOA Pro
+              Dalil Pro
             </Text>
           </div>
 

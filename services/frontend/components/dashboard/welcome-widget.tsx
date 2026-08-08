@@ -36,7 +36,7 @@ export function WelcomeWidget() {
     <Card className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <Badge tone="brand" pill>
-          {user.subscriptionTier === "paid" ? "GOA Pro" : "Free plan"}
+          {user.subscriptionTier === "paid" ? "Dalil Pro" : "Free plan"}
         </Badge>
         <Heading as="h1" size="xl" className="mt-2">
           Welcome back, {emailGreetingName(user.email)}

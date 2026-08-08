@@ -4,7 +4,7 @@ import { Reveal } from "./reveal";
 /* ------------------------------------------------------------------ *
  * The credibility strip that normally holds a logo wall.
  *
- * It deliberately does NOT show university logos. GOA indexes these
+ * It deliberately does NOT show university logos. Dalil indexes these
  * institutions' public programme data; it is not partnered with them, and
  * a row of university crests under the hero would imply endorsement that
  * does not exist. Naming the destination countries makes the same point

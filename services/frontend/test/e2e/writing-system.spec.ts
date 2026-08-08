@@ -28,7 +28,7 @@ async function mockEssayCreateAndEvaluate(
   });
 }
 
-test.describe("GOA Writing Practice", () => {
+test.describe("Dalil Writing Practice", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/practice/writing");
   });

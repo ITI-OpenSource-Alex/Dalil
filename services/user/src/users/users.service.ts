@@ -29,6 +29,7 @@ import * as crypto from 'crypto';
 import { PublishCommand, SNSClient } from '@aws-sdk/client-sns';
 import { SqsService } from '@ssut/nestjs-sqs';
 import { ConfigService } from '@nestjs/config';
+import { SubscriptionCacheService } from '../common/redis/subscription-cache.service';
 
 @Injectable()
 export class UsersService {
@@ -46,6 +47,7 @@ export class UsersService {
     private readonly refreshTokenRepository: Repository<RefreshToken>,
     private readonly sqsService: SqsService,
     private readonly configService: ConfigService,
+    private readonly subscriptionCache: SubscriptionCacheService,
   ) {}
 
   // FIX 1: Async methods must return a Promise wrapper, and we type it cleanly using structural mapping
@@ -161,6 +163,48 @@ export class UsersService {
     }
 
     return { subscriptionTier: user.subscriptionTier };
+  }
+
+  /**
+   * The only write path for a user's subscription tier (GOA-039).
+   *
+   * Called by billing when a payment settles or a subscription is cancelled,
+   * and available to operators through PATCH /users/:id/subscription for a
+   * manual grant. Both go through here so the Gateway's cache is invalidated
+   * in one place — a tier written without that invalidation is a tier the
+   * product does not honour for up to SUBSCRIPTION_CACHE_TTL.
+   *
+   * Idempotent by construction: setting an already-paid user to paid is a
+   * no-op on the row, so a retried or double-submitted upgrade cannot corrupt
+   * the state. The cache is still dropped on a repeat, which costs one Redis
+   * DEL and removes a class of "the write landed but the cache didn't" bug.
+   */
+  async updateSubscription(
+    id: string,
+    tier: 'free' | 'paid',
+  ): Promise<{ subscriptionTier: 'free' | 'paid' }> {
+    const user = await this.userRepository.findOne({ where: { id } });
+
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+
+    user.subscriptionTier = tier;
+    await this.userRepository.save(user);
+
+    await this.subscriptionCache.invalidate(id);
+
+    this.logger.log(`Subscription tier for user ${id} set to ${tier}`);
+    return { subscriptionTier: user.subscriptionTier };
+  }
+
+  /** The whole user row, for callers that need more than the tier. */
+  async findById(id: string): Promise<User> {
+    const user = await this.userRepository.findOne({ where: { id } });
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+    return user;
   }
 
   async updateProfile(id: string, dto: UpdateProfileDto): Promise<UserProfile> {

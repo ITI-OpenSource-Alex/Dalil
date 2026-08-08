@@ -67,7 +67,7 @@ async function mockListSessions(page: Page, sessions: unknown[]) {
   );
 }
 
-test.describe("GOA Speaking History (mocked backend)", () => {
+test.describe("Dalil Speaking History (mocked backend)", () => {
   test("clicking a session in the list navigates to its detail view with the correct evaluation breakdown", async ({
     page,
   }) => {

@@ -114,7 +114,7 @@ export default function TargetsStep({
           Where do you want to study?
         </Heading>
         <Text size="sm" tone="muted" className="mt-1">
-          These are starting points — GOA will broaden the search as you chat.
+          These are starting points — Dalil will broaden the search as you chat.
         </Text>
       </div>
 

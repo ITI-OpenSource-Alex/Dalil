@@ -168,7 +168,7 @@ export function OpportunityCard({
               `Tell me more about ${program.programName} at ${program.university}.`,
             )}`}
           >
-            Ask GOA
+            Ask Dalil
           </Link>
         </Button>
       </div>

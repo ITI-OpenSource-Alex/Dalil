@@ -68,7 +68,7 @@ export default function ChatInput({
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={sending ? "Waiting for a reply…" : "Ask GOA anything..."}
+          placeholder={sending ? "Waiting for a reply…" : "Ask Dalil anything..."}
           className="flex-1 resize-none bg-transparent py-1 px-1 text-sm outline-none placeholder:text-fg-subtle text-fg max-h-40 min-h-6"
         />
 

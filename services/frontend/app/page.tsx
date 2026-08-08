@@ -56,7 +56,10 @@ export default async function HomePage() {
         <Features />
         <HowItWorks />
         <Proof />
-        <Pricing />
+        {/* Same cookie read as the Navbar above: a visitor who already has an
+            account is sent to /pricing, which knows their tier, rather than to
+            a registration form. */}
+        <Pricing signedIn={signedIn} />
         <FAQ />
         <CTA />
       </main>

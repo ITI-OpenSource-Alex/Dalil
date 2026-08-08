@@ -29,6 +29,12 @@ export class User {
   })
   subscriptionTier: 'free' | 'paid';
 
+  // GOA-039 note: there is deliberately no payment-provider customer id here.
+  // The subscription flow is a self-contained demo payment (see
+  // src/billing/billing.service.ts) with no external provider, so there is no
+  // customer record to map onto. `subscriptionTier` above is the whole of the
+  // billing state this system holds.
+
   @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;
 

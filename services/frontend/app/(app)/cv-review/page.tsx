@@ -81,7 +81,7 @@ export default function CvReviewPage() {
     } catch (err) {
       setReviewing(false);
       if (upgrade.handle(err, "cv-review")) {
-        setReviewError("CV review is part of GOA Pro — see the upgrade details.");
+        setReviewError("CV review is part of Dalil Pro — see the upgrade details.");
         return;
       }
       setReviewError(sanitizeErrorMessage(err instanceof Error ? err.message : undefined));

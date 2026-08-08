@@ -13,6 +13,9 @@ import { EmailVerification } from './entities/email-verification.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { SqsService } from '@ssut/nestjs-sqs';
 import { ConfigService } from '@nestjs/config';
+import { SubscriptionCacheService } from '../common/redis/subscription-cache.service';
+
+const mockSubscriptionCache = { invalidate: jest.fn() };
 
 const mockSnsSend = jest.fn();
 
@@ -98,6 +101,12 @@ describe('UsersService', () => {
         },
         { provide: SqsService, useValue: mockSqsService },
         { provide: ConfigService, useValue: mockConfigService },
+        // GOA-039: every tier write drops the Gateway's cached tier. Mocked so
+        // the suite never opens a Redis connection.
+        {
+          provide: SubscriptionCacheService,
+          useValue: mockSubscriptionCache,
+        },
       ],
     }).compile();
 
@@ -416,6 +425,66 @@ describe('UsersService', () => {
       await expect(service.findSubscription('missing-user')).rejects.toThrow(
         NotFoundException,
       );
+    });
+  });
+
+  // GOA-039. The only write path for subscriptionTier -- demo billing and
+  // PATCH /users/:id/subscription both land here.
+  describe('updateSubscription', () => {
+    it('persists the new tier and drops the Gateway cache', async () => {
+      const user = { id: 'user-123', subscriptionTier: 'free' };
+      mockUserRepository.findOne.mockResolvedValue(user);
+      mockUserRepository.save.mockImplementation((value) =>
+        Promise.resolve(value),
+      );
+
+      await expect(
+        service.updateSubscription('user-123', 'paid'),
+      ).resolves.toEqual({ subscriptionTier: 'paid' });
+
+      expect(mockUserRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ subscriptionTier: 'paid' }),
+      );
+      // Without this the user keeps getting 403 for up to
+      // SUBSCRIPTION_CACHE_TTL after paying.
+      expect(mockSubscriptionCache.invalidate).toHaveBeenCalledWith('user-123');
+    });
+
+    it('downgrades as well as upgrades, and still drops the cache', async () => {
+      // Cancellation goes through the same writer, so the gate closes again
+      // immediately rather than after the TTL.
+      const user = { id: 'user-123', subscriptionTier: 'paid' };
+      mockUserRepository.findOne.mockResolvedValue(user);
+      mockUserRepository.save.mockImplementation((value) =>
+        Promise.resolve(value),
+      );
+
+      await expect(
+        service.updateSubscription('user-123', 'free'),
+      ).resolves.toEqual({ subscriptionTier: 'free' });
+      expect(mockSubscriptionCache.invalidate).toHaveBeenCalledWith('user-123');
+    });
+
+    it('is a no-op on the tier when applied twice, so a double submit is safe', async () => {
+      const user = { id: 'user-123', subscriptionTier: 'paid' };
+      mockUserRepository.findOne.mockResolvedValue(user);
+      mockUserRepository.save.mockImplementation((value) =>
+        Promise.resolve(value),
+      );
+
+      await expect(
+        service.updateSubscription('user-123', 'paid'),
+      ).resolves.toEqual({ subscriptionTier: 'paid' });
+      expect(user.subscriptionTier).toBe('paid');
+    });
+
+    it('throws NotFoundException for an unknown user', async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.updateSubscription('missing-user', 'paid'),
+      ).rejects.toThrow(NotFoundException);
+      expect(mockSubscriptionCache.invalidate).not.toHaveBeenCalled();
     });
   });
 

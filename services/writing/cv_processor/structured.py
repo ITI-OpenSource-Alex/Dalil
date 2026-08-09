@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from goa_pricing import cost_usd as price_call
 
 
-MODEL = "claude-opus-4-8"
+MODEL = "claude-opus-5"
 # GOA-135: INPUT_COST_PER_MILLION_USD = 1.0 / OUTPUT_COST_PER_MILLION_USD = 5.0
 # lived here and were half the $2/$10 table current during GOA-135, so every CV
 # extraction cost was reported at 50%. Current prices come from the shared table
@@ -106,7 +106,7 @@ class StructuredCVExtractor:
                 model=self.model,
                 max_tokens=1200,
                 # No `temperature`. The gateway fronts Bedrock, which rejects the
-                # parameter outright for claude-opus-4-8:
+                # parameter outright for Claude Opus through AgentRouter:
                 #   ValidationException: `temperature` is deprecated for this model
                 # It surfaces here as a flat 400 on every extraction. The same fix
                 # was already applied to app/agents.py under GOA-028; this call site

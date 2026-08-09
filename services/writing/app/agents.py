@@ -384,7 +384,7 @@ async def extract_chart_context(s3_key: str, *, trace: Any = None) -> str:
         _fail_vision_span(span, exc)
         raise
 
-    # Extended-thinking backends (claude-opus-4-8 via the gateway) prepend a
+    # Extended-thinking Claude Opus backends via the gateway can prepend a
     # ThinkingBlock, which has no `.text`, so response.content[0] is not the
     # answer. _response_text iterates every block and keeps only the text ones —
     # the same reader the grading agents use.

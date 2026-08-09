@@ -10,7 +10,7 @@ class IntentResult(BaseModel):
 
 # Initialize ChatAnthropic
 llm = ChatAnthropic(
-    model="claude-opus-4-8",
+    model="claude-opus-5",
     anthropic_api_key="sk-dummy",
     anthropic_api_url="https://agentrouter.org"
 )

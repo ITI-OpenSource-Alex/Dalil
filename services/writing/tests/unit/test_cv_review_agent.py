@@ -55,7 +55,7 @@ async def test_structured_output_parses_to_cv_review_section_schema():
         issues=["Missing cloud deployment evidence"],
         suggestions=["Add AWS services used and measurable outcomes."],
     )
-    assert client.messages.calls[0]["model"] == "claude-opus-4-8"
+    assert client.messages.calls[0]["model"] == "claude-opus-5"
 
 
 def test_cv_review_response_schema_matches_goa_025_contract():

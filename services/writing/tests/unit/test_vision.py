@@ -29,10 +29,10 @@ async def test_extraction_schema_unchanged(mock_fetch_bytes, mock_anthropic):
     assert isinstance(result, str)
     assert result == "A chart showing data."
     
-    # Assert that claude-opus-4-8 is used and the payload is correct
+    # Assert that claude-opus-5 is used and the payload is correct
     mock_anthropic.messages.create.assert_called_once()
     kwargs = mock_anthropic.messages.create.call_args.kwargs
-    assert kwargs["model"] == "claude-opus-4-8"
+    assert kwargs["model"] == "claude-opus-5"
     messages = kwargs["messages"]
     assert len(messages) == 1
     content = messages[0]["content"]
@@ -83,7 +83,7 @@ async def test_vision_call_emits_langfuse_generation_span(
     assert len(vision) == 1
     kwargs = vision[0]["kwargs"]
     assert kwargs["as_type"] == "generation"
-    assert kwargs["model"] == "claude-opus-4-8"
+    assert kwargs["model"] == "claude-opus-5"
     assert kwargs["input"]["s3_key"] == "fake/s3/key"
     assert kwargs["input"]["media_type"] == "image/png"
     assert vision[0]["ended"] is True
@@ -326,6 +326,6 @@ async def test_vision_span_is_attached_to_the_evaluation_trace(
 
     vision = _vision_observations(trace)
     assert len(vision) == 1
-    assert vision[0]["kwargs"]["model"] == "claude-opus-4-8"
+    assert vision[0]["kwargs"]["model"] == "claude-opus-5"
     # Four criterion spans plus the one vision span, all on the same trace.
     assert len(trace.observations) == 5

@@ -493,7 +493,7 @@ async def test_missing_fields_yield_nulls_not_guesses(mocker, dummy_source):
 def test_extraction_model_is_config_driven():
     from app.adapters.visa_adapter import EXTRACTION_MODEL
     import os
-    assert EXTRACTION_MODEL == os.environ.get("EXTRACTION_MODEL", "claude-opus-4-8")
+    assert EXTRACTION_MODEL == os.environ.get("EXTRACTION_MODEL", "claude-opus-5")
 
 @pytest.mark.asyncio
 async def test_extraction_evidence_quotes_are_verbatim(mocker, dummy_source):

@@ -4,6 +4,41 @@ from typing import Any, Dict
 from app.core.database import db
 
 
+async def get_visa_requirements_for_country(
+    country: str, conn=None
+) -> list[dict[str, Any]]:
+    """Return source-backed student visa facts suitable for programme details."""
+    owns_connection = conn is None
+    if owns_connection:
+        if db.pool is None:
+            return []
+        conn = await db.pool.acquire()
+    try:
+        rows = await conn.fetch(
+            """
+            SELECT visa_type, issuing_body, requirements, proof_of_funds,
+                   source_url, processing_days_min, processing_days_max,
+                   notes, last_verified_at
+            FROM visa_requirements
+            WHERE country = $1
+            ORDER BY issuing_body, visa_type
+            """,
+            country,
+        )
+        result = []
+        for row in rows:
+            item = dict(row)
+            for key in ("requirements", "proof_of_funds"):
+                if isinstance(item.get(key), str):
+                    item[key] = json.loads(item[key])
+            if item.get("last_verified_at"):
+                item["last_verified_at"] = item["last_verified_at"].isoformat()
+            result.append(item)
+        return result
+    finally:
+        if owns_connection:
+            await db.pool.release(conn)
+
 
 async def upsert_visa_requirements(data: Dict[str, Any]) -> Dict[str, Any]:
     """Upsert a structured visa requirements record, keyed by source_url.
@@ -15,7 +50,6 @@ async def upsert_visa_requirements(data: Dict[str, Any]) -> Dict[str, Any]:
     matches the stored value, to avoid needless churn on unchanged source content.
     """
 
-
     country = data["country"]
     visa_type = data["visa_type"]
     issuing_body = data["issuing_body"]
@@ -24,7 +58,9 @@ async def upsert_visa_requirements(data: Dict[str, Any]) -> Dict[str, Any]:
 
     requirements_json = json.dumps(data.get("requirements") or {})
     proof_of_funds = data.get("proof_of_funds")
-    proof_of_funds_json = json.dumps(proof_of_funds) if proof_of_funds is not None else None
+    proof_of_funds_json = (
+        json.dumps(proof_of_funds) if proof_of_funds is not None else None
+    )
 
     evidence = data.get("extraction_evidence")
     evidence_json = json.dumps(evidence) if evidence is not None else None
@@ -81,4 +117,8 @@ async def upsert_visa_requirements(data: Dict[str, Any]) -> Dict[str, Any]:
                 "SELECT id FROM visa_requirements WHERE source_url = $1",
                 source_url,
             )
-            return {"status": "success", "id": str(existing["id"]), "action": "unchanged"}
+            return {
+                "status": "success",
+                "id": str(existing["id"]),
+                "action": "unchanged",
+            }

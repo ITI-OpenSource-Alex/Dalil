@@ -37,7 +37,7 @@ def normalize_text_for_hash(text: str) -> str:
     return "\n".join(line.strip() for line in text.splitlines() if line.strip())
 
 # Extraction, not reasoning — same tier as GOA-087's CV extraction.
-EXTRACTION_MODEL = os.environ.get("EXTRACTION_MODEL", "claude-opus-4-8")
+EXTRACTION_MODEL = os.environ.get("EXTRACTION_MODEL", "claude-opus-5")
 
 # Cap the text handed to the model. Embassy pages with embedded PDFs can be enormous and
 # the tail is almost always footer/nav boilerplate.

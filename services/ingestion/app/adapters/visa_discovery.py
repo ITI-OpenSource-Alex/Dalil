@@ -66,6 +66,7 @@ OFFICIAL_DOMAIN_SUFFIXES: tuple[str, ...] = (
     ".ie",                # Irish government uses irishimmigration.ie / dfa.ie
     # Official study/mobility bodies
     "campusfrance.org",
+    "oead.at",            # Austrian student mobility agency
     "daad.de",
     "studyinpoland.pl",
     "stipendiumhungaricum.hu",
@@ -131,7 +132,26 @@ COUNTRY_HOST_HINTS: dict[str, tuple[str, ...]] = {
     "ireland": (".ie", "/irl/", "/ireland/"),
     "austria": (".at", "gv.at", "/aut/", "/austria/"),
     "switzerland": (".ch", "admin.ch", "/che/", "/switzerland/"),
-    "belgium": (".be", "belgium.be", "/bel/", "/belgium/"),
+    "belgium": (".be", "belgium.be", "dofi.ibz.be", "/bel/", "/belgium/"),
+    # Added with migration 031, so discovery can serve every country the
+    # programme catalogue actually holds. An unmapped country resolves nothing
+    # (belongs_to_destination fails closed), so this map has to keep pace with
+    # visa_sources or those countries silently find no authority.
+    "denmark": (".dk", "nyidanmark.dk", "/dnk/", "/denmark/"),
+    "finland": (".fi", "migri.fi", "/fin/", "/finland/"),
+    "norway": (".no", "udi.no", "/nor/", "/norway/"),
+    "iceland": (".is", "utl.is", "/isl/", "/iceland/"),
+    "portugal": (".pt", "aima.gov.pt", "/prt/", "/portugal/"),
+    "greece": (".gr", "mfa.gr", "/grc/", "/greece/"),
+    "malta": (".mt", "identita.gov.mt", "/mlt/", "/malta/"),
+    "cyprus": (".cy", "moi.gov.cy", "/cyp/", "/cyprus/"),
+    "slovakia": (".sk", "minv.sk", "/svk/", "/slovakia/"),
+    "romania": (".ro", "igi.mai.gov.ro", "/rou/", "/romania/"),
+    "bulgaria": (".bg", "mfa.bg", "/bgr/", "/bulgaria/"),
+    "croatia": (".hr", "mup.gov.hr", "/hrv/", "/croatia/"),
+    "estonia": (".ee", "politsei.ee", "/est/", "/estonia/"),
+    "latvia": (".lv", "pmlp.gov.lv", "/lva/", "/latvia/"),
+    "lithuania": (".lt", "migracija.lt", "/ltu/", "/lithuania/"),
 }
 
 
@@ -160,12 +180,44 @@ def belongs_to_destination(url: str, country: str) -> bool:
     for hint in hints:
         if hint.startswith("/"):
             # A path fragment: VFS and TLS serve every country from one host,
-            # so the country lives in the path rather than the domain.
-            if hint in lowered:
+            # so the destination lives in the path rather than the domain.
+            #
+            # Those paths carry BOTH countries -- /norway/uae/ is the Norwegian
+            # route for applicants in the UAE. Matching only the destination
+            # accepted exactly that, which would have handed an Egyptian student
+            # the Emirati financial requirement: an official page, for the right
+            # destination, describing someone else's journey. So an applicant
+            # segment, when present, has to be Egypt.
+            if hint in lowered and _applicant_segment_ok(lowered):
                 return True
         elif host.endswith(hint) or hint in host:
             return True
     return False
+
+
+# Applicant-country segments seen in outsourced visa-handler URLs. Only these
+# are recognised; an unfamiliar segment is treated as foreign rather than
+# assumed to be ours.
+_APPLICANT_OK = ("/egypt/", "/egy/", "/eg/", "-egypt", "egypt-")
+_APPLICANT_FOREIGN = (
+    "/uae/", "/are/", "/india/", "/ind/", "/pakistan/", "/pak/",
+    "/nigeria/", "/nga/", "/turkey/", "/tur/", "/ksa/", "/saudi",
+    "/jordan/", "/lebanon/", "/morocco/", "/kenya/", "/china/", "/chn/",
+    "/bangladesh/", "/philippines/", "/vietnam/", "/indonesia/",
+)
+
+
+def _applicant_segment_ok(lowered_url: str) -> bool:
+    """Reject a route addressed to a different applicant nationality.
+
+    Returns True when the URL names Egypt, or names no applicant country at all
+    (a generic page, which extraction can still read). Returns False only when
+    it clearly belongs to someone else -- the case worth catching, because such
+    a page is authoritative, well-formed, and about the wrong person.
+    """
+    if any(token in lowered_url for token in _APPLICANT_OK):
+        return True
+    return not any(token in lowered_url for token in _APPLICANT_FOREIGN)
 
 
 @dataclass(frozen=True)

@@ -21,6 +21,16 @@ class Settings(BaseSettings):
     s3_region: Optional[str] = None
     aws_endpoint_url: Optional[str] = None
     s3_bucket: str = "goa-exam-audio"
+    # Bucket holding Academic Writing Task 1 stimulus images (GOA-XXX). Kept
+    # separate from s3_bucket (listening audio) so the two never collide.
+    writing_image_bucket: str = "goa-writing-files"
+    # Endpoint used only for *pre-signing* browser-facing URLs. aws_endpoint_url
+    # is the internal S3 host (http://localstack:4566) that server-to-server
+    # boto calls use; a URL signed against it cannot be resolved by a browser
+    # (BUG-016). When set, this public host is signed instead so the signature is
+    # valid for the address the browser actually requests. Falls back to
+    # aws_endpoint_url when unset, so tests and non-browser flows are unaffected.
+    s3_public_endpoint_url: Optional[str] = None
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )

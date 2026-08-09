@@ -178,13 +178,15 @@ class QuestionRepository:
             skill_area,
             passage_text,
             audio_s3_key,
+            image_s3_key,
             questions,
             answer_key
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb)
         ON CONFLICT (book_ref, test_number, skill_area) DO UPDATE SET
             passage_text = EXCLUDED.passage_text,
             audio_s3_key = EXCLUDED.audio_s3_key,
+            image_s3_key = EXCLUDED.image_s3_key,
             questions = EXCLUDED.questions,
             answer_key = EXCLUDED.answer_key
         RETURNING *
@@ -199,6 +201,7 @@ class QuestionRepository:
                 payload.get("skill_area", "reading"),
                 payload.get("passage_text"),
                 payload.get("audio_s3_key"),
+                payload.get("image_s3_key"),
                 json.dumps(payload.get("questions", [])),
                 json.dumps(payload.get("answer_key", {})),
             )

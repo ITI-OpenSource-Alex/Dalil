@@ -1,0 +1,132 @@
+name: Speaking eval (PR, deterministic)
+
+# SPEAK-EVAL-009 — the required job.
+#
+# Deterministic only: no LLM, no provider, no network beyond the package
+# registries. Everything here runs from committed fixtures and cassettes, so it
+# is fast, free, and gives the same answer on every run.
+#
+# It is REQUIRED, and it has no continue-on-error anywhere. The eval workflow
+# this replaces set `STRICT_EVAL_MODE: "false"` and then
+# `continue-on-error: ${{ env.STRICT_EVAL_MODE != 'true' }}`, so the job could
+# not fail no matter what broke. A required check that cannot go red is not a
+# check; it is a green badge with a cost.
+#
+# The live scoring lanes are in speaking-eval-nightly.yml, because a job that
+# needs a paid provider cannot be a required PR gate: an expired credential
+# would block every PR in the repository.
+
+on:
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - 'evals/**'
+      - 'packages/contracts/**'
+      - 'services/speaking/**'
+      - '.github/workflows/speaking-eval-pr.yml'
+  push:
+    branches: [dev]
+    paths:
+      - 'evals/**'
+      - 'packages/contracts/**'
+      - 'services/speaking/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: speaking-eval-pr-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract-conformance:
+    name: Contract conformance (Go, Python, TypeScript)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: services/speaking/go.mod
+          cache-dependency-path: services/speaking/go.sum
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install deterministic dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pydantic jsonschema pytest httpx
+          npm --prefix packages/contracts/ts ci || npm --prefix packages/contracts/ts install
+
+      # The acceptance criterion is that the three implementations agree. A
+      # single differing line fails the run and names the field.
+      - name: Tri-language contract conformance
+        run: python packages/contracts/conformance/run_conformance.py
+
+      - name: Speaking contract tests
+        working-directory: services/speaking
+        run: go test ./internal/contract/... ./agents/...
+
+  dataset-governance:
+    name: Dataset governance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install jsonschema pytest
+
+      # An unlicensed or unvalidated item reaching a gating split is a rights
+      # and correctness problem, not a style one, so it fails the PR.
+      - name: Validate the speaking dataset manifest
+        run: python evals/speaking/manifest/validate.py
+
+      - name: Governance and metric tests
+        run: python -m pytest evals/tests/ -q
+
+  speaking-service:
+    name: Speaking service
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: services/speaking/go.mod
+          cache-dependency-path: services/speaking/go.sum
+
+      # -race because the swarm is four goroutines writing one result map, and
+      # a data race there produces a wrong band rather than a crash.
+      - name: Test with the race detector
+        working-directory: services/speaking
+        run: go test -race ./...
+
+      - name: Vet
+        working-directory: services/speaking
+        run: go vet ./...
+
+  no-unexpected-egress:
+    name: No unexpected external calls
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pydantic jsonschema pytest httpx
+
+      # The acceptance criterion is "PR CI makes no unexpected external calls".
+      # Asserted rather than assumed: the provider guard defaults to off, and
+      # this proves a cassette miss fails loudly instead of quietly reaching for
+      # the network. Deliberately NOT setting GLADIA_API_KEY, so a regression
+      # that started calling the provider would fail here rather than bill us.
+      - name: Provider calls are refused without explicit opt-in
+        env:
+          SPEAKING_EVAL_ALLOW_LIVE_PROVIDERS: 'false'
+        run: python -m pytest evals/tests/test_gladia_ingestion.py -q

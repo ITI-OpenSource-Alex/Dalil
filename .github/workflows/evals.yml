@@ -1,4 +1,4 @@
-name: Evals
+name: Evals (advisory — not a required gate)
 
 on:
   pull_request:
@@ -18,6 +18,17 @@ jobs:
       contents: read
       pull-requests: write
     env:
+      # SPEAK-EVAL-009: this workflow is no longer a gate.
+      #
+      # It ran with STRICT_EVAL_MODE "false" and continue-on-error keyed off it,
+      # so the job could not fail whatever broke -- a green badge with a cost.
+      # The deterministic checks that SHOULD block a PR now live in
+      # speaking-eval-pr.yml, which has no continue-on-error anywhere, and the
+      # live scoring lanes live in speaking-eval-nightly.yml.
+      #
+      # This one is kept for the writing and RAG domains it still covers, and is
+      # explicitly advisory until those get the same treatment. Advisory and
+      # labelled is honest; advisory and presented as a gate is not.
       STRICT_EVAL_MODE: "false"
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 

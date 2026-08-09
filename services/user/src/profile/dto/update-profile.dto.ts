@@ -60,6 +60,10 @@ export class UpdateProfileDto {
   fieldOfStudy?: string;
 
   @IsOptional()
+  @IsString()
+  targetFieldOfStudy?: string;
+
+  @IsOptional()
   @IsNumber()
   ects?: number;
 

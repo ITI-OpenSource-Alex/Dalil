@@ -388,6 +388,10 @@ export class UsersService {
           // absent field of study as "do not filter" and an empty string the
           // same way only by accident.
           fieldOfStudy: user.profile?.fieldOfStudy || null,
+          targetFieldOfStudy:
+            user.profile?.targetFieldOfStudy ||
+            user.profile?.fieldOfStudy ||
+            null,
         },
       };
 
@@ -888,6 +892,8 @@ export class UsersService {
       // field_of_study that disables discipline pre-filtering -- see
       // publishUserUpdatedEvent.
       fieldOfStudy: u.profile?.fieldOfStudy || null,
+      targetFieldOfStudy:
+        u.profile?.targetFieldOfStudy || u.profile?.fieldOfStudy || null,
     }));
     return {
       users: mappedUsers,

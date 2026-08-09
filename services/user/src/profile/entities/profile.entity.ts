@@ -39,6 +39,9 @@ export class UserProfile {
   @Column({ nullable: true })
   fieldOfStudy: string;
 
+  @Column({ name: 'target_field_of_study', nullable: true })
+  targetFieldOfStudy: string | null;
+
   @Column({ type: 'int', nullable: true })
   ects: number;
 

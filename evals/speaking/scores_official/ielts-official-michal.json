@@ -1,0 +1,131 @@
+{
+  "evaluation": {
+    "schema_version": "speaking-evaluation/v1",
+    "evaluation_id": "ielts-official-michal",
+    "mode": "benchmark",
+    "status": "partial",
+    "score_semantics": "estimated_ielts_practice_band",
+    "criteria": [
+      {
+        "criterion_id": "fluency_coherence",
+        "status": "scored",
+        "band": 6,
+        "summary": "No measured speech features were supplied, so rate of speech, flow, and pausing cannot be assessed; this evaluation covers coherence and cohesion only. You are clearly willing to speak at length and develop the topic relevantly, moving logically from who Madonna is, to why you admire her, to the controversy around her. You use a range of connectives such as 'and', 'because', and 'as well', plus markers like 'I think' and 'actually'. However, coherence is lost at times through frequent repetition and self-correction (e.g. 'she she she', 'for for the right for their rights', 'in in her in the past'), and some stretches become muddled, such as 'she's everyone knows her some people don't like her'. To move toward band 7 you would need to sustain speech without this loss of coherence and use a wider, more flexible range of discourse markers rather than relying mainly on 'and' and 'because'.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "fc.6",
+            "descriptor_band": 6,
+            "polarity": "supports",
+            "application": "The candidate is willing to speak at length and uses a range of connectives, but loses coherence at times due to repetition and self-correction."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "fc.7",
+            "descriptor_band": 7,
+            "polarity": "caps_below",
+            "application": "Frequent repetition and self-correction cause noticeable loss of coherence, so the candidate does not yet speak at length without loss of coherence or use discourse markers flexibly."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "fc.5",
+            "descriptor_band": 5,
+            "polarity": "reaches_toward",
+            "application": "Repetition and self-correction are used to keep going, but the candidate develops ideas beyond simple speech and sustains an extended, relevant turn."
+          }
+        ]
+      },
+      {
+        "criterion_id": "lexical_resource",
+        "status": "scored",
+        "band": 6,
+        "summary": "You have a wide enough vocabulary to talk about the topic at length and your meaning stays clear throughout, with some good topic-specific and idiomatic phrases like 'pop icon,' 'legend,' and 'fight for their rights.' However, word choice and collocation errors hold you back: 'founds many people' (likely meaning 'funded'), 'talking too much about famines' (apparently meaning 'feminism'), and 'inspired many people by her creativity' (should be 'with/through'). There is also heavy repetition of 'admire' and reliance on basic phrasing such as 'nice songs' and 'sings very well.' To move toward Band 7, aim for more precise word choice, stronger control of collocation, and less repetition when a synonym would serve you better.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "lr.6",
+            "descriptor_band": 6,
+            "polarity": "supports",
+            "application": "Vocabulary is broad enough to develop the description at length and meaning remains clear, with successful paraphrasing throughout."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "lr.7",
+            "descriptor_band": 7,
+            "polarity": "caps_below",
+            "application": "Recurrent word-choice and collocation errors ('founds many people,' 'inspired by her creativity,' 'famines' for feminism) and repetition of 'admire' show the flexibility and collocation awareness of Band 7 are not yet consistent."
+          }
+        ]
+      },
+      {
+        "criterion_id": "grammatical_range",
+        "status": "scored",
+        "band": 6,
+        "summary": "You use a mix of simple and complex structures, and several of your complex sentences work well, especially those with 'because', 'when', 'that' and 'which' clauses plus infinitives of purpose ('to fight for their rights'). However, complex structures carry frequent errors that keep you at Band 6. The main patterns are articles ('a the most popular singer', 'well known pop star' missing 'a'), prepositions ('given by her in her birth' rather than 'given to her at her birth', 'link with sex'), number agreement ('many organization' for 'organizations'), and inconsistent tense ('she's got nothing when she came to New York', where present and past clash). To move toward Band 7 you need to produce error-free sentences much more frequently, tightening article and preposition use and keeping tense consistent within a sentence.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.5",
+            "descriptor_band": 5,
+            "polarity": "supports",
+            "application": "Basic sentence forms such as 'she sings very well' and 'she is a legend' are produced with reasonable accuracy, meeting the foundation of this band."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.6",
+            "descriptor_band": 6,
+            "polarity": "supports",
+            "application": "A mix of simple and complex structures appears (because/when/that/which clauses, infinitives of purpose), but with limited flexibility and frequent mistakes in the complex ones."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.7",
+            "descriptor_band": 7,
+            "polarity": "caps_below",
+            "application": "Error-free sentences are not frequent enough; persistent article, preposition, number-agreement and tense-consistency errors prevent reaching this band."
+          }
+        ]
+      },
+      {
+        "criterion_id": "pronunciation",
+        "status": "unavailable",
+        "unavailable_reason": "insufficient_evidence",
+        "summary": "Evaluation unavailable due to an internal error."
+      }
+    ],
+    "overall": {
+      "band": 6,
+      "unrounded_mean": 6,
+      "included_criteria": [
+        "fluency_coherence",
+        "lexical_resource",
+        "grammatical_range"
+      ],
+      "excluded_criteria": [
+        "pronunciation"
+      ],
+      "rounding_rule": "ielts_half_band_v1",
+      "min_criteria_required": 3
+    },
+    "provenance": {
+      "created_at": "2026-08-09T01:18:58.7063355Z",
+      "scorer_version": "speaking@dev",
+      "rubric_id": "ielts-speaking-public",
+      "rubric_version": "2023-06",
+      "rubric_sha256": "40820db22ab572944baa4ecc399d6ff2597291e076dd5c990bd7bc578974f9cb",
+      "llm_provider": "agentrouter",
+      "llm_model": "claude-opus-4-8"
+    }
+  },
+  "lane": "scorer_only",
+  "latency_ms": 47115,
+  "swarm_error": ""
+}

@@ -668,7 +668,7 @@ def run_writing_eval(
 
     independent_model = get_model()
     grader_models = sorted(
-        {os.environ.get("WRITING_MODEL", "claude-opus-4-8")}
+        {os.environ.get("WRITING_MODEL", "claude-opus-5")}
     )
     same_family_model = grader_models[0]
     clients = judge_clients or {}
@@ -746,7 +746,7 @@ def run_writing_consistency(data: dict, repeats: int = 5) -> dict[str, Any]:
         evaluate,
         repeats=repeats,
         user_id=user_id,
-        model=os.environ.get("WRITING_MODEL", "claude-opus-4-8"),
+        model=os.environ.get("WRITING_MODEL", "claude-opus-5"),
     )
 
 
@@ -940,7 +940,7 @@ def main():
         judge_model=metrics.get("judge_model", get_model()),
         grader_models=metrics.get(
             "grader_models",
-            [os.environ.get("WRITING_MODEL", "claude-opus-4-8")],
+            [os.environ.get("WRITING_MODEL", "claude-opus-5")],
         ),
         judge_arms=metrics.get("judge_arms", {}),
         judge_family_delta=metrics.get("judge_family_delta", {}),

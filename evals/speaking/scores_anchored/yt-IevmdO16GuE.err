@@ -1,0 +1,7 @@
+{"level":"error","error":"context deadline exceeded","time":"2026-08-09T00:34:46+02:00","message":"Failed to record LLM cost telemetry"}
+{"level":"error","error":"context deadline exceeded","time":"2026-08-09T00:34:52+02:00","message":"Failed to record LLM cost telemetry"}
+{"level":"error","error":"context deadline exceeded","time":"2026-08-09T00:34:58+02:00","message":"Failed to record LLM cost telemetry"}
+redis: 2026/08/09 00:34:58 pool.go:724: redis: connection pool: failed to dial after 5 attempts: dial tcp: lookup redis-gateway: no such host
+redis: 2026/08/09 00:35:04 pool.go:724: redis: connection pool: failed to dial after 5 attempts: dial tcp: lookup redis-gateway: no such host
+redis: 2026/08/09 00:35:09 pool.go:724: redis: connection pool: failed to dial after 5 attempts: dial tcp: lookup redis-gateway: no such host
+{"level":"error","error":"context deadline exceeded","time":"2026-08-09T00:35:15+02:00","message":"Failed to record LLM cost telemetry"}

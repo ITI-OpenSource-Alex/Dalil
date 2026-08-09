@@ -51,7 +51,7 @@ TRUE_PRICES = {
 SAMPLE_INPUT_TOKENS = 2000
 SAMPLE_OUTPUT_TOKENS = 300
 
-MODEL = os.environ.get("LLM_MODEL", "claude-opus-4-8")
+MODEL = os.environ.get("LLM_MODEL", "claude-opus-5")
 
 
 def true_cost(model: str, input_tokens: int, output_tokens: int) -> float:

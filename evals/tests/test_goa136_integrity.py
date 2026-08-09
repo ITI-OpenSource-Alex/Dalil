@@ -74,13 +74,13 @@ def test_judge_model_recorded_in_report():
         run_id="1",
         metrics=ReportMetrics(),
         judge_model="gpt-5.6-sol",
-        grader_models=["claude-opus-4-8"],
+        grader_models=["claude-opus-5"],
         regression_vs_previous=RegressionDeltas(),
         timestamp="2026-08-08T00:00:00Z",
         git_sha="abc",
     ).model_dump()
     assert report["judge_model"] == "gpt-5.6-sol"
-    assert report["grader_models"] == ["claude-opus-4-8"]
+    assert report["grader_models"] == ["claude-opus-5"]
 
 
 def test_judge_family_delta_present_when_both_arms_run(monkeypatch):
@@ -101,7 +101,7 @@ def test_judge_family_delta_present_when_both_arms_run(monkeypatch):
     monkeypatch.setattr("evals.runner.judge_all", fake_judge_all)
     result = run_writing_eval(_mixed_dataset())
 
-    assert set(calls) == {"claude-opus-4-8", "gpt-5.6-sol"}
+    assert set(calls) == {"claude-opus-5", "gpt-5.6-sol"}
     assert set(result["judge_arms"]) == {"same_family", "independent"}
     assert result["judge_family_delta"]["judged_band_deltas"] == {
         "validated": 0.5
@@ -326,7 +326,7 @@ def test_consistency_cache_bypass_and_unknown_cost_are_explicit():
         evaluator,
         repeats=5,
         user_id="telemetry-user",
-        model="claude-opus-4-8",
+        model="claude-opus-5",
         telemetry_reader=lambda *_: {
             "input_tokens": None,
             "output_tokens": None,

@@ -12,7 +12,7 @@ The two datasets are reported apart rather than pooled. The official set has the
 **Lane:** `scorer_only`
 
 | item | examiner | ours | error | FC | LR | GRA | PR | status |
-|---|---|---|---|---|---|---|---|---|---|
+|---|---|---|---|---|---|---|---|---|
 | `ielts-official-katsuharu` | 5.0 | — | — | _provider_error_ | 5.0 | 5.0 | _insufficient_evidence_ | partial |
 | `ielts-official-tina` | 5.0 | 5.5 | +0.5 | 6.0 | 5.5 | 5.0 | _insufficient_evidence_ | partial |
 | `ielts-official-maxim` | 6.0 | 6 | +0.0 | 6.0 | 6.0 | 6.0 | _insufficient_evidence_ | partial |
@@ -55,7 +55,7 @@ The two datasets are reported apart rather than pooled. The official set has the
 **Lane:** `goa_audio`
 
 | item | examiner | ours | error | FC | LR | GRA | PR | status |
-|---|---|---|---|---|---|---|---|---|---|
+|---|---|---|---|---|---|---|---|---|
 | `yt-666eP6xBhzI` | 6.5 | 6.5 | +0.0 | 7.0 | 6.0 | 6.0 | 7.0 | complete |
 | `yt-BFS1z24aZaM` | 6.5 | 7 | +0.5 | 7.5 | 6.5 | _provider_error_ | 7.0 | partial |
 | `yt-OicvdCp5wrM` | 6.5 | — | — | 7.0 | 6.5 | _invalid_output_ | _invalid_output_ | partial |

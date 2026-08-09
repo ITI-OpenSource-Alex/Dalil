@@ -34,7 +34,7 @@ WRITING_URL = os.environ.get("WRITING_SERVICE_URL", "http://writing:8000")
 WRITING_TIMEOUT_SECONDS = float(
     os.environ.get("GOA_BENCH_WRITING_TIMEOUT_SECONDS", "600")
 )
-SAME_FAMILY_MODEL = "claude-opus-4-8"
+SAME_FAMILY_MODEL = "claude-opus-5"
 INDEPENDENT_MODEL = "gpt-5.6-sol"
 
 

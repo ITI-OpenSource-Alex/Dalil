@@ -1,0 +1,139 @@
+{
+  "evaluation": {
+    "schema_version": "speaking-evaluation/v1",
+    "evaluation_id": "yt-666eP6xBhzI",
+    "mode": "benchmark",
+    "status": "partial",
+    "score_semantics": "estimated_ielts_practice_band",
+    "criteria": [
+      {
+        "criterion_id": "fluency_coherence",
+        "status": "scored",
+        "band": 7,
+        "summary": "The measured features show genuinely strong delivery: 157 words per minute (articulation rate 165 wpm) sits right in the natural range, and with only 4 pauses beyond 1 second (longest 1.4s) and just 5% of total time paused across more than eight minutes, you speak at length without noticeable effort. This clearly meets the Band 7 fluency requirement. You develop topics substantially and sequence most ideas logically, and you use a range of connectives and discourse markers ('so', 'because', 'then', 'also', 'of course', 'otherwise', 'rather than'). What holds you back from Band 8 is that coherence occasionally slips into rambling or loosely joined ideas, and your cohesion leans heavily on 'so' and 'because' rather than being consistently flexible. (Note: the speech-recognition confidence metric read 0.00, which appears to be an artifact and was not used in this assessment.)",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "fc.7",
+            "descriptor_band": 7,
+            "polarity": "supports",
+            "application": "Measured pace (157 wpm, only 5% paused, 4 long pauses in 8+ minutes) confirms you speak at length without noticeable effort, and you deploy a range of connectives across long turns."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "fc.6",
+            "descriptor_band": 6,
+            "polarity": "supports",
+            "application": "You are consistently willing to speak at length and use a range of connectives, comfortably clearing this level."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "fc.8",
+            "descriptor_band": 8,
+            "polarity": "caps_below",
+            "application": "Coherence is not yet consistently maintained—several answers ramble or lose thread—and cohesive markers are repetitive rather than fully flexible, so topic development is not always coherent and appropriate."
+          }
+        ]
+      },
+      {
+        "criterion_id": "lexical_resource",
+        "status": "scored",
+        "band": 6,
+        "summary": "You have a wide enough vocabulary to discuss a range of topics—your job, travel, languages, and hotels—at length and make your meaning clear, and you attempt some less common items and idiomatic expressions (e.g. 'hospitality', 'amenities', 'interior', 'city of dreams', 'chit chat'). However, precision and word choice are inconsistent: there are noticeable collocation and word-formation errors (e.g. 'you will feel tiring', 'your body will affect of this', 'comfortability of the hotel', 'picturized things'). To reach a higher band, aim for greater accuracy with collocations and more precise word selection rather than approximate choices.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "lr.6",
+            "descriptor_band": 6,
+            "polarity": "supports",
+            "application": "The candidate has enough vocabulary to talk about job, travel and hotels at length, makes meaning clear, and paraphrases successfully (e.g. describing 'layover' experiences and hotel features)."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "lr.7",
+            "descriptor_band": 7,
+            "polarity": "caps_below",
+            "application": "Frequent word-choice and collocation errors ('feel tiring', 'body will affect of this', 'comfortability') show the awareness of collocation and flexible precision needed for band 7 is not yet consistent."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "lr.5",
+            "descriptor_band": 5,
+            "polarity": "supports",
+            "application": "In places vocabulary is used with limited flexibility and paraphrase attempts have varying success, keeping the profile from being solidly above band 6."
+          }
+        ]
+      },
+      {
+        "criterion_id": "grammatical_range",
+        "status": "scored",
+        "band": 5.5,
+        "summary": "You attempt a good range of complex structures, using subordinate clauses (because, when, since), relative clauses (which), and conditionals (if), which shows you are reaching beyond basic sentence forms. However, errors are frequent and appear in both complex AND simple structures: verb forms ('I given my most of the time', 'he was help us', 'when I started grown up'), missing articles ('When I was child', 'city of dream'), subject-verb and existential errors ('it was so many things in my mind' for 'there were'), and prepositions ('your body will affect of this', 'deal so many customers', 'when it comes decision making'). Because these basic errors are pervasive, you do not yet frequently produce error-free sentences. To move up, focus on accuracy in the fundamentals — articles, correct verb tense/form, and prepositions — so your clear complex structures are not undermined by basic slips.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.6",
+            "descriptor_band": 6,
+            "polarity": "supports",
+            "application": "The candidate uses a clear mix of simple and complex structures (subordinate, relative and conditional clauses) but with limited flexibility and frequent mistakes."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.5",
+            "descriptor_band": 5,
+            "polarity": "reaches_toward",
+            "application": "Frequent errors extend into basic sentence forms (articles, verb forms, subject-verb agreement), so accuracy of basic structures is not consistently reliable."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.7",
+            "descriptor_band": 7,
+            "polarity": "caps_below",
+            "application": "The candidate does not frequently produce error-free sentences, as most complex and many simple sentences contain at least one grammatical error."
+          }
+        ]
+      },
+      {
+        "criterion_id": "pronunciation",
+        "status": "unavailable",
+        "unavailable_reason": "provider_error",
+        "summary": "Evaluation unavailable due to an internal error."
+      }
+    ],
+    "overall": {
+      "band": 6,
+      "unrounded_mean": 6.166666666666667,
+      "included_criteria": [
+        "fluency_coherence",
+        "lexical_resource",
+        "grammatical_range"
+      ],
+      "excluded_criteria": [
+        "pronunciation"
+      ],
+      "rounding_rule": "ielts_half_band_v1",
+      "min_criteria_required": 3
+    },
+    "provenance": {
+      "created_at": "2026-08-08T22:33:07.7805087Z",
+      "scorer_version": "speaking@dev",
+      "rubric_id": "ielts-speaking-public",
+      "rubric_version": "2023-06",
+      "rubric_sha256": "40820db22ab572944baa4ecc399d6ff2597291e076dd5c990bd7bc578974f9cb",
+      "llm_provider": "agentrouter",
+      "llm_model": "claude-opus-4-8"
+    }
+  },
+  "lane": "goa_audio",
+  "latency_ms": 55590,
+  "swarm_error": ""
+}

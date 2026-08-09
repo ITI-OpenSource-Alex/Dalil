@@ -1,0 +1,131 @@
+{
+  "evaluation": {
+    "schema_version": "speaking-evaluation/v1",
+    "evaluation_id": "ielts-official-tina",
+    "mode": "benchmark",
+    "status": "partial",
+    "score_semantics": "estimated_ielts_practice_band",
+    "criteria": [
+      {
+        "criterion_id": "fluency_coherence",
+        "status": "scored",
+        "band": 6,
+        "summary": "Note: no measured speech features (words per minute, pause counts/durations) were supplied, so I cannot judge your rate of speech, flow, or hesitation from the audio; this assessment covers only coherence and cohesion from the transcript. You are clearly willing to speak at length and organise your answer around three ideas (shopping, picnics/travel, and volunteering), and the volunteering section in particular is developed with reasons and examples. You use a range of connectives and discourse markers such as 'For shopping', 'As well', 'especially', 'Because', 'So', and 'in the future'. However, coherence is lost at several points where ideas become disjointed and hard to follow, and there is noticeable repetition and self-correction. To move higher you would need to sustain your ideas without these breakdowns so the listener can follow you effortlessly throughout.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "fc.6",
+            "descriptor_band": 6,
+            "polarity": "supports",
+            "application": "You are willing to speak at length and use a range of connectives, but lose coherence at times due to repetition and self-correction."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "fc.7",
+            "descriptor_band": 7,
+            "polarity": "caps_below",
+            "application": "You do not yet speak at length without loss of coherence, as several stretches become disjointed and hard to follow."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "fc.5",
+            "descriptor_band": 5,
+            "polarity": "reaches_toward",
+            "application": "At points you rely on repetition and self-correction ('the the more important', 'I will I will maybe') to keep going."
+          }
+        ]
+      },
+      {
+        "criterion_id": "lexical_resource",
+        "status": "scored",
+        "band": 5.5,
+        "summary": "You manage to talk about familiar topics such as hobbies, travel and volunteering, and you attempt some less common and idiomatic vocabulary like 'lend a hand', 'widen my knowledge' and 'get over the problem', which shows range beyond the basic level. However, your vocabulary is used with limited flexibility and there are frequent errors in word formation and collocation (e.g. 'beautiful the big house' instead of 'beautify', 'take a good care for' instead of 'take good care of', and 'I enjoy with it'). These slips reduce precision, and to move higher you need more consistent accuracy in collocation and word choice while maintaining your natural, more idiomatic expressions.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "lr.5",
+            "descriptor_band": 5,
+            "polarity": "supports",
+            "application": "You talk about familiar topics but use vocabulary with limited flexibility and attempt paraphrase with varying success."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "lr.6",
+            "descriptor_band": 6,
+            "polarity": "reaches_toward",
+            "application": "You have enough vocabulary to discuss the topics at some length, but frequent collocation and word-formation errors mean meaning is not always made fully clear."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "lr.7",
+            "descriptor_band": 7,
+            "polarity": "caps_below",
+            "application": "Your attempts at idiomatic vocabulary lack consistent awareness of collocation ('take a good care for', 'enjoy with it'), which prevents a higher band."
+          }
+        ]
+      },
+      {
+        "criterion_id": "grammatical_range",
+        "status": "scored",
+        "band": 5,
+        "summary": "You attempt a range of complex structures — conditional clauses ('if I travel with my friend or my family I can spend time to understand them'), time clauses ('when I feel stressed out'), and causal clauses ('because I think old people also my grandparents') — which shows ambition beyond basic forms. However, these more complex structures contain frequent errors, and several sentences break down entirely ('When engage with the to volunteer... I feel stressed out is a disappear'). There are also recurring errors in verb tense ('actually I loved people', 'when I live in Vietnam I often go'), prepositions ('take care for them', 'I enjoy with it'), and articles/word form ('a new clothes', 'want to beautiful the big house'). To reach a higher band, focus on producing accurate basic and complex sentences so that meaning is not obscured.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.5",
+            "descriptor_band": 5,
+            "polarity": "supports",
+            "application": "You produce basic sentence forms with reasonable accuracy and use a limited range of more complex structures that carry frequent errors."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.6",
+            "descriptor_band": 6,
+            "polarity": "caps_below",
+            "application": "Although you mix simple and complex structures, too many sentences break down and errors are too dense to show the more controlled mix of forms expected at Band 6."
+          }
+        ]
+      },
+      {
+        "criterion_id": "pronunciation",
+        "status": "unavailable",
+        "unavailable_reason": "insufficient_evidence",
+        "summary": "Evaluation unavailable due to an internal error."
+      }
+    ],
+    "overall": {
+      "band": 5.5,
+      "unrounded_mean": 5.5,
+      "included_criteria": [
+        "fluency_coherence",
+        "lexical_resource",
+        "grammatical_range"
+      ],
+      "excluded_criteria": [
+        "pronunciation"
+      ],
+      "rounding_rule": "ielts_half_band_v1",
+      "min_criteria_required": 3
+    },
+    "provenance": {
+      "created_at": "2026-08-09T01:22:30.8858224Z",
+      "scorer_version": "speaking@dev",
+      "rubric_id": "ielts-speaking-public",
+      "rubric_version": "2023-06",
+      "rubric_sha256": "40820db22ab572944baa4ecc399d6ff2597291e076dd5c990bd7bc578974f9cb",
+      "llm_provider": "agentrouter",
+      "llm_model": "claude-opus-4-8"
+    }
+  },
+  "lane": "scorer_only",
+  "latency_ms": 34314,
+  "swarm_error": ""
+}

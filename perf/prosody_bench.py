@@ -334,7 +334,7 @@ def main() -> int:
             "stt": {"impl": "faster-whisper", "model": "small", "device": "cpu", "real": True},
             "llm": {
                 "base_url": os.environ.get("ANTHROPIC_BASE_URL", "<unset>"),
-                "model": os.environ.get("LLM_MODEL", "claude-opus-4-8"),
+                "model": os.environ.get("LLM_MODEL", "claude-opus-5"),
                 "real": b is not None,
             },
         },

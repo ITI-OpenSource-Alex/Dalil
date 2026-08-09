@@ -24,6 +24,7 @@ import httpx
 # the system Python so we can import app.services.* cleanly.
 # ──────────────────────────────────────────────────────────────
 
+
 def _stub_module(fqn, attrs=None):
     """Register a fake module at *fqn* (dot-separated) if it is missing."""
     if fqn in sys.modules:
@@ -50,6 +51,7 @@ class _FakeAsyncRedis:
     def from_url(cls, *a, **kw):
         return AsyncMock()
 
+
 # redis.asyncio
 _stub_module("redis", {"asyncio": types.ModuleType("redis.asyncio")})
 _stub_module("redis.asyncio", {"Redis": _FakeAsyncRedis})
@@ -61,42 +63,61 @@ _stub_module("langfuse.langchain", {"CallbackHandler": MagicMock()})
 _stub_module("langchain")
 _stub_module("langchain.memory", {"ConversationBufferWindowMemory": MagicMock()})
 _stub_module("langchain_community")
-_stub_module("langchain_community.chat_message_histories", {"RedisChatMessageHistory": MagicMock()})
+_stub_module(
+    "langchain_community.chat_message_histories",
+    {"RedisChatMessageHistory": MagicMock()},
+)
+
 
 # pybreaker
 class _FakeCB:
-    def __init__(self, **kw): pass
+    def __init__(self, **kw):
+        pass
+
     current_state = "closed"
 
-class _FakeCBError(Exception): pass
+
+class _FakeCBError(Exception):
+    pass
+
 
 class _FakeListener:
     pass
 
-_stub_module("pybreaker", {
-    "CircuitBreaker": _FakeCB,
-    "CircuitBreakerError": _FakeCBError,
-    "CircuitBreakerListener": _FakeListener,
-    "UTC": None,
-})
+
+_stub_module(
+    "pybreaker",
+    {
+        "CircuitBreaker": _FakeCB,
+        "CircuitBreakerError": _FakeCBError,
+        "CircuitBreakerListener": _FakeListener,
+        "UTC": None,
+    },
+)
 
 # sse-starlette
 _stub_module("sse_starlette")
-_stub_module("sse_starlette.sse", {
-    "ServerSentEvent": MagicMock(),
-    "EventSourceResponse": MagicMock(),
-})
+_stub_module(
+    "sse_starlette.sse",
+    {
+        "ServerSentEvent": MagicMock(),
+        "EventSourceResponse": MagicMock(),
+    },
+)
 
 # prometheus — metrics stubs need to support .labels().inc() / .observe() chaining
 _counter_mock = MagicMock()
 _histogram_mock = MagicMock()
 _gauge_mock = MagicMock()
-_stub_module("prometheus_client", {
-    "Counter": lambda *a, **kw: MagicMock(),
-    "Histogram": lambda *a, **kw: MagicMock(),
-    "Gauge": lambda *a, **kw: MagicMock(),
-    "make_asgi_app": MagicMock(),
-})
+_stub_module(
+    "prometheus_client",
+    {
+        "Counter": lambda *a, **kw: MagicMock(),
+        "Histogram": lambda *a, **kw: MagicMock(),
+        "Gauge": lambda *a, **kw: MagicMock(),
+        "make_asgi_app": MagicMock(),
+    },
+)
 
 # pydantic_settings (may already exist)
 if "pydantic_settings" not in sys.modules:
@@ -148,6 +169,7 @@ EMPTY_EXAM_PROFILE = {
 # Helper: build a mock structured_llm that returns a given intent
 # ──────────────────────────────────────────────────────────────
 
+
 def _make_llm_mock(intent: str, confidence: float = 0.96):
     from app.services.supervisor import IntentResult
 
@@ -155,10 +177,12 @@ def _make_llm_mock(intent: str, confidence: float = 0.96):
     raw_mock.response_metadata = {"usage": {"input_tokens": 10, "output_tokens": 5}}
 
     mock_seq = MagicMock()
-    mock_seq.ainvoke = AsyncMock(return_value={
-        "parsed": IntentResult(intent=intent, confidence=confidence),
-        "raw": raw_mock,
-    })
+    mock_seq.ainvoke = AsyncMock(
+        return_value={
+            "parsed": IntentResult(intent=intent, confidence=confidence),
+            "raw": raw_mock,
+        }
+    )
     return mock_seq
 
 
@@ -379,7 +403,9 @@ class TestExamContextCaching:
 
         mock_http = AsyncMock(spec=httpx.AsyncClient)
 
-        result = await fetch_exam_context(mock_http, "user-123", redis_client=mock_redis)
+        result = await fetch_exam_context(
+            mock_http, "user-123", redis_client=mock_redis
+        )
 
         assert result == MOCK_EXAM_PROFILE
         mock_http.get.assert_not_called()
@@ -401,7 +427,9 @@ class TestExamContextCaching:
         mock_http = AsyncMock(spec=httpx.AsyncClient)
         mock_http.get = AsyncMock(return_value=mock_response)
 
-        result = await fetch_exam_context(mock_http, "user-456", redis_client=mock_redis)
+        result = await fetch_exam_context(
+            mock_http, "user-456", redis_client=mock_redis
+        )
 
         assert result == MOCK_EXAM_PROFILE
         mock_http.get.assert_called_once()
@@ -421,7 +449,9 @@ class TestExamContextCaching:
         mock_http = AsyncMock(spec=httpx.AsyncClient)
         mock_http.get = AsyncMock(side_effect=httpx.ConnectError("connection refused"))
 
-        result = await fetch_exam_context(mock_http, "user-789", redis_client=mock_redis)
+        result = await fetch_exam_context(
+            mock_http, "user-789", redis_client=mock_redis
+        )
 
         assert result is None
 

@@ -1,4 +1,3 @@
-import pytest
 import os
 from unittest.mock import patch
 from langchain_anthropic import ChatAnthropic
@@ -10,7 +9,7 @@ def test_provider_switchback():
     defaults to the Anthropic API (api.anthropic.com) instead of AgentRouter.
     """
     with patch.dict(os.environ, {"ANTHROPIC_BASE_URL": ""}, clear=False):
-        kwargs = {}
+        _kwargs = {}
         # Wait, if we use os.environ in test, settings is already instantiated,
         # but ChatAnthropic doesn't read os.environ directly unless we omit base_url.
         # Actually it does: ChatAnthropic defaults to os.environ["ANTHROPIC_BASE_URL"] or None.

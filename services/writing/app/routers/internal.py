@@ -6,7 +6,7 @@ from sqlalchemy.exc import ProgrammingError
 
 
 from app.database import SessionLocal
-from app.models import CVReview, Essay
+from app.models import Essay
 from app.services.account_deletion import purge_user_data
 
 router = APIRouter(prefix="/internal")

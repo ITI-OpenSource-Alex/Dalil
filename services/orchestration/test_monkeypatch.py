@@ -1,5 +1,4 @@
 import asyncio
-import os
 import httpx
 from langchain_anthropic import ChatAnthropic
 from pydantic import BaseModel

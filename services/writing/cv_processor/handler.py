@@ -2,7 +2,6 @@ import hashlib
 import json
 import logging
 import re
-import os
 import time
 from datetime import datetime, timezone
 from functools import lru_cache
@@ -18,13 +17,13 @@ from app.runtime_secrets import load_writing_runtime_secrets
 
 load_writing_runtime_secrets()
 
-from app.database import SessionLocal
-from app.metrics import CV_EXTRACTION_DURATION_MS, CV_EXTRACTION_TOTAL
-from app.models import CVReview
-from app.observability import get_langfuse_client, trace_cv_extraction
-from app.services.event_publisher import publish_cv_processed
-from cv_processor.extraction import UnsupportedCVType, detect_file_type, extract_plain_text
-from cv_processor.structured import StructuredCVExtractor
+from app.database import SessionLocal  # noqa: E402
+from app.metrics import CV_EXTRACTION_DURATION_MS, CV_EXTRACTION_TOTAL  # noqa: E402
+from app.models import CVReview  # noqa: E402
+from app.observability import get_langfuse_client, trace_cv_extraction  # noqa: E402
+from app.services.event_publisher import publish_cv_processed  # noqa: E402
+from cv_processor.extraction import UnsupportedCVType, detect_file_type, extract_plain_text  # noqa: E402
+from cv_processor.structured import StructuredCVExtractor  # noqa: E402
 
 
 logger = logging.getLogger("writing.cv_processor")

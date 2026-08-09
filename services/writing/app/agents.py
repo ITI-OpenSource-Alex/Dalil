@@ -1,6 +1,5 @@
 import asyncio
 import base64
-import json
 import logging
 import os
 import re
@@ -10,7 +9,6 @@ from functools import lru_cache
 from typing import Any, Literal
 
 import boto3
-import httpx
 from botocore.exceptions import ClientError
 from fastapi import HTTPException, status
 
@@ -308,7 +306,6 @@ async def extract_chart_context(s3_key: str, *, trace: Any = None) -> str:
     attributed separately from the four criterion agents (GOA-093).
     """
     import logging
-    import base64
     from anthropic import AsyncAnthropic
 
     settings = get_settings()

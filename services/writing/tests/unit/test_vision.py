@@ -1,8 +1,6 @@
 import pytest
-import base64
 from unittest.mock import AsyncMock, patch, MagicMock
 from app.agents import extract_chart_context
-from app.evaluation import EvaluationCoordinator, EvaluationFailed
 
 @pytest.fixture
 def mock_fetch_bytes():

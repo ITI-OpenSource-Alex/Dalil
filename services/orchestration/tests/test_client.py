@@ -187,7 +187,7 @@ async def test_dod_2_timeout_reset(mocker):
     
     # 3. Call downstream (timeout elapsed -> transitions to half-open -> succeeds -> closes)
     gen = forward_downstream_stream(mock_client, "RAG", "hello", "user_1", "corr-1")
-    events = [e async for e in gen]
+    _events = [e async for e in gen]  # drained for side effects
     
     # 4. Verify the state returned to closed
     assert rag_breaker.current_state == "closed"

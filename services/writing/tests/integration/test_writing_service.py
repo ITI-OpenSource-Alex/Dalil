@@ -120,41 +120,46 @@ async def test_wr05_cache_hit_on_repeat_submission(evaluation_client):
         "userId": "wr-user-05",
         "essayText": "Caching validation for the same essay text should return from_cache on second call.",
         "submissionType": "task2",
+        "examType": "IELTS Writing",
     }
+    # Create essay, then evaluate by id twice to exercise cache on streaming endpoint
+    create = client.post("/essays", json=payload)
+    assert create.status_code == 201
+    essay_id = create.json()["id"]
 
-    t0 = time.perf_counter()
-    first = client.post("/essays/evaluate", json=payload)
-    t1 = time.perf_counter()
-    second = client.post("/essays/evaluate", json=payload)
-    t2 = time.perf_counter()
+    first_resp = client.post(f"/essays/{essay_id}/evaluate")
+    assert first_resp.status_code == 200
+    events = _parse_sse(first_resp.text)
+    complete = [data for name, data in events if name == "complete"][0]
+    assert complete["from_cache"] is False
 
-    assert first.status_code == 200
-    assert second.status_code == 200
-    assert first.json()["from_cache"] is False
-    assert second.json()["from_cache"] is True
+    # Second call should replay cached evaluation
+    second_resp = client.post(f"/essays/{essay_id}/evaluate")
+    assert second_resp.status_code == 200
+    events2 = _parse_sse(second_resp.text)
+    complete2 = [data for name, data in events2 if name == "complete"][0]
+    assert complete2["from_cache"] is True
 
     # Ensure the runner was invoked only for the first evaluation (4 calls)
     assert len(runner.calls) == 4
-
-    # Second response should be materially faster (cache replay path)
-    first_duration = t1 - t0
-    second_duration = t2 - t1
-    assert second_duration * 2 < first_duration or second.json()["from_cache"] is True
 
 
 @pytest.mark.asyncio
 async def test_wr06_langfuse_trace_root_and_four_child_spans(evaluation_client):
     client, _runner, langfuse, trace = evaluation_client
 
-    resp = client.post(
-        "/essays/evaluate",
+    create = client.post(
+        "/essays",
         json={
             "userId": "wr-user-06",
             "essayText": "Trace test for Langfuse spans.",
             "submissionType": "task2",
         },
     )
+    assert create.status_code == 201
+    essay_id = create.json()["id"]
 
+    resp = client.post(f"/essays/{essay_id}/evaluate")
     assert resp.status_code == 200
 
     # The Langfuse client should be asked to create one top-level observation

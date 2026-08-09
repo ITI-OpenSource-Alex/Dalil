@@ -15,7 +15,7 @@ class EssayCreate(BaseModel):
 
 class EssayCreateRequest(BaseModel):
     userId: str
-    essayText: str
+    essayText: str = Field(min_length=1, max_length=5000)
     submissionType: str
     examSessionId: Optional[str] = None
 

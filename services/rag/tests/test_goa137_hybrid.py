@@ -198,7 +198,29 @@ async def test_hybrid_runs_inside_transaction(monkeypatch):
 async def test_category_filter_applies_to_both_arms():
     dense_sql, lexical_sql = rag_service._retrieval_sql("scholarships")
     connection = await _connection()
+    transaction = connection.transaction()
+    await transaction.start()
     try:
+        # Seed both arms' inputs rather than reading whatever the database
+        # happens to hold. Against an ingested database this passed; against a
+        # clean one -- which is what CI builds -- documents is empty, the dense
+        # arm gets a NULL vector, and the assertion failed for want of data
+        # rather than for a broken category filter.
+        #
+        # The off-category row is the actual subject: it matches the lexical
+        # term and must still be excluded.
+        await connection.execute(
+            """
+            INSERT INTO documents (title, content, source_url, category, embedding)
+            VALUES
+              ('GOA-137 in category', 'Chevening scholarship funding',
+               'test://goa-137-in', 'scholarships', $1),
+              ('GOA-137 out of category', 'Chevening mentioned elsewhere',
+               'test://goa-137-out', 'visa', $1)
+            """,
+            [0.1] * 768,
+        )
+
         vector = await connection.fetchval(
             "SELECT embedding FROM documents WHERE category = 'scholarships' LIMIT 1"
         )
@@ -215,6 +237,7 @@ async def test_category_filter_applies_to_both_arms():
         assert ids
         assert {row["category"] for row in categories} == {"scholarships"}
     finally:
+        await transaction.rollback()
         await connection.close()
 
 

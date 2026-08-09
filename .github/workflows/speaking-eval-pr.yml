@@ -88,8 +88,22 @@ jobs:
       - name: Validate the speaking dataset manifest
         run: python evals/speaking/manifest/validate.py
 
+      # Named explicitly rather than pointed at evals/tests/. The rest of that
+      # directory exercises the RAG benchmark, judge and report stack, which
+      # needs httpx, asyncpg, bs4 and jinja2 -- dependencies this job has no
+      # reason to install. Collecting them here failed the PR on an ImportError
+      # that said nothing about dataset governance.
+      #
+      # A new governance or metric test must be added to this list to run.
       - name: Governance and metric tests
-        run: python -m pytest evals/tests/ -q
+        run: |
+          python -m pytest -q \
+            evals/tests/test_speaking_manifest.py \
+            evals/tests/test_speaking_agreement.py \
+            evals/tests/test_speaking_clips.py \
+            evals/tests/test_ci_gates.py \
+            evals/tests/test_release_gate.py \
+            evals/tests/test_provider_experiment.py
 
   speaking-service:
     name: Speaking service

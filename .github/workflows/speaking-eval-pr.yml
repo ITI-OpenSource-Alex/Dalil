@@ -81,7 +81,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: pip install jsonschema pytest
+      # httpx, boto3, pydantic and anthropic are here for evals/runner.py, which
+      # two acceptance tests in test_speaking_agreement.py import. They assert
+      # that the speaking eval can never return a bare null and that the scorer
+      # lane cannot claim the pipeline was exercised -- invariants worth the
+      # install. No network call is made; only the module is imported.
+      - run: pip install jsonschema pytest httpx boto3 pydantic anthropic
 
       # An unlicensed or unvalidated item reaching a gating split is a rights
       # and correctness problem, not a style one, so it fails the PR.

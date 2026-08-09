@@ -396,7 +396,7 @@ module "cv_processor_lambda" {
     WORKER                    = "cv-processor"
     S3_BUCKET                 = module.writing_files_bucket.bucket_id
     CV_PROCESSED_QUEUE_URL    = aws_sqs_queue.cv_processed.url
-    CV_EXTRACTION_MODEL       = "claude-opus-4-8"
+    CV_EXTRACTION_MODEL       = "claude-opus-5"
     ANTHROPIC_TIMEOUT_SECONDS = "25"
     WRITING_SECRET_ARN        = module.secrets.service_secret_arns["writing"]
   }

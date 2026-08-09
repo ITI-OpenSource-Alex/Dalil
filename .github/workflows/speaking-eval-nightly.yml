@@ -75,7 +75,7 @@ jobs:
     env:
       ANTHROPIC_AUTH_TOKEN: ${{ secrets.ANTHROPIC_AUTH_TOKEN }}
       GOA_LLM_BASE_URL: ${{ vars.GOA_LLM_BASE_URL }}
-      LLM_MODEL: ${{ vars.SPEAKING_PRACTICE_MODEL || 'claude-opus-4-8' }}
+      LLM_MODEL: ${{ vars.SPEAKING_PRACTICE_MODEL || 'claude-opus-5' }}
       GOA_SCORER_VERSION: speaking@${{ github.sha }}
       # Anchors stay off unless deliberately enabled: they measurably degraded
       # the audio lane, and an eval that quietly changes the production prompt

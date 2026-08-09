@@ -10,12 +10,12 @@
 
 ## Model Configuration
 * **Router Base URL:** `https://agentrouter.org` (Anthropic compatibility)
-* **Default Model:** `claude-opus-4-8`
+* **Default Model:** `claude-opus-5`
 * **Overrides:** Configured per-service (e.g. `SPEAKING_EXAM_MODEL`, `EXTRACTION_MODEL`)
-* **Why `claude-opus-4-8`**: It is the cheapest on both prompt and completion axes while maintaining Anthropic API compatibility, which enables seamless migration for Python and Go SDKs without changing the prompt structures or tool schemas.
+* **Why `claude-opus-5`**: It is the configured Anthropic-compatible AgentRouter model and keeps the Python and Go integrations on the same prompt and tool-schema path.
 
 ## GOA-126 Vision Spike Result
-The vision spike successfully verified that the `agentrouter.org` gateway forwards multimodal image content blocks. In `academic_task1`, the stimulus chart image is correctly passed to `claude-opus-4-8` in base64 format. The gateway extracts the features accurately without silent truncations or text-only fallbacks, preserving the ability to grade data accuracy safely.
+The vision spike successfully verified that the `agentrouter.org` gateway forwards multimodal image content blocks. In `academic_task1`, the stimulus chart image is passed to the configured Claude Opus model in base64 format. The gateway extracts the features accurately without silent truncations or text-only fallbacks, preserving the ability to grade data accuracy safely.
 
 ## Measured Latencies (E2E)
 Baseline timings captured under local E2E runs:

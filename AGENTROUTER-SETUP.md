@@ -31,7 +31,7 @@ curl -s -X POST "https://agentrouter.org/v1/chat/completions" \
   -H "Authorization: Bearer sk-YOUR-KEY" \
   -H "Content-Type: application/json" \
   -H "User-Agent: Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14" \
-  -d '{"model":"claude-opus-4-8","messages":[{"role":"user","content":"Reply with exactly: OK"}],"stream":false}'
+  -d '{"model":"claude-opus-5","messages":[{"role":"user","content":"Reply with exactly: OK"}],"stream":false}'
 ```
 
 **Expected:** a normal completion whose `choices[0].message.content` is `OK`.
@@ -55,10 +55,10 @@ AGENT_ROUTER_BASE_URL=https://agentrouter.org/v1
 # MODEL_DEFAULT is the fallback for every task without its own override
 # (grading, vision, ask...). It MUST name a model AgentRouter serves - if it
 # names a Gemini model, those tasks all fail.
-MODEL_DEFAULT=claude-opus-4-8
-MODEL_SYNTHESIS=claude-opus-4-8
-MODEL_VERIFICATION=claude-opus-4-8
-MODEL_EXPLAIN_FIRST_PRINCIPLES=claude-opus-4-8
+MODEL_DEFAULT=claude-opus-5
+MODEL_SYNTHESIS=claude-opus-5
+MODEL_VERIFICATION=claude-opus-5
+MODEL_EXPLAIN_FIRST_PRINCIPLES=claude-opus-5
 
 SPEND_CAP=10.00
 ALLOW_DIRECT_GEMINI_FALLBACK=1
@@ -83,8 +83,8 @@ make parser      # or: .\scripts\start-parser.ps1
 
 ```
 --- Running startup model health check ---
-Checking SYNTHESIS model (claude-opus-4-8)...
-[SYNTHESIS] OK - Model claude-opus-4-8 is alive.
+Checking SYNTHESIS model (claude-opus-5)...
+[SYNTHESIS] OK - Model claude-opus-5 is alive.
 ...
 --- Startup check complete ---
 ```
@@ -129,9 +129,8 @@ bills in CNY).
 | `claude-opus-5` | anthropic, openai | $2.00 | $10.00 |
 | `gpt-5.6-sol` | openai | $6.00 | $36.00 |
 
-`claude-opus-4-8` remains the configured model so the measured grading behavior
-does not change as part of a pricing correction. `claude-opus-5` is 3× cheaper,
-but switching requires a separate quality re-measurement.
+`claude-opus-5` is the configured model. Re-run the quality and latency evals
+after prompt or routing changes so its measured behavior remains explicit.
 
 ### Where these prices live in the code (GOA-135)
 

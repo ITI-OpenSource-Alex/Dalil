@@ -136,19 +136,19 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - ANTHROPIC_BASE_URL=${GOA_LLM_BASE_URL:-${ANTHROPIC_BASE_URL:-}}
       - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
-      - LLM_MODEL=${LLM_MODEL:-claude-opus-4-8}
+      - LLM_MODEL=${LLM_MODEL:-claude-opus-5}
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
       - LANGFUSE_HOST=${LANGFUSE_HOST}
       # AgentRouter serves no channel for haiku ("无可用渠道" / 503) and none for
-      # claude-sonnet-4-6, only claude-opus-4-8 — which is why GOA-093's
+      # claude-sonnet-4-6; use the configured Claude Opus channel instead.
       # consolidation target moved off Sonnet. Revert to a cheaper model here if
       # the gateway ever routes one.
-      - WRITING_MODEL=${WRITING_MODEL:-claude-opus-4-8}
-      - CV_EXTRACTION_MODEL=${CV_EXTRACTION_MODEL:-claude-opus-4-8}
+      - WRITING_MODEL=${WRITING_MODEL:-claude-opus-5}
+      - CV_EXTRACTION_MODEL=${CV_EXTRACTION_MODEL:-claude-opus-5}
       # Academic Task 1 stimulus description (GOA-093). Must be a vision-capable
-      # model; AgentRouter forwards multimodal blocks for claude-opus-4-8 (GOA-126).
-      - VISION_MODEL=${VISION_MODEL:-claude-opus-4-8}
+      # model; AgentRouter forwards multimodal blocks for Claude Opus (GOA-126).
+      - VISION_MODEL=${VISION_MODEL:-claude-opus-5}
       - ANTHROPIC_TIMEOUT_SECONDS=${ANTHROPIC_TIMEOUT_SECONDS:-120}
       - WRITING_AGENT_MAX_TOKENS=${WRITING_AGENT_MAX_TOKENS:-16000}
       - WRITING_CACHE_VERSION=${WRITING_CACHE_VERSION:-v1}
@@ -197,8 +197,8 @@ services:
       - ANTHROPIC_BASE_URL=${GOA_LLM_BASE_URL:-${ANTHROPIC_BASE_URL:-}}
       - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
       # AgentRouter serves no channel for haiku ("无可用渠道" / 503), only
-      # claude-opus-4-8. Revert to a cheaper model if the gateway ever routes one.
-      - CV_EXTRACTION_MODEL=${CV_EXTRACTION_MODEL:-claude-opus-4-8}
+      # Claude Opus. Revert to a cheaper model if the gateway ever routes one.
+      - CV_EXTRACTION_MODEL=${CV_EXTRACTION_MODEL:-claude-opus-5}
       - ANTHROPIC_TIMEOUT_SECONDS=${ANTHROPIC_TIMEOUT_SECONDS:-120}
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
@@ -345,9 +345,10 @@ services:
       - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
       - ANTHROPIC_BASE_URL=${GOA_LLM_BASE_URL:-${ANTHROPIC_BASE_URL:-}}
       - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
-      - LLM_MODEL=${LLM_MODEL:-claude-opus-4-8}
-      - SPEAKING_PRACTICE_MODEL=${SPEAKING_PRACTICE_MODEL:-claude-opus-4-8}
-      - SPEAKING_EXAM_MODEL=${SPEAKING_EXAM_MODEL:-claude-opus-4-8}
+      - LLM_MODEL=${LLM_MODEL:-claude-opus-5}
+      - SPEAKING_PRACTICE_MODEL=${SPEAKING_PRACTICE_MODEL:-claude-opus-5}
+      - SPEAKING_EXAM_MODEL=${SPEAKING_EXAM_MODEL:-claude-opus-5}
+      - SPEAKING_INTERVIEWER_MODEL=${SPEAKING_INTERVIEWER_MODEL:-claude-opus-5}
       - OTEL_SERVICE_NAME=speaking
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
@@ -403,7 +404,7 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - ANTHROPIC_BASE_URL=${GOA_LLM_BASE_URL:-${ANTHROPIC_BASE_URL:-}}
       - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
-      - LLM_MODEL=${LLM_MODEL:-claude-opus-4-8}
+      - LLM_MODEL=${LLM_MODEL:-claude-opus-5}
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
       - LANGFUSE_HOST=${LANGFUSE_HOST}
@@ -490,7 +491,7 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - ANTHROPIC_BASE_URL=${GOA_LLM_BASE_URL:-${ANTHROPIC_BASE_URL:-}}
       - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
-      - LLM_MODEL=${LLM_MODEL:-claude-opus-4-8}
+      - LLM_MODEL=${LLM_MODEL:-claude-opus-5}
       - INTERNAL_API_KEY=supersecret_internal_key_123
       # The one browser-facing URL. The *_SERVICE_URL values above are Docker
       # hostnames for server-to-server calls; handing them to a client gave
@@ -567,7 +568,7 @@ services:
       - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
       - ANTHROPIC_BASE_URL=${GOA_LLM_BASE_URL:-${ANTHROPIC_BASE_URL:-}}
       - ANTHROPIC_USER_AGENT=${ANTHROPIC_USER_AGENT:-}
-      - EXTRACTION_MODEL=${EXTRACTION_MODEL:-claude-opus-4-8}
+      - EXTRACTION_MODEL=${EXTRACTION_MODEL:-claude-opus-5}
       - EMBEDDING_BASE_URL=${EMBEDDING_BASE_URL:-http://host.docker.internal:11434/v1}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL:-nomic-embed-text}
       - EMBEDDING_DIMENSIONS=${EMBEDDING_DIMENSIONS:-768}

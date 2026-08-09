@@ -75,12 +75,22 @@ func StartAccountDeletedConsumer(ctx context.Context, cfg *Config, repo db.Repos
 
 			for _, message := range output.Messages {
 				if userID, ok := parseAccountDeletedUserID(aws.ToString(message.Body)); ok {
+					var interviewDeleted int64
+					if interviewRepo, ok := repo.(interface {
+						DeleteInterviewsByUser(context.Context, string) (int64, error)
+					}); ok {
+						interviewDeleted, err = interviewRepo.DeleteInterviewsByUser(ctx, userID)
+						if err != nil {
+							log.Error().Err(err).Str("user_id", userID).Msg("Speaking interview AccountDeleted purge failed")
+							continue
+						}
+					}
 					deleted, err := repo.DeleteByUser(ctx, userID)
 					if err != nil {
 						log.Error().Err(err).Str("user_id", userID).Msg("Speaking AccountDeleted purge failed")
 						continue
 					}
-					log.Info().Str("user_id", userID).Int64("deleted", deleted).Msg("Purged speaking data for deleted account")
+					log.Info().Str("user_id", userID).Int64("deleted", deleted+interviewDeleted).Msg("Purged speaking data for deleted account")
 				}
 
 				if _, err := client.DeleteMessage(ctx, &sqs.DeleteMessageInput{

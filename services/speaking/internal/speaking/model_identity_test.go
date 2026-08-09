@@ -32,7 +32,7 @@ func TestEffectiveLLMModelReadsTheClientNotALiteral(t *testing.T) {
 		client agents.LLMClient
 		want   string
 	}{
-		{"configured practice model", modelAwareClient{model: "claude-opus-4-8"}, "claude-opus-4-8"},
+		{"configured practice model", modelAwareClient{model: "claude-opus-5"}, "claude-opus-5"},
 		{"configured exam model", modelAwareClient{model: "claude-opus-5"}, "claude-opus-5"},
 		// The failure modes report "unknown" rather than a plausible id. A
 		// dashboard will average a plausible default without complaint; it cannot
@@ -55,10 +55,10 @@ func TestEffectiveLLMModelReadsTheClientNotALiteral(t *testing.T) {
 // "unknown" -- a regression with no failing test and no visible symptom outside
 // the Langfuse dashboard.
 func TestRealLLMClientReportsItsModel(t *testing.T) {
-	client := llm.NewClient("claude-opus-4-8", "test-key", "https://example.invalid")
+	client := llm.NewClient("claude-opus-5", "test-key", "https://example.invalid")
 
 	var asAgent agents.LLMClient = client
-	if got := EffectiveLLMModel(asAgent); got != "claude-opus-4-8" {
+	if got := EffectiveLLMModel(asAgent); got != "claude-opus-5" {
 		t.Errorf("EffectiveLLMModel(*llm.Client) = %q, want the configured model", got)
 	}
 }

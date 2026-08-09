@@ -340,7 +340,7 @@ func buildEvidenceClaim(
 		return &Claim{
 			Kind: ClaimEvidence, Text: ev.SupportsClaim,
 			Quote: ev.Quote, CharStart: start, CharEnd: end,
-			Part: partOf(ev),
+			Part: partOf(ev), TurnID: ev.TurnID,
 		}, nil
 
 	case EvidenceMeasurementRef:
@@ -354,7 +354,7 @@ func buildEvidenceClaim(
 		return &Claim{
 			Kind: ClaimEvidence, Text: ev.SupportsClaim,
 			MeasurementID: m.ID, MeasurementValue: m.Value, MeasurementUnit: m.Unit,
-			Part: partOf(ev),
+			Part: partOf(ev), TurnID: ev.TurnID,
 		}, nil
 
 	case EvidenceAudioInterval:
@@ -367,7 +367,7 @@ func buildEvidenceClaim(
 		return &Claim{
 			Kind: ClaimEvidence, Text: ev.SupportsClaim,
 			AudioStartS: *ev.AudioStartS, AudioEndS: *ev.AudioEndS,
-			Part: partOf(ev),
+			Part: partOf(ev), TurnID: ev.TurnID,
 		}, nil
 
 	default:
@@ -379,7 +379,7 @@ func buildEvidenceClaim(
 				Detail: "evidence with no claim attached",
 			}
 		}
-		return &Claim{Kind: ClaimEvidence, Text: ev.SupportsClaim, Part: partOf(ev)}, nil
+		return &Claim{Kind: ClaimEvidence, Text: ev.SupportsClaim, Part: partOf(ev), TurnID: ev.TurnID}, nil
 	}
 }
 

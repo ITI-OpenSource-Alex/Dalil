@@ -204,6 +204,7 @@ type Evidence struct {
 	AudioEndS   *float64 `json:"audio_end_s,omitempty"`
 
 	MeasurementID string `json:"measurement_id,omitempty"`
+	TurnID        string `json:"turn_id,omitempty"`
 	Part          *int   `json:"part,omitempty"`
 }
 

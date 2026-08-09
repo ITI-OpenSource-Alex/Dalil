@@ -75,6 +75,17 @@ func NewClient(model, apiKey, baseURL string) *Client {
 func (c *Client) Model() string { return c.model }
 
 func (c *Client) StreamCompletion(ctx context.Context, systemPrompt, userPrompt string) (CompletionResult, error) {
+	return c.streamCompletion(ctx, systemPrompt, userPrompt, 8192)
+}
+
+// StreamShortCompletion is the low-latency path for the live interviewer. It
+// deliberately cannot spend the scoring client's 8192-token budget on a
+// one-sentence question.
+func (c *Client) StreamShortCompletion(ctx context.Context, systemPrompt, userPrompt string) (CompletionResult, error) {
+	return c.streamCompletion(ctx, systemPrompt, userPrompt, 64)
+}
+
+func (c *Client) streamCompletion(ctx context.Context, systemPrompt, userPrompt string, maxTokens int64) (CompletionResult, error) {
 	start := time.Now()
 	var firstTokenTime time.Time
 	params := anthropic.MessageNewParams{
@@ -96,7 +107,7 @@ func (c *Client) StreamCompletion(ctx context.Context, systemPrompt, userPrompt 
 		// number and records that two investigations converged on it. What dev's
 		// fix did NOT include is the stop_reason guard below, which is what turns
 		// the next occurrence into a named error instead of a parse failure.
-		MaxTokens: 8192,
+		MaxTokens: maxTokens,
 		System: []anthropic.TextBlockParam{
 			{
 				Text: systemPrompt,

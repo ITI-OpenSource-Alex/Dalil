@@ -23,7 +23,7 @@ func TestUserAgentHeaderIsSent(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient("claude-opus-4-8", "fake-token", server.URL)
+	client := NewClient("claude-opus-5", "fake-token", server.URL)
 
 	_, _ = client.StreamCompletion(context.Background(), "system", "user")
 

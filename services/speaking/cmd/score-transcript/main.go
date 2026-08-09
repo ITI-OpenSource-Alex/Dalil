@@ -65,7 +65,7 @@ func main() {
 		os.Exit(2)
 	}
 
-	model := envOr("SPEAKING_PRACTICE_MODEL", envOr("LLM_MODEL", "claude-opus-4-8"))
+	model := envOr("SPEAKING_PRACTICE_MODEL", envOr("LLM_MODEL", "claude-opus-5"))
 	apiKey := envOr("ANTHROPIC_AUTH_TOKEN", os.Getenv("ANTHROPIC_API_KEY"))
 	baseURL := envOr("GOA_LLM_BASE_URL", os.Getenv("ANTHROPIC_BASE_URL"))
 	if apiKey == "" {

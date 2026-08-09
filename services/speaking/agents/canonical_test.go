@@ -63,7 +63,7 @@ func testMeta(mode contract.Mode) CanonicalMeta {
 		CreatedAt:     time.Date(2026, 8, 8, 12, 0, 0, 0, time.UTC),
 		ScorerVersion: "speaking@test",
 		LLMProvider:   "agentrouter",
-		LLMModel:      "claude-opus-4-8",
+		LLMModel:      "claude-opus-5",
 	}
 }
 

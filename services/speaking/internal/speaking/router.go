@@ -3,9 +3,11 @@ package speaking
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/agents"
 	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/db"
+	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/internal/interview"
 	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/langfuse"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -14,12 +16,20 @@ import (
 // NewRouter's signature stable as handlers gain dependencies, and lets tests
 // build the production router with stubs for the parts they don't exercise.
 type RouterDeps struct {
-	Config      *Config
-	Repo        db.Repository
-	PracticeLLM agents.LLMClient
-	ExamLLM     agents.LLMClient
-	TTS         TTSClient
-	Langfuse    *langfuse.Client
+	Config          *Config
+	Repo            db.Repository
+	PracticeLLM     agents.LLMClient
+	ExamLLM         agents.LLMClient
+	TTS             TTSClient
+	Langfuse        *langfuse.Client
+	InterviewStore  InterviewStore
+	Interviewer     interview.FollowupGenerator
+	InterviewBank   *interview.Bank
+	Transcriber     TurnTranscriber
+	ExaminerVoice   ExaminerVoice
+	InterviewTiming interview.Timing
+	Now             func() time.Time
+	Part3MaxTurns   int
 }
 
 // preflight answers CORS preflight requests. WithCORS short-circuits every
@@ -46,7 +56,42 @@ func NewRouter(deps RouterDeps) *http.ServeMux {
 		_, _ = w.Write([]byte(`{"status":"healthy"}`))
 	})
 
+	store := deps.InterviewStore
+	if store == nil {
+		store, _ = deps.Repo.(InterviewStore)
+	}
+	bank := deps.InterviewBank
+	if bank == nil {
+		bank, _ = interview.LoadDefaultBank()
+	}
+	transcriber := deps.Transcriber
+	if transcriber == nil && deps.Config != nil {
+		transcriber = NewSpeechTurnTranscriber(deps.Config.SpeechServiceURL)
+	}
+	voice := deps.ExaminerVoice
+	if voice == nil && deps.TTS != nil {
+		voice = NewCachedExaminerVoice(deps.TTS)
+	}
+	var followups *interview.FollowupEngine
+	if deps.Interviewer != nil {
+		followups = &interview.FollowupEngine{
+			Generator: deps.Interviewer, TopicChecker: SeedTopicChecker{},
+			Policy: interview.DefaultFollowupPolicy(), Timeout: interviewerTimeout,
+		}
+	}
+
+	// Protocol v3 is the production endpoint. The legacy monologue handler is
+	// retained only on /ws/v2 for controlled rollback and its regression suite;
+	// a v2 frame sent to /ws receives a typed protocol refusal.
 	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+		HandleInterviewWebSocket(w, r, InterviewSocketDeps{
+			Config: deps.Config, Sessions: deps.Repo, Store: store,
+			ScoringLLM: deps.PracticeLLM, Transcriber: transcriber, Voice: voice,
+			Bank: bank, Followups: followups, Timing: deps.InterviewTiming,
+			Now: deps.Now, Part3MaxTurn: deps.Part3MaxTurns,
+		})
+	})
+	mux.HandleFunc("/ws/v2", func(w http.ResponseWriter, r *http.Request) {
 		HandleWebSocket(w, r, deps.Config, deps.Repo, deps.PracticeLLM, deps.TTS, deps.Langfuse)
 	})
 

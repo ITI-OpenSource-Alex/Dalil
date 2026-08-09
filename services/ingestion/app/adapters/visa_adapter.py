@@ -17,6 +17,8 @@ from app.evidence import validate_evidence
 import httpx
 import pydantic
 import structlog
+
+from app.adapters import visa_supervisor
 from anthropic import AsyncAnthropic
 from bs4 import BeautifulSoup
 from pydantic import BaseModel
@@ -258,6 +260,93 @@ class VisaSourceAdapter:
             "visa_requirements": [visa_record],
         }
 
+
+    async def _relocate(self, source, first_error: str):
+        """Find where a dead authority moved to, and check what we find.
+
+        Returns (source, page_text) with the resolved URL, or None to leave the
+        source failed. None is the common outcome and that is intended: this
+        only substitutes a page that clears BOTH the domain allowlist and the
+        supervisor, and a student's visa requirements are the wrong place to
+        accept a best guess.
+
+        Nothing is written back to visa_sources here. A relocated URL is used
+        for this run and reported; promoting it to the stored source is a
+        review decision, because the row is what every future run trusts
+        without re-checking.
+        """
+        from app.adapters import visa_discovery
+
+        candidate = visa_discovery.discover(
+            source.country, source.visa_type, source.issuing_body
+        )
+        if candidate is None:
+            logger.warning(
+                "visa_relocation_no_candidate",
+                country=source.country,
+                issuing_body=source.issuing_body,
+                original_error=first_error,
+            )
+            return None
+
+        # model_copy, not dataclasses.replace: VisaSource is a pydantic model,
+        # and a copy keeps the original row untouched so a failed relocation
+        # leaves the stored source exactly as it was.
+        relocated = source.model_copy(update={"source_url": candidate.url})
+        try:
+            text = await self._fetch_text(relocated)
+        except Exception as fetch_error:
+            logger.warning(
+                "visa_relocation_fetch_failed",
+                url=candidate.url,
+                error=str(fetch_error),
+            )
+            return None
+
+        supervision = await visa_supervisor.supervise(
+            self.anthropic,
+            EXTRACTION_MODEL,
+            url=candidate.url,
+            page_text=text,
+            country=source.country,
+            issuing_body=source.issuing_body,
+        )
+
+        # ACCEPT only. REVIEW is not a soft accept: an unverified page reaching
+        # a student is the failure this whole path exists to avoid, and a
+        # missing country is the honest alternative.
+        if not supervision.usable:
+            logger.warning(
+                "visa_relocation_not_accepted",
+                url=candidate.url,
+                country=source.country,
+                verdict=supervision.verdict.value,
+                reasons=supervision.reasons,
+            )
+            self.last_run_telemetry.setdefault("relocation_pending_review", []).append({
+                "country": source.country,
+                "issuing_body": source.issuing_body,
+                "candidate_url": candidate.url,
+                "verdict": supervision.verdict.value,
+                "reasons": supervision.reasons,
+            })
+            return None
+
+        logger.info(
+            "visa_relocated",
+            country=source.country,
+            issuing_body=source.issuing_body,
+            from_url=source.source_url,
+            to_url=candidate.url,
+            confidence=supervision.model_confidence,
+        )
+        self.last_run_telemetry.setdefault("relocated", []).append({
+            "country": source.country,
+            "from": source.source_url,
+            "to": candidate.url,
+        })
+        return relocated, text
+
     async def _fetch_text(self, source: VisaSource) -> str:
         """Fetch a source's visible text, via Playwright when the row demands it."""
         if source.fetch_method == "playwright":
@@ -413,17 +502,24 @@ class VisaSourceAdapter:
             try:
                 text = await self._fetch_text(source)
             except Exception as e:
-                # One dead embassy page must never kill the other eight.
-                outcomes.append(self._invalid(source, f"fetch_failed: {e}"))
-                self.last_run_telemetry["failed"] += 1
-                self.crawl_state.mark_source_attempt(
-                    self.source_name,
-                    str(source.id),
-                    source.source_url,
-                    succeeded=False,
-                    error_message=f"fetch_failed: {e}",
-                )
-                continue
+                # A dead link is where discovery earns its place. Consular URLs
+                # move, and two rows here were NXDOMAIN for long enough to fail
+                # every run. Relocating the authority costs one search; leaving
+                # the row dead costs the country's entire visa phase.
+                relocated = await self._relocate(source, first_error=str(e))
+                if relocated is None:
+                    # One dead embassy page must never kill the other eight.
+                    outcomes.append(self._invalid(source, f"fetch_failed: {e}"))
+                    self.last_run_telemetry["failed"] += 1
+                    self.crawl_state.mark_source_attempt(
+                        self.source_name,
+                        str(source.id),
+                        source.source_url,
+                        succeeded=False,
+                        error_message=f"fetch_failed: {e}",
+                    )
+                    continue
+                source, text = relocated
 
             if not text.strip():
                 outcomes.append(self._invalid(source, "empty_page_text"))

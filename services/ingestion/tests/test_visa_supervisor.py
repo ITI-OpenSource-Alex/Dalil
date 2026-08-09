@@ -163,4 +163,15 @@ async def main():
     return 0 if ok == total else 1
 
 
-sys.exit(asyncio.run(main()))
+def test_supervisor_checks() -> None:
+    """Entry point for pytest, which collects this file by its name.
+
+    The script form below stays for running it directly. Without the guard the
+    module-level sys.exit fired during collection and took the whole session
+    down with it, so nothing in this service ran at all.
+    """
+    assert asyncio.run(main()) == 0
+
+
+if __name__ == "__main__":
+    sys.exit(asyncio.run(main()))

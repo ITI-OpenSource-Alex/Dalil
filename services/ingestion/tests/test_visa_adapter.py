@@ -210,6 +210,11 @@ async def test_one_source_failure_doesnt_kill_run(mocker, dummy_source):
     mocker.patch.object(
         adapter, "_call_llm", return_value=_llm({"extraction_valid": True, "requirements": {}})
     )
+    # A failed fetch now triggers relocation, which reaches the live internet and
+    # would also consume source 3's queued response. Stubbing it to find nothing
+    # keeps this test about what its name says -- the run surviving one failure --
+    # and keeps it hermetic.
+    mocker.patch("app.adapters.visa_discovery.discover", return_value=None)
 
     outcomes = await adapter.run([dummy_source, source2, source3])
 

@@ -1,3 +1,12 @@
+# Pinned so the project name cannot drift.
+#
+# Without this, Compose derives the name from the directory -- and this repo is
+# reached through a symlink whose resolved case differs between shells. A
+# different derived name means a different set of containers, volumes and
+# `<project>-<service>` image tags: everything rebuilds, and the previous
+# containers are orphaned rather than replaced.
+name: goa
+
 services:
   gateway:
     build:
@@ -15,7 +24,7 @@ services:
       - AWS_ENDPOINT_URL=http://localstack:4566
       - INGESTION_QUEUE_URL=http://localstack:4566/000000000000/ingestion-queue
       - BUDGET_USD=${BUDGET_USD:-150}
-      - LLM_PRICING_JSON=${LLM_PRICING_JSON:-{"claude-opus-4-8":{"prompt_per_1m":2,"completion_per_1m":10},"glm-5.2":{"prompt_per_1m":6,"completion_per_1m":9},"gpt-5.5":{"prompt_per_1m":7,"completion_per_1m":14},"claude-opus-4-6":{"prompt_per_1m":8,"completion_per_1m":40},"claude-opus-4-7":{"prompt_per_1m":8,"completion_per_1m":40}}}
+      - LLM_PRICING_JSON=${LLM_PRICING_JSON:-{"claude-opus-4-8":{"prompt_per_1m":6,"completion_per_1m":30},"claude-opus-5":{"prompt_per_1m":2,"completion_per_1m":10},"gpt-5.6-sol":{"prompt_per_1m":6,"completion_per_1m":36}}}
       - REDIS_URL=redis://redis-gateway:6379/0
       - JWT_SECRET=supersecret_dev_key
       - WRITING_SERVICE_URL=http://writing:8000
@@ -122,25 +131,26 @@ services:
       - CV_PROCESSED_QUEUE_URL=http://localstack:4566/000000000000/goa-cv-processed
       - ACCOUNT_DELETED_QUEUE_URL=http://localstack:4566/000000000000/user-events-writing
       # /opt/goa is the shared security package (GOA-034); see the volume below.
-      - PYTHONPATH=/app:/packages/contracts/py:/opt/goa
+      - PYTHONPATH=/app:/packages/contracts/py:/opt/goa:/opt/goa-pricing
       - OTEL_SERVICE_NAME=writing-service
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - ANTHROPIC_BASE_URL=${GOA_LLM_BASE_URL:-${ANTHROPIC_BASE_URL:-}}
       - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
-      - LLM_MODEL=${LLM_MODEL:-claude-opus-4-8}
+      - LLM_MODEL=${LLM_MODEL:-claude-opus-5}
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
       - LANGFUSE_HOST=${LANGFUSE_HOST}
       # AgentRouter serves no channel for haiku ("无可用渠道" / 503) and none for
-      # claude-sonnet-4-6, only claude-opus-4-8 — which is why GOA-093's
+      # claude-sonnet-4-6; use the configured Claude Opus channel instead.
       # consolidation target moved off Sonnet. Revert to a cheaper model here if
       # the gateway ever routes one.
-      - WRITING_MODEL=${WRITING_MODEL:-claude-opus-4-8}
-      - CV_EXTRACTION_MODEL=${CV_EXTRACTION_MODEL:-claude-opus-4-8}
+      - WRITING_MODEL=${WRITING_MODEL:-claude-opus-5}
+      - CV_EXTRACTION_MODEL=${CV_EXTRACTION_MODEL:-claude-opus-5}
       # Academic Task 1 stimulus description (GOA-093). Must be a vision-capable
-      # model; AgentRouter forwards multimodal blocks for claude-opus-4-8 (GOA-126).
-      - VISION_MODEL=${VISION_MODEL:-claude-opus-4-8}
+      # model; AgentRouter forwards multimodal blocks for Claude Opus (GOA-126).
+      - VISION_MODEL=${VISION_MODEL:-claude-opus-5}
       - ANTHROPIC_TIMEOUT_SECONDS=${ANTHROPIC_TIMEOUT_SECONDS:-120}
+      - WRITING_AGENT_MAX_TOKENS=${WRITING_AGENT_MAX_TOKENS:-16000}
       - WRITING_CACHE_VERSION=${WRITING_CACHE_VERSION:-v1}
     volumes:
       - ./services/writing/app:/app/app
@@ -149,6 +159,11 @@ services:
       - ./services/writing/tests:/app/tests
       - ./packages/contracts/py:/packages/contracts/py
       - ./packages/security/py:/opt/goa
+      # GOA-135: the shared price table. It gets its OWN root rather than
+      # joining goa_security in /opt/goa, because the bind mount above hides
+      # whatever the image put at that path -- a package COPYed to /opt/goa
+      # would exist in the image and vanish under compose.
+      - ./packages/pricing/py:/opt/goa-pricing
     depends_on:
       postgres:
         condition: service_healthy
@@ -182,13 +197,13 @@ services:
       - ANTHROPIC_BASE_URL=${GOA_LLM_BASE_URL:-${ANTHROPIC_BASE_URL:-}}
       - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
       # AgentRouter serves no channel for haiku ("无可用渠道" / 503), only
-      # claude-opus-4-8. Revert to a cheaper model if the gateway ever routes one.
-      - CV_EXTRACTION_MODEL=${CV_EXTRACTION_MODEL:-claude-opus-4-8}
+      # Claude Opus. Revert to a cheaper model if the gateway ever routes one.
+      - CV_EXTRACTION_MODEL=${CV_EXTRACTION_MODEL:-claude-opus-5}
       - ANTHROPIC_TIMEOUT_SECONDS=${ANTHROPIC_TIMEOUT_SECONDS:-120}
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
       - LANGFUSE_HOST=${LANGFUSE_HOST}
-      - PYTHONPATH=/app:/packages/contracts/py:/opt/goa
+      - PYTHONPATH=/app:/packages/contracts/py:/opt/goa:/opt/goa-pricing
       - OTEL_SERVICE_NAME=cv-processor
     volumes:
       - ./services/writing/app:/app/app
@@ -196,6 +211,11 @@ services:
       - ./services/writing/migrations:/app/migrations
       - ./packages/contracts/py:/packages/contracts/py
       - ./packages/security/py:/opt/goa
+      # GOA-135: the shared price table. It gets its OWN root rather than
+      # joining goa_security in /opt/goa, because the bind mount above hides
+      # whatever the image put at that path -- a package COPYed to /opt/goa
+      # would exist in the image and vanish under compose.
+      - ./packages/pricing/py:/opt/goa-pricing
     depends_on:
       postgres:
         condition: service_healthy
@@ -325,9 +345,10 @@ services:
       - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
       - ANTHROPIC_BASE_URL=${GOA_LLM_BASE_URL:-${ANTHROPIC_BASE_URL:-}}
       - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
-      - LLM_MODEL=${LLM_MODEL:-claude-opus-4-8}
-      - SPEAKING_PRACTICE_MODEL=${SPEAKING_PRACTICE_MODEL:-claude-opus-4-8}
-      - SPEAKING_EXAM_MODEL=${SPEAKING_EXAM_MODEL:-claude-opus-4-8}
+      - LLM_MODEL=${LLM_MODEL:-claude-opus-5}
+      - SPEAKING_PRACTICE_MODEL=${SPEAKING_PRACTICE_MODEL:-claude-opus-5}
+      - SPEAKING_EXAM_MODEL=${SPEAKING_EXAM_MODEL:-claude-opus-5}
+      - SPEAKING_INTERVIEWER_MODEL=${SPEAKING_INTERVIEWER_MODEL:-claude-opus-5}
       - OTEL_SERVICE_NAME=speaking
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
@@ -371,13 +392,19 @@ services:
       # before it ever binds :8084 -- which the Gateway reports as a 502 from
       # /api/opportunities/query. The Writing service already pins it here and
       # was unaffected; this makes RAG match.
-      - PYTHONPATH=/app:/opt/goa
+      # /opt/goa-pricing is the shared LLM price table (GOA-135), delivered by
+      # its own bind mount below. It has to be listed here for the same reason
+      # /opt/goa is: pinning the path in compose overrides the image's ENV, so
+      # anything the image adds after this line was written is dropped. This
+      # pin and the GOA-135 mount arrived on separate branches, merged without
+      # a textual conflict, and together made goa_pricing unimportable.
+      - PYTHONPATH=/app:/opt/goa:/opt/goa-pricing
       - DATABASE_URL=postgresql://goa:goa_pass@postgres:5432/rag_db
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - ANTHROPIC_BASE_URL=${GOA_LLM_BASE_URL:-${ANTHROPIC_BASE_URL:-}}
       - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
-      - LLM_MODEL=${LLM_MODEL:-claude-opus-4-8}
+      - LLM_MODEL=${LLM_MODEL:-claude-opus-5}
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
       - LANGFUSE_HOST=${LANGFUSE_HOST}
@@ -393,9 +420,15 @@ services:
       - EMBEDDING_BASE_URL=${EMBEDDING_BASE_URL:-http://host.docker.internal:11434/v1}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL:-nomic-embed-text}
       - EMBEDDING_API_KEY=${EMBEDDING_API_KEY:-ollama}
+      - RAG_HYBRID_ENABLED=${RAG_HYBRID_ENABLED:-false}
     volumes:
       - ./services/rag:/app
       - ./packages/security/py:/opt/goa
+      # GOA-135: the shared price table. It gets its OWN root rather than
+      # joining goa_security in /opt/goa, because the bind mount above hides
+      # whatever the image put at that path -- a package COPYed to /opt/goa
+      # would exist in the image and vanish under compose.
+      - ./packages/pricing/py:/opt/goa-pricing
     depends_on:
       postgres:
         condition: service_healthy
@@ -446,13 +479,19 @@ services:
       # Same reason as RAG above: the shared security package arrives on the
       # bind mount at /opt/goa, so the path to it belongs next to the mount
       # rather than only in the image.
-      - PYTHONPATH=/app:/opt/goa
+      # /opt/goa-pricing is the shared LLM price table (GOA-135), delivered by
+      # its own bind mount below. It has to be listed here for the same reason
+      # /opt/goa is: pinning the path in compose overrides the image's ENV, so
+      # anything the image adds after this line was written is dropped. This
+      # pin and the GOA-135 mount arrived on separate branches, merged without
+      # a textual conflict, and together made goa_pricing unimportable.
+      - PYTHONPATH=/app:/opt/goa:/opt/goa-pricing
       - DATABASE_URL=postgresql://goa:goa_pass@postgres:5432/orchestration_db
       - REDIS_URL=redis://redis-cache:6379/1
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - ANTHROPIC_BASE_URL=${GOA_LLM_BASE_URL:-${ANTHROPIC_BASE_URL:-}}
       - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
-      - LLM_MODEL=${LLM_MODEL:-claude-opus-4-8}
+      - LLM_MODEL=${LLM_MODEL:-claude-opus-5}
       - INTERNAL_API_KEY=supersecret_internal_key_123
       # The one browser-facing URL. The *_SERVICE_URL values above are Docker
       # hostnames for server-to-server calls; handing them to a client gave
@@ -490,6 +529,11 @@ services:
       # Shared security package (GOA-034). Mounted so a change to it is
       # live in dev the same way a change to the service is.
       - ./packages/security/py:/opt/goa
+      # GOA-135: the shared price table. It gets its OWN root rather than
+      # joining goa_security in /opt/goa, because the bind mount above hides
+      # whatever the image put at that path -- a package COPYed to /opt/goa
+      # would exist in the image and vanish under compose.
+      - ./packages/pricing/py:/opt/goa-pricing
     depends_on:
       postgres:
         condition: service_healthy
@@ -524,7 +568,7 @@ services:
       - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
       - ANTHROPIC_BASE_URL=${GOA_LLM_BASE_URL:-${ANTHROPIC_BASE_URL:-}}
       - ANTHROPIC_USER_AGENT=${ANTHROPIC_USER_AGENT:-}
-      - EXTRACTION_MODEL=${EXTRACTION_MODEL:-claude-opus-4-8}
+      - EXTRACTION_MODEL=${EXTRACTION_MODEL:-claude-opus-5}
       - EMBEDDING_BASE_URL=${EMBEDDING_BASE_URL:-http://host.docker.internal:11434/v1}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL:-nomic-embed-text}
       - EMBEDDING_DIMENSIONS=${EMBEDDING_DIMENSIONS:-768}
@@ -540,6 +584,11 @@ services:
     volumes:
       - ./services/ingestion:/app
       - ./packages/contracts/py/contracts:/app/contracts:ro
+      # GOA-135: same shape as `contracts` above. The Dockerfile COPYs the price
+      # table into /app/goa_pricing, and the /app mount on the first line hides
+      # it -- the run summary's cost import then fails under compose while
+      # working perfectly in the built image.
+      - ./packages/pricing/py/goa_pricing:/app/goa_pricing:ro
       # The schema-parity test compares the independently deployed ingestion and
       # RAG models. Mount RAG read-only so that check also runs in the service image.
       - ./services/rag:/rag:ro

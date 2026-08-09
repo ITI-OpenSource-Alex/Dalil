@@ -1,0 +1,11 @@
+{
+  "_why_invalid": "6.3 is not an IELTS band. Accepting it would mean some upstream rounding rule was skipped, and the number shown to a student would be one no examiner could award.",
+  "schema_version": "speaking-evaluation/v1",
+  "evaluation_id": "eval-invalid-3",
+  "mode": "practice",
+  "status": "complete",
+  "score_semantics": "estimated_ielts_practice_band",
+  "criteria": [{ "criterion_id": "fluency_coherence", "status": "scored", "band": 6.3 }],
+  "overall": { "included_criteria": ["fluency_coherence"], "rounding_rule": "ielts_half_band_v1", "min_criteria_required": 3 },
+  "provenance": { "created_at": "2026-08-08T10:00:00Z", "scorer_version": "s", "rubric_id": "r", "rubric_version": "v" }
+}

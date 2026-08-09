@@ -16,6 +16,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 
+import httpx
+
 
 RUBRIC_DIR = Path(__file__).resolve().parent / "rubrics"
 CACHE_FILE = Path(__file__).resolve().parent / ".judge_cache.json"
@@ -31,9 +33,10 @@ CRITERIA: Dict[str, Tuple[str, ...]] = {
 }
 
 ACCURATE_TOLERANCE = 0.5  # Ticket definition: within half a band of expert is correct.
+DEFAULT_JUDGE_MODEL = "gpt-5.6-sol"
 
 def get_model() -> str:
-    return os.environ.get("EVAL_JUDGE_MODEL", "claude-opus-4-8")
+    return os.environ.get("EVAL_JUDGE_MODEL", DEFAULT_JUDGE_MODEL)
 
 
 @dataclass
@@ -165,29 +168,100 @@ def _parse_json_object(raw: str) -> dict:
     return json.loads(match.group(0))
 
 
-def _client():
+class OpenAIJudgeClient:
+    """Minimal Anthropic-shaped adapter for the independent judge endpoint."""
+
+    def __init__(self, *, base_url: str, api_key: str, timeout: float = 120.0):
+        if not api_key:
+            raise RuntimeError("EVAL_JUDGE_API_KEY is not configured")
+        self.url = base_url.rstrip("/") + "/chat/completions"
+        self.api_key = api_key
+        self.timeout = timeout
+        self.messages = self
+
+    def create(self, *, model: str, max_tokens: int, messages: list[dict], **_):
+        response = httpx.post(
+            self.url,
+            headers={
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json",
+                "User-Agent": os.environ.get("ANTHROPIC_USER_AGENT")
+                or "Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14",
+            },
+            json={
+                "model": model,
+                "max_tokens": max_tokens,
+                "messages": messages,
+                "stream": False,
+            },
+            timeout=self.timeout,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        message = payload["choices"][0]["message"]
+        content = message.get("content")
+        if isinstance(content, list):
+            content = "".join(
+                part.get("text", "")
+                for part in content
+                if isinstance(part, dict)
+            )
+        if not content:
+            raise ValueError("Independent judge response carried no text content")
+        usage = payload.get("usage") or {}
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            content=[SimpleNamespace(text=content)],
+            usage=SimpleNamespace(
+                input_tokens=int(usage.get("prompt_tokens") or 0),
+                output_tokens=int(usage.get("completion_tokens") or 0),
+            ),
+        )
+
+
+def _client(model: Optional[str] = None):
+    selected_model = model or get_model()
+    timeout = float(os.environ.get("EVAL_JUDGE_TIMEOUT_SECONDS", "120"))
+    if not selected_model.startswith("claude-"):
+        return OpenAIJudgeClient(
+            base_url=os.environ.get(
+                "EVAL_JUDGE_BASE_URL", "https://agentrouter.org/v1"
+            ),
+            api_key=os.environ.get("EVAL_JUDGE_API_KEY")
+            or os.environ.get("ANTHROPIC_AUTH_TOKEN")
+            or os.environ.get("ANTHROPIC_API_KEY", ""),
+            timeout=timeout,
+        )
+
     from anthropic import Anthropic
 
     kwargs = {
-        "api_key": os.environ.get("ANTHROPIC_AUTH_TOKEN")
+        "api_key": os.environ.get("EVAL_SAME_FAMILY_API_KEY")
+        or os.environ.get("ANTHROPIC_AUTH_TOKEN")
         or os.environ.get("ANTHROPIC_API_KEY", ""),
         "default_headers": {
             "User-Agent": os.environ.get("ANTHROPIC_USER_AGENT")
             or "Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14"
         },
-        "timeout": 60.0,
+        "timeout": timeout,
     }
-    if os.environ.get("ANTHROPIC_BASE_URL"):
-        kwargs["base_url"] = os.environ["ANTHROPIC_BASE_URL"]
+    base_url = os.environ.get("EVAL_SAME_FAMILY_BASE_URL") or os.environ.get(
+        "ANTHROPIC_BASE_URL"
+    )
+    if base_url:
+        kwargs["base_url"] = base_url
     return Anthropic(**kwargs)
 
 
 def judge_evaluation(domain: str, item: dict, agent_result: dict,
                      client=None, rubric: Optional[str] = None,
-                     attempts: int = 2, use_cache: bool = True) -> JudgeVerdict:
+                     attempts: int = 2, use_cache: bool = True,
+                     model: Optional[str] = None) -> JudgeVerdict:
     """Judge one item. Never raises: a failure is recorded, not thrown."""
     item_id = item.get("id", "<unknown>")
-    expert_band = float(item.get("expected_band", 0.0))
+    raw_expert_band = item.get("expected_band")
+    expert_band = float(raw_expert_band) if raw_expert_band is not None else float("nan")
     expert_criteria = item.get("expected_criteria", {})
     agent_criteria = agent_result.get("criteria", {})
     text = item.get("essay") or item.get("transcript") or ""
@@ -209,7 +283,32 @@ def judge_evaluation(domain: str, item: dict, agent_result: dict,
             error=f"Agent call failed: {agent_result['agent_error']}",
         )
 
-    agent_band = float(agent_result.get("overall_band") or 0.0)
+    raw_agent_band = agent_result.get("overall_band")
+    if raw_agent_band is None:
+        return JudgeVerdict(
+            item_id=item_id,
+            verdict="ERROR",
+            agent_band=float("nan"),
+            expert_band=expert_band,
+            delta=float("nan"),
+            reason="",
+            agent_criteria=agent_criteria,
+            expert_criteria=expert_criteria,
+            error="Agent response did not contain overall_band",
+        )
+    if raw_expert_band is None:
+        return JudgeVerdict(
+            item_id=item_id,
+            verdict="ERROR",
+            agent_band=float(raw_agent_band),
+            expert_band=float("nan"),
+            delta=float("nan"),
+            reason="",
+            agent_criteria=agent_criteria,
+            expert_criteria=expert_criteria,
+            error="Golden item did not contain expected_band",
+        )
+    agent_band = float(raw_agent_band)
 
     # Compute per-criterion verdicts
     per_criterion_verdicts = {}
@@ -217,7 +316,8 @@ def judge_evaluation(domain: str, item: dict, agent_result: dict,
         if c_key in expert_criteria:
             per_criterion_verdicts[c_key] = compute_verdict(float(c_agent), float(expert_criteria[c_key]))
 
-    cache_key = get_cache_key(domain, text, agent_band, get_model())
+    judge_model = model or get_model()
+    cache_key = get_cache_key(domain, text, agent_band, judge_model)
     if use_cache:
         disk_cache = _load_disk_cache()
         if cache_key in disk_cache:
@@ -260,7 +360,7 @@ def judge_evaluation(domain: str, item: dict, agent_result: dict,
 
     if client is None:
         try:
-            client = _client()
+            client = _client(judge_model)
         except Exception as e:
             return JudgeVerdict(
                 item_id=item_id,
@@ -282,7 +382,7 @@ def judge_evaluation(domain: str, item: dict, agent_result: dict,
     for attempt in range(attempts):
         try:
             response = client.messages.create(
-                model=get_model(),
+                model=judge_model,
                 max_tokens=1500,
                 messages=[{"role": "user", "content": current_prompt}],
             )
@@ -338,7 +438,8 @@ def judge_evaluation(domain: str, item: dict, agent_result: dict,
 
 
 def judge_all(domain: str, items: List[dict], agent_results: List[dict],
-              client=None, max_workers: int = 4) -> List[JudgeVerdict]:
+              client=None, max_workers: int = 4,
+              model: Optional[str] = None) -> List[JudgeVerdict]:
     """Judge all items. Fail fast on missing rubric, strictly assert equal list lengths."""
     assert len(items) == len(agent_results), (
         f"{len(items)} items but {len(agent_results)} agent results — a dropped agent "
@@ -349,7 +450,17 @@ def judge_all(domain: str, items: List[dict], agent_results: List[dict],
 
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
         futures = [
-            pool.submit(judge_evaluation, domain, item, agent_res, client, rubric)
+            pool.submit(
+                judge_evaluation,
+                domain,
+                item,
+                agent_res,
+                client,
+                rubric,
+                2,
+                True,
+                model,
+            )
             for item, agent_res in zip(items, agent_results)
         ]
         return [f.result() for f in futures]

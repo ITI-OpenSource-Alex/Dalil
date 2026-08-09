@@ -1,0 +1,13 @@
+{
+  "_why_invalid": "BUG-055, the defect class this whole schema exists for. A criterion that did not complete carries band 0.0 -- a real IELTS value meaning the candidate said nothing usable -- so 'we did not measure this' and 'they scored zero' become the same payload. The allOf on criterionResult forbids band when status is unavailable.",
+  "schema_version": "speaking-evaluation/v1",
+  "evaluation_id": "eval-invalid-1",
+  "mode": "practice",
+  "status": "partial",
+  "score_semantics": "estimated_ielts_practice_band",
+  "criteria": [
+    { "criterion_id": "fluency_coherence", "status": "unavailable", "unavailable_reason": "deadline_exceeded", "band": 0.0 }
+  ],
+  "overall": { "included_criteria": [], "rounding_rule": "ielts_half_band_v1", "min_criteria_required": 3 },
+  "provenance": { "created_at": "2026-08-08T10:00:00Z", "scorer_version": "s", "rubric_id": "r", "rubric_version": "v" }
+}

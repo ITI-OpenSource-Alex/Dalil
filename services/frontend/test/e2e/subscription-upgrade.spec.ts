@@ -108,7 +108,7 @@ test.describe("/pricing", () => {
     await expect(page.getByRole("heading", { name: "Dalil Pro" })).toBeVisible();
     // exact: the FAQ further down the page also mentions the price in prose.
     await expect(page.getByText("$0", { exact: true })).toBeVisible();
-    await expect(page.getByText("$7", { exact: true })).toBeVisible();
+    await expect(page.getByText("$20", { exact: true })).toBeVisible();
     await expect(
       page.getByRole("link", { name: /Start with Pro/ }),
     ).toHaveAttribute("href", "/register?next=/pricing");

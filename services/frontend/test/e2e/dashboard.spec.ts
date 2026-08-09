@@ -41,11 +41,22 @@ const PROFILE = {
 };
 
 async function mockEmptyDashboardData(page: Page, profile = PROFILE) {
-  await page.route(`${GATEWAY}/api/profile`, (route) => route.fulfill(withCors(profile)));
-  await page.route(`${GATEWAY}/api/speaking/sessions`, (route) => route.fulfill(withCors([])));
-  await page.route(`${GATEWAY}/api/writing/essays*`, (route) => route.fulfill(withCors([])));
+  await page.route(`${GATEWAY}/api/profile`, (route) =>
+    route.fulfill(withCors(profile)),
+  );
+  await page.route(`${GATEWAY}/api/speaking/sessions`, (route) =>
+    route.fulfill(withCors([])),
+  );
+  await page.route(`${GATEWAY}/api/writing/essays*`, (route) =>
+    route.fulfill(withCors([])),
+  );
   await page.route(`${GATEWAY}/api/exam/progress`, (route) =>
-    route.fulfill(withCors({ error: "subscription_required", upgradeUrl: "/#pricing" }, 403)),
+    route.fulfill(
+      withCors(
+        { error: "subscription_required", upgradeUrl: "/#pricing" },
+        403,
+      ),
+    ),
   );
 }
 
@@ -59,7 +70,9 @@ test.describe("Dalil Dashboard", () => {
 
     await expect(page.getByText(/Welcome back, Amina Hassan/)).toBeVisible();
     await expect(page.getByText("No practice sessions yet")).toBeVisible();
-    await expect(page.getByText("IELTS scoring is part of Dalil Pro")).toBeVisible();
+    await expect(
+      page.getByText("IELTS scoring is part of Dalil Pro"),
+    ).toBeVisible();
     // Recommendations only render once there's exam data to derive a real
     // suggestion from -- a Free account never sees it.
     await expect(page.getByText("Recommended for you")).toHaveCount(0);
@@ -68,7 +81,9 @@ test.describe("Dalil Dashboard", () => {
   test("shows recent activity merged from Speaking and Writing, most recent first", async ({
     page,
   }) => {
-    await page.route(`${GATEWAY}/api/profile`, (route) => route.fulfill(withCors(PROFILE)));
+    await page.route(`${GATEWAY}/api/profile`, (route) =>
+      route.fulfill(withCors(PROFILE)),
+    );
     await page.route(`${GATEWAY}/api/speaking/sessions`, (route) =>
       route.fulfill(
         withCors([
@@ -104,7 +119,9 @@ test.describe("Dalil Dashboard", () => {
 
     await page.goto("/dashboard");
 
-    const activity = page.locator("li", { hasText: "Technology has changed education" });
+    const activity = page.locator("li", {
+      hasText: "Technology has changed education",
+    });
     await expect(activity).toBeVisible();
     // The essay (Jan 2) is more recent than the speaking session (Jan 1), so
     // it must render first.
@@ -125,13 +142,22 @@ test.describe("Dalil Dashboard", () => {
       "href",
       "/cv-review",
     );
-    await expect(main.getByRole("link", { name: "Speaking Practice" })).toHaveAttribute(
-      "href",
-      "/practice/speaking",
-    );
+    await expect(
+      main.getByRole("link", { name: "Speaking Practice" }),
+    ).toHaveAttribute("href", "/practice/speaking");
+    await expect(
+      main.getByRole("link", { name: "Checklists", exact: true }),
+    ).toHaveAttribute("href", "/checklists");
+    await expect(
+      page
+        .locator("aside")
+        .getByRole("link", { name: "Checklists", exact: true }),
+    ).toHaveCount(0);
   });
 
-  test("a completed profile shows full progress and no completion nudge", async ({ page }) => {
+  test("a completed profile shows full progress and no completion nudge", async ({
+    page,
+  }) => {
     const completeProfile = {
       ...PROFILE,
       profile: { ...PROFILE.profile, ieltsScore: 7.0 },
@@ -141,6 +167,8 @@ test.describe("Dalil Dashboard", () => {
     await page.goto("/dashboard");
 
     await expect(page.getByText("5 of 5 fields")).toBeVisible();
-    await expect(page.getByRole("link", { name: "Complete your profile" })).toHaveCount(0);
+    await expect(
+      page.getByRole("link", { name: "Complete your profile" }),
+    ).toHaveCount(0);
   });
 });

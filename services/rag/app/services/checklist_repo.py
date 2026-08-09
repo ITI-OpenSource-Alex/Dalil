@@ -78,6 +78,35 @@ async def create_checklist(
     return _row_to_checklist(row)
 
 
+async def replace_checklist_items(
+    checklist_id, items: list[dict[str, Any]], generated_by: str
+) -> dict[str, Any]:
+    """Refresh facts while retaining states whose stable item keys still exist."""
+    item_keys = [item["item_id"] for item in items]
+    async with db.pool.acquire() as conn:
+        async with conn.transaction():
+            row = await conn.fetchrow(
+                """
+                UPDATE checklists
+                SET items = $2::jsonb, generated_by = $3, updated_at = NOW()
+                WHERE id = $1
+                RETURNING id, program_id, items, generated_by
+                """,
+                checklist_id,
+                json.dumps(items),
+                generated_by,
+            )
+            await conn.execute(
+                """
+                DELETE FROM checklist_item_states
+                WHERE checklist_id = $1 AND NOT (item_key = ANY($2::text[]))
+                """,
+                checklist_id,
+                item_keys,
+            )
+    return _row_to_checklist(row)
+
+
 async def get_item_states(checklist_id) -> dict[str, bool]:
     async with db.pool.acquire() as conn:
         rows = await conn.fetch(
@@ -87,7 +116,9 @@ async def get_item_states(checklist_id) -> dict[str, bool]:
     return {row["item_key"]: row["is_checked"] for row in rows}
 
 
-async def upsert_item_state(checklist_id, item_key: str, is_checked: bool, user_id: str) -> None:
+async def upsert_item_state(
+    checklist_id, item_key: str, is_checked: bool, user_id: str
+) -> None:
     async with db.pool.acquire() as conn:
         await conn.execute(
             """

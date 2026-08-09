@@ -88,8 +88,10 @@ def test_overall_score_requires_all_four_bands():
 class FakeMessages:
     def __init__(self, band_score):
         self.band_score = band_score
+        self.calls = []
 
-    async def create(self, **_kwargs):
+    async def create(self, **kwargs):
+        self.calls.append(kwargs)
         body = {
             "band_score": self.band_score,
             "feedback": "Precise feedback.",
@@ -122,3 +124,14 @@ async def test_agent_band_is_clamped_and_rounded(raw_band, expected):
     issue = execution.result.inline_issues[0]
     assert essay[issue.start_char : issue.end_char] == issue.text
     assert 0.0 <= execution.result.band_score <= 9.0
+
+
+@pytest.mark.asyncio
+async def test_agent_uses_configured_output_token_ceiling():
+    messages = FakeMessages(6.5)
+    client = SimpleNamespace(messages=messages)
+    runner = WritingAgentRunner(client, model="test-model", max_tokens=16000)
+
+    await runner.evaluate("cohesion", "A complete sample essay.", "academic_task_2")
+
+    assert messages.calls[0]["max_tokens"] == 16000

@@ -3,7 +3,6 @@ E2E test suite for the Writing & CV Processing microservice.
 Covers WR-01 through WR-09 acceptance criteria.
 """
 
-import asyncio
 import io
 import json
 import zipfile
@@ -20,9 +19,8 @@ from app.config import Settings
 from app.database import Base
 from app.dependencies import get_db, get_s3_client, get_sqs_client
 from app.config import get_settings
-from app.evaluation import EvaluationCoordinator, EvaluationSummary, get_evaluation_coordinator
+from app.evaluation import EvaluationCoordinator, get_evaluation_coordinator
 from app.main import app
-from app.models import Essay
 from app.observability import get_langfuse_client
 from app.schemas import CriterionEvaluation, InlineIssue
 from app.agents import AgentExecution

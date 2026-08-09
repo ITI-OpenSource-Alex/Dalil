@@ -10,7 +10,7 @@ logger = structlog.get_logger("rag_service.profile_repo")
 async def invalidate_match_cache(user_id: str) -> None:
     """Drop every cached scoring result for one user.
 
-    match_programs() caches its ranked list under match:{user_id} for an hour and
+    match_programs() caches its versioned ranked list under match:{user_id}:* for an hour and
     calculate_score() caches per-program scores under score:{user_id}:*. Nothing
     cleared either when the profile behind them changed, so editing your degree,
     GPA or target countries had NO visible effect for up to an hour -- the exact
@@ -26,13 +26,17 @@ async def invalidate_match_cache(user_id: str) -> None:
         return
     try:
         keys = [f"match:{user_id}"]
+        async for key in redis_client.redis.scan_iter(match=f"match:{user_id}:*"):
+            keys.append(key)
         # scan_iter, not KEYS: this runs on the request path's shared Redis.
         async for key in redis_client.redis.scan_iter(match=f"score:{user_id}:*"):
             keys.append(key)
         await redis_client.redis.delete(*keys)
         logger.debug("Invalidated match cache", user_id=user_id, keys=len(keys))
     except Exception as e:
-        logger.warning("Failed to invalidate match cache", user_id=user_id, error=str(e))
+        logger.warning(
+            "Failed to invalidate match cache", user_id=user_id, error=str(e)
+        )
 
 
 def _as_datetime(value):
@@ -60,7 +64,9 @@ def _as_datetime(value):
             # A malformed timestamp must not poison the whole profile. Treating it
             # as absent lets the upsert proceed; the ordering guard then behaves as
             # it does for any event that carries no timestamp.
-            logger.warning("Unparseable event timestamp; treating as absent", value=value)
+            logger.warning(
+                "Unparseable event timestamp; treating as absent", value=value
+            )
             return None
     return value
 
@@ -94,6 +100,7 @@ async def upsert_local_profiles(profile_dict: dict) -> None:
         # and losing the whole message. match_programs() treats NULL as "no
         # discipline filter", which widens the search rather than emptying it.
         field_of_study = profile_dict.get("fieldOfStudy")
+        target_field_of_study = profile_dict.get("targetFieldOfStudy") or field_of_study
         last_synced_at = _as_datetime(profile_dict.get("last_synced_at"))
 
         query = """
@@ -101,9 +108,9 @@ async def upsert_local_profiles(profile_dict: dict) -> None:
                 user_id, ects, gpa, gpa_scale, ielts_score,
                 ielts_listening, ielts_reading, ielts_writing, ielts_speaking,
                 degree_level, work_exp, extracurriculars, target_countries, field_of_study,
-                last_synced_at
+                target_field_of_study, last_synced_at
             ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
             )
             ON CONFLICT (user_id) DO UPDATE SET
                 ects = EXCLUDED.ects,
@@ -119,6 +126,7 @@ async def upsert_local_profiles(profile_dict: dict) -> None:
                 extracurriculars = EXCLUDED.extracurriculars,
                 target_countries = EXCLUDED.target_countries,
                 field_of_study = EXCLUDED.field_of_study,
+                target_field_of_study = EXCLUDED.target_field_of_study,
                 last_synced_at = EXCLUDED.last_synced_at,
                 updated_at = CURRENT_TIMESTAMP
             WHERE local_user_profiles.last_synced_at IS NULL 
@@ -142,6 +150,7 @@ async def upsert_local_profiles(profile_dict: dict) -> None:
                 extracurriculars,
                 target_countries,
                 field_of_study,
+                target_field_of_study,
                 last_synced_at,
             )
 
@@ -179,7 +188,9 @@ async def delete_local_user_data(user_id: str) -> None:
                 user_id,
             )
             await conn.execute("DELETE FROM checklists WHERE user_id = $1", user_id)
-            await conn.execute("DELETE FROM local_user_profiles WHERE user_id = $1", user_id)
+            await conn.execute(
+                "DELETE FROM local_user_profiles WHERE user_id = $1", user_id
+            )
 
     # A deleted account must not leave its ranked programme list -- built from the
     # profile just erased -- sitting in Redis for the rest of the hour.

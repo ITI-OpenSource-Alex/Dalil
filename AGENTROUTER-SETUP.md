@@ -31,7 +31,7 @@ curl -s -X POST "https://agentrouter.org/v1/chat/completions" \
   -H "Authorization: Bearer sk-YOUR-KEY" \
   -H "Content-Type: application/json" \
   -H "User-Agent: Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14" \
-  -d '{"model":"claude-opus-4-8","messages":[{"role":"user","content":"Reply with exactly: OK"}],"stream":false}'
+  -d '{"model":"claude-opus-5","messages":[{"role":"user","content":"Reply with exactly: OK"}],"stream":false}'
 ```
 
 **Expected:** a normal completion whose `choices[0].message.content` is `OK`.
@@ -55,10 +55,10 @@ AGENT_ROUTER_BASE_URL=https://agentrouter.org/v1
 # MODEL_DEFAULT is the fallback for every task without its own override
 # (grading, vision, ask...). It MUST name a model AgentRouter serves - if it
 # names a Gemini model, those tasks all fail.
-MODEL_DEFAULT=claude-opus-4-8
-MODEL_SYNTHESIS=claude-opus-4-8
-MODEL_VERIFICATION=claude-opus-4-8
-MODEL_EXPLAIN_FIRST_PRINCIPLES=claude-opus-4-8
+MODEL_DEFAULT=claude-opus-5
+MODEL_SYNTHESIS=claude-opus-5
+MODEL_VERIFICATION=claude-opus-5
+MODEL_EXPLAIN_FIRST_PRINCIPLES=claude-opus-5
 
 SPEND_CAP=10.00
 ALLOW_DIRECT_GEMINI_FALLBACK=1
@@ -83,8 +83,8 @@ make parser      # or: .\scripts\start-parser.ps1
 
 ```
 --- Running startup model health check ---
-Checking SYNTHESIS model (claude-opus-4-8)...
-[SYNTHESIS] OK - Model claude-opus-4-8 is alive.
+Checking SYNTHESIS model (claude-opus-5)...
+[SYNTHESIS] OK - Model claude-opus-5 is alive.
 ...
 --- Startup check complete ---
 ```
@@ -125,14 +125,33 @@ bills in CNY).
 
 | Model | Endpoints | Prompt | Completion |
 |---|---|---|---|
-| `claude-opus-4-8` | anthropic, openai | $2.00 | $10.00 |
-| `claude-opus-4-7` | anthropic, openai | $8.00 | $40.00 |
-| `claude-opus-4-6` | anthropic, openai | $8.00 | $40.00 |
-| `gpt-5.5` | openai | $7.00 | $14.00 |
-| `glm-5.2` | openai | $6.00 | $9.00 |
+| `claude-opus-4-8` | anthropic, openai | $6.00 | $30.00 |
+| `claude-opus-5` | anthropic, openai | $2.00 | $10.00 |
+| `gpt-5.6-sol` | openai | $6.00 | $36.00 |
 
-`claude-opus-4-8` is 4× cheaper than 4-6/4-7 for a newer model — it's the default
-here for that reason.
+`claude-opus-5` is the configured model. Re-run the quality and latency evals
+after prompt or routing changes so its measured behavior remains explicit.
+
+### Where these prices live in the code (GOA-135)
+
+**One override, `LLM_PRICING_JSON`.** The Go and Python built-in defaults and the
+container/example mirrors are kept byte-for-byte equivalent by tests.
+
+| Reader | How |
+|---|---|
+| Gateway (Go) | `services/gateway/config.go` → `LLMPricingJSON`; the billing authority behind `/admin/costs` and the budget alert |
+| Python services | `packages/pricing/py/goa_pricing` → `cost_usd(model, in, out)` |
+
+Before GOA-135 five call sites priced the same model five different ways —
+$0.25/$1.25, $1/$5, $2/$10, $3/$15 and $8/$40 — so one call reported anywhere
+from 12% to 400% of its real cost depending on which service you asked. Measured
+in `perf/reports/GOA-135-delta.md`.
+
+If you switch models: add it to `LLM_PRICING_JSON` **and** check
+`packages/pricing/py/tests/test_goa_pricing.py` still passes — it parses the Go
+struct tag and asserts the two readers agree, so the tables cannot drift silently.
+An unpriced model records a **null** cost, never `0.0`, and increments
+`goa_*_unpriced_model_total`.
 
 ---
 
@@ -184,7 +203,7 @@ Worth recording, because the 401 actively misleads you into thinking the key is 
 
 All of these returned the **identical** 401:
 
-- every catalog model (`gpt-5.5`, `gpt-5`, all three Claude Opus, `glm-5.2`)
+- every catalog model available during that diagnosis (the catalogue has since changed)
 - both wire formats (`/v1/chat/completions`, Anthropic `/v1/messages`)
 - both auth styles (`Authorization: Bearer`, `x-api-key`)
 - with and without `/v1` on the base URL

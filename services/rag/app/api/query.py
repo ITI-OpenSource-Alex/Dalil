@@ -12,7 +12,11 @@ router = APIRouter()
 logger = structlog.get_logger("rag_service.api.query")
 
 
-@router.post("/query", response_model=QueryResponse)
+@router.post(
+    "/query",
+    response_model=QueryResponse,
+    response_model_exclude_unset=True,
+)
 async def handle_query(
     request: QueryRequest,
     x_correlation_id: str = Header(None, alias="X-Correlation-Id"),
@@ -21,6 +25,7 @@ async def handle_query(
     x_rag_threshold: bool | None = Header(None, alias="X-RAG-Threshold-Enabled"),
     x_rag_width: int | None = Header(None, alias="X-RAG-Retrieval-Width"),
     x_rag_probes: int | None = Header(None, alias="X-RAG-IVFFlat-Probes"),
+    x_rag_hybrid: bool | None = Header(None, alias="X-RAG-Hybrid-Enabled"),
     # Eval affordance: return retrieval results without generating an answer.
     # Retrieval quality (MRR, relevant@k, recall@k) is computed entirely from `sources`,
     # which exist before the LLM is called -- so a benchmark of retrieval should not be
@@ -60,6 +65,8 @@ async def handle_query(
         flag_overrides["retrieval_width"] = x_rag_width
     if x_rag_probes is not None:
         flag_overrides["ivfflat_probes"] = x_rag_probes
+    if x_rag_hybrid is not None:
+        flag_overrides["hybrid_enabled"] = x_rag_hybrid
     if x_rag_retrieval_only is not None:
         flag_overrides["retrieval_only"] = x_rag_retrieval_only
 
@@ -68,6 +75,7 @@ async def handle_query(
             question=request.question,
             user_id=request.userId,
             top_k=request.topK or 5,
+            category=request.category,
             trace=trace,
             flag_overrides=flag_overrides,
         )
@@ -87,7 +95,8 @@ async def handle_query(
     QUERY_LATENCY.labels(cache_hit="false").observe(duration_ms)
 
     top_similarity = metrics["top_similarity"]
-    RETRIEVAL_SIMILARITY.observe(top_similarity)
+    if top_similarity is not None:
+        RETRIEVAL_SIMILARITY.observe(top_similarity)
 
     # Emit structured completion JSON log
     completion_logger = structlog.get_logger("rag_service.query_completion")
@@ -103,16 +112,18 @@ async def handle_query(
         refused=metrics.get("refused", False),
     )
 
-    response_sources = [
-        DocumentSource(
-            id=s["id"],
-            title=s.get("title"),
-            content=s["content"],
-            source_url=s["source_url"],
-            similarity=s["similarity"],
-        )
-        for s in sources
-    ]
+    response_sources = []
+    for source in sources:
+        fields = {
+            "id": source["id"],
+            "title": source.get("title"),
+            "content": source["content"],
+            "source_url": source["source_url"],
+            "similarity": source["similarity"],
+        }
+        if "retrieval_arms" in source:
+            fields["retrieval_arms"] = source["retrieval_arms"]
+        response_sources.append(DocumentSource(**fields))
 
     if trace is not None:
         try:

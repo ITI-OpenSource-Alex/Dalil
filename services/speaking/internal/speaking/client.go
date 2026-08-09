@@ -14,6 +14,7 @@ import (
 
 	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/agents"
 	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/db"
+	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/internal/contract"
 	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/internal/telemetry"
 	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/langfuse"
 	"github.com/google/uuid"
@@ -80,6 +81,21 @@ type Client struct {
 	ctx          context.Context
 	cancel       context.CancelFunc
 	speechURL    string
+	// audioFormat is the MIME type the client declared in session_init, e.g.
+	// "audio/webm;codecs=opus". SPEAK-EVAL-002.
+	//
+	// It exists because the browser records with MediaRecorder, which emits an
+	// encoded container -- WebM/Opus on Chrome, Ogg/Opus on Firefox, MP4/AAC on
+	// Safari -- and this service used to forward those bytes to the speech
+	// sidecar labelled "audio/pcm;rate=16000". The sidecar decodes anything
+	// matching audio/pcm with np.frombuffer(dtype=int16), so a compressed
+	// container was reinterpreted as raw samples and every browser-originated
+	// score was computed on noise.
+	//
+	// Empty means the session never declared a format. That is not a default to
+	// guess around: audio of unknown encoding cannot be transcribed honestly, so
+	// the session is refused rather than scored.
+	audioFormat string
 	// Session metrics tracking variables
 	userID string
 	// outcome is written by the transcription goroutine and read by readPump's
@@ -292,10 +308,12 @@ func (c *Client) readPump() {
 			}
 
 			var initMsg struct {
-				Type           string `json:"type"`
-				UserID         string `json:"userId"`
-				QuestionPrompt string `json:"questionPrompt"`
-				QuestionType   string `json:"questionType"`
+				Type            string `json:"type"`
+				ProtocolVersion int    `json:"protocolVersion"`
+				UserID          string `json:"userId"`
+				QuestionPrompt  string `json:"questionPrompt"`
+				QuestionType    string `json:"questionType"`
+				AudioFormat     string `json:"audioFormat"`
 			}
 			err := json.Unmarshal(msg, &initMsg)
 			if err != nil || initMsg.Type != "session_init" || initMsg.UserID == "" || initMsg.QuestionPrompt == "" || initMsg.QuestionType == "" {
@@ -303,6 +321,30 @@ func (c *Client) readPump() {
 				c.sendErrorAndClose("Invalid session_init payload.")
 				break
 			}
+
+			// SPEAK-EVAL-002. The declared format is validated here, before any
+			// audio is accepted, because the alternative is discovering at
+			// transcription time that we have bytes of unknown encoding — and
+			// the previous behaviour at that point was to assert PCM and score
+			// the result.
+			//
+			// A v1 client sends no audioFormat. Those are refused rather than
+			// defaulted: a default is a guess, and a wrong guess here produces a
+			// confident band from noise. The error names the fix so an old tab
+			// gets an explanation rather than a silent failure.
+			normalizedFormat, formatErr := normalizeAudioFormat(initMsg.AudioFormat)
+			if formatErr != nil {
+				log.Warn().
+					Str("session_id", c.id).
+					Str("declared_format", initMsg.AudioFormat).
+					Int("protocol_version", initMsg.ProtocolVersion).
+					Err(formatErr).
+					Msg("session_init declared an unusable audio format")
+				audioFormatRejectedTotal.WithLabelValues(formatRejectReason(formatErr)).Inc()
+				c.sendErrorAndClose(formatErr.Error())
+				break
+			}
+			c.audioFormat = normalizedFormat
 
 			c.userID = initMsg.UserID
 
@@ -330,6 +372,31 @@ func (c *Client) readPump() {
 			c.questionType = initMsg.QuestionType
 			c.initialized = true
 			log.Info().Str("session_id", c.id).Str("user_id", c.userID).Msg("Session initialized successfully")
+			continue
+		}
+
+		// SPEAK-EVAL-002: an explicit end-of-audio control frame.
+		//
+		// Completion used to be decided solely by 1.5s of silence, which cannot
+		// distinguish "the user finished" from "the client stalled" and charged
+		// every session 1.5s of latency to find out. The VAD timer remains as the
+		// fallback for a client that vanishes mid-recording; this is the normal
+		// path. triggerTranscription is idempotent on an empty buffer, so a
+		// duplicate frame, or one racing the timer, cannot transcribe twice.
+		if messageType == websocket.TextMessage {
+			var control struct {
+				Type string `json:"type"`
+			}
+			if err := json.Unmarshal(msg, &control); err == nil && control.Type == "audio_end" {
+				log.Info().Str("session_id", c.id).Msg("Client signalled end of audio")
+				audioEndTotal.Inc()
+				c.triggerTranscription()
+				continue
+			}
+			// Any other text frame after init is ignored rather than fatal: a
+			// future protocol version may add control frames this build predates,
+			// and dropping the socket for an unknown one would make the protocol
+			// impossible to extend without lockstep deploys.
 			continue
 		}
 
@@ -505,7 +572,7 @@ func (c *Client) onCriterionComplete(ev agents.CriterionEvent) {
 }
 
 // runEvaluationAndTTS coordinates evaluation, telemetry, audio streaming, and async persistence
-func (c *Client) runEvaluationAndTTS(transcript string, transcriptionMs int64) {
+func (c *Client) runEvaluationAndTTS(transcript string, transcriptionMs int64, features *agents.ProsodyFeatures) {
 	// 1. Run the parallel evaluation swarm under a deadline. Agents that finish
 	// contribute; stragglers are marked TimedOut and excluded from the average.
 	//
@@ -527,6 +594,7 @@ func (c *Client) runEvaluationAndTTS(transcript string, transcriptionMs int64) {
 	// before showing the user something.
 	swarmRes, swarmErr := agents.EvaluateSwarm(
 		swarmCtx, c.llmClient, c.questionPrompt, c.questionType, transcript,
+		features,
 		c.onCriterionComplete,
 	)
 	swarmDuration := time.Since(swarmStart)
@@ -650,6 +718,59 @@ func (c *Client) runEvaluationAndTTS(transcript string, transcriptionMs int64) {
 		err := c.dbRepo.Create(detachedCtx, sess)
 		if err != nil {
 			log.Error().Err(err).Str("session_id", c.id).Msg("Non-fatal error: failed to persist session to database")
+			// No explanation without its session: the row has a foreign key to
+			// speaking_sessions, and writing an orphan would fail anyway.
+			return
+		}
+
+		// SPEAK-EVAL-008: the explanation is built and stored HERE, at scoring
+		// time, against the transcript that produced it.
+		//
+		// Building it on read instead would give different text for the same
+		// band on every visit -- the model is not deterministic, prompts change
+		// as they are tuned, and the rubric is versioned. A student told "band 6
+		// because you paused five times" who returns to "band 6 because your
+		// vocabulary was limited" has two reasons for one score.
+		//
+		// This is also the only moment the transcript is in hand to verify quote
+		// offsets against. A later rebuild would have to trust them.
+		canonical := agents.CanonicalizeSwarm(swarmRes, agents.CanonicalMeta{
+			EvaluationID:  c.id,
+			Mode:          contract.ModePractice,
+			CreatedAt:     time.Now().UTC(),
+			ScorerVersion: scorerVersion(),
+			LLMProvider:   "agentrouter",
+			LLMModel:      EffectiveLLMModel(c.llmClient),
+		})
+		renderable := contract.BuildRenderable(canonical, transcript)
+
+		payload, marshalErr := json.Marshal(renderable)
+		if marshalErr != nil {
+			log.Error().Err(marshalErr).Str("session_id", c.id).
+				Msg("Non-fatal error: could not serialise explanation")
+			return
+		}
+
+		claims := 0
+		for _, criterion := range renderable.Criteria {
+			claims += len(criterion.Claims)
+		}
+
+		explanation := &db.SpeakingExplanation{
+			SessionID:     c.id,
+			Renderable:    payload,
+			RubricID:      canonical.Provenance.RubricID,
+			RubricVersion: canonical.Provenance.RubricVersion,
+			RubricSHA256:  canonical.Provenance.RubricSHA256,
+			ScorerVersion: canonical.Provenance.ScorerVersion,
+			LLMModel:      canonical.Provenance.LLMModel,
+			ClaimCount:    claims,
+			WithheldCount: renderable.WithheldCount(),
+			CreatedAt:     time.Now(),
+		}
+		if err := c.dbRepo.SaveExplanation(detachedCtx, explanation); err != nil {
+			log.Error().Err(err).Str("session_id", c.id).
+				Msg("Non-fatal error: failed to persist explanation")
 		}
 	}()
 
@@ -719,9 +840,12 @@ func (c *Client) runEvaluationAndTTS(transcript string, transcriptionMs int64) {
 					Name:                name,
 					StartTime:           ttsStart.Add(-swarmDuration),
 					EndTime:             ttsStart,
-					Model:               "claude-3-5-haiku-20241022",
-					Input:               transcript,
-					Output:              dim.Feedback,
+					// Read from the client that made the call, not a literal. See
+					// EffectiveLLMModel: this was a hardcoded Haiku id while the
+					// service ran a configured practice model.
+					Model:  EffectiveLLMModel(c.llmClient),
+					Input:  transcript,
+					Output: dim.Feedback,
 					Usage: map[string]int{
 						"inputTokens":  dim.PromptTokens,
 						"outputTokens": dim.CompletionTokens,

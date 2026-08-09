@@ -30,7 +30,15 @@ async def lifespan(app: FastAPI):
     await db.connect()
     from app.services.reranker import init_reranker
     init_reranker()
+    from app.core.metrics import HYBRID_ENABLED
+    from app.core.config import settings
+    HYBRID_ENABLED.set(1 if settings.rag_hybrid_enabled else 0)
     await redis_client.connect()
+    # GOA-135: one Anthropic client for the process. Built here rather than at
+    # first use so a bad base URL or missing credential surfaces at startup
+    # instead of inside a user's first query.
+    from app.services.rag_service import init_llm_client
+    await init_llm_client()
     logger.info("RAG service database connected and migrations checked.")
 
     # Start the background SQS consumer task
@@ -53,10 +61,18 @@ async def lifespan(app: FastAPI):
         except Exception:
             logger.exception("SQS consumer stopped with an error")
 
+        from app.services.rag_service import close_llm_client
+
         try:
             await db.disconnect()
         finally:
-            await redis_client.disconnect()
+            try:
+                await redis_client.disconnect()
+            finally:
+                # Last, and in its own finally: leaking the HTTP client on a
+                # shutdown that already went wrong is how a restart loop runs out
+                # of file descriptors.
+                await close_llm_client()
         logger.info("RAG service database connection closed.")
 
 

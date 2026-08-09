@@ -15,8 +15,14 @@ RUN pip install --no-cache-dir -r requirements.txt
 # anything copied there: the package would exist in the image, vanish at run
 # time, and the import would fail only under compose. Living outside the mount
 # point and arriving via PYTHONPATH keeps dev and prod identical.
-ENV PYTHONPATH=/opt/goa
+ENV PYTHONPATH=/opt/goa:/opt/goa-pricing
 COPY packages/security/py /opt/goa
+# GOA-135: the shared LLM price table, in its OWN root rather than merged into
+# /opt/goa. docker-compose bind-mounts ./packages/security/py over /opt/goa for
+# the dev target, and a bind mount hides whatever the image put there -- so a
+# package COPYed into /opt/goa exists in the image and is invisible under
+# compose. Separate root, separate mount, dev and prod identical.
+COPY packages/pricing/py /opt/goa-pricing
 
 # Dev target
 FROM base AS dev

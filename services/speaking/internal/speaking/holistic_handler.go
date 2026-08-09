@@ -18,9 +18,29 @@ import (
 
 var (
 	holisticEvaluationLatency = promauto.NewHistogram(prometheus.HistogramOpts{
-		Name:    "goa_speaking_holistic_evaluation_ms",
-		Help:    "Latency of holistic speaking evaluations",
-		Buckets: prometheus.LinearBuckets(1000, 1000, 10), // 1s to 10s
+		Name: "goa_speaking_holistic_evaluation_ms",
+		Help: "Latency of holistic speaking evaluations",
+		// 5s to 90s. The previous 1s-10s linear range topped out below the
+		// measured p95 of a single criterion (28.7s, GOA-032), so every real
+		// evaluation landed in +Inf and histogram_quantile pinned the reported
+		// P95 to 10s forever -- the same defect GOA-032 found in the streaming
+		// histograms, in the one handler it did not touch.
+		Buckets: []float64{5000, 10000, 20000, 30000, 45000, 60000, 75000, 90000, 120000},
+	})
+
+	// Labelled by outcome so a full-exam evaluation that returned a partial
+	// result is distinguishable from one that returned a band. Without this the
+	// handler emitted latency only, and a run where three of four agents failed
+	// looked identical to a clean one.
+	holisticEvaluationsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "goa_speaking_holistic_evaluations_total",
+		Help: "Holistic speaking evaluations by outcome",
+	}, []string{"outcome"}) // scored | partial_unscored | failed
+
+	holisticCompletedCriteria = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "goa_speaking_holistic_completed_criteria",
+		Help:    "How many of the four criteria produced a score",
+		Buckets: []float64{0, 1, 2, 3, 4},
 	})
 )
 
@@ -35,6 +55,10 @@ var holisticCriteria = []string{
 }
 
 // HandleHolisticEvaluation processes the full exam transcript and returns a holistic band score with extended feedback.
+// holisticSwarmTimeout bounds the whole four-agent holistic swarm. Must stay
+// above attemptTimeout (110s) and below the exam client's call timeout.
+const holisticSwarmTimeout = 120 * time.Second
+
 func HandleHolisticEvaluation(w http.ResponseWriter, r *http.Request, cfg *Config, llmClient agents.LLMClient, langfuseClient *langfuse.Client) {
 	start := time.Now()
 	defer func() {
@@ -45,6 +69,14 @@ func HandleHolisticEvaluation(w http.ResponseWriter, r *http.Request, cfg *Confi
 		ConcatenatedTranscript string `json:"concatenated_transcript"`
 		UserID                 string `json:"user_id"`
 		ExamSessionID          string `json:"exam_session_id"`
+		// GOA-133. Optional: the exam service concatenates three parts recorded in
+		// separate sessions, so unlike the streaming path there is no single audio
+		// stream here to derive features from. When the caller supplies them, the
+		// Fluency and Pronunciation agents get the same measured evidence they get
+		// on the streaming path; when it does not, the block is omitted and those
+		// prompts say so rather than inferring delivery from text.
+		DurationS float64       `json:"duration_s"`
+		Words     []agents.Word `json:"words"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
@@ -62,18 +94,46 @@ func HandleHolisticEvaluation(w http.ResponseWriter, r *http.Request, cfg *Confi
 	}
 
 	// The four criterion agents stream concurrently; each is capped at 110s
-	// (see attemptTimeout in holistic.go), so the swarm's worst-case wall-clock
-	// is ~110s and the common case is ~40s. 120s gives headroom over the cap
-	// while staying under the exam client's 130s call timeout. A criterion that
-	// genuinely hangs past 110s is dropped from the average rather than sinking
-	// the whole request.
-	ctx, cancel := context.WithTimeout(r.Context(), 120*time.Second)
+	// (attemptTimeout in holistic.go), so the swarm's worst-case wall-clock is
+	// ~110s and the common case is ~40s. 120s gives headroom over the cap while
+	// staying under the exam client's call timeout. A criterion that genuinely
+	// hangs past 110s is dropped from the average rather than sinking the whole
+	// request.
+	//
+	// This supersedes the earlier use of swarmEvaluationTimeout (60s), which was
+	// sized before the per-call cap existed and is now below it -- the swarm
+	// deadline would have fired before a single slow criterion could finish.
+	//
+	// Named rather than a bare literal because the exam service's HTTP client
+	// must stay ABOVE it; see services/exam/app/services/speaking_client.py and
+	// the invariant test that pins the two together.
+	ctx, cancel := context.WithTimeout(r.Context(), holisticSwarmTimeout)
 	ctx = context.WithValue(ctx, "userID", payload.UserID)
 	defer cancel()
 
+	var features *agents.ProsodyFeatures
+	if f, ok := agents.ComputeProsody(payload.Words, payload.DurationS); ok {
+		features = &f
+		recordProsodyMetrics(f)
+	}
+
 	swarmStart := time.Now()
-	res, err := agents.EvaluateHolisticSwarm(ctx, llmClient, payload.ConcatenatedTranscript)
+	res, err := agents.EvaluateHolisticSwarm(ctx, llmClient, payload.ConcatenatedTranscript, features)
 	swarmEnd := time.Now()
+
+	holisticCompletedCriteria.Observe(float64(res.CompletedCount))
+	switch {
+	case err != nil && res.Status == "failed":
+		holisticEvaluationsTotal.WithLabelValues("failed").Inc()
+	case res.OverallBand == nil:
+		// Criteria landed but not enough to aggregate. This is a distinct
+		// outcome from both "scored" and "failed", and it is the one that used
+		// to be invisible because a band was fabricated for it.
+		holisticEvaluationsTotal.WithLabelValues("partial_unscored").Inc()
+	default:
+		holisticEvaluationsTotal.WithLabelValues("scored").Inc()
+	}
+
 	if err != nil && res.Status == "failed" {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -84,7 +144,7 @@ func HandleHolisticEvaluation(w http.ResponseWriter, r *http.Request, cfg *Confi
 	// same ingestion client as the practice path (client.go) — this is the exam
 	// counterpart of that WebSocket trace, not a second tracing system. Done in
 	// a detached goroutine so reporting never blocks or fails the HTTP response.
-	reportHolisticTrace(langfuseClient, payload.UserID, payload.ExamSessionID, payload.ConcatenatedTranscript, res, swarmStart, swarmEnd)
+	reportHolisticTrace(langfuseClient, payload.UserID, payload.ExamSessionID, payload.ConcatenatedTranscript, res, swarmStart, swarmEnd, EffectiveLLMModel(llmClient))
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(res); err != nil {
@@ -103,6 +163,7 @@ func reportHolisticTrace(
 	userID, examSessionID, transcript string,
 	res agents.HolisticSwarmResult,
 	swarmStart, swarmEnd time.Time,
+	llmModel string,
 ) {
 	if client == nil {
 		return
@@ -158,9 +219,13 @@ func reportHolisticTrace(
 					Name:      criterion,
 					StartTime: swarmStart,
 					EndTime:   swarmEnd,
-					Input:     transcript,
-					Output:    dim.OverallFeedback,
-					Metadata:  metadata,
+					// The exam path recorded no model at all, so its generations
+					// were unattributable and could not be compared against the
+					// practice path's -- which was itself reporting a hardcoded id.
+					Model:    llmModel,
+					Input:    transcript,
+					Output:   dim.OverallFeedback,
+					Metadata: metadata,
 				},
 			})
 		}

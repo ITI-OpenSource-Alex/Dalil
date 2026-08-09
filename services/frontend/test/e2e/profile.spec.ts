@@ -155,6 +155,8 @@ test("opportunity matches show score bar and open detail modal", async ({
     university: "TU Munich",
     country: "Germany",
     deadline: "2026-12-01",
+    sourceUrl: "https://www.mastersportal.com/studies/123/example.html",
+    dataSource: "scraped",
     requirements: {
       minEcts: 180,
       minGpa: 3.0,
@@ -164,6 +166,18 @@ test("opportunity matches show score bar and open detail modal", async ({
     },
     result: {
       score: 85,
+      requirements_evaluated: 4,
+      requirements_met: 4,
+      score_breakdown: {
+        eligibility_points: 40,
+        requirement_headroom_points: 0,
+        subject_points: 35,
+        destination_points: 10,
+        headroom_dimensions_evaluated: 3,
+        confidence: "standard",
+        subject_relevance: 1,
+        total: 85,
+      },
       blocked_by: null,
       gap_report: {
         ielts: {
@@ -183,9 +197,21 @@ test("opportunity matches show score bar and open detail modal", async ({
 
   await page.goto("/profile");
 
-  await expect(page.getByText("85% match")).toBeVisible();
+  await expect(page.getByText("85% fit")).toBeVisible();
+  await expect(page.getByText("Exact intended-field match")).toBeVisible();
   await expect(
-    page.getByText("Strong match against your profile"),
+    page.getByText(
+      "Score: 40 eligibility + 0 requirement headroom + 35 subject fit + 10 destination fit",
+    ),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Source listing" }),
+  ).toHaveAttribute(
+    "href",
+    "https://www.mastersportal.com/studies/123/example.html",
+  );
+  await expect(
+    page.getByText("Possible match against your profile"),
   ).toBeVisible();
 
   await page
@@ -196,7 +222,7 @@ test("opportunity matches show score bar and open detail modal", async ({
 
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByText("Requirements")).toBeVisible();
+  await expect(dialog.getByText("Requirements", { exact: true })).toBeVisible();
   await expect(dialog.getByText("Min IELTS")).toBeVisible();
   await expect(dialog.getByText("6.5")).toBeVisible();
   await expect(dialog.getByText("Gap report")).toBeVisible();

@@ -144,7 +144,8 @@ async def test_pathway_with_evidence_but_no_amount_is_still_rendered():
         clear_visa_finance_cache()
         items = await get_student_visa_finance("TestEvid", conn=conn)
         assert len(items) == 1
-        assert "blocked_account" in items[0]["message"]
+        # Rendered for a reader: the stored pathway is "blocked_account".
+        assert "blocked-account" in items[0]["message"]
     finally:
         await conn.execute("DELETE FROM visa_requirements WHERE country = 'TestEvid'")
         clear_visa_finance_cache()
@@ -167,8 +168,9 @@ async def test_amounts_render_with_currency_and_qualifier():
         """, uuid.uuid4(), pof)
         clear_visa_finance_cache()
         msg = (await get_student_visa_finance("TestQual", conn=conn))[0]["message"]
-        assert "1529" in msg and "1171" in msg
-        assert "GBP" in msg and "EUR" not in msg
+        # Rendered for a reader: grouped digits and the currency symbol.
+        assert "1,529" in msg and "1,171" in msg
+        assert "£" in msg and "€" not in msg
         assert "London" in msg
     finally:
         await conn.execute("DELETE FROM visa_requirements WHERE country = 'TestQual'")

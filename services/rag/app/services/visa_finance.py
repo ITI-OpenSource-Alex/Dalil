@@ -9,6 +9,50 @@ _VISA_FINANCE_CACHE: dict[str, list[dict]] = {}
 def clear_visa_finance_cache():
     _VISA_FINANCE_CACHE.clear()
 
+
+# The extractor stores machine-shaped values -- 11904.0, "per_month",
+# "self_funded". Rendering those verbatim put "11904.0 EUR per_month" in front of
+# a student. These map to how the figure is actually spoken; they change
+# presentation only, and an unrecognised value falls through unchanged rather
+# than being dropped.
+_PERIOD_WORDS = {
+    "per_month": "per month",
+    "per_year": "per year",
+    "per_semester": "per semester",
+    "per_week": "per week",
+    "total": "in total",
+    "one_off": "one-off",
+}
+
+_CURRENCY_SYMBOLS = {"EUR": "€", "GBP": "£", "USD": "$"}
+
+
+def _format_amount(amt: dict) -> str | None:
+    """Render one amount the way a student would read it.
+
+    Returns None when there is no number: a blank figure must not render as an
+    empty requirement, and the caller already treats a pathway with no amounts
+    and no evidence as unusable.
+    """
+    value = amt.get("amount")
+    if value is None:
+        return None
+
+    # Money extracted as 11904.0 is a whole number; keep decimals only when they
+    # carry information.
+    if isinstance(value, (int, float)):
+        number = f"{value:,.0f}" if float(value).is_integer() else f"{value:,.2f}"
+    else:
+        number = str(value)
+
+    currency = amt.get("currency") or ""
+    symbol = _CURRENCY_SYMBOLS.get(currency)
+    money = f"{symbol}{number}" if symbol else f"{number} {currency}".strip()
+
+    period = _PERIOD_WORDS.get(amt.get("period") or "", amt.get("period") or "")
+    qualifier = f" ({amt['qualifier']})" if amt.get("qualifier") else ""
+    return f"{money} {period}{qualifier}".replace("  ", " ").strip()
+
 async def get_student_visa_finance(country: str, conn=None) -> list[dict]:
     """Fetch all student visa rows for a country and render financial items (memoized per country)."""
     if country in _VISA_FINANCE_CACHE:
@@ -52,11 +96,9 @@ async def get_student_visa_finance(country: str, conn=None) -> list[dict]:
                 ptype = p.get("pathway", "")
                 amounts_str = []
                 for amt in p.get("amounts", []):
-                    val = amt.get("amount")
-                    curr = amt.get("currency", "")
-                    per = amt.get("period", "")
-                    qual = f" ({amt['qualifier']})" if amt.get("qualifier") else ""
-                    amounts_str.append(f"{val} {curr} {per}{qual}")
+                    rendered = _format_amount(amt)
+                    if rendered:
+                        amounts_str.append(rendered)
 
                 # Proof-of-funds is the requirement Egyptian applicants must plan months
                 # ahead for, so a pathway with no published figure and no accepted
@@ -74,7 +116,12 @@ async def get_student_visa_finance(country: str, conn=None) -> list[dict]:
                     continue
 
                 amt_desc = ", ".join(amounts_str) if amounts_str else "documented financial evidence"
-                messages.append(f"requires proof of {amt_desc} via {ptype}")
+                pathway_words = ptype.replace("_", "-") if ptype else ""
+                messages.append(
+                    f"requires proof of {amt_desc} via {pathway_words}"
+                    if pathway_words
+                    else f"requires proof of {amt_desc}"
+                )
 
             # No actionable pathway left -> emit no item at all, rather than a
             # contentless one. GOA-108: absent facts stay absent.

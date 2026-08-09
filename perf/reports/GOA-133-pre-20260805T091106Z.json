@@ -1,0 +1,92 @@
+{
+  "ticket": "GOA-133",
+  "phase": "pre",
+  "captured_at": "2026-08-05T09:11:06+00:00",
+  "git_sha": "254f3a1",
+  "host": {
+    "platform": "Windows-10-10.0.26200-SP0",
+    "python": "3.11.3"
+  },
+  "providers": {
+    "stt": {
+      "impl": "faster-whisper",
+      "model": "small",
+      "device": "cpu",
+      "real": true
+    },
+    "llm": {
+      "base_url": "https://api.anthropic.com",
+      "model": "claude-opus-4-8",
+      "real": false
+    }
+  },
+  "fixtures": {
+    "synthetic": true,
+    "source": "Piper TTS via the speech sidecar, not human speech",
+    "limitation": "Absolute band values are meaningless: Piper's prosody is uniform, so the fluent arm is more fluent than any real candidate, and Whisper transcribes clean TTS with optimistic confidence. There are no disfluencies, accent or self-correction -- the phenomena Pronunciation is meant to assess. Use for MECHANISM (does the pipeline carry timing) and DIRECTION (does delivery move the band at all), never for calibration.",
+    "n_pairs": 5,
+    "repeats": 3
+  },
+  "metrics": {
+    "level_a_mechanism": {
+      "stt_response_keys": [
+        "transcript"
+      ],
+      "carries_timing": false,
+      "pairs_with_identical_transcripts": "2/5",
+      "per_pair": [
+        {
+          "pair": "p01",
+          "transcripts_identical": true,
+          "fluent_duration_s": 18.87,
+          "halting_duration_s": 33.67,
+          "duration_ratio": 1.78,
+          "stt_reports_duration": false,
+          "stt_reports_words": false,
+          "stt_reports_segments": false
+        },
+        {
+          "pair": "p02",
+          "transcripts_identical": true,
+          "fluent_duration_s": 20.17,
+          "halting_duration_s": 35.43,
+          "duration_ratio": 1.76,
+          "stt_reports_duration": false,
+          "stt_reports_words": false,
+          "stt_reports_segments": false
+        },
+        {
+          "pair": "p03",
+          "transcripts_identical": false,
+          "fluent_duration_s": 20.13,
+          "halting_duration_s": 35.36,
+          "duration_ratio": 1.76,
+          "stt_reports_duration": false,
+          "stt_reports_words": false,
+          "stt_reports_segments": false
+        },
+        {
+          "pair": "p04",
+          "transcripts_identical": false,
+          "fluent_duration_s": 21.6,
+          "halting_duration_s": 37.35,
+          "duration_ratio": 1.73,
+          "stt_reports_duration": false,
+          "stt_reports_words": false,
+          "stt_reports_segments": false
+        },
+        {
+          "pair": "p05",
+          "transcripts_identical": false,
+          "fluent_duration_s": 20.16,
+          "halting_duration_s": 35.41,
+          "duration_ratio": 1.76,
+          "stt_reports_duration": false,
+          "stt_reports_words": false,
+          "stt_reports_segments": false
+        }
+      ]
+    },
+    "level_b_bands": null
+  }
+}

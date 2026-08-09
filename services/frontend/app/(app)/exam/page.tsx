@@ -4,7 +4,11 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Sparkles } from "lucide-react";
 import { ExamType, SkillArea } from "@/app/types/exam";
-import { createSession, getExamProgress, type ExamProgress } from "@/lib/exam-api";
+import {
+  createSession,
+  getExamProgress,
+  type ExamProgress,
+} from "@/lib/exam-api";
 import { startListeningSession } from "@/lib/listening-api";
 import { useCurrentUser } from "@/app/hooks/useCurrentUser";
 import { useUpgradePrompt } from "@/components/subscription/upgrade-dialog";
@@ -26,9 +30,8 @@ export default function ExamLandingPage() {
   const [startError, setStartError] = useState<string | null>(null);
   // doc 11: tracked so the error banner's Retry action re-attempts the
   // same skill the user actually clicked, not a hardcoded one.
-  const [lastAttemptedSkill, setLastAttemptedSkill] = useState<SkillArea | null>(
-    null,
-  );
+  const [lastAttemptedSkill, setLastAttemptedSkill] =
+    useState<SkillArea | null>(null);
   const [resumableSessionId, setResumableSessionId] = useState<string | null>(
     null,
   );
@@ -38,7 +41,9 @@ export default function ExamLandingPage() {
   }, []);
 
   useEffect(() => {
-    getExamProgress().then(setProgress).catch(() => setProgress(null));
+    getExamProgress()
+      .then(setProgress)
+      .catch(() => setProgress(null));
   }, []);
 
   // doc 10: this previously redirected into the shell automatically and
@@ -101,6 +106,11 @@ export default function ExamLandingPage() {
     // this only saves a round trip and shows the dialog instantly.
     if (user.subscriptionTier !== "paid") {
       upgrade.show("exam");
+      return;
+    }
+
+    if (skill === "Speaking") {
+      router.push("/practice/speaking?mode=exam");
       return;
     }
 
@@ -187,14 +197,6 @@ export default function ExamLandingPage() {
     description: string;
     bgColor: string;
     icon: React.ReactNode;
-    // doc 08: Speaking has no exam simulation yet (multi-sprint work -- see
-    // the exam shell's ComingSoonPanel). Disabling the action here is Layer 1
-    // of that fix: it keeps the shell's placeholder fallback from ever being
-    // reached in ordinary use, and avoids spending one of the exam service's
-    // 3-sessions-per-hour slots on a session that leads nowhere.
-    //
-    // Listening was the other half of this until GOA-056 landed its UI and
-    // the backend audio-delivery gap closed; it is now available.
     available: boolean;
   }[] = [
     {
@@ -268,7 +270,7 @@ export default function ExamLandingPage() {
       title: "Speaking",
       description: "11-14 minute face-to-face interview with examiner.",
       bgColor: "bg-[#e3edf7]",
-      available: false,
+      available: true,
       icon: (
         <svg
           className="w-5 h-5 text-fg"
@@ -295,202 +297,227 @@ export default function ExamLandingPage() {
     .map((card) => latestBand(card.key))
     .filter((band): band is number => band !== null);
   const overallBand = knownBands.length
-    ? (knownBands.reduce((sum, band) => sum + band, 0) / knownBands.length).toFixed(1)
+    ? (
+        knownBands.reduce((sum, band) => sum + band, 0) / knownBands.length
+      ).toFixed(1)
     : null;
   const weakestSkill = skillCards
     .map((card) => ({ skill: card.key, band: latestBand(card.key) }))
-    .filter((item): item is { skill: SkillArea; band: number } => item.band !== null)
+    .filter(
+      (item): item is { skill: SkillArea; band: number } => item.band !== null,
+    )
     .sort((a, b) => a.band - b.band)[0];
 
   // Only once identity has actually resolved: assuming Free while the profile
   // is still loading would flash a paywall badge at a paying subscriber.
-  const isFreeTier = profileStatus === "success" && user?.subscriptionTier !== "paid";
+  const isFreeTier =
+    profileStatus === "success" && user?.subscriptionTier !== "paid";
+  const identityLoading = profileStatus === "loading" || profileStatus === "idle";
 
   return (
     <PageContainer
       size="2xl"
       className="min-h-screen bg-linear-to-br from-brand-subtle via-surface to-warning-subtle text-fg"
     >
-        <div
-          className={`transition-all duration-700 ease-out ${
-            mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-          }`}
-        >
-          {/* Top Header Block */}
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-            <div>
-              <p className="text-xs uppercase font-bold text-brand-fg tracking-wider mb-2">
-                IELTS PREP
-              </p>
-              <h1 className="text-4xl md:text-5xl font-serif font-normal text-fg tracking-tight">
-                Close the gap to{" "}
-                <span className="italic font-serif text-warning-fg">band 7</span>
-              </h1>
-              <p className="text-sm text-fg-subtle mt-2">
-                Practice IELTS modules and review your scored results.
-              </p>
-            </div>
-
-            <div className="flex rounded-full border border-border bg-surface p-1 text-xs font-semibold">
-              {(["Academic", "General"] as ExamType[]).map((type) => (
-                <button
-                  key={type}
-                  onClick={() => handleToggle(type)}
-                  aria-pressed={examType === type}
-                  className={`rounded-full px-3 py-1.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted ${examType === type ? "bg-brand text-fg-on-brand" : "text-fg-muted hover:bg-canvas-subtle"}`}
-                >
-                  {type}
-                </button>
-              ))}
-            </div>
-
-            {/* Overall Band Card */}
-            <Card padding="sm" className="min-w-40">
-              <span className="text-xs text-fg-subtle font-medium block mb-1">
-                Current overall
-              </span>
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-serif font-semibold text-fg">
-                  {overallBand ?? "—"}
-                </span>
-              </div>
-            </Card>
+      <div
+        className={`transition-all duration-700 ease-out ${
+          mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+        }`}
+      >
+        {/* Top Header Block */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+          <div>
+            <p className="text-xs uppercase font-bold text-brand-fg tracking-wider mb-2">
+              IELTS PREP
+            </p>
+            <h1 className="text-4xl md:text-5xl font-serif font-normal text-fg tracking-tight">
+              Close the gap to{" "}
+              <span className="italic font-serif text-warning-fg">band 7</span>
+            </h1>
+            <p className="text-sm text-fg-subtle mt-2">
+              Practice IELTS modules and review your scored results.
+            </p>
           </div>
 
-          {resumableSessionId && (
-            <Card padding="sm" className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-fg-muted">
-                You have an exam in progress. Would you like to resume it?
-              </p>
-              <div className="flex shrink-0 gap-2">
-                <Button size="sm" onClick={handleResumeSession}>
-                  Resume in-progress exam
-                </Button>
-                <Button size="sm" variant="secondary" onClick={handleDiscardSession}>
-                  Discard
-                </Button>
-              </div>
-            </Card>
-          )}
-
-          {profileStatus === "error" && (
-            <Alert
-              tone="danger"
-              className="mb-6"
-              actions={
-                <Button variant="danger" size="sm" onClick={retryProfile}>
-                  Retry
-                </Button>
-              }
-            >
-              {profileError ?? "Failed to load your profile."}
-            </Alert>
-          )}
-
-          {startError && (
-            <Alert
-              tone="warning"
-              className="mb-6"
-              actions={
-                <>
-                  <Button
-                    size="sm"
-                    onClick={handleRetryStartExam}
-                    disabled={startingExam !== null}
-                  >
-                    Retry
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setStartError(null)}>
-                    Dismiss
-                  </Button>
-                </>
-              }
-            >
-              {startError}
-            </Alert>
-          )}
-
-          {/* Grid of Custom Styled Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            {skillCards.map((card, i) => (
-              <div
-                key={card.key}
-                style={{ transitionDelay: mounted ? `${i * 90}ms` : "0ms" }}
-                className={`${card.bgColor} rounded-3xl p-7 flex flex-col justify-between h-56 transition-all duration-700 ease-out hover:shadow-md ${
-                  mounted
-                    ? "opacity-100 translate-y-0"
-                    : "opacity-0 translate-y-6"
-                }`}
+          <div className="flex rounded-full border border-border bg-surface p-1 text-xs font-semibold">
+            {(["Academic", "General"] as ExamType[]).map((type) => (
+              <button
+                key={type}
+                onClick={() => handleToggle(type)}
+                aria-pressed={examType === type}
+                className={`rounded-full px-3 py-1.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted ${examType === type ? "bg-brand text-fg-on-brand" : "text-fg-muted hover:bg-canvas-subtle"}`}
               >
-                <div>
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="p-1">{card.icon}</div>
-                    <div className="text-right">
-                      <span className="text-2xl font-serif font-bold text-fg leading-none block">
-                        {latestBand(card.key)?.toFixed(1) ?? "—"}
-                      </span>
-                      <span className="text-[10px] uppercase font-bold text-fg-subtle tracking-wider">
-                        CURRENT BAND
-                      </span>
-                    </div>
-                  </div>
-
-                  <h2 className="text-2xl font-serif font-normal text-fg mb-1">
-                    {card.title}
-                  </h2>
-                  <p className="text-xs text-fg-muted leading-relaxed max-w-xs">
-                    {card.description}
-                  </p>
-                </div>
-
-                {/* Card Action Controls */}
-                <div className="flex justify-between items-center pt-4">
-                  <div className="flex items-center gap-1.5">
-                    {card.available ? (
-                      <>
-                        <button
-                          disabled={startingExam !== null}
-                          onClick={() => startExam(card.key)}
-                          className="bg-white/80 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed text-fg-muted text-l font-medium px-3 py-1 rounded-full border border-black/5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted"
-                        >
-                          {startingExam === card.key ? "Starting..." : "Take Exam"}
-                        </button>
-                        {/* The gate is stated up front rather than discovered
-                            by pressing the button. Clicking still works — it
-                            opens the upgrade dialog — so this is information,
-                            not a second disabled state. */}
-                        {isFreeTier && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-white/60 px-2 py-0.5 text-[11px] font-semibold text-fg-muted">
-                            <Sparkles size={11} aria-hidden="true" />
-                            Pro
-                          </span>
-                        )}
-                      </>
-                    ) : (
-                      <span
-                        title={`${card.title} simulation is not available yet.`}
-                        className="inline-flex items-center gap-1 bg-white/50 text-fg-subtle text-l font-medium px-3 py-1 rounded-full border border-black/5 cursor-not-allowed select-none"
-                      >
-                        Coming soon
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
+                {type}
+              </button>
             ))}
           </div>
 
-          {weakestSkill && (
-            <Card padding="sm" className="flex items-center gap-3 text-xs text-fg-muted">
-              <span className="text-brand-fg text-base" aria-hidden="true">💡</span>
-              <p>
-                <strong className="text-fg font-semibold">Practice focus:</strong>{" "}
-                your latest {weakestSkill.skill} score is {weakestSkill.band.toFixed(1)},
-                so it is a useful place to focus next.
-              </p>
-            </Card>
-          )}
+          {/* Overall Band Card */}
+          <Card padding="sm" className="min-w-40">
+            <span className="text-xs text-fg-subtle font-medium block mb-1">
+              Current overall
+            </span>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-serif font-semibold text-fg">
+                {overallBand ?? "—"}
+              </span>
+            </div>
+          </Card>
         </div>
+
+        {resumableSessionId && (
+          <Card
+            padding="sm"
+            className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <p className="text-sm text-fg-muted">
+              You have an exam in progress. Would you like to resume it?
+            </p>
+            <div className="flex shrink-0 gap-2">
+              <Button size="sm" onClick={handleResumeSession}>
+                Resume in-progress exam
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={handleDiscardSession}
+              >
+                Discard
+              </Button>
+            </div>
+          </Card>
+        )}
+
+        {profileStatus === "error" && (
+          <Alert
+            tone="danger"
+            className="mb-6"
+            actions={
+              <Button variant="danger" size="sm" onClick={retryProfile}>
+                Retry
+              </Button>
+            }
+          >
+            {profileError ?? "Failed to load your profile."}
+          </Alert>
+        )}
+
+        {startError && (
+          <Alert
+            tone="warning"
+            className="mb-6"
+            actions={
+              <>
+                <Button
+                  size="sm"
+                  onClick={handleRetryStartExam}
+                          disabled={startingExam !== null || identityLoading}
+                >
+                  Retry
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setStartError(null)}
+                >
+                  Dismiss
+                </Button>
+              </>
+            }
+          >
+            {startError}
+          </Alert>
+        )}
+
+        {/* Grid of Custom Styled Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          {skillCards.map((card, i) => (
+            <div
+              key={card.key}
+              style={{ transitionDelay: mounted ? `${i * 90}ms` : "0ms" }}
+              className={`${card.bgColor} rounded-3xl p-7 flex flex-col justify-between h-56 transition-all duration-700 ease-out hover:shadow-md ${
+                mounted
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 translate-y-6"
+              }`}
+            >
+              <div>
+                <div className="flex justify-between items-start mb-2">
+                  <div className="p-1">{card.icon}</div>
+                  <div className="text-right">
+                    <span className="text-2xl font-serif font-bold text-fg leading-none block">
+                      {latestBand(card.key)?.toFixed(1) ?? "—"}
+                    </span>
+                    <span className="text-[10px] uppercase font-bold text-fg-subtle tracking-wider">
+                      CURRENT BAND
+                    </span>
+                  </div>
+                </div>
+
+                <h2 className="text-2xl font-serif font-normal text-fg mb-1">
+                  {card.title}
+                </h2>
+                <p className="text-xs text-fg-muted leading-relaxed max-w-xs">
+                  {card.description}
+                </p>
+              </div>
+
+              {/* Card Action Controls */}
+              <div className="flex justify-between items-center pt-4">
+                <div className="flex items-center gap-1.5">
+                  {card.available ? (
+                    <>
+                      <button
+                        disabled={startingExam !== null}
+                        onClick={() => startExam(card.key)}
+                        className="bg-white/80 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed text-fg-muted text-l font-medium px-3 py-1 rounded-full border border-black/5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted"
+                      >
+                        {startingExam === card.key
+                          ? "Starting..."
+                          : "Take Exam"}
+                      </button>
+                      {/* The gate is stated up front rather than discovered
+                            by pressing the button. Clicking still works — it
+                            opens the upgrade dialog — so this is information,
+                            not a second disabled state. */}
+                      {isFreeTier && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-white/60 px-2 py-0.5 text-[11px] font-semibold text-fg-muted">
+                          <Sparkles size={11} aria-hidden="true" />
+                          Pro
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <span
+                      title={`${card.title} simulation is not available yet.`}
+                      className="inline-flex items-center gap-1 bg-white/50 text-fg-subtle text-l font-medium px-3 py-1 rounded-full border border-black/5 cursor-not-allowed select-none"
+                    >
+                      Coming soon
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {weakestSkill && (
+          <Card
+            padding="sm"
+            className="flex items-center gap-3 text-xs text-fg-muted"
+          >
+            <span className="text-brand-fg text-base" aria-hidden="true">
+              💡
+            </span>
+            <p>
+              <strong className="text-fg font-semibold">Practice focus:</strong>{" "}
+              your latest {weakestSkill.skill} score is{" "}
+              {weakestSkill.band.toFixed(1)}, so it is a useful place to focus
+              next.
+            </p>
+          </Card>
+        )}
+      </div>
     </PageContainer>
   );
 }

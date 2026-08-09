@@ -1,4 +1,12 @@
-import { test, expect, Page, Route } from "@playwright/test";
+// ./fixtures/auth, not @playwright/test.
+//
+// middleware.ts guards /exam on the presence of an access_token cookie. Plain
+// Playwright carries no session, so every test in this file was redirected to
+// login and failed before reaching a single Listening assertion -- five
+// "feature failures" that never touched the feature.
+//
+// The fixture re-exports Page and Route precisely so this is a one-line change.
+import { test, expect, Page, Route } from "./fixtures/auth";
 
 // Follows the same network-layer stubbing pattern as
 // test/e2e/reading-mocked.spec.ts: every call goes through the Gateway

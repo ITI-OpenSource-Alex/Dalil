@@ -15,7 +15,10 @@ class ExamResultResponse(BaseModel):
     user_id: UUID
     skill_area: SkillArea
     raw_score: int
-    band_score: float
+    # GOA-134: nullable. A speaking session where fewer than 3 of 4 criteria
+    # completed has no band, and NULL is how that is represented now that
+    # exam_results.band_score no longer forces a fabricated 0.0.
+    band_score: float | None = None
     section_scores: dict[str, Any]
     graded_at: datetime
     answer_key: dict[str, Any]

@@ -27,7 +27,7 @@ from app.schemas import CVReviewResponse, CVReviewSection
 
 logger = logging.getLogger(__name__)
 
-REVIEW_MODEL = "claude-opus-4-8"
+REVIEW_MODEL = "claude-opus-5"
 REVIEW_TIMEOUT_SECONDS = 120.0
 CACHE_TTL_SECONDS = 24 * 60 * 60
 SECTION_NAMES: tuple[str, ...] = (

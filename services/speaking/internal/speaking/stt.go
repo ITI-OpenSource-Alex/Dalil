@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/agents"
 	"github.com/gorilla/websocket"
 	"github.com/rs/zerolog/log"
 )
@@ -26,12 +27,35 @@ func (c *Client) transcribeAudio(audio []byte) {
 		atomic.StoreInt64(&c.lastTransMs, apiDuration.Milliseconds())
 
 		// Trigger evaluation swarm directly using the mock transcript
-		c.runEvaluationAndTTS("Mock transcript (Speech URL missing)", apiDuration.Milliseconds())
+		c.runEvaluationAndTTS("Mock transcript (Speech URL missing)", apiDuration.Milliseconds(), nil)
 		return
 	}
+	// SPEAK-EVAL-002. The upload is labelled with what the client declared at
+	// session_init, not with an assertion.
+	//
+	// This used to be a hardcoded filename="audio.pcm" and
+	// Content-Type: audio/pcm;rate=16000 for every session. The sidecar decodes
+	// anything matching audio/pcm with np.frombuffer(dtype=int16), so a browser's
+	// WebM/Opus container was reinterpreted as raw samples and the transcript --
+	// and every band derived from it -- described noise.
+	//
+	// An unknown format is refused here rather than guessed. Transcribing bytes
+	// whose encoding nobody knows is the defect with an extra step.
+	format, ok := lookupAudioFormat(c.audioFormat)
+	if !ok {
+		log.Error().
+			Str("session_id", c.id).
+			Str("declared_format", c.audioFormat).
+			Msg("Cannot transcribe: session has no usable declared audio format")
+		c.setOutcome("error")
+		c.sendError("This recording's audio format was not recognised. Please refresh and try again.")
+		return
+	}
+
 	log.Info().
 		Str("session_id", c.id).
 		Int("audio_size_bytes", len(audio)).
+		Str("audio_format", format.mediaType).
 		Msg("Calling local Speech-to-Text sidecar...")
 	var resp *http.Response
 	var err error
@@ -40,8 +64,10 @@ func (c *Client) transcribeAudio(audio []byte) {
 		writer := multipart.NewWriter(body)
 
 		h := make(textproto.MIMEHeader)
-		h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, "audio", "audio.pcm"))
-		h.Set("Content-Type", "audio/pcm;rate=16000")
+		h.Set("Content-Disposition", fmt.Sprintf(
+			`form-data; name="%s"; filename="%s"`, "audio", "audio"+format.extension,
+		))
+		h.Set("Content-Type", format.uploadContentType)
 		part, errPart := writer.CreatePart(h)
 		if errPart != nil {
 			log.Error().Err(errPart).Str("session_id", c.id).Msg("Failed to create form file field")
@@ -75,27 +101,23 @@ func (c *Client) transcribeAudio(audio []byte) {
 			transcriptionLatencyMetric.Observe(float64(apiDuration.Milliseconds()))
 			atomic.StoreInt64(&c.lastTransMs, apiDuration.Milliseconds())
 
-			// GOA-032: the transcription SLO is a *ratio*, because CPU Whisper
-			// scales with utterance length -- an absolute millisecond budget is
-			// meaningless across a 30s Part 1 answer and a two-minute Part 2 one.
-			//
-			// Skipped entirely (not recorded as zero) when the duration is
-			// unknown: a recorded 0 is a claim that STT was instantaneous, which
-			// drags P95 down and hides real breaches.
-			if audioMs := pcmDurationMs(len(audio)); audioMs > 0 {
-				ratio := float64(apiDuration.Milliseconds()) / float64(audioMs)
-				transcriptionRatioMetric.Observe(ratio)
-				c.checkSLO(budgetTranscriptionRatio, ratio)
-			}
-
 			// Decode response
 			defer resp.Body.Close()
 			// The speech sidecar returns {"transcript": "..."} -- see
 			// services/speech/app/main.py. Decoding `text` yielded an empty string
 			// on every successful call, so the swarm graded an empty transcript
 			// and the client received an empty transcript event (BUG-035).
+			// GOA-133: the sidecar also returns the audio duration, per-segment
+			// and per-word timings, and per-word recognition confidence. Two of
+			// the four IELTS criteria are defined over exactly that, and none of
+			// it was requested, parsed or forwarded -- so Fluency and
+			// Pronunciation scored delivery from text that cannot express it.
+			// Measured: 18.87s and 33.67s renderings of one script produced
+			// byte-identical transcripts.
 			var sttResp struct {
-				Transcript string `json:"transcript"`
+				Transcript string        `json:"transcript"`
+				DurationS  float64       `json:"duration_s"`
+				Words      []agents.Word `json:"words"`
 			}
 			err = json.NewDecoder(resp.Body).Decode(&sttResp)
 			if err != nil {
@@ -105,11 +127,63 @@ func (c *Client) transcribeAudio(audio []byte) {
 				return
 			}
 
+			// GOA-032's transcription SLO is a *ratio*, because CPU Whisper
+			// scales with utterance length -- an absolute millisecond budget is
+			// meaningless across a 30s Part 1 answer and a two-minute Part 2 one.
+			//
+			// SPEAK-EVAL-002: the denominator now comes from the sidecar's
+			// measured duration_s (added by GOA-133) instead of being inferred
+			// from the byte count. Inference assumed raw PCM at 16kHz/16-bit, and
+			// Opus compresses roughly 9.5x -- measured on the test fixtures, 6
+			// seconds of speech is 20,218 bytes as WebM and 192,000 as PCM. So on
+			// the browser path this budget was dividing by a denominator an order
+			// of magnitude too small and breaching continuously for a reason
+			// nobody could act on.
+			//
+			// Skipped entirely (not recorded as zero) when the duration is
+			// unknown: a recorded 0 is a claim that STT was instantaneous, which
+			// drags P95 down and hides real breaches.
+			audioMs := int64(sttResp.DurationS * 1000)
+			if audioMs <= 0 && format.isRawPCM {
+				// An older sidecar returns no duration. Only raw PCM can be
+				// recovered from the byte count; for compressed audio the
+				// measurement is simply unavailable.
+				audioMs = pcmDurationMs(len(audio))
+			}
+			if audioMs > 0 {
+				ratio := float64(apiDuration.Milliseconds()) / float64(audioMs)
+				transcriptionRatioMetric.Observe(ratio)
+				c.checkSLO(budgetTranscriptionRatio, ratio)
+			} else {
+				transcriptionDurationUnknownTotal.Inc()
+				log.Warn().
+					Str("session_id", c.id).
+					Str("audio_format", format.mediaType).
+					Msg("No audio duration available; transcription_ratio not recorded for this session")
+			}
+
 			// 1. Send text transcript to client
 			c.sendTranscript(sttResp.Transcript)
 
+			// Derive the features once per session and share them between the two
+			// agents that need them. `ok` is false when the sidecar returned no
+			// word timings -- an older deployment, say -- and the feature block is
+			// then OMITTED rather than rendered as zeros.
+			var features *agents.ProsodyFeatures
+			if f, ok := agents.ComputeProsody(sttResp.Words, sttResp.DurationS); ok {
+				features = &f
+				recordProsodyMetrics(f)
+			} else {
+				prosodyUnavailableTotal.Inc()
+				log.Warn().
+					Str("session_id", c.id).
+					Int("words", len(sttResp.Words)).
+					Float64("duration_s", sttResp.DurationS).
+					Msg("No prosody features; Fluency and Pronunciation scored without them")
+			}
+
 			// 2. Trigger evaluation swarm and TTS voice streaming pipeline
-			c.runEvaluationAndTTS(sttResp.Transcript, apiDuration.Milliseconds())
+			c.runEvaluationAndTTS(sttResp.Transcript, apiDuration.Milliseconds(), features)
 			return
 		}
 		if resp != nil {

@@ -16,7 +16,7 @@ class ResultRepository:
         user_id: UUID,
         skill_area: str,
         raw_score: int,
-        band_score: float,
+        band_score: float | None,
         section_scores: dict[str, Any],
         agent_responses: dict | list | None = None,
     ) -> None:

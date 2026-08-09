@@ -1,0 +1,139 @@
+{
+  "evaluation": {
+    "schema_version": "speaking-evaluation/v1",
+    "evaluation_id": "ielts-official-monika",
+    "mode": "benchmark",
+    "status": "partial",
+    "score_semantics": "estimated_ielts_practice_band",
+    "criteria": [
+      {
+        "criterion_id": "fluency_coherence",
+        "status": "scored",
+        "band": 8,
+        "summary": "No measured speech features (words per minute, articulation rate, pause counts/durations) were supplied, so I cannot judge your rate of speech, flow or hesitation from the audio; this assessment is based on the coherence and cohesion evidence in the transcript only. On that evidence you are very strong. You develop each topic coherently and at length, sequencing ideas logically (a claim followed by reasons and examples), and you deploy a wide, flexible range of connectives and discourse markers. There is only occasional repetition and a few self-corrections, which keeps you at Band 8 rather than the 'only rare repetition' required for Band 9. If measured timing data were available and showed a natural pace with few long pauses, this rating would be well supported.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "fc.8",
+            "descriptor_band": 8,
+            "polarity": "supports",
+            "application": "You develop topics coherently and appropriately with detailed, extended answers and only occasional repetition or self-correction."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "fc.7",
+            "descriptor_band": 7,
+            "polarity": "supports",
+            "application": "You use a range of connectives and discourse markers flexibly ('actually', 'I guess', 'nowadays', 'for example', 'I mean', 'so', 'but because')."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "fc.9",
+            "descriptor_band": 9,
+            "polarity": "caps_below",
+            "application": "Repetition is more than rare ('to to come down and and', 'in your in your work in in'), so cohesion is not yet fully seamless at Band 9 level."
+          }
+        ]
+      },
+      {
+        "criterion_id": "lexical_resource",
+        "status": "scored",
+        "band": 8,
+        "summary": "You deploy a wide, flexible vocabulary that conveys precise meaning across all three parts, with plenty of stylistically appropriate and idiomatic language (anchor point, stress relief, social welfare system, get a good insight into). Word formation and paraphrase are strong and topic shifts are handled with ease. Only occasional collocation inaccuracies hold you back from full precision: 'competition is quite big' should be 'fierce/tough', 'putting a lot of overtime in their work' should be 'putting in a lot of overtime', and 'lose track with' should be 'lose track of'. Tightening these less common collocations so they are consistently accurate is what separates this from a Band 9.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "lr.8",
+            "descriptor_band": 8,
+            "polarity": "supports",
+            "application": "Uses a wide vocabulary resource readily and flexibly to convey precise meaning, with less common and idiomatic items (anchor point, stress relief, social welfare system, insight into) used skilfully."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "lr.7",
+            "descriptor_band": 7,
+            "polarity": "supports",
+            "application": "Discusses a variety of unfamiliar Part 3 topics with clear awareness of collocation and effective paraphrase throughout."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "lr.9",
+            "descriptor_band": 9,
+            "polarity": "caps_below",
+            "application": "Recurring collocation slips ('competition is quite big', 'share time with people', 'lose track with') mean idiomatic language is not yet used with full accuracy and precision."
+          }
+        ]
+      },
+      {
+        "criterion_id": "grammatical_range",
+        "status": "scored",
+        "band": 8,
+        "summary": "You use a wide range of complex structures flexibly, and the majority of your sentences are error-free, with well-controlled conditionals, relative clauses, and infinitives of purpose. What holds you back from band 9 is a small set of non-systematic but noticeable errors: inappropriate tense choice ('it's depending on what your hobby is' instead of 'it depends'), the redundant conditional 'if you would neglect your family' (should be 'if you neglect'), and word-order slips like 'regular working hours would be not 8 to 9 hours'. These are more than minor slips, so accuracy is not yet consistent throughout.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.8",
+            "descriptor_band": 8,
+            "polarity": "supports",
+            "application": "You deploy a wide range of complex structures flexibly and produce a clear majority of error-free sentences across long, detailed turns."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.9",
+            "descriptor_band": 9,
+            "polarity": "caps_below",
+            "application": "Recurring tense and redundant-conditional errors ('it's depending', 'if you would neglect') go beyond minor slips, so structures are not yet consistently accurate."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.7",
+            "descriptor_band": 7,
+            "polarity": "supports",
+            "application": "You comfortably exceed this level, using complex structures with genuine flexibility rather than only frequent error-free sentences."
+          }
+        ]
+      },
+      {
+        "criterion_id": "pronunciation",
+        "status": "unavailable",
+        "unavailable_reason": "insufficient_evidence",
+        "summary": "Evaluation unavailable due to an internal error."
+      }
+    ],
+    "overall": {
+      "band": 8,
+      "unrounded_mean": 8,
+      "included_criteria": [
+        "fluency_coherence",
+        "lexical_resource",
+        "grammatical_range"
+      ],
+      "excluded_criteria": [
+        "pronunciation"
+      ],
+      "rounding_rule": "ielts_half_band_v1",
+      "min_criteria_required": 3
+    },
+    "provenance": {
+      "created_at": "2026-08-09T01:19:44.0731383Z",
+      "scorer_version": "speaking@dev",
+      "rubric_id": "ielts-speaking-public",
+      "rubric_version": "2023-06",
+      "rubric_sha256": "40820db22ab572944baa4ecc399d6ff2597291e076dd5c990bd7bc578974f9cb",
+      "llm_provider": "agentrouter",
+      "llm_model": "claude-opus-4-8"
+    }
+  },
+  "lane": "scorer_only",
+  "latency_ms": 39654,
+  "swarm_error": ""
+}

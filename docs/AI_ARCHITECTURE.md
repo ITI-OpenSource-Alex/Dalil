@@ -165,14 +165,14 @@ Model choice is per call site:
 
 | Call site | Ticket baseline |
 | --- | --- |
-| Supervisor and integrated Claude paths | AgentRouter-compatible Claude; later migration notes use `claude-opus-4-8` |
+| Supervisor and integrated Claude paths | `claude-opus-5` through AgentRouter's Anthropic-compatible endpoint |
 | Writing swarm | `claude-sonnet-4-6` in GOA-014 |
-| Speaking swarm | `claude-sonnet-4-6` originally; later AgentRouter notes use `claude-opus-4-8` |
+| Speaking swarm | `claude-sonnet-4-6` originally; currently `claude-opus-5` through AgentRouter |
 | Profile Matcher boost | low-cost Claude call; later provider compatibility must be honored |
-| CV extraction | originally Haiku; GOA-031 explicitly requires a model served by AgentRouter and cites `claude-opus-4-8` |
-| CV Review | `claude-opus-4-8` via AgentRouter in GOA-025’s correction |
-| LLM judge | `claude-opus-4-8` via AgentRouter in GOA-028’s correction |
-| Academic Task 1 vision | GPT-4V in the Sprint 2 design; GOA-093 consolidated onto `claude-opus-4-8` via AgentRouter (not Sonnet — AgentRouter serves no Sonnet channel), configurable as `VISION_MODEL` |
+| CV extraction | originally Haiku; currently `claude-opus-5` through AgentRouter |
+| CV Review | `claude-opus-5` through AgentRouter |
+| LLM judge | `claude-opus-5` through AgentRouter |
+| Academic Task 1 vision | GPT-4V in the Sprint 2 design; currently `claude-opus-5` through AgentRouter, configurable as `VISION_MODEL` |
 
 The direct-Anthropic code path remains a provider option, but provider selection is configuration, not automatic failover.
 
@@ -299,7 +299,7 @@ Each returns a band, feedback, character-level issues, and an improvement tip. T
 | Academic Task 1 | System-provided chart description plus typed response |
 | Task 2 | Essay prompt plus typed response |
 
-Academic Task 1 is not complete at mid-Sprint 3 if the chart image is not stored and delivered. GOA-131 in Sprint 4 adds the schema field, parser extraction, S3 object, protected URL, missing-object refusal, and evaluator image handoff. GOA-093 has since consolidated vision onto `claude-opus-4-8` via AgentRouter, but that path stays dormant until GOA-131 lands: no ingested question carries an image key, so `extract_chart_context` is never reached and Academic Task 1 is evaluated without chart context (see the accepted-limitation note in `services/writing/app/evaluation.py`).
+Academic Task 1 is not complete at mid-Sprint 3 if the chart image is not stored and delivered. GOA-131 in Sprint 4 adds the schema field, parser extraction, S3 object, protected URL, missing-object refusal, and evaluator image handoff. Vision is configured as `claude-opus-5` via AgentRouter, but that path stays dormant until GOA-131 lands: no ingested question carries an image key, so `extract_chart_context` is never reached and Academic Task 1 is evaluated without chart context (see the accepted-limitation note in `services/writing/app/evaluation.py`).
 
 ## 10. Speaking and speech architecture
 
@@ -471,7 +471,7 @@ Targets are acceptance criteria, not achieved metrics. The architecture must not
 1. **Profile Matcher weights are 30/25/25/20.** These ticket values supersede weights inferred from current code.
 2. **The system does not use ElevenLabs in the corrected architecture.** Later Sprint 4 audit notes establish Faster-Whisper and Piper as the actual speech stack.
 3. **Haiku cannot be assumed available through AgentRouter.** GOA-031 requires the CV extraction runtime to use a served model and records Opus as the working reference.
-4. **Academic Task 1 is incomplete without chart delivery.** GOA-131 owns the missing asset path; GOA-093 only changed the vision model (done — `claude-opus-4-8` via AgentRouter, Langfuse-traced) and cannot be end-to-end verified until GOA-131 supplies an image.
+4. **Academic Task 1 is incomplete without chart delivery.** GOA-131 owns the missing asset path; the vision model is now `claude-opus-5` via AgentRouter and Langfuse-traced, but cannot be end-to-end verified until GOA-131 supplies an image.
 5. **Poland is not an independent current task.** GOA-110 is merged into the rescoped GOA-109.
 6. **RAG reranking and confidence refusal are Sprint 4.** They are target controls, not current Sprint 3 claims.
 7. **Evaluation thresholds are targets until proven.** Green mocks or synthetic labels do not establish IELTS accuracy.

@@ -322,8 +322,13 @@ function ResultsPageContent() {
               Overall band
             </Text>
             <p className="font-serif text-4xl font-bold text-brand-fg">
-              {result.band_score}
+              {result.band_score ?? "—"}
             </p>
+            {result.band_score === null && (
+              <Text size="xs" tone="muted">
+                Not enough criteria completed to score
+              </Text>
+            )}
             <Text size="sm" tone="muted">
               Raw Score: {result.raw_score}
             </Text>

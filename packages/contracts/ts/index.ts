@@ -24,6 +24,7 @@ export interface UserUpdated extends BaseEvent {
     extracurricularsScore: number;
     targetCountries: string[];
     fieldOfStudy: string | null;
+    targetFieldOfStudy: string | null;
   };
 }
 

@@ -63,7 +63,7 @@ func TestRecordLLMCostIntegration(t *testing.T) {
 
 	recordLLMCostAt(
 		"goa027-cost-e2e",
-		"claude-opus-4-8",
+		"claude-opus-5",
 		800,
 		100,
 		time.Now().UTC(),

@@ -33,7 +33,7 @@ def test_record_llm_cost_is_daily_service_scoped_and_retained(monkeypatch):
     monkeypatch.setattr(telemetry, "_redis_client", fake)
     monkeypatch.setattr(telemetry, "_utc_date", lambda: "2026-07-30")
 
-    telemetry.record_llm_cost("user-1", "claude-opus-4-8", 100, 25)
+    telemetry.record_llm_cost("user-1", "claude-opus-5", 100, 25)
 
     commands = fake.pipelines[0].commands
     keys = {command[1] for command in commands}
@@ -53,8 +53,8 @@ def test_record_llm_cost_uses_new_key_on_next_utc_day(monkeypatch):
     monkeypatch.setattr(telemetry, "_redis_client", fake)
     monkeypatch.setattr(telemetry, "_utc_date", lambda: next(dates))
 
-    telemetry.record_llm_cost("user-1", "claude-opus-4-8", 10, 1)
-    telemetry.record_llm_cost("user-1", "claude-opus-4-8", 10, 1)
+    telemetry.record_llm_cost("user-1", "claude-opus-5", 10, 1)
+    telemetry.record_llm_cost("user-1", "claude-opus-5", 10, 1)
 
     first_keys = {command[1] for command in fake.pipelines[0].commands}
     second_keys = {command[1] for command in fake.pipelines[1].commands}

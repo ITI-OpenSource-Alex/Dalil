@@ -571,6 +571,7 @@ describe('UsersService', () => {
       ieltsReading: 7.0,
       ieltsWriting: 6.5,
       ieltsSpeaking: 7.0,
+      targetFieldOfStudy: 'Software Engineering',
     };
     const mockProfile = {
       userId,
@@ -663,6 +664,7 @@ describe('UsersService', () => {
           // when it was missing from the payload the filter was dead for every
           // replicated user.
           fieldOfStudy: 'Computer Science',
+          targetFieldOfStudy: 'Software Engineering',
           ieltsScore: 7.0,
           ieltsListening: 7.5,
           ieltsReading: 7.0,

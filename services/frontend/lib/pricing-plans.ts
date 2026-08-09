@@ -5,7 +5,7 @@
  * components/marketing/pricing.tsx, which was fine while the landing page was
  * the only surface that described the paid tier. GOA-039 adds a second one
  * (/pricing) that has to say exactly the same thing — and a product where the
- * marketing page and the checkout page disagree about what $7 buys is a
+ * marketing page and the checkout page disagree about what $20 buys is a
  * support ticket waiting to happen.
  *
  * Deliberately plain data: no JSX, no "use client", no imports. Both a Server
@@ -24,7 +24,7 @@ export interface PricingPlan {
   name: string;
   /** One sentence on who the plan is for. */
   tagline: string;
-  /** Formatted for display, e.g. "$7". Not used for any calculation. */
+  /** Formatted for display, e.g. "$20". Not used for any calculation. */
   price: string;
   /** Billing period, e.g. "per month". */
   period: string;
@@ -46,16 +46,16 @@ export const PAID_PLAN_ID: PlanId = "pro";
 /** Display name for the paid tier, used in copy across the app. */
 export const PAID_PLAN_NAME = "Dalil Pro";
 
-/** "$7 / month" -- the paid price as a sentence, for inline copy. */
-export const PRO_PRICE_LABEL = "$7 / month";
+/** "$20 / month" -- the paid price as a sentence, for inline copy. */
+export const PRO_PRICE_LABEL = "$20 / month";
 
 /**
  * The same price split for checkout, where an amount and its period are laid
  * out as separate pieces (line item, total, pay button) rather than read as a
  * phrase. Two decimal places because that is how money is written on a
- * receipt; `PricingPlan.price` stays "$7" because that is how it is *sold*.
+ * receipt; `PricingPlan.price` stays "$20" because that is how it is *sold*.
  */
-export const PRO_PRICE_AMOUNT = "$7.00";
+export const PRO_PRICE_AMOUNT = "$20.00";
 export const PRO_PRICE_PERIOD = "per month";
 
 export const PRICING_PLANS: readonly PricingPlan[] = [
@@ -80,7 +80,7 @@ export const PRICING_PLANS: readonly PricingPlan[] = [
     id: "pro",
     name: PAID_PLAN_NAME,
     tagline: "Full IELTS preparation with AI feedback across every skill.",
-    price: "$7",
+    price: "$20",
     period: "per month",
     features: [
       "Everything in Free",

@@ -10,6 +10,7 @@ class UserProfile(BaseModel):
     major: Optional[str] = None
     targetCountries: List[str] = Field(default_factory=list)
     fieldOfStudy: Optional[str] = None
+    targetFieldOfStudy: Optional[str] = None
     ects: Optional[int] = None
     workExperienceYears: int = 0
     extracurricularsScore: int = 0
@@ -19,10 +20,12 @@ class UserProfile(BaseModel):
 
 class ProgramRequirements(BaseModel):
     id: str
+    name: Optional[str] = None
     # GOA-108's financial gap items join visa data by country. Without this field the
     # call site's getattr(program, "country", None) guard was always None, so the
     # feature silently never fired.
     country: Optional[str] = None
+    discipline: Optional[str] = None
     min_ects: Optional[int] = None
     degree_level: Optional[str] = None
     required_citizenship: Optional[str] = None

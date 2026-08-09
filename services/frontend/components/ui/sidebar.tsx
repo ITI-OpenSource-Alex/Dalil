@@ -11,7 +11,6 @@ import {
   FileText,
   GraduationCap,
   LayoutDashboard,
-  ListChecks,
   LogOut,
   Menu,
   MessageSquare,
@@ -63,7 +62,11 @@ interface NavItem {
    * wagging the dog.
    */
   alsoActiveFor?: string[];
-  children?: { label: string; href: string; matchStrategy?: "exact" | "prefix" }[];
+  children?: {
+    label: string;
+    href: string;
+    matchStrategy?: "exact" | "prefix";
+  }[];
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -71,7 +74,12 @@ const NAV_ITEMS: NavItem[] = [
   // onboarding, replacing the temporary redirect to /opportunities.
   { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
   { label: "Chat", icon: MessageSquare, href: "/chat" },
-  { label: "IELTS Exam", icon: GraduationCap, href: "/exam", matchStrategy: "prefix" },
+  {
+    label: "IELTS Exam",
+    icon: GraduationCap,
+    href: "/exam",
+    matchStrategy: "prefix",
+  },
   {
     // Phase D (docs/IA-REDESIGN-PROPOSAL.md): a standalone section, no
     // longer reachable only by opening Chat and finding the right toolbar
@@ -84,27 +92,10 @@ const NAV_ITEMS: NavItem[] = [
     matchStrategy: "prefix",
     children: [
       { label: "Speaking Practice", href: "/practice/speaking" },
-      {
-        label: "Speaking History",
-        href: "/practice/speaking/history",
-        matchStrategy: "prefix",
-      },
       { label: "Writing Practice", href: "/practice/writing" },
-      {
-        label: "Writing History",
-        href: "/practice/writing/history",
-        matchStrategy: "prefix",
-      },
     ],
   },
   { label: "Opportunities", icon: Target, href: "/opportunities" },
-  {
-    label: "Checklists",
-    icon: ListChecks,
-    href: "/checklists",
-    matchStrategy: "prefix",
-    alsoActiveFor: ["/checklist/"],
-  },
   // Phase E: standalone page, upload is free-tier, AI review remains paid
   // (surfaced by the upgrade dialog on the page itself, not by hiding the
   // nav entry -- href: null is for routes that don't exist yet, not for
@@ -113,7 +104,11 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Profile", icon: UserIcon, href: "/profile" },
 ];
 
-function matches(pathname: string, href: string, strategy?: "exact" | "prefix") {
+function matches(
+  pathname: string,
+  href: string,
+  strategy?: "exact" | "prefix",
+) {
   return strategy === "prefix"
     ? pathname === href || pathname.startsWith(`${href}/`)
     : pathname === href;
@@ -151,7 +146,10 @@ export function Sidebar() {
           the two must not disagree about what a header looks like. The drawer
           below stays on --surface: it is a sidebar, not a header. */}
       <div className="sticky top-0 z-30 flex items-center justify-between border-b border-nav-border bg-nav-surface px-4 py-3 lg:hidden print:hidden">
-        <Link href="/" className="flex items-center gap-2.5 rounded-chip focus-visible:outline-sand-300">
+        <Link
+          href="/"
+          className="flex items-center gap-2.5 rounded-chip focus-visible:outline-sand-300"
+        >
           <Wordmark tone="inverse" className="h-7" />
         </Link>
         <Button
@@ -210,7 +208,8 @@ export function Sidebar() {
           <nav aria-label="Main" className="space-y-1">
             {NAV_ITEMS.map((item) => {
               if (!item.href) {
-                const reason = item.unavailableReason ?? `${item.label} — coming soon`;
+                const reason =
+                  item.unavailableReason ?? `${item.label} — coming soon`;
                 return (
                   <div
                     key={item.label}
@@ -219,7 +218,11 @@ export function Sidebar() {
                     className="flex cursor-not-allowed items-center justify-between gap-3 rounded-full px-3.5 py-2.5 text-sm font-medium text-fg-subtle select-none"
                   >
                     <span className="flex items-center gap-3">
-                      <Icon icon={item.icon} size="sm" className="text-fg-subtle/70" />
+                      <Icon
+                        icon={item.icon}
+                        size="sm"
+                        className="text-fg-subtle/70"
+                      />
                       <span>{item.label}</span>
                     </span>
                     <Badge tone="neutral" size="sm" pill>
@@ -304,7 +307,11 @@ export function Sidebar() {
               href="/onboarding"
               className="flex items-start gap-2.5 rounded-panel border border-warning-border bg-warning-subtle p-4 transition-colors hover:bg-warning-subtle/80"
             >
-              <Icon icon={AlertCircle} size="sm" className="mt-0.5 shrink-0 text-warning-fg" />
+              <Icon
+                icon={AlertCircle}
+                size="sm"
+                className="mt-0.5 shrink-0 text-warning-fg"
+              />
               <span>
                 <span className="block text-sm font-semibold text-warning-fg">
                   Complete Profile
@@ -370,10 +377,7 @@ export function Sidebar() {
             </div>
           )}
 
-          <UserMenu
-            user={user}
-            identityLoading={identityLoading}
-          />
+          <UserMenu user={user} identityLoading={identityLoading} />
         </div>
       </aside>
     </>
@@ -458,7 +462,10 @@ function UserMenu({
         <Icon
           icon={ChevronUp}
           size="xs"
-          className={cn("text-fg-subtle transition-transform", !open && "rotate-180")}
+          className={cn(
+            "text-fg-subtle transition-transform",
+            !open && "rotate-180",
+          )}
         />
       </button>
 

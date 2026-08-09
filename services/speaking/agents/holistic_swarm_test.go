@@ -53,7 +53,7 @@ func TestHolisticSwarm_AllSuccess(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	res, err := EvaluateHolisticSwarm(ctx, mockClient, "Part 1: Hi...")
+	res, err := EvaluateHolisticSwarm(ctx, mockClient, "Part 1: Hi...", nil)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -64,8 +64,11 @@ func TestHolisticSwarm_AllSuccess(t *testing.T) {
 	if res.Partial {
 		t.Errorf("expected partial false, got true")
 	}
-	if res.OverallBand != 7.0 {
-		t.Errorf("expected overall band 7.0, got %v", res.OverallBand)
+	if res.OverallBand == nil {
+		t.Fatal("expected an overall band, got none")
+	}
+	if *res.OverallBand != 7.0 {
+		t.Errorf("expected overall band 7.0, got %v", *res.OverallBand)
 	}
 }
 
@@ -82,7 +85,7 @@ func TestHolisticSwarm_PartialTimeout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 
-	res, err := EvaluateHolisticSwarm(ctx, mockClient, "Part 1: Hi...")
+	res, err := EvaluateHolisticSwarm(ctx, mockClient, "Part 1: Hi...", nil)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -94,8 +97,11 @@ func TestHolisticSwarm_PartialTimeout(t *testing.T) {
 		t.Errorf("expected partial true because one agent timed out")
 	}
 
-	if res.OverallBand != 7.0 {
-		t.Errorf("expected overall band 7.0, got %v", res.OverallBand)
+	if res.OverallBand == nil {
+		t.Fatal("expected an overall band, got none")
+	}
+	if *res.OverallBand != 7.0 {
+		t.Errorf("expected overall band 7.0, got %v", *res.OverallBand)
 	}
 
 	gRes := res.Dimensions["Grammatical Range and Accuracy"]
@@ -117,7 +123,7 @@ func TestHolisticSwarm_AllFailed(t *testing.T) {
 		},
 	}
 
-	res, err := EvaluateHolisticSwarm(ctx, mockClient, "Transcript")
+	res, err := EvaluateHolisticSwarm(ctx, mockClient, "Transcript", nil)
 	if err == nil {
 		t.Fatal("expected error since all agents failed, got nil")
 	}
@@ -125,8 +131,15 @@ func TestHolisticSwarm_AllFailed(t *testing.T) {
 	if res.Status != "failed" {
 		t.Errorf("expected status 'failed', got '%s'", res.Status)
 	}
-	if res.OverallBand != 0.0 {
-		t.Errorf("expected overall band 0.0, got %v", res.OverallBand)
+	// GOA-134: this asserted `OverallBand == 0.0` -- it demanded the defect. When
+	// every agent fails there is no band, and reporting 0.0 made "we could not
+	// score this" indistinguishable from "the candidate scored zero", which the
+	// exam service then persisted as an official IELTS band.
+	if res.OverallBand != nil {
+		t.Errorf("expected no overall band when every agent failed, got %v", *res.OverallBand)
+	}
+	if res.CompletedCount != 0 {
+		t.Errorf("expected completed_count 0, got %d", res.CompletedCount)
 	}
 }
 
@@ -141,7 +154,7 @@ func TestHolisticSwarm_GoroutineLeak(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 
-	_, _ = EvaluateHolisticSwarm(ctx, mockClient, "Transcript")
+	_, _ = EvaluateHolisticSwarm(ctx, mockClient, "Transcript", nil)
 
 	success := false
 	for i := 0; i < 10; i++ {
@@ -177,7 +190,7 @@ func TestHolisticSwarm_LoadTest(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 			defer cancel()
 
-			_, err := EvaluateHolisticSwarm(ctx, mockClient, "Transcript")
+			_, err := EvaluateHolisticSwarm(ctx, mockClient, "Transcript", nil)
 			if err != nil {
 				t.Errorf("evaluation failed during load test: %v", err)
 			}

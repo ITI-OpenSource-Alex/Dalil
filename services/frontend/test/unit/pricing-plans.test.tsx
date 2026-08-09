@@ -72,7 +72,7 @@ describe("/pricing — signed out", () => {
     expect(screen.getByRole("heading", { name: "Free" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Dalil Pro" })).toBeInTheDocument();
     expect(screen.getByText("$0")).toBeInTheDocument();
-    expect(screen.getByText("$7")).toBeInTheDocument();
+    expect(screen.getByText("$20")).toBeInTheDocument();
 
     // Nothing to fetch: there is no session to describe.
     expect(profileMock.getMyProfile).not.toHaveBeenCalled();

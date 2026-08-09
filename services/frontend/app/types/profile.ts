@@ -12,6 +12,7 @@ export interface UserProfileDetail {
   ieltsSpeaking: number | null;
   targetCountries: string[];
   fieldOfStudy: string | null;
+  targetFieldOfStudy?: string | null;
   ects: number | null;
   workExperienceYears: number;
   extracurricularsScore: number;

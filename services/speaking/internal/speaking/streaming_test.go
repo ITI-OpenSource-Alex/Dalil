@@ -124,6 +124,8 @@ func openSession(t *testing.T, s *speakingTestServer, headers http.Header) *webs
 	init, _ := json.Marshal(map[string]string{
 		"type": "session_init", "userId": "user-1",
 		"questionPrompt": "Describe a book.", "questionType": "IELTS Part 2",
+		// Mandatory since SPEAK-EVAL-002. These frames are synthetic PCM.
+		"audioFormat": "audio/pcm;rate=16000",
 	})
 	if err := ws.WriteMessage(websocket.TextMessage, init); err != nil {
 		t.Fatalf("session_init: %v", err)
@@ -160,7 +162,11 @@ func readJSONFrame(t *testing.T, ws *websocket.Conn) map[string]any {
 // definition of done, asserted over a real WebSocket rather than at the swarm
 // boundary: the user sees a criterion while another agent is still running.
 func TestStreaming_CriterionReachesClientBeforeSlowestAgent(t *testing.T) {
-	gated := newGatedLLMClient("Pronunciation")
+	// Gates Lexical Resource rather than Pronunciation. This session supplies no
+	// prosody, and since SPEAK-EVAL-007 Pronunciation declines before the
+	// provider is ever called -- so gating it would gate a request that is never
+	// made, and the test would pass without exercising anything.
+	gated := newGatedLLMClient("Lexical Resource")
 	s := newSpeakingTestServer(t, gated, silentTTSClient{})
 	ws := openSession(t, s, nil)
 
@@ -168,9 +174,13 @@ func TestStreaming_CriterionReachesClientBeforeSlowestAgent(t *testing.T) {
 		t.Fatalf("expected transcript first, got %v", f["type"])
 	}
 
-	// Three criteria must land while Pronunciation is still gated. Reading them
-	// off the socket IS the proof: nothing has released the fourth agent yet, so
-	// a wg.Wait()-then-send implementation cannot satisfy this.
+	// Three criteria must land while Lexical Resource is still gated. Reading
+	// them off the socket IS the proof: nothing has released the fourth agent
+	// yet, so a wg.Wait()-then-send implementation cannot satisfy this.
+	//
+	// One of the three is Pronunciation declining for want of prosody, which
+	// still arrives as a criterion frame -- an unavailable criterion is a result
+	// the client must render, not a frame it never receives.
 	seen := map[string]bool{}
 	for i := 0; i < 3; i++ {
 		f := readJSONFrame(t, ws)
@@ -178,7 +188,7 @@ func TestStreaming_CriterionReachesClientBeforeSlowestAgent(t *testing.T) {
 			t.Fatalf("frame %d: expected a criterion, got %v", i, f["type"])
 		}
 		name := f["criterion"].(string)
-		if name == "Pronunciation" {
+		if name == "Lexical Resource" {
 			t.Fatalf("the gated criterion streamed before it was released")
 		}
 		seen[name] = true
@@ -190,8 +200,8 @@ func TestStreaming_CriterionReachesClientBeforeSlowestAgent(t *testing.T) {
 	gated.Release()
 
 	f := readJSONFrame(t, ws)
-	if f["type"] != "criterion" || f["criterion"] != "Pronunciation" {
-		t.Fatalf("expected the released Pronunciation criterion, got %v", f)
+	if f["type"] != "criterion" || f["criterion"] != "Lexical Resource" {
+		t.Fatalf("expected the released Lexical Resource criterion, got %v", f)
 	}
 	if f := readJSONFrame(t, ws); f["type"] != "evaluation" {
 		t.Fatalf("expected the aggregate evaluation last, got %v", f["type"])

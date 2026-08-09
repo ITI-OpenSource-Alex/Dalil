@@ -1,0 +1,11 @@
+{
+  "_why_invalid": "score_semantics is a const. This system is not a certified examiner and the payload must not be able to say it is.",
+  "schema_version": "speaking-evaluation/v1",
+  "evaluation_id": "eval-invalid-6",
+  "mode": "practice",
+  "status": "complete",
+  "score_semantics": "official_ielts_band",
+  "criteria": [{ "criterion_id": "fluency_coherence", "status": "scored", "band": 6.5 }],
+  "overall": { "included_criteria": ["fluency_coherence"], "rounding_rule": "ielts_half_band_v1", "min_criteria_required": 3 },
+  "provenance": { "created_at": "2026-08-08T10:00:00Z", "scorer_version": "s", "rubric_id": "r", "rubric_version": "v" }
+}

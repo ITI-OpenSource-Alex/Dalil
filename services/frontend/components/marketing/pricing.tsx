@@ -11,7 +11,7 @@ import { Reveal } from "./reveal";
  *
  * The tier data moved to lib/pricing-plans.ts in GOA-039, where /pricing
  * reads the same copy. This file owns the presentation of it and nothing
- * else -- the two surfaces cannot drift apart on what $7 buys.
+ * else -- the two surfaces cannot drift apart on what $20 buys.
  *
  * Still a Server Component: no "use client", no hooks. `signedIn` is passed
  * down from app/page.tsx, which already reads the cookie on the server, so

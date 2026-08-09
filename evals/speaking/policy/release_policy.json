@@ -1,0 +1,92 @@
+{
+  "policy_version": "speaking-release-policy/v1-provisional",
+  "approved": false,
+  "approved_by": null,
+  "approved_at": null,
+
+  "why_unapproved": [
+    "SPEAK-EVAL-010 depends on 'enough double-rated data and stable pipeline'.",
+    "Neither exists yet. No item in the dataset has two independent human ratings,",
+    "so human-human agreement has never been measured -- and section 11.4 of the",
+    "plan is explicit that numeric floors must be chosen after that measurement,",
+    "and that the generic 80% accuracy rule is not evidence-based and must not be",
+    "carried forward automatically.",
+    "",
+    "The thresholds below are therefore PROVISIONAL and carry no empirical",
+    "rationale. `approved: false` makes the gate refuse to enforce them: a release",
+    "decision made against invented numbers is worse than no automated decision,",
+    "because it looks like evidence.",
+    "",
+    "To approve: measure human-human agreement on a double-rated calibration set,",
+    "replace the values below with ones derived from it, record the derivation in",
+    "`rationale`, and have the assessment and product owners set `approved: true`",
+    "with their names. That is a reviewable change to this file, which is the",
+    "point -- see `gate.py` on why a threshold cannot be set from inside a run."
+  ],
+
+  "absolute": {
+    "_note": "Floors a candidate must clear on its own, regardless of history.",
+    "min_within_half_band": {
+      "value": null,
+      "rationale": null,
+      "provisional_suggestion": 0.7,
+      "suggestion_basis": "Placeholder. Must be set at or below observed qualified-rater reliability, which has not been measured."
+    },
+    "max_mae": {
+      "value": null,
+      "rationale": null,
+      "provisional_suggestion": 0.75,
+      "suggestion_basis": "Placeholder. Half a band is one step of the scale; two steps is plainly unusable. The defensible line between them is an empirical question."
+    },
+    "max_abs_bias": {
+      "value": null,
+      "rationale": null,
+      "provisional_suggestion": 0.5,
+      "suggestion_basis": "Placeholder. Bias is the recalibratable component, so its ceiling is a product decision about how wrong a systematic offset may be."
+    },
+    "min_coverage": {
+      "value": null,
+      "rationale": null,
+      "provisional_suggestion": 0.95,
+      "suggestion_basis": "Placeholder. Proportion of items that produced a valid score."
+    }
+  },
+
+  "non_regression": {
+    "_note": "A candidate must not be materially worse than the current baseline, even if it clears the absolute floors.",
+    "max_mae_increase": {
+      "value": null,
+      "rationale": null,
+      "provisional_suggestion": 0.25
+    },
+    "max_within_half_band_drop": {
+      "value": null,
+      "rationale": null,
+      "provisional_suggestion": 0.05
+    },
+    "require_paired_comparison": true,
+    "_paired_note": "Item-level paired bootstrap, not a comparison of two independent means. The items are the same and their difficulty is shared; discarding that widens the interval for no reason and reports a real regression as inconclusive."
+  },
+
+  "slices": {
+    "_note": "A metric over a slice too small to be stable is noise presented as a finding.",
+    "min_items_per_slice": 20,
+    "suppress_below_minimum": true,
+    "reported_slices": ["band_bucket", "part", "audio_quality", "duration_bucket"]
+  },
+
+  "bias_escalation": {
+    "_note": "Bias by slice is a fairness question, not a quality one, and it escalates to a person rather than failing a build.",
+    "max_slice_bias_delta": null,
+    "provisional_suggestion": 0.5,
+    "escalate_to": "assessment lead",
+    "block_release_on_escalation": false,
+    "_escalation_note": "Set false deliberately. An automated fairness gate on unapproved thresholds would either block everything or nothing, and both teach people to ignore it. It raises a review instead."
+  },
+
+  "sample_size": {
+    "_note": "Below this, a gate decision is not supportable at all and the gate abstains rather than guessing.",
+    "min_items_for_any_verdict": 30,
+    "min_items_for_regression_verdict": 50
+  }
+}

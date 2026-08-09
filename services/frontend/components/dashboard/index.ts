@@ -13,3 +13,4 @@ export { RecentActivityWidget } from "./recent-activity-widget";
 export { QuickActionsWidget } from "./quick-actions-widget";
 export { PracticeShortcutsWidget } from "./practice-shortcuts-widget";
 export { RecommendationsWidget } from "./recommendations-widget";
+export { ChecklistsWidget } from "./checklists-widget";

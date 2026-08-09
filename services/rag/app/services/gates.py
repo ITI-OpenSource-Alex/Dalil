@@ -41,6 +41,19 @@ def degree_rank(value: str | None) -> int | None:
     return _DEGREE_RANK.get(value.strip().lower().replace(" ", ""))
 
 
+def comparable_gpa(
+    value: float | None, scale: str, required: float | None
+) -> float | None:
+    """Put a profile GPA on the same common scale as the catalogue minimum."""
+    if value is None or required is None:
+        return value
+    if scale == "100" and required <= 4.0:
+        return value / 25.0
+    if scale != "100" and required > 4.0:
+        return value * 25.0
+    return value
+
+
 def check_hard_gates(profile: UserProfile, program: ProgramRequirements) -> GateResult:
     if program.min_ects is not None:
         if profile.ects is None or profile.ects < program.min_ects:
@@ -103,5 +116,33 @@ def check_hard_gates(profile: UserProfile, program: ProgramRequirements) -> Gate
                 reason=f"Requires {program.required_citizenship} citizenship",
                 gateType="citizenship",
             )
+
+    if program.min_ielts is not None and (
+        profile.ieltsScore is None or profile.ieltsScore < program.min_ielts
+    ):
+        return GateResult(
+            passed=False,
+            reason=f"Requires IELTS {program.min_ielts}",
+            gateType="ielts",
+        )
+
+    profile_gpa = comparable_gpa(profile.gpa, profile.gpaScale, program.min_gpa)
+    if program.min_gpa is not None and (
+        profile_gpa is None or profile_gpa < program.min_gpa
+    ):
+        return GateResult(
+            passed=False,
+            reason=f"Requires GPA {program.min_gpa}",
+            gateType="gpa",
+        )
+
+    if program.min_work_experience is not None and (
+        profile.workExperienceYears < program.min_work_experience
+    ):
+        return GateResult(
+            passed=False,
+            reason=f"Requires {program.min_work_experience} years of work experience",
+            gateType="work_experience",
+        )
 
     return GateResult(passed=True, reason=None, gateType=None)

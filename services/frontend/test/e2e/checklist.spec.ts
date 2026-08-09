@@ -23,7 +23,24 @@ test.describe("Application Checklist (GOA-035)", () => {
     await page.fill("#login-email", email);
     await page.fill("#login-password", password);
     await page.click("#login-submit-btn");
-    await expect(page).toHaveURL(/\/chat/);
+
+    // Landing anywhere authenticated is the requirement; WHICH page is a
+    // product decision this test should not pin.
+    //
+    // It asserted /chat and failed all three cases before reaching a checklist.
+    // The app was right: LoginForm sends an account whose profile is still
+    // empty to /onboarding, because dropping a new user into chat with nothing
+    // to work from is a worse landing than the wizard. A fresh registration is
+    // exactly that account, so /chat was never the destination.
+    //
+    // What the checklist route actually needs is the access_token cookie that
+    // middleware.ts guards on -- not a particular landing page.
+    await expect(page).toHaveURL(/\/(chat|onboarding)/);
+    await expect
+      .poll(async () =>
+        (await page.context().cookies()).some((c) => c.name === "access_token"),
+      )
+      .toBe(true);
   }
 
   test("checklist loads, checkbox state persists after refresh", async ({ page }) => {

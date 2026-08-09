@@ -338,6 +338,7 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	api.Post("/opportunities/query",
 		middleware.AIRateLimiter(redisClient, "opportunity_search", cfg.OpportunitySearchesPerHour, time.Hour, logger, metrics),
 		opportunitiesHandler.Query)
+	api.Get("/opportunities/:programId", opportunitiesHandler.Detail)
 
 	// GOA-084: checklist persistence (RAG service). Free-tier, like notifications
 	// above -- not one of the paid features named in the comment above this group.
@@ -398,4 +399,3 @@ func (s *GatewayServer) Shutdown() error {
 	}
 	return shutdownErr
 }
-

@@ -48,7 +48,9 @@ func waitForActiveConns(t *testing.T, want int32, within time.Duration) {
 }
 
 // mockDBRepo satisfies db.Repository for testing.
-type mockDBRepo struct{}
+type mockDBRepo struct {
+	savedExplanations []*db.SpeakingExplanation
+}
 
 func (m *mockDBRepo) Create(
 	ctx context.Context,
@@ -166,11 +168,18 @@ func TestIntegrationE2EAudioStreaming(t *testing.T) {
 	}
 	defer ws.Close()
 
+	// 1. Write the mandatory session_init control frame first.
+	//
+	// audioFormat is mandatory since SPEAK-EVAL-002. These tests stream real
+	// PCM, so they declare PCM -- which is exactly the point: this suite stayed
+	// green through the original defect precisely because it sends a format the
+	// browser never produces, and it must keep testing that path honestly.
 	initMsg := map[string]string{
 		"type":           "session_init",
 		"userId":         "user-123",
 		"questionPrompt": "Describe a book you read.",
 		"questionType":   "IELTS Part 2",
+		"audioFormat":    "audio/pcm;rate=16000",
 	}
 
 	initBytes, _ := json.Marshal(initMsg)
@@ -249,6 +258,19 @@ func TestIntegrationE2EAudioStreaming(t *testing.T) {
 
 			criteriaSeen[name] = true
 
+			// This session wires no speech service, so the mock path supplies no
+			// prosody. Since SPEAK-EVAL-007 Pronunciation declines without
+			// acoustic evidence rather than guessing from the wording of a
+			// transcript, so it arrives unavailable here -- and that is the
+			// correct outcome, not a regression. A band for a criterion nothing
+			// measured is what cost a real candidate 2.5 bands.
+			if name == "Pronunciation" {
+				if f["timed_out"] != true {
+					t.Errorf("Pronunciation should decline without prosody, got timed_out=%v", f["timed_out"])
+				}
+				continue
+			}
+
 			if f["timed_out"] != false {
 				t.Errorf("criterion %q unexpectedly timed out", name)
 			}
@@ -284,9 +306,12 @@ func TestIntegrationE2EAudioStreaming(t *testing.T) {
 		)
 	}
 
-	if evaluation["completed_count"] != 4.0 {
+	// Three, not four: no speech service means no prosody, so Pronunciation
+	// declines. Still clears MinCriteriaForOverallBand, so an overall band is
+	// still produced.
+	if evaluation["completed_count"] != 3.0 {
 		t.Errorf(
-			"Expected completed_count 4, got %v",
+			"Expected completed_count 3, got %v",
 			evaluation["completed_count"],
 		)
 	}
@@ -432,3 +457,20 @@ func TestLoadConcurrentConnectionsAndLeaks(t *testing.T) {
 	}
 }
 
+// SPEAK-EVAL-008. Records rather than discards: a test asserting that an
+// explanation was persisted at scoring time needs somewhere to look.
+func (m *mockDBRepo) SaveExplanation(ctx context.Context, e *db.SpeakingExplanation) error {
+	m.savedExplanations = append(m.savedExplanations, e)
+	return nil
+}
+
+func (m *mockDBRepo) GetExplanation(ctx context.Context, sessionID string) (*db.SpeakingExplanation, error) {
+	for _, e := range m.savedExplanations {
+		if e.SessionID == sessionID {
+			return e, nil
+		}
+	}
+	// (nil, nil) for a session with no stored explanation: history renders the
+	// score alone rather than fabricating one for an old session.
+	return nil, nil
+}

@@ -19,26 +19,31 @@ class Settings(BaseSettings):
     AWS_SECRET_ACCESS_KEY: Optional[str] = None
     SQS_QUEUE_NAME: str = "user-events-rag"
 
-
-    embedding_base_url: str = 'http://host.docker.internal:11434/v1'
-    embedding_model: str = 'nomic-embed-text'
-    embedding_api_key: str = 'ollama'
+    embedding_base_url: str = "http://host.docker.internal:11434/v1"
+    embedding_model: str = "nomic-embed-text"
+    embedding_api_key: str = "ollama"
 
     anthropic_base_url: str = ""
-    llm_model: str = "claude-opus-4-8"
-    anthropic_user_agent: str = "Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14"
-
-
+    llm_model: str = "claude-opus-5"
+    anthropic_user_agent: str = (
+        "Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14"
+    )
 
     rag_rerank_enabled: bool = True
     rag_threshold_enabled: bool = True
     rag_cache_enabled: bool = True
     rag_retrieval_width: int = 15
     rag_ivfflat_probes: int = 1
+    # Demo migrations remain useful for isolated development and integration
+    # tests, but user-facing opportunity matching must never mix them into the
+    # scraped catalogue unless a developer opts in explicitly.
+    include_demo_programs: bool = False
+    # GOA-137 measured dense Recall@10=1.00 on both adversarial subsets before
+    # implementation, so the required +0.15/+0.10 gains are impossible on the
+    # frozen corpus. Keep hybrid available for clean A/B requests but default off.
+    rag_hybrid_enabled: bool = False
     confidence_threshold: float = 0.60
 
-
-    
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )

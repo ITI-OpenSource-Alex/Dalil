@@ -13,6 +13,7 @@ import {
   speakingHint,
   type SpeakingState,
 } from "@/components/speaking/speaking-status";
+import type { SpeakingCueCard } from "@/lib/speaking-websocket";
 
 // Re-exported so existing importers (chat-shell.tsx) keep working unchanged.
 export type { SpeakingState };
@@ -36,9 +37,16 @@ interface SpeakingSessionPanelProps {
    * reason as both a tooltip and inline helper text.
    */
   disabledReason?: string;
+  part?: 1 | 2 | 3;
+  partLabel?: string;
+  examinerText?: string;
+  cueCard?: SpeakingCueCard | null;
+  remainingSeconds?: number | null;
   onStart: () => void;
   onStop: () => void;
   onClose: () => void;
+  canBargeIn?: boolean;
+  onBargeIn?: () => void;
 }
 
 /** Static bars shown when the visualiser is idle, so the stage never collapses. */
@@ -54,9 +62,16 @@ export default function SpeakingSessionPanel({
   audioStream = null,
   sessionKey,
   disabledReason,
+  part = 1,
+  partLabel = "Introduction and interview",
+  examinerText,
+  cueCard,
+  remainingSeconds,
   onStart,
   onStop,
   onClose,
+  canBargeIn = false,
+  onBargeIn,
 }: SpeakingSessionPanelProps) {
   const reduceMotion = useReducedMotion();
 
@@ -103,7 +118,7 @@ export default function SpeakingSessionPanel({
 
             {/* Secondary detail is the first thing to go when space is tight. */}
             <p className="hidden truncate text-xs text-fg-subtle sm:block">
-              IELTS long-turn response
+              Full IELTS Speaking interview
             </p>
           </div>
         </div>
@@ -130,6 +145,52 @@ export default function SpeakingSessionPanel({
         <div className="sm:hidden">
           <StatusChip state={state} />
         </div>
+
+        <section aria-label="Interview progress" className="space-y-3">
+          <div className="flex items-center gap-2" data-testid="speaking-part-indicator">
+            {[1, 2, 3].map((number) => (
+              <span
+                key={number}
+                className={`flex h-7 min-w-7 items-center justify-center rounded-full border px-2 text-xs font-semibold ${
+                  number === part
+                    ? "border-emerald-700 bg-emerald-700 text-white"
+                    : number < part
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                      : "border-border bg-canvas-subtle text-fg-subtle"
+                }`}
+              >
+                {number}
+              </span>
+            ))}
+            <span className="ml-1 text-sm font-medium text-brand-fg">{partLabel}</span>
+            {remainingSeconds !== null && remainingSeconds !== undefined && (
+              <span
+                data-testid="speaking-countdown"
+                className="ml-auto rounded-full bg-amber-50 px-3 py-1 text-sm font-semibold tabular-nums text-amber-800"
+              >
+                {Math.max(0, remainingSeconds)}s
+              </span>
+            )}
+          </div>
+
+          {examinerText && (
+            <div data-testid="examiner-turn" className="rounded-xl border border-violet-100 bg-violet-50/70 p-4">
+              <p className="mb-1 text-[11px] font-semibold tracking-wide text-violet-700 uppercase">Examiner</p>
+              <p className="text-sm leading-relaxed text-violet-950">{examinerText}</p>
+            </div>
+          )}
+
+          {cueCard && (
+            <div data-testid="speaking-cue-card" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-950">
+              <p className="text-base font-semibold">{cueCard.topic}</p>
+              <p className="mt-3 text-xs font-semibold tracking-wide uppercase">You should say</p>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
+                {cueCard.prompts.map((prompt) => <li key={prompt}>{prompt}</li>)}
+              </ul>
+              <p className="mt-3 text-sm">{cueCard.closing_prompt}</p>
+            </div>
+          )}
+        </section>
 
         {/* Waveform stage — the visual anchor of the whole panel. */}
         <div className="relative h-28 overflow-hidden rounded-2xl bg-linear-to-b from-canvas-subtle to-canvas-inset ring-1 ring-inset ring-border sm:h-36">
@@ -241,6 +302,8 @@ export default function SpeakingSessionPanel({
             onStart={onStart}
             onStop={onStop}
             disabledReason={disabledReason}
+            canBargeIn={canBargeIn}
+            onBargeIn={onBargeIn}
           />
 
           <AnimatePresence mode="wait" initial={false}>

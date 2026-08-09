@@ -71,6 +71,23 @@ export function listeningReducer(
       };
 
     case "SILENCE_TICK": {
+      // A tick only means anything during the gap.
+      //
+      // Without this guard the timer advanced the exam from any phase: outside
+      // the gap `silenceSecondsRemaining` is null, so `max(0, 0 - 1)` is 0 and
+      // control fell straight through to the advance branch. A stray tick in
+      // `section_complete` skipped the section without the required click, and
+      // ticks arriving after the gap had already elapsed advanced again --
+      // walking the candidate past sections they never heard.
+      //
+      // One-pass integrity is the property that makes a Listening score mean
+      // anything, and it cannot depend on no timer ever firing at the wrong
+      // moment. A reducer has to reject actions that are invalid for its
+      // current phase rather than assume the caller only sends valid ones.
+      if (state.phase !== "silence_gap") {
+        return state;
+      }
+
       const remaining = Math.max(0, (state.silenceSecondsRemaining ?? 0) - 1);
 
       if (remaining > 0) {
@@ -81,7 +98,10 @@ export function listeningReducer(
         ...state,
         activeSection: (state.activeSection + 1) as ListeningSection,
         phase: "section_playing",
-        silenceSecondsRemaining: null,
+        // Rests at 0 rather than null. The gap did elapse, and 0 records that;
+        // null would read as "no gap has run", which is what the UI shows
+        // before the first section ends.
+        silenceSecondsRemaining: 0,
       };
     }
 

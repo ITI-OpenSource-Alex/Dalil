@@ -33,6 +33,17 @@ RERANK_FALLBACK_TOTAL = Counter(
     labelnames=["cause"],  # model_unavailable | predict_failed
 )
 
+# GOA-137: distinguish a useful lexical arm from one that merely adds latency.
+RETRIEVAL_ARM_HITS = Counter(
+    "goa_rag_retrieval_arm_hits",
+    "Final top-k sources by candidate-generation provenance",
+    labelnames=["arm"],  # dense_only | lexical_only | both
+)
+HYBRID_ENABLED = Gauge(
+    "goa_rag_hybrid_enabled",
+    "Retrieval mode used by the latest query: 1 = hybrid, 0 = dense-only",
+)
+
 
 SCORING_PIPELINE_LATENCY = Histogram(
     "goa_scoring_pipeline_latency_ms",
@@ -69,6 +80,23 @@ FAQ_BYPASS_TOTAL = Counter(
 FAQ_STALE_SUPPRESSED_TOTAL = Counter(
     "goa_faq_stale_suppressed_total",
     "FAQ matches suppressed because the entry is past its review window",
+)
+
+# GOA-135. Labelled by exception class, because an unlabelled retry counter
+# cannot tell a flaky router from a rate limit, and the two have opposite fixes:
+# one is the provider's problem, the other is ours for sending too much.
+LLM_RETRIES_TOTAL = Counter(
+    "goa_rag_llm_retries_total",
+    "LLM calls retried, by the transient failure that caused the retry",
+    labelnames=["reason"],  # APITimeoutError | RateLimitError | InternalServerError | ...
+)
+# The signal that would have caught this ticket's own defect years earlier. A
+# model absent from the price table records a null cost rather than 0.0, and
+# without this counter that null is indistinguishable from "no LLM calls today".
+UNPRICED_MODEL_TOTAL = Counter(
+    "goa_rag_unpriced_model_total",
+    "LLM calls whose model is missing from the shared price table",
+    labelnames=["model"],
 )
 
 CHECKLIST_GENERATED_TOTAL = Counter(

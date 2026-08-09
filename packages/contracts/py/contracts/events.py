@@ -26,6 +26,7 @@ class UserUpdatedPayload(BaseModel):
     extracurricularsScore: float
     targetCountries: List[str]
     fieldOfStudy: Optional[str] = None
+    targetFieldOfStudy: Optional[str] = None
 
 
 class UserUpdated(BaseEvent):

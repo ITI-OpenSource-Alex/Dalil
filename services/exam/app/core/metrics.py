@@ -80,6 +80,17 @@ goa_exam_score_distribution = Histogram(
     buckets=(4.0, 5.0, 6.0, 7.0, 8.0, 9.0),
 )
 
+# GOA-134 + GOA-066. A completed exam that produced no band is not a band of
+# zero, so it cannot go in the histogram above -- observing 0.0 would drag every
+# reported percentile down with a score no candidate received. Counting it here
+# keeps the distribution honest and still makes the absence visible; a rising
+# ratio of unscored to scored is the signal that the swarm is degrading.
+goa_exam_unscored_total = Counter(
+    "goa_exam_unscored_total",
+    "Completed exams that produced no band score, by skill area and exam type",
+    labelnames=["skill_area", "exam_type"],
+)
+
 goa_question_bank_size = Gauge(
     "goa_question_bank_size",
     "Number of questions in the bank by skill area and exam type",

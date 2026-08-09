@@ -36,8 +36,6 @@ from app.services.evaluation_store import (
 )
 
 from app.schemas import (
-    EssayEvaluationRequest,
-    EssayEvaluationResponse,
     EssayHistoryItem,
     ExamTaskEvaluationRequest,
     ExamTaskEvaluationResponse,

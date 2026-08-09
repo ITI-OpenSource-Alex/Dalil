@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   ArrowRight,
   Calendar,
+  ExternalLink,
   GraduationCap,
   ListChecks,
   MapPin,
@@ -29,6 +30,7 @@ const TONE_BADGE: Record<
   possible: "warning",
   stretch: "danger",
   blocked: "neutral",
+  unknown: "neutral",
 };
 
 const TONE_BAR: Record<MatchTone, string> = {
@@ -36,6 +38,7 @@ const TONE_BAR: Record<MatchTone, string> = {
   possible: "bg-warning",
   stretch: "bg-danger",
   blocked: "bg-fg-subtle",
+  unknown: "bg-fg-subtle",
 };
 
 export function OpportunityCard({
@@ -67,14 +70,20 @@ export function OpportunityCard({
           {program.programName}
         </h3>
         <Badge tone={TONE_BADGE[tone]} size="sm" pill className="shrink-0">
-          {tone === "blocked" ? MATCH_TONE_LABEL.blocked : `${score}% match`}
+          {tone === "blocked" || tone === "unknown"
+            ? MATCH_TONE_LABEL[tone]
+            : `${score}% fit`}
         </Badge>
       </div>
 
       <dl className="flex flex-col gap-1.5 text-sm text-fg-muted">
         <div className="flex items-center gap-2">
           <dt className="sr-only">University</dt>
-          <Icon icon={GraduationCap} size="xs" className="shrink-0 text-fg-subtle" />
+          <Icon
+            icon={GraduationCap}
+            size="xs"
+            className="shrink-0 text-fg-subtle"
+          />
           <dd className="min-w-0 truncate">{program.university}</dd>
         </div>
         <div className="flex items-center gap-2">
@@ -115,17 +124,59 @@ export function OpportunityCard({
             {reason}
           </Text>
         </div>
+      ) : tone === "unknown" ? (
+        <Text size="sm" tone="muted">
+          This programme has not published enough structured academic criteria
+          for a reliable fit score yet.
+        </Text>
       ) : (
         <div>
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-canvas-inset">
             <div
-              className={cn("h-full rounded-full transition-[width]", TONE_BAR[tone])}
+              className={cn(
+                "h-full rounded-full transition-[width]",
+                TONE_BAR[tone],
+              )}
               style={{ width: `${Math.max(2, Math.min(100, score))}%` }}
             />
           </div>
           <Text size="sm" tone="subtle" className="mt-1.5">
             {MATCH_TONE_LABEL[tone]} against your profile
           </Text>
+          {program.result.score_breakdown?.subject_relevance !== null &&
+            program.result.score_breakdown?.subject_relevance !== undefined && (
+              <Text size="sm" className="mt-0.5 font-medium text-fg-muted">
+                {program.result.score_breakdown.subject_relevance >= 0.9
+                  ? "Exact intended-field match"
+                  : "Related intended field"}
+              </Text>
+            )}
+          {program.result.requirements_evaluated !== undefined && (
+            <Text size="sm" tone="subtle" className="mt-0.5">
+              {program.result.requirements_met ?? 0} of{" "}
+              {program.result.requirements_evaluated} published requirements met
+            </Text>
+          )}
+          {program.result.score_breakdown?.requirement_headroom_points !==
+            null &&
+            program.result.score_breakdown?.requirement_headroom_points !==
+              undefined && (
+              <Text size="sm" tone="subtle" className="mt-0.5">
+                Score:{" "}
+                {Math.round(program.result.score_breakdown.eligibility_points)}{" "}
+                eligibility +{" "}
+                {Math.round(
+                  program.result.score_breakdown.requirement_headroom_points,
+                )}{" "}
+                requirement headroom +{" "}
+                {Math.round(program.result.score_breakdown.subject_points ?? 0)}{" "}
+                subject fit +{" "}
+                {Math.round(
+                  program.result.score_breakdown.destination_points ?? 0,
+                )}{" "}
+                destination fit
+              </Text>
+            )}
         </div>
       )}
     </>
@@ -171,6 +222,17 @@ export function OpportunityCard({
             Ask Dalil
           </Link>
         </Button>
+        {program.sourceUrl && program.dataSource === "scraped" && (
+          <Button size="sm" variant="ghost" trailingIcon={ExternalLink} asChild>
+            <a
+              href={program.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Source listing
+            </a>
+          </Button>
+        )}
       </div>
     </Card>
   );

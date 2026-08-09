@@ -1,0 +1,18 @@
+{
+  "_why_invalid": "A quote with no offsets cannot be verified against the transcript, so a paraphrase presented as a quote would ship unchallenged.",
+  "schema_version": "speaking-evaluation/v1",
+  "evaluation_id": "eval-invalid-5",
+  "mode": "practice",
+  "status": "complete",
+  "score_semantics": "estimated_ielts_practice_band",
+  "criteria": [
+    {
+      "criterion_id": "fluency_coherence",
+      "status": "scored",
+      "band": 6.5,
+      "evidence": [{ "kind": "transcript_span", "supports_claim": "hesitation", "quote": "um well" }]
+    }
+  ],
+  "overall": { "included_criteria": ["fluency_coherence"], "rounding_rule": "ielts_half_band_v1", "min_criteria_required": 3 },
+  "provenance": { "created_at": "2026-08-08T10:00:00Z", "scorer_version": "s", "rubric_id": "r", "rubric_version": "v" }
+}

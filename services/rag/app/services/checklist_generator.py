@@ -61,7 +61,10 @@ def _normalize_items(items: list[GeneratedChecklistItem]) -> list[dict[str, Any]
     seen: set[str] = set()
     normalized: list[dict[str, Any]] = []
     for item in items[:MAX_ITEMS]:
-        slug = re.sub(r"[^a-z0-9_]+", "_", item.item_id.strip().lower()).strip("_") or "item"
+        slug = (
+            re.sub(r"[^a-z0-9_]+", "_", item.item_id.strip().lower()).strip("_")
+            or "item"
+        )
         candidate = slug
         suffix = 2
         while candidate in seen:
@@ -83,11 +86,114 @@ def fallback_checklist() -> list[dict[str, Any]]:
     return _normalize_items(_BASELINE_ITEMS)
 
 
+def build_requirement_checklist(
+    program: ProgramRequirements,
+    gap_report: dict[str, Any],
+    visa_requirements: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    """Build a stable checklist from verified programme/profile facts.
+
+    Stable ids preserve ticked state while the contents are refreshed whenever
+    either the profile or catalogue changes. No model-authored requirement is
+    allowed into this list without a structured source field behind it.
+    """
+    items = [
+        GeneratedChecklistItem(
+            item_id="valid_passport",
+            title="Valid passport",
+            description="Upload the identity page of a passport valid for the application and travel period.",
+            category="documents",
+        ),
+        GeneratedChecklistItem(
+            item_id="academic_transcripts",
+            title="Academic transcripts",
+            description="Prepare certified transcripts for every completed higher-education qualification.",
+            category="documents",
+        ),
+        GeneratedChecklistItem(
+            item_id="degree_certificate",
+            title="Degree certificate",
+            description=f"Provide evidence of the qualification used to apply for this {program.degree_level or 'programme'}.",
+            category="documents",
+        ),
+        GeneratedChecklistItem(
+            item_id="curriculum_vitae",
+            title="Academic CV",
+            description="Include education, relevant work, projects, publications and skills.",
+            category="documents",
+        ),
+        GeneratedChecklistItem(
+            item_id="motivation_letter",
+            title="Motivation letter",
+            description="Tailor your statement to this programme and university.",
+            category="documents",
+        ),
+    ]
+
+    if program.min_ielts is not None:
+        items.append(
+            GeneratedChecklistItem(
+                item_id="ielts_certificate",
+                title="IELTS certificate",
+                description=f"Provide a valid result showing an overall band of at least {program.min_ielts}.",
+                category="documents",
+            )
+        )
+    if program.min_work_experience:
+        items.append(
+            GeneratedChecklistItem(
+                item_id="employment_evidence",
+                title="Employment evidence",
+                description=f"Provide references or certificates proving at least {program.min_work_experience} years of relevant work.",
+                category="documents",
+            )
+        )
+
+    for key, value in sorted(gap_report.items()):
+        if key == "financial":
+            continue
+        message = value.get("message") if isinstance(value, dict) else str(value)
+        if message:
+            items.append(
+                GeneratedChecklistItem(
+                    item_id=f"gap_{key}",
+                    title=f"Resolve {key.replace('_', ' ').upper()} requirement",
+                    description=message,
+                    category="requirement_gap",
+                )
+            )
+
+    for index, visa in enumerate(visa_requirements or []):
+        source = visa.get("source_url")
+        details = visa.get("requirements")
+        description = f"Prepare the documents listed by {visa.get('issuing_body') or 'the issuing authority'}."
+        if isinstance(details, dict) and details:
+            names = ", ".join(str(k).replace("_", " ") for k in list(details)[:5])
+            description += f" Published requirement groups: {names}."
+        if source:
+            description += f" Verify at {source}"
+        items.append(
+            GeneratedChecklistItem(
+                item_id=f"visa_documents_{index + 1}",
+                title=f"{visa.get('visa_type') or 'Student visa'} documents",
+                description=description,
+                category="visa",
+            )
+        )
+
+    return _normalize_items(items)
+
+
 def _build_prompt(
-    program: ProgramRequirements, profile: dict[str, Any] | None, gap_report: dict[str, Any]
+    program: ProgramRequirements,
+    profile: dict[str, Any] | None,
+    gap_report: dict[str, Any],
 ) -> str:
     gap_lines = (
-        "\n".join(f"- {key}: {value.get('message', value)}" for key, value in gap_report.items())
+        "\n".join(
+            f"- {key}: {value.get('message', value)}"
+            for key, value in gap_report.items()
+        )
         or "None identified."
     )
     profile_lines = (
@@ -131,19 +237,28 @@ async def generate_checklist(
     try:
         llm = ChatAnthropic(
             model=settings.llm_model,
-            anthropic_api_key=settings.anthropic_auth_token or settings.anthropic_api_key,
+            anthropic_api_key=settings.anthropic_auth_token
+            or settings.anthropic_api_key,
             **(
                 {"anthropic_api_url": settings.anthropic_base_url}
                 if settings.anthropic_base_url
                 else {}
             ),
-            model_kwargs={"extra_headers": {"User-Agent": settings.anthropic_user_agent}},
+            model_kwargs={
+                "extra_headers": {"User-Agent": settings.anthropic_user_agent}
+            },
             temperature=0.0,
-            # langchain_anthropic 0.1.13 has no `timeout`/`max_retries` field; see
-            # rag_service.py's llm construction for the same constraint.
+            # langchain_anthropic 0.1.13 has no `timeout`/`max_retries` field on
+            # ChatAnthropic: unrecognised kwargs are forwarded to
+            # AsyncMessages.create(), which rejects max_retries. The supported
+            # field is default_request_timeout. (This note used to point at
+            # rag_service.py, whose ChatAnthropic was deleted in GOA-135 as dead
+            # code -- llm_boost.py carries the same constraint.)
             default_request_timeout=25.0,
         )
-        structured_llm = llm.with_structured_output(GeneratedChecklist, include_raw=True)
+        structured_llm = llm.with_structured_output(
+            GeneratedChecklist, include_raw=True
+        )
 
         prompt = _build_prompt(program, profile, gap_report)
         result = await structured_llm.ainvoke(prompt)

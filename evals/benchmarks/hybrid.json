@@ -1,0 +1,2812 @@
+{
+  "label": "hybrid",
+  "captured_at": "2026-08-08T00:25:22.536963Z",
+  "config": {
+    "rerank_enabled": true,
+    "threshold_enabled": true,
+    "retrieval_width": 15,
+    "ivfflat_probes": 10,
+    "hybrid_enabled": true,
+    "category_filter": false
+  },
+  "fingerprint": {
+    "git_sha": "6c50d8374b4d5305fa7a6383a2c5cddb8655f88a",
+    "dataset_path": "evals/golden_dataset.json",
+    "dataset_sha256": "ff33f292e08521a8492838320fbdd9b82083e4184e8efb64d5709c13730c8d92",
+    "corpus_document_count": 2905,
+    "corpus_content_hash": "1e3dd24cd7f2f789056f39b5f72b00d042eafd861006c036df9b2a3c286c2b14",
+    "snapshot_path": "evals/corpora/GOA-137-documents.jsonl.gz",
+    "snapshot_sha256": "7942faafe9d7c5b3cb01a4cbefc98efc659df708aca5e738ad9caa22272df4ab",
+    "index_reloptions": "{lists=100}",
+    "ivfflat_probes_session_default": 1,
+    "embedding_model": "nomic-embed-text",
+    "rerank_mode_live": "cross-encoder",
+    "rerank_degraded": false,
+    "retrieval_only": true,
+    "latency_measures": "retrieval_plus_rerank_no_llm"
+  },
+  "quality": {
+    "all": {
+      "n": 30,
+      "recall_at_5": 0.7666666666666667,
+      "recall_at_10": 0.7666666666666667,
+      "mrr": 0.6983333333333334,
+      "ndcg_at_10": 0.7149486372959797
+    },
+    "entity": {
+      "n": 10,
+      "recall_at_5": 0.8,
+      "recall_at_10": 0.8,
+      "mrr": 0.8,
+      "ndcg_at_10": 0.8
+    },
+    "numeric": {
+      "n": 10,
+      "recall_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_10": 1.0
+    }
+  },
+  "refusal": {
+    "n_answerable": 30,
+    "n_unanswerable": 15,
+    "correct_refusals": 2,
+    "false_refusals": 1,
+    "unanswerable_refusal_rate": 0.13333333333333333,
+    "false_refusal_rate": 0.03333333333333333
+  },
+  "latency_ms": {
+    "n": 45,
+    "p50": 617.4159190013597,
+    "p95": 2319.9441769975238
+  },
+  "retrieval_arm_hits": {
+    "available": true,
+    "dense_only": 426,
+    "lexical_only": 2,
+    "both": 22,
+    "entity_lexical_contribution_rate": 0.03,
+    "reason": null
+  },
+  "per_question": [
+    {
+      "id": "rag-q01",
+      "question": "How many questions are in the IELTS Reading test?",
+      "subset": "core",
+      "unanswerable": false,
+      "category_requested": null,
+      "relevant_document_ids": [
+        "c90c6811-fb06-5607-9253-9565d7ce4941"
+      ],
+      "retrieved_document_ids": [
+        "af59de4b-5f29-58c8-a1d4-51452fb01ac2",
+        "406009d8-c19e-500d-8b30-0728045e3380",
+        "333a145e-b129-5258-8120-a190a1df875a",
+        "70ed2f52-ba85-5433-a78b-e4d1d3484529",
+        "c90c6811-fb06-5607-9253-9565d7ce4941",
+        "41453a68-547f-5f43-b345-cbdff414fb78",
+        "e2e4a5ac-99b0-5494-a52e-38bc9d51a08f",
+        "158e442e-5a25-5f8f-a05d-4af0314f57de",
+        "1756a302-a5ff-57e9-b564-132566dca8d8",
+        "c0671183-0dcc-54a1-88a2-cb4eb48a8657"
+      ],
+      "rank_of_first_relevant": 5,
+      "recall_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "mrr": 0.2,
+      "ndcg_at_10": 0.38685280723454163,
+      "refused": false,
+      "latency_ms": 2402.438154000265,
+      "retrieval_arms": [
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense",
+          "lexical"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": "rag-q02",
+      "question": "What does band 7 mean?",
+      "subset": "core",
+      "unanswerable": false,
+      "category_requested": null,
+      "relevant_document_ids": [
+        "c90c6811-fb06-5607-9253-9565d7ce4941"
+      ],
+      "retrieved_document_ids": [
+        "333a145e-b129-5258-8120-a190a1df875a",
+        "406009d8-c19e-500d-8b30-0728045e3380",
+        "6ccefaaa-055b-5f9e-a71f-2ac6e6f6f2a1",
+        "c90c6811-fb06-5607-9253-9565d7ce4941",
+        "5f7e396f-6fe5-5a4f-978c-6f09223519b2",
+        "489353e2-97f2-52bf-b1a8-a9c9bebd2104",
+        "af59de4b-5f29-58c8-a1d4-51452fb01ac2",
+        "18a1638b-3add-5af2-ad51-54439653dd83",
+        "91199267-9b88-5e84-8438-381e782ec488",
+        "70ed2f52-ba85-5433-a78b-e4d1d3484529"
+      ],
+      "rank_of_first_relevant": 4,
+      "recall_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "mrr": 0.25,
+      "ndcg_at_10": 0.43067655807339306,
+      "refused": true,
+      "latency_ms": 94.31759200015222,
+      "retrieval_arms": [
+        [
+          "dense",
+          "lexical"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "lexical"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": "rag-q03",
+      "question": "How long is an IELTS score valid?",
+      "subset": "core",
+      "unanswerable": false,
+      "category_requested": null,
+      "relevant_document_ids": [
+        "c90c6811-fb06-5607-9253-9565d7ce4941"
+      ],
+      "retrieved_document_ids": [
+        "c90c6811-fb06-5607-9253-9565d7ce4941",
+        "af59de4b-5f29-58c8-a1d4-51452fb01ac2",
+        "406009d8-c19e-500d-8b30-0728045e3380",
+        "70ed2f52-ba85-5433-a78b-e4d1d3484529",
+        "333a145e-b129-5258-8120-a190a1df875a",
+        "29a489a8-f1a5-5946-ae2f-5f05be418930",
+        "ad7c3fcb-a186-52f0-a063-cb153a88d7e6",
+        "8900b98d-e853-5a4b-9e4f-f0fdbda11c95",
+        "10bed33f-3455-5847-89f3-7d4bf3ec2a8a",
+        "74f06f05-f1df-55c8-8aec-60221b9941a8"
+      ],
+      "rank_of_first_relevant": 1,
+      "recall_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_10": 1.0,
+      "refused": false,
+      "latency_ms": 1975.39211700132,
+      "retrieval_arms": [
+        [
+          "dense",
+          "lexical"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": "rag-q04",
+      "question": "What documents are needed for a German student visa?",
+      "subset": "core",
+      "unanswerable": false,
+      "category_requested": null,
+      "relevant_document_ids": [
+        "3ffdd2e7-ebc2-5555-896a-0498b3c4f74d"
+      ],
+      "retrieved_document_ids": [
+        "4810e0af-a634-5589-94a7-0fb88ea1a9fc",
+        "451aeedd-d0fe-5cb6-b697-d5ebe80f82e2",
+        "23499242-918e-5911-b83b-ba60bbd0033a",
+        "a3c64637-4970-5142-9505-1a865c94fe52",
+        "53f60d13-9655-5134-9e79-c129d491d5bc",
+        "b0bb3151-bc37-5b9b-8e21-221ae99bef3a",
+        "151cb26f-9ff3-5750-a497-38110febc03e",
+        "aea446fa-ff44-54d8-9b64-2f9602334599",
+        "c844eaee-759e-5c1b-8544-c2c7b4b9fb3b",
+        "86c5500b-fb4a-5cfc-906a-918bfa1618bd"
+      ],
+      "rank_of_first_relevant": null,
+      "recall_at_5": 0.0,
+      "recall_at_10": 0.0,
+      "mrr": 0.0,
+      "ndcg_at_10": 0.0,
+      "refused": false,
+      "latency_ms": 1921.0161230002996,
+      "retrieval_arms": [
+        [
+          "dense",
+          "lexical"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": "rag-q05",
+      "question": "What is a blocked account for Germany?",
+      "subset": "core",
+      "unanswerable": false,
+      "category_requested": null,
+      "relevant_document_ids": [
+        "4810e0af-a634-5589-94a7-0fb88ea1a9fc"
+      ],
+      "retrieved_document_ids": [
+        "4810e0af-a634-5589-94a7-0fb88ea1a9fc",
+        "36e5408c-2f38-5d9c-a8a3-6cd72e3d23f2",
+        "279bf6f6-09f4-58d4-8a17-ceb30fddcb4d",
+        "eff19a22-f552-510a-8a1b-516757bd4d2e",
+        "ac2a50b1-7fd0-5cf1-bd78-00863b52ecdf",
+        "904d85c5-64f5-59d9-9be9-344673c07905",
+        "2b667993-76cd-5006-a558-676c60e467bc",
+        "bdef5c62-4677-5ffc-8e54-c3bacc342fa7",
+        "838178ce-e5e6-5d2d-8d39-433009c777db",
+        "11dba15a-e845-51f4-a33e-79f86c1bf88e"
+      ],
+      "rank_of_first_relevant": 1,
+      "recall_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_10": 1.0,
+      "refused": false,
+      "latency_ms": 1953.415613999823,
+      "retrieval_arms": [
+        [
+          "dense",
+          "lexical"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": "rag-q06",
+      "question": "What is the minimum score required for Stipendium Hungaricum?",
+      "subset": "core",
+      "unanswerable": false,
+      "category_requested": null,
+      "relevant_document_ids": [
+        "731671ec-be34-58a4-a4f6-8ef3bc51b033"
+      ],
+      "retrieved_document_ids": [
+        "49986646-b016-52e9-bfb7-00eacff3af87",
+        "e8b867a4-4be0-5edf-a47c-054998d90f32",
+        "279bf6f6-09f4-58d4-8a17-ceb30fddcb4d",
+        "b838aaf6-463c-5715-a8cf-020424ce692b",
+        "67c91703-b94d-5f0e-ba10-49b21d222ea6",
+        "076fec1b-47ad-5b71-b923-87322b67e929",
+        "904d85c5-64f5-59d9-9be9-344673c07905",
+        "fa98c2f8-4316-5dfd-846b-f8b3e10d41e8",
+        "325b1735-bc39-592a-a119-10dee317ef4e",
+        "11dba15a-e845-51f4-a33e-79f86c1bf88e"
+      ],
+      "rank_of_first_relevant": null,
+      "recall_at_5": 0.0,
+      "recall_at_10": 0.0,
+      "mrr": 0.0,
+      "ndcg_at_10": 0.0,
+      "refused": false,
+      "latency_ms": 2319.9441769975238,
+      "retrieval_arms": [
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": "rag-q07",
+      "question": "How long can a Stipendium Hungaricum holder stay outside Hungary?",
+      "subset": "core",
+      "unanswerable": false,
+      "category_requested": null,
+      "relevant_document_ids": [
+        "731671ec-be34-58a4-a4f6-8ef3bc51b033"
+      ],
+      "retrieved_document_ids": [
+        "279bf6f6-09f4-58d4-8a17-ceb30fddcb4d",
+        "e8b867a4-4be0-5edf-a47c-054998d90f32",
+        "89d9b31c-8ea9-5a7e-92e1-fe3b9b764a8c",
+        "325b1735-bc39-592a-a119-10dee317ef4e",
+        "076fec1b-47ad-5b71-b923-87322b67e929",
+        "0287e349-7572-5d26-be98-b2e8ee28c47b",
+        "83245211-dadc-5cc1-b6d3-a248e7a2a65b",
+        "17a962e5-f027-5cb6-9c6f-99f02eecc321",
+        "67c91703-b94d-5f0e-ba10-49b21d222ea6",
+        "fa98c2f8-4316-5dfd-846b-f8b3e10d41e8"
+      ],
+      "rank_of_first_relevant": null,
+      "recall_at_5": 0.0,
+      "recall_at_10": 0.0,
+      "mrr": 0.0,
+      "ndcg_at_10": 0.0,
+      "refused": false,
+      "latency_ms": 2205.954073000612,
+      "retrieval_arms": [
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": "rag-q08",
+      "question": "What is the Sweden residence permit passport validity rule?",
+      "subset": "core",
+      "unanswerable": false,
+      "category_requested": null,
+      "relevant_document_ids": [
+        "7f6c3826-646b-586b-951c-6d1ebcdce2b4"
+      ],
+      "retrieved_document_ids": [
+        "86c5500b-fb4a-5cfc-906a-918bfa1618bd",
+        "4810e0af-a634-5589-94a7-0fb88ea1a9fc",
+        "89d9b31c-8ea9-5a7e-92e1-fe3b9b764a8c",
+        "514098a7-e195-588e-90fb-d23de76f0249",
+        "83245211-dadc-5cc1-b6d3-a248e7a2a65b",
+        "aea446fa-ff44-54d8-9b64-2f9602334599",
+        "904d85c5-64f5-59d9-9be9-344673c07905",
+        "065046fb-2cce-573c-9a90-9dfabcf16ea8",
+        "8652d25f-1a48-5afb-b80d-3ccd1f6bc634",
+        "dd900c15-3d60-5a01-ba5f-9b9ef9373146"
+      ],
+      "rank_of_first_relevant": null,
+      "recall_at_5": 0.0,
+      "recall_at_10": 0.0,
+      "mrr": 0.0,
+      "ndcg_at_10": 0.0,
+      "refused": false,
+      "latency_ms": 1855.0873929998488,
+      "retrieval_arms": [
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": "rag-q09",
+      "question": "How much money is required for UK student visa application fee?",
+      "subset": "core",
+      "unanswerable": false,
+      "category_requested": null,
+      "relevant_document_ids": [
+        "6ff39dd7-25e4-539c-a111-c918c50ca1bf"
+      ],
+      "retrieved_document_ids": [
+        "53f60d13-9655-5134-9e79-c129d491d5bc",
+        "4810e0af-a634-5589-94a7-0fb88ea1a9fc",
+        "86c5500b-fb4a-5cfc-906a-918bfa1618bd",
+        "49986646-b016-52e9-bfb7-00eacff3af87",
+        "3592c61b-f730-5dd1-9bbd-25c0f7b73ab2",
+        "89d9b31c-8ea9-5a7e-92e1-fe3b9b764a8c",
+        "dd900c15-3d60-5a01-ba5f-9b9ef9373146",
+        "27d385ec-94d5-57f3-9357-e9e597491e63",
+        "d8e88f45-6b36-581f-8665-5613f4ca2795",
+        "83245211-dadc-5cc1-b6d3-a248e7a2a65b"
+      ],
+      "rank_of_first_relevant": null,
+      "recall_at_5": 0.0,
+      "recall_at_10": 0.0,
+      "mrr": 0.0,
+      "ndcg_at_10": 0.0,
+      "refused": false,
+      "latency_ms": 1912.3513869999442,
+      "retrieval_arms": [
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": "rag-q10",
+      "question": "What are the IELTS band score levels?",
+      "subset": "core",
+      "unanswerable": false,
+      "category_requested": null,
+      "relevant_document_ids": [
+        "c90c6811-fb06-5607-9253-9565d7ce4941"
+      ],
+      "retrieved_document_ids": [
+        "333a145e-b129-5258-8120-a190a1df875a",
+        "c90c6811-fb06-5607-9253-9565d7ce4941",
+        "70ed2f52-ba85-5433-a78b-e4d1d3484529",
+        "406009d8-c19e-500d-8b30-0728045e3380",
+        "af59de4b-5f29-58c8-a1d4-51452fb01ac2",
+        "8900b98d-e853-5a4b-9e4f-f0fdbda11c95",
+        "6ccefaaa-055b-5f9e-a71f-2ac6e6f6f2a1",
+        "f2f812ee-dc6f-5e91-a037-10078bd39d42",
+        "1cc82ae5-2629-57e7-ada3-74d24e08480a",
+        "0857fe6b-8baa-594b-822b-30d95d966f32"
+      ],
+      "rank_of_first_relevant": 2,
+      "recall_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "mrr": 0.5,
+      "ndcg_at_10": 0.6309297535714575,
+      "refused": false,
+      "latency_ms": 1959.9308309989283,
+      "retrieval_arms": [
+        [
+          "dense",
+          "lexical"
+        ],
+        [
+          "dense",
+          "lexical"
+        ],
+        [
+          "dense",
+          "lexical"
+        ],
+        [
+          "dense",
+          "lexical"
+        ],
+        [
+          "dense",
+          "lexical"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": "rag-q11-unanswerable",
+      "question": "What is the capital of Jupiter?",
+      "subset": "core",
+      "unanswerable": true,
+      "category_requested": null,
+      "relevant_document_ids": [],
+      "retrieved_document_ids": [
+        "e305043e-d16c-5e9c-aef4-21f91d98c9b0",
+        "5f155345-9941-552e-9185-0cfc55ec3113",
+        "c76648b3-5724-514a-bbdf-765ef2120fd4",
+        "233cb495-31ee-50ca-8eb6-8ed75bccd620",
+        "6ccdddfd-a798-5af7-8751-99122fd6cda1",
+        "4c2cdc40-6806-5a2b-aa1d-479f6ea01415",
+        "fc5b4898-5d2e-5405-8288-17f6544a550b",
+        "88abb13d-8bd9-5afd-8856-ca144f69a8a1",
+        "cbe42bab-42b7-5117-b852-8398d11e6ca7",
+        "cdbd17db-3672-503a-a27a-2ee8a747f485"
+      ],
+      "rank_of_first_relevant": null,
+      "recall_at_5": 0.0,
+      "recall_at_10": 0.0,
+      "mrr": 0.0,
+      "ndcg_at_10": 0.0,
+      "refused": true,
+      "latency_ms": 178.44083399904775,
+      "retrieval_arms": [
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": null,
+      "question": "What TOEFL score do I need for a German masters programme?",
+      "subset": "core",
+      "unanswerable": true,
+      "category_requested": null,
+      "relevant_document_ids": [],
+      "retrieved_document_ids": [
+        "ae7de687-a248-5350-91d1-3fe7f8efb5fc",
+        "260231c0-aa6a-5442-b3e7-1639994f40aa",
+        "7ee7d402-1847-5127-8515-45a28f9db2ac",
+        "8098fb04-2a4e-5fba-a35c-262cae7dac86",
+        "14dae951-d2b3-5718-a70a-5d9f6ea9c77e",
+        "ac2a50b1-7fd0-5cf1-bd78-00863b52ecdf",
+        "495338fa-0df2-56ca-9d4f-087422c73b26",
+        "39f7f2f0-190d-5418-9bbf-0d4c794fa041",
+        "1a47f0ed-c9d6-5b85-b2df-f72e0254426d",
+        "8d57eba2-036d-5cfc-926a-e25abd389f5e"
+      ],
+      "rank_of_first_relevant": null,
+      "recall_at_5": 0.0,
+      "recall_at_10": 0.0,
+      "mrr": 0.0,
+      "ndcg_at_10": 0.0,
+      "refused": false,
+      "latency_ms": 518.4513109998079,
+      "retrieval_arms": [
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": null,
+      "question": "Is the Duolingo English Test accepted for admission?",
+      "subset": "core",
+      "unanswerable": true,
+      "category_requested": null,
+      "relevant_document_ids": [],
+      "retrieved_document_ids": [
+        "9cc112ec-7187-59e2-a668-eff87dd909b7",
+        "c844eaee-759e-5c1b-8544-c2c7b4b9fb3b",
+        "70ed2f52-ba85-5433-a78b-e4d1d3484529",
+        "c90c6811-fb06-5607-9253-9565d7ce4941",
+        "d8e88f45-6b36-581f-8665-5613f4ca2795",
+        "f1bdff01-398e-5a67-9f07-01afcb9e9ed3",
+        "4358abd7-34fc-52cf-a179-d2a19a0424dd",
+        "c7d7261f-030f-599e-9107-d82196cb44bc",
+        "514098a7-e195-588e-90fb-d23de76f0249",
+        "23499242-918e-5911-b83b-ba60bbd0033a"
+      ],
+      "rank_of_first_relevant": null,
+      "recall_at_5": 0.0,
+      "recall_at_10": 0.0,
+      "mrr": 0.0,
+      "ndcg_at_10": 0.0,
+      "refused": false,
+      "latency_ms": 1812.5046339991968,
+      "retrieval_arms": [
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": null,
+      "question": "What is the minimum PTE Academic score for admission?",
+      "subset": "core",
+      "unanswerable": true,
+      "category_requested": null,
+      "relevant_document_ids": [],
+      "retrieved_document_ids": [
+        "49986646-b016-52e9-bfb7-00eacff3af87",
+        "9cc112ec-7187-59e2-a668-eff87dd909b7",
+        "308d12e4-9d3f-5904-a1ec-1f8b75282ed3",
+        "e92ef298-f4b7-56df-94c8-3381d4a132eb",
+        "b2f9e49f-0e9a-541d-b7a6-b82640db621d",
+        "dcb97046-0715-5c12-b7c0-c2200a3649a3",
+        "752b69ee-9d2e-5e19-a052-b8da65924d5c",
+        "2e7f9ef3-d629-5279-9d62-d9e74b5d43b3",
+        "3b220103-a67a-52fc-bf29-f71b891f5174",
+        "d23e7378-7b21-5d8b-9397-b341a2aae171"
+      ],
+      "rank_of_first_relevant": null,
+      "recall_at_5": 0.0,
+      "recall_at_10": 0.0,
+      "mrr": 0.0,
+      "ndcg_at_10": 0.0,
+      "refused": false,
+      "latency_ms": 1737.686518998089,
+      "retrieval_arms": [
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": null,
+      "question": "What GMAT score is required for an MBA programme?",
+      "subset": "core",
+      "unanswerable": true,
+      "category_requested": null,
+      "relevant_document_ids": [],
+      "retrieved_document_ids": [
+        "5f0b6c1e-6d61-538e-be8e-4c54d5ae37c8",
+        "bbf07458-0a8a-5915-81c3-ee9f90c2a3f8",
+        "7ce5ef52-d8b2-5155-9745-4c406dec2006",
+        "3b64d233-921c-5ded-8637-599b69b15951",
+        "0c11d164-eba1-5f08-841b-138fd03a5b4f",
+        "77468026-1753-5a19-a7db-d37706a62706",
+        "1c2553d0-5990-59c7-9d38-eb8621dc67df",
+        "fbb90688-0783-56b5-8510-8fc204e9b255",
+        "faf6bbb5-2132-53fc-bdbb-292386c288b9",
+        "76036206-de8d-584e-9f49-1ca169c35d65"
+      ],
+      "rank_of_first_relevant": null,
+      "recall_at_5": 0.0,
+      "recall_at_10": 0.0,
+      "mrr": 0.0,
+      "ndcg_at_10": 0.0,
+      "refused": false,
+      "latency_ms": 508.0752560024848,
+      "retrieval_arms": [
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": null,
+      "question": "Do I need to sit the SAT exam to apply?",
+      "subset": "core",
+      "unanswerable": true,
+      "category_requested": null,
+      "relevant_document_ids": [],
+      "retrieved_document_ids": [
+        "c7d7261f-030f-599e-9107-d82196cb44bc",
+        "9cc112ec-7187-59e2-a668-eff87dd909b7",
+        "a3c64637-4970-5142-9505-1a865c94fe52",
+        "c844eaee-759e-5c1b-8544-c2c7b4b9fb3b",
+        "83245211-dadc-5cc1-b6d3-a248e7a2a65b",
+        "4358abd7-34fc-52cf-a179-d2a19a0424dd",
+        "49986646-b016-52e9-bfb7-00eacff3af87",
+        "36e5408c-2f38-5d9c-a8a3-6cd72e3d23f2",
+        "514098a7-e195-588e-90fb-d23de76f0249",
+        "23499242-918e-5911-b83b-ba60bbd0033a"
+      ],
+      "rank_of_first_relevant": null,
+      "recall_at_5": 0.0,
+      "recall_at_10": 0.0,
+      "mrr": 0.0,
+      "ndcg_at_10": 0.0,
+      "refused": false,
+      "latency_ms": 1804.4928519993846,
+      "retrieval_arms": [
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": null,
+      "question": "How do I apply for a Fulbright scholarship?",
+      "subset": "core",
+      "unanswerable": true,
+      "category_requested": null,
+      "relevant_document_ids": [],
+      "retrieved_document_ids": [
+        "36e5408c-2f38-5d9c-a8a3-6cd72e3d23f2",
+        "83245211-dadc-5cc1-b6d3-a248e7a2a65b",
+        "0390f4de-1934-5d0a-9445-071997dadcc8",
+        "904d85c5-64f5-59d9-9be9-344673c07905",
+        "d738cf22-5322-5658-9c9a-1216664c1ab5",
+        "49986646-b016-52e9-bfb7-00eacff3af87",
+        "4358abd7-34fc-52cf-a179-d2a19a0424dd",
+        "aea446fa-ff44-54d8-9b64-2f9602334599",
+        "c844eaee-759e-5c1b-8544-c2c7b4b9fb3b",
+        "2b667993-76cd-5006-a558-676c60e467bc"
+      ],
+      "rank_of_first_relevant": null,
+      "recall_at_5": 0.0,
+      "recall_at_10": 0.0,
+      "mrr": 0.0,
+      "ndcg_at_10": 0.0,
+      "refused": false,
+      "latency_ms": 1856.9729850023577,
+      "retrieval_arms": [
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": null,
+      "question": "What MCAT score is needed for medical school admission?",
+      "subset": "core",
+      "unanswerable": true,
+      "category_requested": null,
+      "relevant_document_ids": [],
+      "retrieved_document_ids": [
+        "3b220103-a67a-52fc-bf29-f71b891f5174",
+        "8b538742-1133-5c67-bc64-a7dea6a51ed0",
+        "8af59bc9-e01c-5967-9082-c672e6a1b280",
+        "9cc112ec-7187-59e2-a668-eff87dd909b7",
+        "d1d9e03f-ee0b-5388-a52d-7b97d453a0e8",
+        "ceeff792-c4f1-55e9-bc06-23106c668495",
+        "3b0b4a57-1368-5911-a9e4-92eb370f0554",
+        "d23e7378-7b21-5d8b-9397-b341a2aae171",
+        "8c397af8-778e-5b19-a295-62b22869afbd",
+        "818fc25b-0782-556c-854f-7270aa603f88"
+      ],
+      "rank_of_first_relevant": null,
+      "recall_at_5": 0.0,
+      "recall_at_10": 0.0,
+      "mrr": 0.0,
+      "ndcg_at_10": 0.0,
+      "refused": false,
+      "latency_ms": 1727.1700370001781,
+      "retrieval_arms": [
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": null,
+      "question": "What is the LSAT requirement for a law degree?",
+      "subset": "core",
+      "unanswerable": true,
+      "category_requested": null,
+      "relevant_document_ids": [],
+      "retrieved_document_ids": [
+        "234efbd6-09be-5048-8163-e0e6178ace20",
+        "d58b6201-aca0-5c16-9104-712d680b477a",
+        "2ee2b455-7ff7-56c8-805a-ec6a3a3bbdf3",
+        "e498d24b-72f0-55f0-a725-892eab1c1c0e",
+        "a8829298-e8bf-5982-a6c5-2d13d35d39f0",
+        "3f89bda8-4679-5cf0-92da-77f44bf522d2",
+        "6e96f490-4a4b-5f8c-8175-a212e8433d56",
+        "c46018e3-e836-58fb-89af-5cd2fcdff4d2",
+        "dcb6e64e-7467-522c-9248-6e1155d5dec5",
+        "7aef20e8-2e11-5b0b-b4b0-008073b06d6b"
+      ],
+      "rank_of_first_relevant": null,
+      "recall_at_5": 0.0,
+      "recall_at_10": 0.0,
+      "mrr": 0.0,
+      "ndcg_at_10": 0.0,
+      "refused": false,
+      "latency_ms": 543.2040330015298,
+      "retrieval_arms": [
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": null,
+      "question": "Is Cambridge C1 Advanced accepted instead of IELTS?",
+      "subset": "core",
+      "unanswerable": true,
+      "category_requested": null,
+      "relevant_document_ids": [],
+      "retrieved_document_ids": [
+        "3edc958c-8788-59b5-b2c3-191cc284f66e",
+        "f29498eb-f871-50b3-b78f-675911ac201d",
+        "54cb0b27-84ac-5574-af2c-4ff9a0ebdf2f",
+        "b6ae8e36-0877-5e60-8ad3-c7033c557d4c",
+        "c1d5eacf-0f0d-5bf1-ab2a-c29f7096e99f",
+        "0ab4440e-9407-588f-816e-92f4fa65fcef",
+        "c9152519-beef-5c82-9357-095f9124299c",
+        "6189137f-bc7a-55d7-91cd-f2628e841d9c",
+        "6bea0a30-3407-5eca-aeb5-84cbb71e72e0",
+        "772fb2b5-f3d3-5e22-bbbe-a1daabc7d0b6"
+      ],
+      "rank_of_first_relevant": null,
+      "recall_at_5": 0.0,
+      "recall_at_10": 0.0,
+      "mrr": 0.0,
+      "ndcg_at_10": 0.0,
+      "refused": false,
+      "latency_ms": 515.6530370004475,
+      "retrieval_arms": [
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": null,
+      "question": "What JLPT level is required to study in Japanese?",
+      "subset": "core",
+      "unanswerable": true,
+      "category_requested": null,
+      "relevant_document_ids": [],
+      "retrieved_document_ids": [
+        "4358abd7-34fc-52cf-a179-d2a19a0424dd",
+        "c016f005-9155-50bb-89ab-85e45f7b6e37",
+        "f1bdff01-398e-5a67-9f07-01afcb9e9ed3",
+        "6ea304db-6c2e-53fd-8e03-22cf340de0bf",
+        "bea71201-cba9-564a-ac58-7286ecf8ed1b",
+        "3b34dba0-f290-5618-9716-ac341f1961b4",
+        "b5703329-93a8-5271-b105-b6f9bed170a7",
+        "613ac722-9423-5af4-be82-a8e227b28f61",
+        "f5356d2a-7e2e-5504-a3a1-b43082e8958a",
+        "19069d8e-50e2-51f1-857f-de6c5255d735"
+      ],
+      "rank_of_first_relevant": null,
+      "recall_at_5": 0.0,
+      "recall_at_10": 0.0,
+      "mrr": 0.0,
+      "ndcg_at_10": 0.0,
+      "refused": false,
+      "latency_ms": 1549.713279997377,
+      "retrieval_arms": [
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": null,
+      "question": "What HSK level do I need for a Chinese-taught programme?",
+      "subset": "core",
+      "unanswerable": true,
+      "category_requested": null,
+      "relevant_document_ids": [],
+      "retrieved_document_ids": [
+        "4358abd7-34fc-52cf-a179-d2a19a0424dd",
+        "f1bdff01-398e-5a67-9f07-01afcb9e9ed3",
+        "03339549-2be4-5bdc-b3a9-0e8b1991cda0",
+        "94524b72-7bf3-59bc-a8b1-45f3752dcf22",
+        "145f29b1-a200-59d0-8e22-651b1016cc31",
+        "b0bb3151-bc37-5b9b-8e21-221ae99bef3a",
+        "c7d7261f-030f-599e-9107-d82196cb44bc",
+        "51454fba-5cc4-5eb9-a9ea-f40f3c354739",
+        "27d01a02-1855-51a7-8c2b-6182320bf0a9",
+        "0ab4440e-9407-588f-816e-92f4fa65fcef"
+      ],
+      "rank_of_first_relevant": null,
+      "recall_at_5": 0.0,
+      "recall_at_10": 0.0,
+      "mrr": 0.0,
+      "ndcg_at_10": 0.0,
+      "refused": false,
+      "latency_ms": 1703.7475750003068,
+      "retrieval_arms": [
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": null,
+      "question": "Is TestDaF accepted as proof of German language ability?",
+      "subset": "core",
+      "unanswerable": true,
+      "category_requested": null,
+      "relevant_document_ids": [],
+      "retrieved_document_ids": [
+        "c90c6811-fb06-5607-9253-9565d7ce4941",
+        "23499242-918e-5911-b83b-ba60bbd0033a",
+        "4810e0af-a634-5589-94a7-0fb88ea1a9fc",
+        "f1bdff01-398e-5a67-9f07-01afcb9e9ed3",
+        "333a145e-b129-5258-8120-a190a1df875a",
+        "514098a7-e195-588e-90fb-d23de76f0249",
+        "c7d7261f-030f-599e-9107-d82196cb44bc",
+        "f5356d2a-7e2e-5504-a3a1-b43082e8958a",
+        "4358abd7-34fc-52cf-a179-d2a19a0424dd",
+        "c3551371-c5a7-5be0-898d-87a02e4ef961"
+      ],
+      "rank_of_first_relevant": null,
+      "recall_at_5": 0.0,
+      "recall_at_10": 0.0,
+      "mrr": 0.0,
+      "ndcg_at_10": 0.0,
+      "refused": false,
+      "latency_ms": 1795.6007899992983,
+      "retrieval_arms": [
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": null,
+      "question": "Do I need a Goethe-Zertifikat for admission?",
+      "subset": "core",
+      "unanswerable": true,
+      "category_requested": null,
+      "relevant_document_ids": [],
+      "retrieved_document_ids": [
+        "11dba15a-e845-51f4-a33e-79f86c1bf88e",
+        "c844eaee-759e-5c1b-8544-c2c7b4b9fb3b",
+        "9cc112ec-7187-59e2-a668-eff87dd909b7",
+        "d8e88f45-6b36-581f-8665-5613f4ca2795",
+        "89d9b31c-8ea9-5a7e-92e1-fe3b9b764a8c",
+        "49986646-b016-52e9-bfb7-00eacff3af87",
+        "a3c64637-4970-5142-9505-1a865c94fe52",
+        "c7d7261f-030f-599e-9107-d82196cb44bc",
+        "83245211-dadc-5cc1-b6d3-a248e7a2a65b",
+        "904d85c5-64f5-59d9-9be9-344673c07905"
+      ],
+      "rank_of_first_relevant": null,
+      "recall_at_5": 0.0,
+      "recall_at_10": 0.0,
+      "mrr": 0.0,
+      "ndcg_at_10": 0.0,
+      "refused": false,
+      "latency_ms": 1783.9333700030693,
+      "retrieval_arms": [
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": null,
+      "question": "What is the typical postdoc salary in this programme?",
+      "subset": "core",
+      "unanswerable": true,
+      "category_requested": null,
+      "relevant_document_ids": [],
+      "retrieved_document_ids": [
+        "39f7f2f0-190d-5418-9bbf-0d4c794fa041",
+        "d0418584-b1af-582c-8844-07017c2288d6",
+        "0113dae6-418c-5294-a94d-22b041bdf985",
+        "9b172a63-c990-5e9a-bd33-41000f67328d",
+        "48580315-bae6-5349-9122-ecc260221664",
+        "e2a5af24-57e6-5686-bb40-7a68674b2de6",
+        "968b3238-b988-548f-823a-5d85171c5adf",
+        "d1d9e03f-ee0b-5388-a52d-7b97d453a0e8",
+        "26b3dafd-9ba6-5999-ae10-6692c4c61410",
+        "a8385fae-4109-5a83-a9a3-e6a44710dabc"
+      ],
+      "rank_of_first_relevant": null,
+      "recall_at_5": 0.0,
+      "recall_at_10": 0.0,
+      "mrr": 0.0,
+      "ndcg_at_10": 0.0,
+      "refused": true,
+      "latency_ms": 161.47073699903558,
+      "retrieval_arms": [
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": "rag-entity-01",
+      "question": "Who can apply for a Chevening Scholarship?",
+      "subset": "entity",
+      "unanswerable": false,
+      "category_requested": null,
+      "relevant_document_ids": [
+        "0390f4de-1934-5d0a-9445-071997dadcc8"
+      ],
+      "retrieved_document_ids": [
+        "0390f4de-1934-5d0a-9445-071997dadcc8",
+        "83245211-dadc-5cc1-b6d3-a248e7a2a65b",
+        "076fec1b-47ad-5b71-b923-87322b67e929",
+        "d738cf22-5322-5658-9c9a-1216664c1ab5",
+        "325b1735-bc39-592a-a119-10dee317ef4e",
+        "49986646-b016-52e9-bfb7-00eacff3af87",
+        "11dba15a-e845-51f4-a33e-79f86c1bf88e",
+        "9e4054ae-a03a-53c9-8206-29f45e9c5502",
+        "17a962e5-f027-5cb6-9c6f-99f02eecc321",
+        "904d85c5-64f5-59d9-9be9-344673c07905"
+      ],
+      "rank_of_first_relevant": 1,
+      "recall_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_10": 1.0,
+      "refused": false,
+      "latency_ms": 1851.5747940000438,
+      "retrieval_arms": [
+        [
+          "dense",
+          "lexical"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": "rag-entity-02",
+      "question": "How long may a Stipendium Hungaricum holder stay outside Hungary?",
+      "subset": "entity",
+      "unanswerable": false,
+      "category_requested": null,
+      "relevant_document_ids": [
+        "279bf6f6-09f4-58d4-8a17-ceb30fddcb4d"
+      ],
+      "retrieved_document_ids": [
+        "279bf6f6-09f4-58d4-8a17-ceb30fddcb4d",
+        "e8b867a4-4be0-5edf-a47c-054998d90f32",
+        "89d9b31c-8ea9-5a7e-92e1-fe3b9b764a8c",
+        "325b1735-bc39-592a-a119-10dee317ef4e",
+        "076fec1b-47ad-5b71-b923-87322b67e929",
+        "83245211-dadc-5cc1-b6d3-a248e7a2a65b",
+        "0287e349-7572-5d26-be98-b2e8ee28c47b",
+        "17a962e5-f027-5cb6-9c6f-99f02eecc321",
+        "67c91703-b94d-5f0e-ba10-49b21d222ea6",
+        "fa98c2f8-4316-5dfd-846b-f8b3e10d41e8"
+      ],
+      "rank_of_first_relevant": 1,
+      "recall_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_10": 1.0,
+      "refused": false,
+      "latency_ms": 2380.8252199996787,
+      "retrieval_arms": [
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": "rag-entity-03",
+      "question": "Which university offers QuanTEEM, the Erasmus Mundus quantum technologies programme?",
+      "subset": "entity",
+      "unanswerable": false,
+      "category_requested": null,
+      "relevant_document_ids": [
+        "1f7920a9-f630-5037-b9a0-7565fc14dccf"
+      ],
+      "retrieved_document_ids": [
+        "1f7920a9-f630-5037-b9a0-7565fc14dccf",
+        "b2e65a60-168b-56fa-967c-00660da5e714",
+        "9603bb00-b23e-5bf8-afb9-cc15cd87ad2f",
+        "83926bd3-1cc9-54b8-8f0e-3477cba7b302",
+        "6daa6f71-9a57-50b6-ae9e-c891b257ac24",
+        "0ff9e650-d56f-57e8-b80d-7cce49e09765",
+        "df68b068-332a-5f17-98c1-37f794a27ce8",
+        "be65743f-1215-5d4c-b83a-b3a27f20449b",
+        "f222a3a7-113f-53ce-9cd8-9ceca117dde5",
+        "38fe4ea3-cba5-5303-822b-0089fa57be91"
+      ],
+      "rank_of_first_relevant": 1,
+      "recall_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_10": 1.0,
+      "refused": false,
+      "latency_ms": 629.1823150022537,
+      "retrieval_arms": [
+        [
+          "dense",
+          "lexical"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": "rag-entity-04",
+      "question": "What is the ReSound European Joint Masters programme about?",
+      "subset": "entity",
+      "unanswerable": false,
+      "category_requested": null,
+      "relevant_document_ids": [
+        "96ef970d-35ea-55d3-8d73-2ec6aab15ee8"
+      ],
+      "retrieved_document_ids": [
+        "96ef970d-35ea-55d3-8d73-2ec6aab15ee8",
+        "7c4c2003-bf98-5a2e-abd6-82908b90489b",
+        "15403558-8bcd-5c16-bc3f-19cec16c967b",
+        "ca792554-ca19-5b27-889e-7709ae0cffc4",
+        "589921e2-b0b5-5410-8060-2857e38f7e15",
+        "6bbb12b8-216d-523c-8b81-a68ca0278966",
+        "3a941db4-9a46-500e-b7f2-acec78d4f491",
+        "e91b2846-e0a7-50d9-a5a5-8889713aedbc",
+        "2167a793-dc26-58f5-bbcd-5b2b89f6fc56",
+        "326592e3-4fb6-5e3b-9131-20cf607463ff"
+      ],
+      "rank_of_first_relevant": 1,
+      "recall_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_10": 1.0,
+      "refused": false,
+      "latency_ms": 617.4159190013597,
+      "retrieval_arms": [
+        [
+          "lexical"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": "rag-entity-05",
+      "question": "What does the IT4BI Erasmus Mundus programme train students to do?",
+      "subset": "entity",
+      "unanswerable": false,
+      "category_requested": null,
+      "relevant_document_ids": [
+        "90afd047-694b-5d72-9b35-13c506821b88"
+      ],
+      "retrieved_document_ids": [
+        "90afd047-694b-5d72-9b35-13c506821b88",
+        "48580315-bae6-5349-9122-ecc260221664",
+        "88940744-4f10-59a3-9913-fb820056b3e0",
+        "3fb58a4a-4e3c-50ef-9666-4d2816a233cb",
+        "cc956a45-4877-50a7-9792-d7454f9404a4",
+        "e26a5461-56e2-5de3-be87-4818bb5618e1",
+        "a88e9c39-51fb-5b4e-9400-163590430101",
+        "87af6baf-6d01-5ec4-b1fc-903fc1d28e6f",
+        "9073653b-c97e-508e-a3c4-2531abc51540",
+        "7bb42a10-f332-50d4-a2f7-d0eb23c54bf2"
+      ],
+      "rank_of_first_relevant": 1,
+      "recall_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_10": 1.0,
+      "refused": false,
+      "latency_ms": 593.3900429990899,
+      "retrieval_arms": [
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": "rag-entity-06",
+      "question": "Which institutions in this corpus offer Renewable Energy in the Marine Environment (REM)?",
+      "subset": "entity",
+      "unanswerable": false,
+      "category_requested": null,
+      "relevant_document_ids": [
+        "5edce7dc-3aa0-5b3d-a44a-e7c6e45af777",
+        "9f343058-969f-505c-b442-6009c1e0bce8"
+      ],
+      "retrieved_document_ids": [
+        "5edce7dc-3aa0-5b3d-a44a-e7c6e45af777",
+        "9f343058-969f-505c-b442-6009c1e0bce8",
+        "0bbba57a-b5ae-535b-8290-6fa9b5ba4872",
+        "37d6d8d8-84a9-53a4-8df4-a1b1c0fac19d",
+        "debdcba0-2549-5d11-9383-7ad32ade7890",
+        "6f0eafd6-0046-5189-9850-4d1409985bc3",
+        "4bd9a715-aa2a-5adc-8d45-955cb536ccc4",
+        "82048702-5340-52df-bbca-3d38a24dd0b7",
+        "aa117984-41d8-5994-9232-8a4491b82977",
+        "e93ff17d-17c1-5200-a1b5-2c0693003c78"
+      ],
+      "rank_of_first_relevant": 1,
+      "recall_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_10": 1.0,
+      "refused": false,
+      "latency_ms": 674.3013380000775,
+      "retrieval_arms": [
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": "rag-entity-07",
+      "question": "What does the BDMA Erasmus Mundus master's programme cover?",
+      "subset": "entity",
+      "unanswerable": false,
+      "category_requested": null,
+      "relevant_document_ids": [
+        "ea21497d-902b-5f33-ba63-117d107302ab"
+      ],
+      "retrieved_document_ids": [
+        "48580315-bae6-5349-9122-ecc260221664",
+        "2eb82fa3-4df1-5e88-b0b3-4c1c98d377a7",
+        "3a941db4-9a46-500e-b7f2-acec78d4f491",
+        "e014f5e6-8f69-508f-8b06-309dce97e4f3",
+        "dcb97046-0715-5c12-b7c0-c2200a3649a3",
+        "d23e7378-7b21-5d8b-9397-b341a2aae171",
+        "2e7f9ef3-d629-5279-9d62-d9e74b5d43b3",
+        "6c088939-4ba9-5db6-9041-05162b7a6943",
+        "0df7f87b-b385-5276-93d1-e331297c11cf",
+        "dfb83b2f-113f-5fda-91cb-82fae9ee4511"
+      ],
+      "rank_of_first_relevant": null,
+      "recall_at_5": 0.0,
+      "recall_at_10": 0.0,
+      "mrr": 0.0,
+      "ndcg_at_10": 0.0,
+      "refused": false,
+      "latency_ms": 593.8519420014927,
+      "retrieval_arms": [
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": "rag-entity-08",
+      "question": "What does WAVES stand for in the University of Coimbra Erasmus Mundus programme?",
+      "subset": "entity",
+      "unanswerable": false,
+      "category_requested": null,
+      "relevant_document_ids": [
+        "f2ff27b2-ba6c-5aed-84b5-32bda13534fa"
+      ],
+      "retrieved_document_ids": [
+        "f2ff27b2-ba6c-5aed-84b5-32bda13534fa",
+        "5edce7dc-3aa0-5b3d-a44a-e7c6e45af777",
+        "9f343058-969f-505c-b442-6009c1e0bce8",
+        "a6ceea9b-8f9d-5710-a60f-90d82705365d",
+        "bfb07320-8531-555e-98b6-caa9a3b56c9e",
+        "41b05aec-f440-5391-b384-f0976d166ef4",
+        "7e1b7121-0964-5ab8-9102-50c4146bc99a",
+        "b22db1e6-e22a-5659-8dc7-0ffc1f5a98a3",
+        "82048702-5340-52df-bbca-3d38a24dd0b7",
+        "6ef42590-9534-5d38-827b-59359b521e56"
+      ],
+      "rank_of_first_relevant": 1,
+      "recall_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_10": 1.0,
+      "refused": false,
+      "latency_ms": 488.3494889982103,
+      "retrieval_arms": [
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": "rag-entity-09",
+      "question": "Which institutions collaborate on Erasmus Mundus META 4.0?",
+      "subset": "entity",
+      "unanswerable": false,
+      "category_requested": null,
+      "relevant_document_ids": [
+        "fcf304a2-c27f-54cc-ad2c-a4e9df95ca1d"
+      ],
+      "retrieved_document_ids": [
+        "48580315-bae6-5349-9122-ecc260221664",
+        "415dbc06-9a62-5873-a10b-bf462d467085",
+        "c839e0a0-5ded-5c92-90c6-43cdce647c00",
+        "24e14baa-dd0e-5c50-9239-4b7fdd06d965",
+        "013fbde1-d152-5650-89ec-53671d3b67ea",
+        "49c36252-42e4-5bdb-8fd6-67f19a1f9684",
+        "1acb4bb5-c192-562c-8b34-c5c4e210324f",
+        "ca5db9da-b6a9-5168-8d22-b3e9f147a730",
+        "7037d57d-6441-5b5e-800c-d8ba5a394694",
+        "0dcf02e4-d9db-5d47-84c8-78d9b1e43352"
+      ],
+      "rank_of_first_relevant": null,
+      "recall_at_5": 0.0,
+      "recall_at_10": 0.0,
+      "mrr": 0.0,
+      "ndcg_at_10": 0.0,
+      "refused": false,
+      "latency_ms": 496.20896900160005,
+      "retrieval_arms": [
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": "rag-entity-10",
+      "question": "Which universities cooperate on TUM's Erasmus Mundus Cartography programme?",
+      "subset": "entity",
+      "unanswerable": false,
+      "category_requested": null,
+      "relevant_document_ids": [
+        "d61bac62-c0f4-57b0-b52c-e06ed37c0ad2"
+      ],
+      "retrieved_document_ids": [
+        "d61bac62-c0f4-57b0-b52c-e06ed37c0ad2",
+        "d2aec355-0d5f-5da0-9e61-f533992d6709",
+        "99085a93-67c3-5681-9051-d4ea28451d96",
+        "796da042-f096-507f-9a55-4708975f9f3e",
+        "db6e5a03-8dac-5dad-8c31-d70552c02965",
+        "2f19b378-c74d-5e6e-990e-667a05ff965b",
+        "2da0f386-c664-5003-815f-b6df2dba88de",
+        "92b65deb-95e7-5e43-acd1-e837965aa902",
+        "51415281-e859-55fb-a1fa-9017b58c0ea2",
+        "4246871f-a7e5-5a51-b7fc-3b9029a1ede5"
+      ],
+      "rank_of_first_relevant": 1,
+      "recall_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_10": 1.0,
+      "refused": false,
+      "latency_ms": 494.1923379992659,
+      "retrieval_arms": [
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": "rag-numeric-01",
+      "question": "What IELTS requirement is listed for Hull's Immersive Design in Extended Realities pre-master's programme?",
+      "subset": "numeric",
+      "unanswerable": false,
+      "category_requested": null,
+      "relevant_document_ids": [
+        "98ee82bc-3f35-5610-b528-4cff24126cf1"
+      ],
+      "retrieved_document_ids": [
+        "98ee82bc-3f35-5610-b528-4cff24126cf1",
+        "9073653b-c97e-508e-a3c4-2531abc51540",
+        "b7abb39f-1565-552a-b97b-d7964b4b55f4",
+        "86975597-aaa2-5476-8695-4b71f52a4490",
+        "91cce6c0-0097-5382-970a-20de2608d578",
+        "992f34fc-94e3-5606-8936-20362055cb06",
+        "34d8bbd9-4252-5348-8c66-acb390f07386",
+        "a5a5d0f2-b14f-5272-bb5c-2093de61b663",
+        "ef63f0bd-21b7-5755-91a5-872ee905fa3b",
+        "67874b93-ed8e-5111-8b19-8fdac7cc8308"
+      ],
+      "rank_of_first_relevant": 1,
+      "recall_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_10": 1.0,
+      "refused": false,
+      "latency_ms": 582.9366689977178,
+      "retrieval_arms": [
+        [
+          "dense",
+          "lexical"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": "rag-numeric-02",
+      "question": "What IELTS requirement is listed for Computer Science Engineering at Budapest University of Technology and Economics?",
+      "subset": "numeric",
+      "unanswerable": false,
+      "category_requested": null,
+      "relevant_document_ids": [
+        "3e1b1de0-1ba1-5310-88bc-81a2f61de400"
+      ],
+      "retrieved_document_ids": [
+        "3e1b1de0-1ba1-5310-88bc-81a2f61de400",
+        "5f8bae7f-5d72-5c7e-b1ec-42ae86914ded",
+        "9248281a-ed73-5d42-8c9b-2fcfa98a7210",
+        "72c34e54-2094-5637-a608-6199256b3ba8",
+        "a831df6c-8f70-579e-a91c-da05f04d252d",
+        "f9542c9b-11d5-5806-8377-ef9af2b27ff8",
+        "7d200a19-4736-5a67-b8a8-3f619a333cde",
+        "4891957b-0259-58d2-ac42-ef360a9aad2d",
+        "f2bf9cb0-979f-5b31-9f0b-3996fff500c9",
+        "2043649a-31ab-5a56-9ab8-1b141f3e4306"
+      ],
+      "rank_of_first_relevant": 1,
+      "recall_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_10": 1.0,
+      "refused": false,
+      "latency_ms": 493.8795089983614,
+      "retrieval_arms": [
+        [
+          "dense",
+          "lexical"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": "rag-numeric-03",
+      "question": "What IELTS requirement is listed for Business Process Management at Vilnius University?",
+      "subset": "numeric",
+      "unanswerable": false,
+      "category_requested": null,
+      "relevant_document_ids": [
+        "3f2cd161-7065-565f-975d-eccb50f8fdb5"
+      ],
+      "retrieved_document_ids": [
+        "3f2cd161-7065-565f-975d-eccb50f8fdb5",
+        "74dc3188-3820-56d8-9b73-af02db39effc",
+        "205eac72-5fe4-51fe-b9ab-e5ef2954cd4c",
+        "144d5ea4-0c8b-5037-9501-c60201653f9b",
+        "048d2b35-ae7a-5cc3-a226-1ad6a2f06640",
+        "9096a387-c138-523e-b680-e9fb442d67d3",
+        "3d116ec0-495e-5774-9b44-e246328fca5e",
+        "d3c9aba8-c62c-55cd-b406-1f368a98087c",
+        "ca7668eb-df3a-5cd6-a5ef-a32d05bd299c",
+        "1338068d-9d36-594b-b745-3464a82e979c"
+      ],
+      "rank_of_first_relevant": 1,
+      "recall_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_10": 1.0,
+      "refused": false,
+      "latency_ms": 481.8114189984044,
+      "retrieval_arms": [
+        [
+          "dense",
+          "lexical"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": "rag-numeric-04",
+      "question": "What IELTS requirement is listed for Information Security and Risk (Learning at Work) at Portsmouth?",
+      "subset": "numeric",
+      "unanswerable": false,
+      "category_requested": null,
+      "relevant_document_ids": [
+        "0908c43f-c46a-54d4-8010-a0477a8793a3"
+      ],
+      "retrieved_document_ids": [
+        "0908c43f-c46a-54d4-8010-a0477a8793a3",
+        "1b330969-2fd7-575e-8cfb-d1341f90feff",
+        "fb656793-7c0d-5ddc-8762-a15fd50f1efd",
+        "1ee66635-da56-5795-a423-ea398dbb4182",
+        "2665c320-6739-5340-98c1-00a917b1f067",
+        "f6d6c8e1-52a2-5e4e-839d-3b680952ad9e",
+        "10bed33f-3455-5847-89f3-7d4bf3ec2a8a",
+        "e03b5b80-940b-5957-947f-0ef407d044c6",
+        "b4175353-0e36-5c0d-9194-9dd8de7e2167",
+        "d5ef802b-9100-5ed6-9d73-27a638f53e4f"
+      ],
+      "rank_of_first_relevant": 1,
+      "recall_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_10": 1.0,
+      "refused": false,
+      "latency_ms": 531.656679999287,
+      "retrieval_arms": [
+        [
+          "dense",
+          "lexical"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": "rag-numeric-05",
+      "question": "What IELTS requirement is listed for Biomedical Engineering at Kaunas University of Technology?",
+      "subset": "numeric",
+      "unanswerable": false,
+      "category_requested": null,
+      "relevant_document_ids": [
+        "4757d1a8-bbde-5ce0-a50c-cdd638b4c2db"
+      ],
+      "retrieved_document_ids": [
+        "4757d1a8-bbde-5ce0-a50c-cdd638b4c2db",
+        "94a86ede-4636-5fbd-a800-fef5058dca53",
+        "3d27d26b-911d-5388-9425-1816f95e91a1",
+        "535c626b-deca-587b-978f-18fa91ea9764",
+        "152dffe5-3404-5f18-a3a0-a92e9c6e2d27",
+        "d738e4da-e140-57be-b6eb-fdefa65aa591",
+        "4ee8897b-4d9e-561c-b90f-cc4ac0543c53",
+        "11d2782e-ef24-5bb4-8294-f6777c7a164b",
+        "697285a2-b441-50e2-bb60-e995b64998c0",
+        "f808fbb7-4cd3-5de8-b0a6-5a844145f404"
+      ],
+      "rank_of_first_relevant": 1,
+      "recall_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_10": 1.0,
+      "refused": false,
+      "latency_ms": 470.6006279993744,
+      "retrieval_arms": [
+        [
+          "dense",
+          "lexical"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": "rag-numeric-06",
+      "question": "What IELTS requirement is listed for Business Analytics at the University of West London?",
+      "subset": "numeric",
+      "unanswerable": false,
+      "category_requested": null,
+      "relevant_document_ids": [
+        "a9161d44-6d89-5de3-ae51-cc1e529a68cc"
+      ],
+      "retrieved_document_ids": [
+        "a9161d44-6d89-5de3-ae51-cc1e529a68cc",
+        "b955f38e-7c4e-5eec-a0f5-baf0761b91f9",
+        "eba72e28-f5c0-576b-9e2b-f083d118f56b",
+        "2a03af64-4f61-514d-b4fd-3e3696559a52",
+        "77468026-1753-5a19-a7db-d37706a62706",
+        "54d725bd-dc80-5271-b5c1-f989f92c631d",
+        "4853547e-2490-50b2-90ba-35a24f1028b1",
+        "22abecf8-b9ab-52fb-b129-86278ebdbf21",
+        "d446793e-cbe7-51ff-810d-d6b02c856a2f",
+        "f390abf4-1ef3-5ab9-962d-d43728e56ef5"
+      ],
+      "rank_of_first_relevant": 1,
+      "recall_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_10": 1.0,
+      "refused": false,
+      "latency_ms": 522.3961869996856,
+      "retrieval_arms": [
+        [
+          "dense",
+          "lexical"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": "rag-numeric-07",
+      "question": "What IELTS requirement is listed for Emerging Digital Technologies at UCL?",
+      "subset": "numeric",
+      "unanswerable": false,
+      "category_requested": null,
+      "relevant_document_ids": [
+        "e2d3a26d-525b-5c8d-bb49-32483fb27195"
+      ],
+      "retrieved_document_ids": [
+        "e2d3a26d-525b-5c8d-bb49-32483fb27195",
+        "a6fb1bc3-a133-531c-af0d-84cd0cdcb038",
+        "250470fd-bfc7-5a24-b67e-545d0f02cc45",
+        "41b10817-1872-5114-9046-484ab6aab118",
+        "688e594a-4167-5409-bc0b-239b26c08c55",
+        "b1a7bb9a-b31b-574b-98a1-7a7d356faf9f",
+        "ca6ceceb-c71c-5ce6-9a54-59b9db8a6b80",
+        "a07a73db-b98b-57c9-89e8-58878453b5d7",
+        "5e154e36-a3bf-5f91-8a4a-bff6c26c7a3a",
+        "f9542c9b-11d5-5806-8377-ef9af2b27ff8"
+      ],
+      "rank_of_first_relevant": 1,
+      "recall_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_10": 1.0,
+      "refused": false,
+      "latency_ms": 443.58905000262894,
+      "retrieval_arms": [
+        [
+          "dense",
+          "lexical"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": "rag-numeric-08",
+      "question": "What IELTS requirement is listed for Data Science for Public Policy at Hertie School Berlin?",
+      "subset": "numeric",
+      "unanswerable": false,
+      "category_requested": null,
+      "relevant_document_ids": [
+        "bdef5c62-4677-5ffc-8e54-c3bacc342fa7"
+      ],
+      "retrieved_document_ids": [
+        "bdef5c62-4677-5ffc-8e54-c3bacc342fa7",
+        "ac2a50b1-7fd0-5cf1-bd78-00863b52ecdf",
+        "5f37a21c-135b-5f7b-b1a1-7f24bea79214",
+        "0c89d653-f539-500a-986f-d580cc7740b0",
+        "6c4fb349-210b-564a-9dec-3d36663f2bd6",
+        "6342b868-b1a7-51f8-8436-ea4e5b026ee7",
+        "269e3e08-cab5-5763-a2d5-6ec715ab3f1f",
+        "52913f4c-e6f4-59f4-bc3f-997deff908ce",
+        "4eb8f0a9-5b16-53d5-bcb3-2c3c3e0dcc42",
+        "ec37a637-bb13-5f37-9d7c-975ea3689f9e"
+      ],
+      "rank_of_first_relevant": 1,
+      "recall_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_10": 1.0,
+      "refused": false,
+      "latency_ms": 544.7026689980703,
+      "retrieval_arms": [
+        [
+          "dense",
+          "lexical"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": "rag-numeric-09",
+      "question": "What IELTS requirement is listed for Software Engineering at the University of Oxford?",
+      "subset": "numeric",
+      "unanswerable": false,
+      "category_requested": null,
+      "relevant_document_ids": [
+        "b9055641-e145-5c71-8559-54fbb4ffa33a"
+      ],
+      "retrieved_document_ids": [
+        "b9055641-e145-5c71-8559-54fbb4ffa33a",
+        "ceb117cb-9c0c-5459-95f2-39ea9c4d9431",
+        "911e58a7-064e-51a8-b0e5-fc52b6ee0240",
+        "761bb1f0-de16-5a19-9afc-d9264e10b4d9",
+        "c0af7a3a-0a3b-5f62-8569-8abdb95447b5",
+        "f640cfcb-30aa-5def-9958-86e19efdf4f0",
+        "e8076ffb-5c23-5ab8-bfff-198b48b8efdc",
+        "5bb1862a-ec00-530e-b863-eee6a0c79abb",
+        "529ccbaa-1a38-5677-9395-177cc07ec65c",
+        "ddf36701-a9b0-5a9e-8955-796dcdd10c2f"
+      ],
+      "rank_of_first_relevant": 1,
+      "recall_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_10": 1.0,
+      "refused": false,
+      "latency_ms": 482.429919000424,
+      "retrieval_arms": [
+        [
+          "dense",
+          "lexical"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    },
+    {
+      "id": "rag-numeric-10",
+      "question": "What IELTS requirement is listed for Media and Convergence Management at the University of Klagenfurt?",
+      "subset": "numeric",
+      "unanswerable": false,
+      "category_requested": null,
+      "relevant_document_ids": [
+        "1acb4bb5-c192-562c-8b34-c5c4e210324f"
+      ],
+      "retrieved_document_ids": [
+        "1acb4bb5-c192-562c-8b34-c5c4e210324f",
+        "c7a5bd40-0f97-589b-accd-2e9d1d3676d0",
+        "24248fba-fab6-5fe8-90b6-1d75aab6810e",
+        "81d3c0e9-2e7f-5fde-bef9-2fb46f344c3b",
+        "091bbb22-30f0-5a7a-93c9-aef69c88027b",
+        "e91b2846-e0a7-50d9-a5a5-8889713aedbc",
+        "175dba84-c060-58d2-a319-6a7b3cf7ad46",
+        "5cdfaa4b-bc7b-5f8b-877d-2e7d000842d9",
+        "5c7a3b09-f437-5131-9c84-03ebf30665f5",
+        "1c754715-f3b3-5259-a925-b341a516ed52"
+      ],
+      "rank_of_first_relevant": 1,
+      "recall_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "mrr": 1.0,
+      "ndcg_at_10": 1.0,
+      "refused": false,
+      "latency_ms": 545.5674080003519,
+      "retrieval_arms": [
+        [
+          "dense",
+          "lexical"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ],
+        [
+          "dense"
+        ]
+      ]
+    }
+  ]
+}

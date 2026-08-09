@@ -11,7 +11,10 @@ import { parseBand } from "@/lib/ielts";
 import { DURATION, EASE } from "@/lib/motion";
 import { Alert, Button, Card, Icon, Skeleton, Text } from "@/components/ui";
 import { Wordmark } from "@/components/marketing/wordmark";
-import { OnboardingStepper, ONBOARDING_STEPS } from "@/components/onboarding/onboarding-stepper";
+import {
+  OnboardingStepper,
+  ONBOARDING_STEPS,
+} from "@/components/onboarding/onboarding-stepper";
 import AcademicStep from "@/components/onboarding/AcademicStep";
 import LanguageStep from "@/components/onboarding/LanguageStep";
 import TargetsStep from "@/components/onboarding/TargetStep";
@@ -36,7 +39,7 @@ function parseNumber(value: string): number | undefined {
  * Builds the payload for PUT /api/profile from whatever the wizard collected.
  * Not every field the wizard asks for has a home in UpdateProfileDto
  * (services/user/src/profile/dto/update-profile.dto.ts) -- university,
- * graduation year, target degree/major/intake, and the "planning to take
+ * graduation year, target degree/intake, and the "planning to take
  * IELTS" target score have no backend field to land in. Those stay in the
  * wizard's own state (useful context within the session) but are not sent;
  * this is a real backend-schema gap, flagged rather than papered over. See
@@ -51,6 +54,9 @@ export function buildProfilePayload(
 
   if (academic.degree) payload.degreeLevel = academic.degree;
   if (academic.major.trim()) payload.fieldOfStudy = academic.major.trim();
+  if (targets.targetMajor.trim()) {
+    payload.targetFieldOfStudy = targets.targetMajor.trim();
+  }
   const gpa = parseNumber(academic.gpa);
   if (gpa !== undefined) {
     payload.gpa = gpa;
@@ -76,7 +82,8 @@ export function buildProfilePayload(
     if (overall !== null) payload.ieltsScore = overall;
   }
 
-  if (targets.destinations.length > 0) payload.targetCountries = targets.destinations;
+  if (targets.destinations.length > 0)
+    payload.targetCountries = targets.destinations;
 
   return payload;
 }
@@ -90,7 +97,8 @@ function OnboardingWizard() {
   // doesn't silently drop the user's place in the wizard the way in-memory-only
   // state did before.
   const stepParam = Number(searchParams.get("step"));
-  const requestedStep = stepParam >= 1 && stepParam <= TOTAL_STEPS ? stepParam : 1;
+  const requestedStep =
+    stepParam >= 1 && stepParam <= TOTAL_STEPS ? stepParam : 1;
 
   // Draft answers are restored from sessionStorage on mount rather than being
   // seeded into useState directly: reading storage during render is a hydration
@@ -137,7 +145,11 @@ function OnboardingWizard() {
     setFinishError(null);
     setFinishing(true);
     try {
-      const payload = buildProfilePayload(draft.academic, draft.language, targets);
+      const payload = buildProfilePayload(
+        draft.academic,
+        draft.language,
+        targets,
+      );
       // Only call the network at all if there's something to persist -- an
       // entirely skipped wizard shouldn't produce a spinner and a PUT with an
       // empty body.
@@ -166,7 +178,7 @@ function OnboardingWizard() {
         paid
           ? "Saving your profile needs a moment — please try again."
           : (apiErrorMessage(err) ??
-            "Could not save your profile. Your answers are still here — please try again."),
+              "Could not save your profile. Your answers are still here — please try again."),
       );
       setFinishing(false);
     }
@@ -175,7 +187,10 @@ function OnboardingWizard() {
   if (done) {
     return (
       <Card variant="raised" padding="lg" className="w-full max-w-xl">
-        <div className="flex flex-col items-center gap-3 py-6 text-center" role="status">
+        <div
+          className="flex flex-col items-center gap-3 py-6 text-center"
+          role="status"
+        >
           <span className="flex h-14 w-14 items-center justify-center rounded-full bg-success-subtle text-success">
             <Icon icon={CheckCircle2} size="lg" />
           </span>
@@ -194,7 +209,11 @@ function OnboardingWizard() {
     // shifted the wordmark as it resolved.
     return (
       <Card variant="raised" padding="lg" className="w-full max-w-xl">
-        <div aria-busy="true" aria-label="Loading onboarding" className="space-y-6">
+        <div
+          aria-busy="true"
+          aria-label="Loading onboarding"
+          className="space-y-6"
+        >
           <Skeleton className="h-2 w-full" />
           <div className="space-y-2">
             <Skeleton className="h-6 w-2/3" />
@@ -216,7 +235,11 @@ function OnboardingWizard() {
   const enterX = prefersReduced ? 0 : 32;
 
   return (
-    <Card variant="raised" padding="lg" className="w-full max-w-xl overflow-hidden">
+    <Card
+      variant="raised"
+      padding="lg"
+      className="w-full max-w-xl overflow-hidden"
+    >
       <OnboardingStepper currentStep={currentStep} onStepSelect={goToStep} />
 
       {finishError && (
@@ -288,7 +311,11 @@ export default function OnboardingWizardPage() {
       <Suspense
         fallback={
           <Card variant="raised" padding="lg" className="w-full max-w-xl">
-            <div className="space-y-6" aria-busy="true" aria-label="Loading onboarding">
+            <div
+              className="space-y-6"
+              aria-busy="true"
+              aria-label="Loading onboarding"
+            >
               <Skeleton className="h-2 w-full" />
               <Skeleton className="h-6 w-2/3" />
               <Skeleton className="h-11 w-full" />

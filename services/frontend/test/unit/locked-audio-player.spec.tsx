@@ -27,6 +27,29 @@ function setCurrentTime(audio: HTMLAudioElement, value: number) {
 }
 
 describe("LockedAudioPlayer", () => {
+
+/**
+ * Advance playback to `target` the way a browser does: many small steps.
+ *
+ * These specs used to jump straight to the watermark with a single
+ * `setCurrentTime(audio, 10)` + `timeUpdate`. A real `timeupdate` fires about
+ * four times a second, so a ten-second advance in one event is not playback --
+ * it is indistinguishable from a seek, which is the very thing the player must
+ * reject. Encoding it as "normal playback" forced the lock's tolerance above
+ * ten seconds, which would let a candidate skip ten seconds at a time.
+ *
+ * Stepping keeps every assertion in this file intact while letting the product
+ * hold a tolerance that reflects how the event actually behaves.
+ */
+function playTo(audio: HTMLAudioElement, target: number, step = 0.25) {
+  for (let t = step; t < target - 1e-9; t += step) {
+    setCurrentTime(audio, Math.min(t, target));
+    fireEvent.timeUpdate(audio);
+  }
+  setCurrentTime(audio, target);
+  fireEvent.timeUpdate(audio);
+}
+
   it("snaps back to the allowed watermark after an external forward jump during playback", () => {
     const { container } = render(<LockedAudioPlayer src="test.mp3" />);
     const audio = getAudio(container);
@@ -38,8 +61,7 @@ describe("LockedAudioPlayer", () => {
     fireEvent.loadedMetadata(audio);
 
     // Normal forward playback advances the allowed watermark to 10s.
-    setCurrentTime(audio, 10);
-    fireEvent.timeUpdate(audio);
+    playTo(audio, 10);
 
     // Simulate external code (devtools, a script, a scrub attempt) jumping
     // playback ahead without going through the component's own controls.
@@ -59,8 +81,7 @@ describe("LockedAudioPlayer", () => {
     });
     fireEvent.loadedMetadata(audio);
 
-    setCurrentTime(audio, 25);
-    fireEvent.timeUpdate(audio);
+    playTo(audio, 25);
 
     audio.currentTime = 2;
     fireEvent(audio, new Event("seeking"));
@@ -81,9 +102,9 @@ describe("LockedAudioPlayer", () => {
     });
     fireEvent.loadedMetadata(audio);
 
-    setCurrentTime(audio, 10);
-    fireEvent.timeUpdate(audio);
+    playTo(audio, 10);
 
+    // A jump reported only through timeupdate, with no seeking event.
     setCurrentTime(audio, 60);
     fireEvent.timeUpdate(audio);
 

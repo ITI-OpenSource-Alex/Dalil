@@ -67,7 +67,7 @@ async def test_generate_review_parses_structured_json():
         issues=["Photo missing for Germany"],
         suggestions=["Add a professional photo for German applications."],
     )
-    assert fake_client.messages.calls[0]["model"] == "claude-opus-4-8"
+    assert fake_client.messages.calls[0]["model"] == "claude-opus-5"
 
 
 @pytest.mark.asyncio

@@ -7,6 +7,7 @@ import {
   RecentActivityWidget,
   RecommendationsWidget,
   WelcomeWidget,
+  ChecklistsWidget,
 } from "@/components/dashboard";
 
 /**
@@ -30,6 +31,7 @@ export default function DashboardPage() {
           <div className="space-y-6">
             <ProgressWidget />
             <PracticeShortcutsWidget />
+            <ChecklistsWidget />
           </div>
         </div>
 

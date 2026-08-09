@@ -1,353 +1,554 @@
-"""
-evals/rag_benchmark.py
+"""Live RAG retrieval benchmark with a verifiable corpus and validity gates.
 
-Section 4B Benchmarking Harness for GOA RAG Quality.
-Emits committed benchmark JSON artifacts under evals/benchmarks/ with live environment fingerprinting.
+GOA-033 introduced this harness. GOA-137 extends the same path with adversarial
+subsets, Recall@5/10, nDCG@10, explicit arm configurations and a frozen-corpus
+comparison. A report is never written when the corpus differs or the cross-encoder
+has degraded.
 """
+
+from __future__ import annotations
 
 import argparse
+import asyncio
 import hashlib
 import json
+import math
 import os
 import subprocess
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+import asyncpg
 import httpx
-from evals.rag_retrieval_eval import recall_at_15, reciprocal_rank, relevant_at_1
 
-RAG_URL = os.environ.get("RAG_SERVICE_URL", "http://localhost:8084")
+from evals.frozen_corpus import corpus_digest, read_snapshot
+from evals.rag_retrieval_eval import ndcg_at_k, recall_at_k, reciprocal_rank
 
-# Set from --allow-degraded. Defaults to False so an unattended run cannot silently
-# mint an artifact for a cross-encoder that never loaded.
-ALLOW_DEGRADED = False
 
-# Measure retrieval without generating an answer. Default True: this harness exists to
-# measure ranking, and coupling it to LLM availability is how an outage gets recorded as
-# a quality regression. Set --with-generation for an end-to-end latency figure.
-RETRIEVAL_ONLY = True
+RAG_URL = os.environ.get("RAG_SERVICE_URL", "http://localhost:8084").rstrip("/")
+RAG_QUERY_URL = f"{RAG_URL}/query"
+INTERNAL_API_KEY = os.environ.get(
+    "INTERNAL_API_KEY", "supersecret_internal_key_123"
+)
+DEFAULT_DB_URL = "postgresql://goa:goa_pass@localhost:5432/rag_db"
+DEFAULT_DATASET = Path("evals/golden_dataset.json")
+DEFAULT_SNAPSHOT = Path("evals/corpora/GOA-137-documents.jsonl.gz")
 
-RAG_QUERY_URL = "http://localhost:8084/query"
-INTERNAL_API_KEY = "supersecret_internal_key_123"
+ARM_CONFIGS: dict[str, dict[str, Any]] = {
+    "baseline": {
+        "rerank_enabled": False,
+        "threshold_enabled": False,
+        "retrieval_width": 5,
+        "ivfflat_probes": 1,
+        "hybrid_enabled": False,
+        "category_filter": False,
+    },
+    "probes-only": {
+        "rerank_enabled": False,
+        "threshold_enabled": False,
+        "retrieval_width": 5,
+        "ivfflat_probes": 10,
+        "hybrid_enabled": False,
+        "category_filter": False,
+    },
+    "width-only": {
+        "rerank_enabled": False,
+        "threshold_enabled": False,
+        "retrieval_width": 15,
+        "ivfflat_probes": 1,
+        "hybrid_enabled": False,
+        "category_filter": False,
+    },
+    "rerank": {
+        "rerank_enabled": True,
+        "threshold_enabled": False,
+        "retrieval_width": 15,
+        "ivfflat_probes": 1,
+        "hybrid_enabled": False,
+        "category_filter": False,
+    },
+    "full": {
+        "rerank_enabled": True,
+        "threshold_enabled": True,
+        "retrieval_width": 15,
+        "ivfflat_probes": 10,
+        "hybrid_enabled": False,
+        "category_filter": False,
+    },
+    "hybrid": {
+        "rerank_enabled": True,
+        "threshold_enabled": True,
+        "retrieval_width": 15,
+        "ivfflat_probes": 10,
+        "hybrid_enabled": True,
+        "category_filter": False,
+    },
+    "hybrid-filtered": {
+        "rerank_enabled": True,
+        "threshold_enabled": True,
+        "retrieval_width": 15,
+        "ivfflat_probes": 10,
+        "hybrid_enabled": True,
+        "category_filter": True,
+    },
+}
+PRE_ARMS = ("baseline", "probes-only", "width-only", "rerank", "full")
+POST_ARMS = PRE_ARMS + ("hybrid", "hybrid-filtered")
+
+
+class BenchmarkEnvironmentError(RuntimeError):
+    """The environment is unverifiable, so no benchmark may be emitted."""
+
+
+def utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def get_git_sha() -> str:
+    injected = os.environ.get("BENCHMARK_GIT_SHA")
+    if injected:
+        return injected
     try:
-        out = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True)
-        return out.strip()
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], text=True
+        ).strip()
     except Exception:
         return "unknown-sha"
 
 
-class BenchmarkEnvironmentError(RuntimeError):
-    """The environment could not be read, so the artifact cannot be trusted."""
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
-# Same default the RAG service uses. Override with RAG_DATABASE_URL when running the
-# harness from outside the compose network.
-DEFAULT_DB_URL = "postgresql://goa:goa_pass@localhost:5432/rag_db"
+def harness_fingerprint() -> dict[str, Any]:
+    component_paths = (
+        Path("evals/rag_benchmark.py"),
+        Path("evals/rag_retrieval_eval.py"),
+        Path("evals/frozen_corpus.py"),
+    )
+    components = {path.as_posix(): file_sha256(path) for path in component_paths}
+    combined = hashlib.sha256(
+        "".join(f"{path}:{digest}\n" for path, digest in components.items()).encode()
+    ).hexdigest()
+    return {"sha256": combined, "components": components}
 
 
-def fetch_live_service_info():
-    """Read corpus size, checksum and ivfflat.probes from the live database.
-
-    This function used to connect to postgres:postgres@localhost/goa_rag -- credentials
-    and a database name that do not exist in this project. It therefore raised on every
-    invocation and the `except` returned hardcoded values (2905 rows, a literal string
-    where the checksum should be, probes=1). Those values were then written into the
-    artifact as though they had been measured.
-
-    That is worse than an obviously fake fingerprint, because it looks real. A benchmark
-    whose provenance block is invented is not evidence of anything, so this now raises
-    instead of guessing. An artifact is either measured or it is not written.
-    """
-    import asyncio
-
-    import asyncpg
-
-    db_url = os.environ.get("RAG_DATABASE_URL", DEFAULT_DB_URL)
-
-    async def query_db_meta():
-        conn = await asyncpg.connect(db_url)
-        try:
-            count = await conn.fetchval("SELECT count(*) FROM documents;")
-            ids_rows = await conn.fetch("SELECT id FROM documents ORDER BY id;")
-            csum = hashlib.sha256(
-                "".join(str(r["id"]) for r in ids_rows).encode("utf-8")
-            ).hexdigest()[:16]
-            # SHOW returns '' outside a transaction that set it; treat that as the
-            # pgvector default rather than crashing on int('').
-            raw_probes = await conn.fetchval("SHOW ivfflat.probes;")
-            lists = await conn.fetchval(
-                "SELECT reloptions::text FROM pg_class WHERE relname = 'documents_embedding_idx';"
-            )
-            return count, csum, int(raw_probes) if raw_probes else 1, lists
-        finally:
-            await conn.close()
-
+async def _fetch_live_service_info(database_url: str) -> dict[str, Any]:
+    connection = await asyncpg.connect(database_url)
     try:
-        return asyncio.run(query_db_meta())
+        rows = await connection.fetch(
+            """
+            SELECT id, title, content, source_url, category
+            FROM documents
+            ORDER BY id
+            """
+        )
+        live_probes = await connection.fetchval("SHOW ivfflat.probes")
+        index_options = await connection.fetchval(
+            """
+            SELECT reloptions::text
+            FROM pg_class
+            WHERE relname = 'documents_embedding_idx'
+            """
+        )
+    finally:
+        await connection.close()
+    document_count, content_hash = corpus_digest(dict(row) for row in rows)
+    return {
+        "document_count": document_count,
+        "content_hash": content_hash,
+        "ivfflat_probes_session_default": int(live_probes or 1),
+        "index_reloptions": index_options,
+    }
+
+
+def fetch_live_service_info() -> dict[str, Any]:
+    database_url = os.environ.get("RAG_DATABASE_URL", DEFAULT_DB_URL)
+    try:
+        return asyncio.run(_fetch_live_service_info(database_url))
     except Exception as exc:
         raise BenchmarkEnvironmentError(
-            f"Cannot read corpus metadata from {db_url!r}: {exc}. "
-            "Refusing to emit an artifact with an unverified fingerprint. "
-            "Set RAG_DATABASE_URL if the database is not reachable at the default."
+            f"Cannot read live corpus metadata from {database_url!r}: {exc}"
         ) from exc
 
 
-def fetch_live_rerank_mode(base_url: str) -> str:
-    """Ask the running service which re-ranker is ACTUALLY serving.
-
-    The cross-encoder degrades to a token-overlap heuristic when the model cannot
-    load. Recording the *configured* flag rather than the *live* mode produces an
-    artifact claiming `rerank_enabled: true` for a run that never touched the
-    cross-encoder. Read goa_rag_rerank_mode from /metrics instead.
-    """
+def fetch_gauge(metric_name: str) -> float | None:
     try:
-        import httpx
+        response = httpx.get(f"{RAG_URL}/metrics/", timeout=10.0)
+        response.raise_for_status()
+    except Exception as exc:
+        raise BenchmarkEnvironmentError(
+            f"Cannot read live RAG metrics from {RAG_URL!r}: {exc}"
+        ) from exc
+    prefix = f"{metric_name} "
+    for line in response.text.splitlines():
+        if line.startswith(prefix):
+            return float(line.split()[-1])
+    return None
 
-        # follow_redirects is required: the app serves /metrics as a 307 to /metrics/,
-        # and httpx does not follow by default -- the probe would read an empty body,
-        # report "unknown", and block every rerank run for the wrong reason.
-        body = httpx.get(f"{base_url}/metrics", timeout=10.0, follow_redirects=True).text
-        for line in body.splitlines():
-            if line.startswith("goa_rag_rerank_mode "):
-                return "cross-encoder" if float(line.split()[1]) == 1.0 else "DEGRADED-fallback"
-    except Exception:
-        pass
+
+def fetch_live_rerank_mode() -> str:
+    value = fetch_gauge("goa_rag_rerank_mode")
+    if value == 1.0:
+        return "cross-encoder"
+    if value == 0.0:
+        return "DEGRADED-fallback"
     return "unknown"
 
 
-def run_benchmark(label: str, out_dir: str = "evals/benchmarks"):
-    os.makedirs(out_dir, exist_ok=True)
-    dataset_path = "evals/golden_dataset.json"
-
-    with open(dataset_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-
-    items = data.get("rag_retrieval", [])
-    if not items:
-        items = [i for i in data.get("rag", []) if "relevant_document_ids" in i]
-
-    # Matrix Run Configuration Flags
-    rerank_enabled = "rerank" in label or "full" in label
-    threshold_enabled = "full" in label or "threshold" in label
-    retrieval_width = 15 if ("width" in label or "rerank" in label or "full" in label) else 5
-    effective_probes = 10 if ("probes" in label or "full" in label) else 1
-
-    git_sha = get_git_sha()
-    corpus_rows, corpus_checksum, live_probes, index_opts = fetch_live_service_info()
-    live_rerank_mode = fetch_live_rerank_mode(RAG_URL)
-
-    # The artifact must describe the run that happened, not the run that was intended.
-    # If the service is serving the degraded token-overlap fallback, a row labelled
-    # "rerank" measures the fallback -- so refuse to mint an artifact that would claim
-    # otherwise. Pass --allow-degraded to capture it deliberately, clearly marked.
-    if rerank_enabled and live_rerank_mode != "cross-encoder" and not ALLOW_DEGRADED:
+def load_and_verify_corpus(snapshot_path: Path) -> dict[str, Any]:
+    if not snapshot_path.exists():
         raise BenchmarkEnvironmentError(
-            f"Run '{label}' enables re-ranking but the live service reports "
-            f"rerank mode = {live_rerank_mode!r}. The cross-encoder is not serving, so "
-            "this run would measure the token-overlap fallback while the artifact claimed "
-            "otherwise. Rebuild the RAG image (see services/rag/Dockerfile) or pass "
-            "--allow-degraded to record it as a deliberately degraded run."
+            f"Frozen corpus snapshot does not exist: {snapshot_path}"
+        )
+    snapshot_count, snapshot_hash = corpus_digest(read_snapshot(snapshot_path))
+    live = fetch_live_service_info()
+    if (live["document_count"], live["content_hash"]) != (
+        snapshot_count,
+        snapshot_hash,
+    ):
+        raise BenchmarkEnvironmentError(
+            "Live corpus differs from the committed snapshot: "
+            f"live={live['document_count']}/{live['content_hash']}, "
+            f"snapshot={snapshot_count}/{snapshot_hash}"
+        )
+    return {
+        **live,
+        "snapshot_path": snapshot_path.as_posix(),
+        "snapshot_sha256": file_sha256(snapshot_path),
+    }
+
+
+def _percentile(values: list[float], fraction: float) -> float | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    index = max(0, math.ceil(len(ordered) * fraction) - 1)
+    return ordered[index]
+
+
+def _mean(values: list[float]) -> float | None:
+    return sum(values) / len(values) if values else None
+
+
+def _quality_summary(results: list[dict[str, Any]], subset: str | None) -> dict[str, Any]:
+    answerable = [
+        result
+        for result in results
+        if not result["unanswerable"]
+        and (subset is None or result["subset"] == subset)
+    ]
+    return {
+        "n": len(answerable),
+        "recall_at_5": _mean([item["recall_at_5"] for item in answerable]),
+        "recall_at_10": _mean([item["recall_at_10"] for item in answerable]),
+        "mrr": _mean([item["mrr"] for item in answerable]),
+        "ndcg_at_10": _mean([item["ndcg_at_10"] for item in answerable]),
+    }
+
+
+def _arm_hit_summary(results: list[dict[str, Any]]) -> dict[str, Any]:
+    labelled_sources = [
+        source_arm
+        for result in results
+        for source_arm in result["retrieval_arms"]
+        if source_arm is not None
+    ]
+    if not labelled_sources:
+        return {
+            "available": False,
+            "dense_only": None,
+            "lexical_only": None,
+            "both": None,
+            "entity_lexical_contribution_rate": None,
+            "reason": "The serving API did not expose candidate-arm provenance.",
+        }
+    counts = {"dense_only": 0, "lexical_only": 0, "both": 0}
+    for arms in labelled_sources:
+        key = "both" if len(arms) > 1 else f"{arms[0]}_only"
+        counts[key] += 1
+    entity_sources = [
+        arms
+        for result in results
+        if result["subset"] == "entity"
+        for arms in result["retrieval_arms"]
+        if arms is not None
+    ]
+    entity_lexical = sum("lexical" in arms for arms in entity_sources)
+    return {
+        "available": True,
+        **counts,
+        "entity_lexical_contribution_rate": (
+            entity_lexical / len(entity_sources) if entity_sources else None
+        ),
+        "reason": None,
+    }
+
+
+def run_arm(
+    label: str,
+    items: list[dict[str, Any]],
+    corpus: dict[str, Any],
+    *,
+    dataset_path: Path = DEFAULT_DATASET,
+) -> dict[str, Any]:
+    if label not in ARM_CONFIGS:
+        raise ValueError(f"Unknown benchmark arm: {label}")
+    config = ARM_CONFIGS[label]
+    live_rerank_mode = fetch_live_rerank_mode()
+    if live_rerank_mode != "cross-encoder":
+        raise BenchmarkEnvironmentError(
+            f"RERANK_MODE validity gate failed: live mode is {live_rerank_mode!r}. "
+            "Refusing to write a report."
         )
 
-    r1_scores, rec15_scores, mrr_scores = [], [], []
-
-    per_question_results = []
-    latencies_ms = []
-
-    n_answerable = 0
-    n_unanswerable = 0
-    correct_refusals = 0
-    false_refusals = 0
-
-    print(f"\n========================================================")
-    print(f" BENCHMARK RUN: [{label.upper()}] ({len(items)} queries)")
-    print(f"   Fingerprint: SHA={git_sha[:7]} | Rows={corpus_rows} | Checksum={corpus_checksum}")
-    print(f"   Flags: rerank={rerank_enabled} | threshold={threshold_enabled} | width={retrieval_width} | probes={effective_probes}")
-    print(f"========================================================\n")
-
-    with httpx.Client(timeout=35.0) as client:
-        for idx, item in enumerate(items, 1):
-            q = item["question"]
-            rel_ids = set(item.get("relevant_document_ids", []))
-            # Prefer the explicit dataset flag; fall back to "no ground-truth ids" for
-            # older items that predate it.
-            is_unanswerable = item.get("unanswerable", len(rel_ids) == 0)
-
-            if is_unanswerable:
-                n_unanswerable += 1
-            else:
-                n_answerable += 1
-
-            t0 = time.time()
+    per_question: list[dict[str, Any]] = []
+    latencies_ms: list[float] = []
+    with httpx.Client(timeout=45.0) as client:
+        for index, item in enumerate(items, 1):
+            relevant_ids = set(item.get("relevant_document_ids", []))
+            unanswerable = item.get("unanswerable", not relevant_ids)
+            body: dict[str, Any] = {
+                "question": item["question"],
+                "userId": f"bench-{label}",
+                "topK": 10,
+            }
+            category_applied = bool(config["category_filter"] and item.get("category"))
+            if category_applied:
+                body["category"] = item["category"]
             headers = {
                 "X-Internal-Api-Key": INTERNAL_API_KEY,
-                "X-RAG-Rerank-Enabled": "true" if rerank_enabled else "false",
-                "X-RAG-Threshold-Enabled": "true" if threshold_enabled else "false",
-                "X-RAG-Retrieval-Width": str(retrieval_width),
-                "X-RAG-IVFFlat-Probes": str(effective_probes),
-                # Retrieval metrics are computed from `sources`, which are final before
-                # generation. Asking for the answer too would make this benchmark fail
-                # whenever the LLM is unavailable and record it as a quality collapse.
-                # Latency here is therefore RETRIEVAL latency, not end-to-end -- the
-                # artifact records which, so the two are never compared by mistake.
-                "X-RAG-Retrieval-Only": "true" if RETRIEVAL_ONLY else "false",
+                "X-RAG-Rerank-Enabled": str(config["rerank_enabled"]).lower(),
+                "X-RAG-Threshold-Enabled": str(config["threshold_enabled"]).lower(),
+                "X-RAG-Retrieval-Width": str(config["retrieval_width"]),
+                "X-RAG-IVFFlat-Probes": str(config["ivfflat_probes"]),
+                "X-RAG-Retrieval-Only": "true",
+                "X-RAG-Hybrid-Enabled": str(config["hybrid_enabled"]).lower(),
             }
+            started = time.perf_counter()
             try:
-                resp = client.post(
-                    RAG_QUERY_URL,
-                    json={"question": q, "userId": f"bench-{label}"},
-                    headers=headers
-                )
-                resp.raise_for_status()
-                res_data = resp.json()
-
+                response = client.post(RAG_QUERY_URL, json=body, headers=headers)
+                response.raise_for_status()
             except Exception as exc:
-                print(f"[FATAL] Query failed for '{q}': {exc}")
-                sys.exit(1)
-            dur_ms = (time.time() - t0) * 1000
-            latencies_ms.append(dur_ms)
+                raise BenchmarkEnvironmentError(
+                    f"Arm {label!r} query {item.get('id', index)!r} failed: {exc}"
+                ) from exc
+            latency_ms = (time.perf_counter() - started) * 1000
+            payload = response.json()
+            sources = payload.get("sources", [])
+            retrieved_ids = [
+                source["id"]
+                for source in sources
+                if isinstance(source, dict) and "id" in source
+            ]
+            refused = (
+                payload.get("answer") is None
+                and payload.get("reason") == "insufficient_data"
+            )
+            arm_labels = [
+                source.get("retrieval_arms")
+                if isinstance(source, dict)
+                else None
+                for source in sources
+            ]
+            result = {
+                "id": item.get("id"),
+                "question": item["question"],
+                "subset": item.get("subset", "core"),
+                "unanswerable": unanswerable,
+                "category_requested": item.get("category") if category_applied else None,
+                "relevant_document_ids": sorted(relevant_ids),
+                "retrieved_document_ids": retrieved_ids,
+                "rank_of_first_relevant": next(
+                    (
+                        rank
+                        for rank, document_id in enumerate(retrieved_ids, 1)
+                        if document_id in relevant_ids
+                    ),
+                    None,
+                ),
+                "recall_at_5": recall_at_k(retrieved_ids, relevant_ids, 5),
+                "recall_at_10": recall_at_k(retrieved_ids, relevant_ids, 10),
+                "mrr": reciprocal_rank(retrieved_ids[:10], relevant_ids),
+                "ndcg_at_10": ndcg_at_k(retrieved_ids, relevant_ids, 10),
+                "refused": refused,
+                "latency_ms": latency_ms,
+                "retrieval_arms": arm_labels,
+            }
+            per_question.append(result)
+            latencies_ms.append(latency_ms)
+            print(
+                f"[{label} {index:02d}/{len(items)}] "
+                f"R@10={result['recall_at_10']:.2f} "
+                f"MRR={result['mrr']:.3f} refused={refused} "
+                f"{latency_ms:.1f}ms {item.get('id', '')}"
+            )
 
-            is_refused = res_data.get("answer") is None and res_data.get("reason") == "insufficient_data"
-
-            if is_unanswerable:
-                if is_refused:
-                    correct_refusals += 1
-            else:
-                if is_refused:
-                    false_refusals += 1
-
-            sources = res_data.get("sources", [])
-            ret_ids = [s["id"] for s in sources if isinstance(s, dict) and "id" in s]
-
-            r1 = relevant_at_1(ret_ids, rel_ids)
-            rec15 = recall_at_15(ret_ids, rel_ids)
-            rr = reciprocal_rank(ret_ids, rel_ids)
-
-            # Retrieval quality is only defined where a relevant document exists. An
-            # unanswerable question has none, so it would score 0 on all three and drag
-            # the averages down in proportion to how many negatives the dataset holds --
-            # adding negatives would read as a quality regression. Negatives are scored
-            # by the refusal counters below instead.
-            if not is_unanswerable:
-                r1_scores.append(r1)
-                rec15_scores.append(rec15)
-                mrr_scores.append(rr)
-
-            rank_of_rel = next((i + 1 for i, did in enumerate(ret_ids) if did in rel_ids), None)
-            per_question_results.append({
-                "question": q,
-                "rank_of_relevant": rank_of_rel,
-                "mrr": rr,
-                "relevant_at_1": r1,
-                "recall_at_15": rec15,
-                "refused": is_refused
-            })
-
-            print(f"[{idx:2d}/{len(items)}] MRR={rr:.3f} | rel@1={r1:.2f} | rec@15={rec15:.2f} | refused={is_refused} | {dur_ms:.1f}ms | '{q[:35]}...'")
-
-    avg_mrr = sum(mrr_scores) / len(mrr_scores) if mrr_scores else 0.0
-    avg_r1 = sum(r1_scores) / len(r1_scores) if r1_scores else 0.0
-    avg_rec15 = sum(rec15_scores) / len(rec15_scores) if rec15_scores else 0.0
-
-    sorted_lats = sorted(latencies_ms)
-    p50 = sorted_lats[int(len(sorted_lats) * 0.50)] if sorted_lats else 0.0
-    p95 = sorted_lats[int(len(sorted_lats) * 0.95)] if sorted_lats else 0.0
-
-    artifact = {
+    answerable = [result for result in per_question if not result["unanswerable"]]
+    unanswerable = [result for result in per_question if result["unanswerable"]]
+    correct_refusals = sum(result["refused"] for result in unanswerable)
+    false_refusals = sum(result["refused"] for result in answerable)
+    return {
         "label": label,
-        "captured_at": datetime.utcnow().isoformat() + "Z",
+        "captured_at": utc_now(),
+        "config": config,
         "fingerprint": {
-            # Measured from the environment. Anything that could not be read raises
-            # rather than falling back to a plausible-looking literal.
-            "git_sha": git_sha,
-            "corpus_rows": corpus_rows,
-            "corpus_checksum": corpus_checksum,
-            "index_reloptions": index_opts,
-            "ivfflat_probes_requested": effective_probes,
-            "ivfflat_probes_session_default": live_probes,
+            "git_sha": get_git_sha(),
+            "dataset_path": dataset_path.as_posix(),
+            "dataset_sha256": file_sha256(dataset_path),
+            "corpus_document_count": corpus["document_count"],
+            "corpus_content_hash": corpus["content_hash"],
+            "snapshot_path": corpus["snapshot_path"],
+            "snapshot_sha256": corpus["snapshot_sha256"],
+            "index_reloptions": corpus["index_reloptions"],
+            "ivfflat_probes_session_default": corpus[
+                "ivfflat_probes_session_default"
+            ],
             "embedding_model": "nomic-embed-text",
-            "llm_model": "claude-opus-4-8",
-            "retrieval_width": retrieval_width,
-            "return_width": 5,
-            "rerank_requested": rerank_enabled,
-            # What the service was ACTUALLY serving, read from /metrics -- not the
-            # flag we asked for. These disagree whenever the model fails to load.
             "rerank_mode_live": live_rerank_mode,
-            "threshold_enabled": threshold_enabled,
-            "cache_enabled": False,
-            "retrieval_only": RETRIEVAL_ONLY,
-            "latency_measures": "retrieval" if RETRIEVAL_ONLY else "end_to_end",
-            "confidence_threshold": 0.60,
-            "degraded_run": rerank_enabled and live_rerank_mode != "cross-encoder",
+            "rerank_degraded": False,
+            "retrieval_only": True,
+            "latency_measures": "retrieval_plus_rerank_no_llm",
         },
         "quality": {
-            # n is the answerable subset these metrics were computed over, not the
-            # dataset size. Reporting the dataset size here would overstate the
-            # denominator behind every quality figure.
-            "n": len(mrr_scores),
-            "n_dataset": len(items),
-            "mrr": avg_mrr,
-            "relevant_at_1": avg_r1,
-            # Named for the width actually retrieved. Calling it recall@15 on a run
-            # that retrieved 5 candidates describes a measurement that did not happen.
-            f"recall_at_{retrieval_width}": avg_rec15,
-            "per_question": per_question_results
+            "all": _quality_summary(per_question, None),
+            "entity": _quality_summary(per_question, "entity"),
+            "numeric": _quality_summary(per_question, "numeric"),
         },
         "refusal": {
-            "n_answerable": n_answerable,
-            "n_unanswerable": n_unanswerable,
+            "n_answerable": len(answerable),
+            "n_unanswerable": len(unanswerable),
             "correct_refusals": correct_refusals,
-            "false_refusals": false_refusals
+            "false_refusals": false_refusals,
+            "unanswerable_refusal_rate": (
+                correct_refusals / len(unanswerable) if unanswerable else None
+            ),
+            "false_refusal_rate": (
+                false_refusals / len(answerable) if answerable else None
+            ),
         },
         "latency_ms": {
             "n": len(latencies_ms),
-            "p50": p50,
-            "p95": p95
-        }
+            "p50": _percentile(latencies_ms, 0.50),
+            "p95": _percentile(latencies_ms, 0.95),
+        },
+        "retrieval_arm_hits": _arm_hit_summary(per_question),
+        "per_question": per_question,
     }
 
-    out_file = os.path.join(out_dir, f"{label}.json")
-    with open(out_file, "w", encoding="utf-8") as f:
-        json.dump(artifact, f, indent=2)
 
-    print(f"\n========================================================")
-    print(f" BENCHMARK SUMMARY [{label.upper()}]")
-    print(f"   MRR:         {avg_mrr:.4f}")
-    print(f"   relevant@1:  {avg_r1 * 100:.2f}%")
-    print(f"   recall@15:   {avg_rec15 * 100:.2f}%")
-    print(f"   Correct Refusals: {correct_refusals}/{n_unanswerable}")
-    print(f"   False Refusals:   {false_refusals}/{n_answerable}")
-    print(f"   p50 Latency: {p50:.1f} ms | p95: {p95:.1f} ms")
-    print(f" Saved artifact: {out_file}")
-    print(f"========================================================\n")
+def load_items(dataset_path: Path) -> list[dict[str, Any]]:
+    with dataset_path.open("r", encoding="utf-8") as stream:
+        data = json.load(stream)
+    items = data.get("rag_retrieval", [])
+    if not items:
+        raise BenchmarkEnvironmentError("Dataset has no rag_retrieval items")
+    for subset in ("entity", "numeric"):
+        subset_items = [item for item in items if item.get("subset") == subset]
+        if len(subset_items) != 10:
+            raise BenchmarkEnvironmentError(
+                f"Subset {subset!r} must contain exactly 10 items; found {len(subset_items)}"
+            )
+        if any(not item.get("relevant_document_ids") for item in subset_items):
+            raise BenchmarkEnvironmentError(
+                f"Subset {subset!r} contains an item without hand-labelled document ids"
+            )
+    return items
+
+
+def run_matrix(
+    phase: str,
+    output_dir: Path,
+    *,
+    dataset_path: Path = DEFAULT_DATASET,
+    snapshot_path: Path = DEFAULT_SNAPSHOT,
+) -> Path:
+    items = load_items(dataset_path)
+    corpus = load_and_verify_corpus(snapshot_path)
+    rerank_mode = fetch_live_rerank_mode()
+    if rerank_mode != "cross-encoder":
+        raise BenchmarkEnvironmentError(
+            f"RERANK_MODE validity gate failed before matrix: {rerank_mode!r}"
+        )
+    arms = PRE_ARMS if phase == "pre" else POST_ARMS
+    results = {
+        arm: run_arm(arm, items, corpus, dataset_path=dataset_path) for arm in arms
+    }
+    subset_counts = {
+        "dataset": len(items),
+        "answerable": sum(not item.get("unanswerable", False) for item in items),
+        "unanswerable": sum(item.get("unanswerable", False) for item in items),
+        "entity": sum(item.get("subset") == "entity" for item in items),
+        "numeric": sum(item.get("subset") == "numeric" for item in items),
+    }
+    artifact = {
+        "schema_version": "goa.rag-retrieval-benchmark.v2",
+        "ticket": "GOA-137",
+        "phase": phase,
+        "captured_at": utc_now(),
+        "valid": True,
+        "validity": {
+            "live_corpus_matches_snapshot": True,
+            "rerank_degraded": False,
+            "rerank_mode_live": rerank_mode,
+            "retrieval_only": True,
+        },
+        "harness": harness_fingerprint(),
+        "corpus": corpus,
+        "dataset": {
+            "path": dataset_path.as_posix(),
+            "sha256": file_sha256(dataset_path),
+            **subset_counts,
+            "adversarial_label_method": "manual inspection of frozen corpus",
+        },
+        "arms": results,
+    }
+    output_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    output_path = output_dir / f"GOA-137-{phase}-{stamp}.json"
+    with output_path.open("w", encoding="utf-8") as stream:
+        json.dump(artifact, stream, indent=2, ensure_ascii=False)
+        stream.write("\n")
+    print(f"Saved valid GOA-137 {phase.upper()} matrix: {output_path}")
+    return output_path
+
+
+def run_single(label: str, output_dir: Path) -> Path:
+    items = load_items(DEFAULT_DATASET)
+    corpus = load_and_verify_corpus(DEFAULT_SNAPSHOT)
+    result = run_arm(label, items, corpus)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / f"{label}.json"
+    with output_path.open("w", encoding="utf-8") as stream:
+        json.dump(result, stream, indent=2, ensure_ascii=False)
+        stream.write("\n")
+    return output_path
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    selection = parser.add_mutually_exclusive_group(required=True)
+    selection.add_argument("--matrix", choices=("pre", "post"))
+    selection.add_argument("--label", choices=tuple(ARM_CONFIGS))
+    parser.add_argument("--out", type=Path, default=Path("evals/benchmarks"))
+    args = parser.parse_args()
+    try:
+        if args.matrix:
+            run_matrix(args.matrix, args.out)
+        else:
+            run_single(args.label, args.out)
+    except BenchmarkEnvironmentError as exc:
+        print(f"BENCHMARK ABORTED — environment not verifiable:\n  {exc}", file=sys.stderr)
+        return 2
+    return 0
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--label", default="baseline", help="Benchmark label")
-    parser.add_argument("--out", default="evals/benchmarks", help="Output directory")
-    parser.add_argument(
-        "--with-generation",
-        action="store_true",
-        help="Also generate answers. Makes latency end-to-end, and makes the run depend "
-             "on LLM availability.",
-    )
-    parser.add_argument(
-        "--allow-degraded",
-        action="store_true",
-        help="Capture a run even when the cross-encoder is not serving. The artifact "
-             "is marked degraded_run=true. Do not use these numbers as a re-ranking result.",
-    )
-    args = parser.parse_args()
-    ALLOW_DEGRADED = args.allow_degraded
-    RETRIEVAL_ONLY = not args.with_generation
-    try:
-        run_benchmark(args.label, args.out)
-    except BenchmarkEnvironmentError as exc:
-        # Exit 2, distinct from a quality regression, so CI and a human can tell
-        # "the environment was wrong" from "the numbers got worse".
-        print(f"\nBENCHMARK ABORTED -- environment not verifiable:\n  {exc}\n")
-        sys.exit(2)
+    raise SystemExit(main())

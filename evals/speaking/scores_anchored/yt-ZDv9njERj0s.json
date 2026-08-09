@@ -1,0 +1,155 @@
+{
+  "evaluation": {
+    "schema_version": "speaking-evaluation/v1",
+    "evaluation_id": "yt-ZDv9njERj0s",
+    "mode": "benchmark",
+    "status": "complete",
+    "score_semantics": "estimated_ielts_practice_band",
+    "criteria": [
+      {
+        "criterion_id": "fluency_coherence",
+        "status": "scored",
+        "band": 7.5,
+        "summary": "Your delivery is genuinely fluent: the measured features show 177 words per minute with an articulation rate of 190 wpm, only 5 pauses over one second (longest 1.6s) and just 7% of total time spent paused. This is well above natural pace with very little hesitation, so you clearly speak at length without noticeable effort. Your answers are coherent and relevantly developed — you sequence reasons logically (study choice, career goal, clothing customs, designer labels, social status) and rarely lose the thread. You use a good range of connectives and discourse markers flexibly (because, so, but, if, when, rather than, which, personally). What keeps you from a clean band 8 is that repetition is more than merely occasional: there are frequent word-level stutters and a heavy lean on a few markers ('so', 'I think', 'like'), which slightly reduces the sense of effortless variety even though the flow itself is strong.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "fc.7",
+            "descriptor_band": 7,
+            "polarity": "supports",
+            "application": "Measured pace and pause data confirm speech at length without noticeable effort or loss of coherence, with a flexible range of connectives and discourse markers."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "fc.8",
+            "descriptor_band": 8,
+            "polarity": "reaches_toward",
+            "application": "Topics are developed fluently and coherently, but repetition of markers and word-level stutters is more than the 'occasional' repetition a clean band 8 allows."
+          }
+        ]
+      },
+      {
+        "criterion_id": "lexical_resource",
+        "status": "scored",
+        "band": 7,
+        "summary": "You have a wide vocabulary that allows you to discuss both concrete and abstract topics fluently, including some less common and idiomatic expressions used with good awareness of collocation (e.g. 'flaunt your affluence', 'socioeconomic class', 'work ethic', 'refreshing change'). You paraphrase effectively and convey meaning clearly across a variety of subjects. However, occasional collocation slips and imprecise word choices ('going counseling to them', 'design papers' for designer brands, 'people build perspectives') and the fact that less common vocabulary is not always deployed with full precision keep you from the higher bands.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "lr.7",
+            "descriptor_band": 7,
+            "polarity": "supports",
+            "application": "Uses less common and idiomatic vocabulary such as 'flaunt your affluence' and 'socioeconomic class' with awareness of collocation while discussing a variety of topics flexibly."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "lr.6",
+            "descriptor_band": 6,
+            "polarity": "supports",
+            "application": "Has a wide enough vocabulary to discuss topics at length and paraphrases successfully to keep meaning clear."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "lr.8",
+            "descriptor_band": 8,
+            "polarity": "caps_below",
+            "application": "Occasional collocation errors and imprecise choices ('going counseling to them', 'build perspectives') mean less common vocabulary is not yet used with the consistent skill and precision required for band 8."
+          }
+        ]
+      },
+      {
+        "criterion_id": "grammatical_range",
+        "status": "scored",
+        "band": 7,
+        "summary": "You use a solid range of complex structures with genuine flexibility, including conditionals ('If it's raining I don't like to go outside'), relative clauses, comparatives ('in more detail than I knew previously'), and passive forms ('we are told to wear certain clothes', 'I used to get scolded'). You frequently produce error-free sentences, which places you firmly in the band 7 range. However, recurring slips prevent a higher score: article errors ('I had a previous experience', 'segments of the society', 'they're like smartest of people'), subject-verb agreement ('there's no covered mountains'), and some garbled self-corrections ('most of the time we are I would like to go outside'). To reach band 8 you would need a wider, more consistently controlled range so that the majority of sentences are error-free.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.7",
+            "descriptor_band": 7,
+            "polarity": "supports",
+            "application": "Uses a range of complex structures (conditionals, relative clauses, comparatives, passives) with some flexibility and frequently produces error-free sentences."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.6",
+            "descriptor_band": 6,
+            "polarity": "supports",
+            "application": "Reliably mixes simple and complex structures throughout, meeting and exceeding the band 6 baseline."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.8",
+            "descriptor_band": 8,
+            "polarity": "caps_below",
+            "application": "Persistent article and subject-verb agreement slips plus disfluent self-corrections mean the majority-error-free control required for band 8 is not consistently achieved."
+          }
+        ]
+      },
+      {
+        "criterion_id": "pronunciation",
+        "status": "scored",
+        "band": 7,
+        "summary": "The recognition-confidence figures supplied (mean 0.00, 100% of words below 0.5) are not usable evidence: a uniform zero across every word is implausible alongside a coherent 1231-word transcript, so this reads as an absent/placeholder metric rather than genuine unintelligibility, and intelligibility therefore cannot be judged from it. The assessment rests on the valid features — chunking and phrasing. Here the evidence is strong: articulation rate is fluent (190 wpm, 177 wpm including pauses), only 7% of total time is spent paused, and just 5 pauses reach 1.0s with the longest only 1.6s. That distribution indicates even, well-managed phrasing and smooth connected speech consistent with a band 7 delivery. Because the intelligibility metric is missing, the 'easy to understand throughout' requirement of band 8 cannot be confirmed, which caps the score here.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "pr.7",
+            "descriptor_band": 7,
+            "polarity": "supports",
+            "application": "Fluent articulation rate and minimal, short pausing show even phrasing and controlled chunking, positive features beyond band 6."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "pr.6",
+            "descriptor_band": 6,
+            "polarity": "supports",
+            "application": "The measured pause and rate data are consistent with speech that flows in coherent chunks rather than being broken up word-by-word."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "pr.8",
+            "descriptor_band": 8,
+            "polarity": "caps_below",
+            "application": "Band 8 requires confirmation of being 'easy to understand throughout', which cannot be established because the recognition-confidence metric is unavailable."
+          }
+        ]
+      }
+    ],
+    "overall": {
+      "band": 7,
+      "unrounded_mean": 7.125,
+      "included_criteria": [
+        "fluency_coherence",
+        "lexical_resource",
+        "grammatical_range",
+        "pronunciation"
+      ],
+      "rounding_rule": "ielts_half_band_v1",
+      "min_criteria_required": 3
+    },
+    "provenance": {
+      "created_at": "2026-08-08T22:34:10.1994598Z",
+      "scorer_version": "speaking@dev",
+      "rubric_id": "ielts-speaking-public",
+      "rubric_version": "2023-06",
+      "rubric_sha256": "40820db22ab572944baa4ecc399d6ff2597291e076dd5c990bd7bc578974f9cb",
+      "llm_provider": "agentrouter",
+      "llm_model": "claude-opus-4-8"
+    }
+  },
+  "lane": "goa_audio",
+  "latency_ms": 59005,
+  "swarm_error": ""
+}

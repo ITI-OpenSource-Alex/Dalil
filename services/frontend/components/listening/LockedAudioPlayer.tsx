@@ -58,6 +58,13 @@ export default function LockedAudioPlayer({
   const [duration, setDuration] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
 
+// The largest jump a single `timeupdate` may legitimately report.
+//
+// The event fires about four times a second during playback. 1.5s leaves room
+// for a backgrounded tab to coalesce several ticks while staying well under any
+// seek a candidate would bother performing.
+const MAX_TIMEUPDATE_ADVANCE_SECONDS = 1.5;
+
   const enforceAllowedTime = useCallback(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -81,9 +88,23 @@ export default function LockedAudioPlayer({
 
     if (isCorrectingRef.current) return;
 
-    // Normal forward playback: advance the allowed watermark and mirror
-    // it into displayed state.
-    if (audio.currentTime >= allowedTimeRef.current - 0.15) {
+    // Forward progress is bounded, not merely required to be forward.
+    //
+    // This branch used to accept anything at or ahead of the watermark, so a
+    // jump straight to 60s satisfied it, was treated as normal playback, and
+    // dragged the watermark with it -- the lock enforced the backward direction
+    // and left the forward one open. Not every seek fires a `seeking` event
+    // that handleSeeking can catch: assigning `currentTime` from devtools can
+    // surface only as a `timeupdate`, which is exactly the adversarial case
+    // this player exists to stop.
+    //
+    // `timeupdate` fires roughly every 250ms during playback, so a legitimate
+    // advance is small. The ceiling is generous enough to survive a throttled
+    // or backgrounded tab coalescing a few ticks, and far below any jump worth
+    // making to skip audio.
+    const delta = audio.currentTime - allowedTimeRef.current;
+
+    if (delta >= -0.15 && delta <= MAX_TIMEUPDATE_ADVANCE_SECONDS) {
       allowedTimeRef.current = audio.currentTime;
       setCurrentTime(audio.currentTime);
     } else {

@@ -26,6 +26,17 @@ describe("buildProfilePayload", () => {
     }
   });
 
+  it("persists the intended Master's field separately from the Bachelor's major", () => {
+    const payload = buildProfilePayload(
+      { ...EMPTY_ACADEMIC, major: "Mechanical Engineering" },
+      EMPTY_LANGUAGE,
+      { ...EMPTY_TARGETS, targetMajor: "Software Engineering" },
+    );
+
+    expect(payload.fieldOfStudy).toBe("Mechanical Engineering");
+    expect(payload.targetFieldOfStudy).toBe("Software Engineering");
+  });
+
   it("only offers destinations whose value is a full country name", () => {
     for (const destination of STUDY_DESTINATIONS) {
       expect(destination.name.length).toBeGreaterThan(2);

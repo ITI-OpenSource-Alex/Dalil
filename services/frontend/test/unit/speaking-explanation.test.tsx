@@ -218,7 +218,7 @@ describe("SpeakingExplanation", () => {
       rubric_id: "ielts-speaking-public",
       rubric_version: "2023-06",
       scorer_version: "speaking@abc123",
-      llm_model: "claude-opus-4-8",
+      llm_model: "claude-opus-5",
       claim_count: 5,
       withheld_count: 2,
     };
@@ -226,7 +226,7 @@ describe("SpeakingExplanation", () => {
     render(<SpeakingExplanation renderable={baseRenderable} meta={meta} />);
 
     expect(screen.getByText(/speaking@abc123/)).toBeInTheDocument();
-    expect(screen.getByText(/claude-opus-4-8/)).toBeInTheDocument();
+    expect(screen.getByText(/claude-opus-5/)).toBeInTheDocument();
     expect(screen.getByText(/5 shown/)).toBeInTheDocument();
     expect(screen.getByText(/2 unverified/)).toBeInTheDocument();
     // The unrounded mean, so the arithmetic is visible rather than trusted.

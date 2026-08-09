@@ -8,6 +8,7 @@ import {
 const base: ProfileFormValues = {
   degreeLevel: "Bachelors",
   fieldOfStudy: "Computer Science",
+  targetFieldOfStudy: "Software Engineering",
   gpa: "3.8",
   gpaScale: "4.0",
   ects: "180",
@@ -27,6 +28,7 @@ describe("payloadFromValues", () => {
     const p = payloadFromValues(base);
     expect(p.gpa).toBe(3.8);
     expect(p.gpaScale).toBe("4.0");
+    expect(p.targetFieldOfStudy).toBe("Software Engineering");
     expect(p.workExperienceYears).toBe(2);
     expect(p.extracurricularsScore).toBe(6);
     expect(p.ieltsListening).toBe(7.5);

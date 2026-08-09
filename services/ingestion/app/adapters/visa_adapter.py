@@ -310,7 +310,18 @@ class VisaSourceAdapter:
         started = time.perf_counter()
         response = await self.anthropic.messages.create(
             model=EXTRACTION_MODEL,
-            max_tokens=4000,
+            # 4000 was sized for the JSON answer alone. The model emits an
+            # extended-thinking block first, and on a long consular page the
+            # thinking reaches the ceiling before any text is produced -- the
+            # response then carries only a thinking block, text_content below
+            # comes out empty, and this surfaced as "LLM response did not
+            # contain a valid JSON object:" with nothing after the colon.
+            #
+            # services/speaking hit exactly this (SPEAK-EVAL-007, all 28 agent
+            # calls) and services/writing has carried the guard for longer
+            # still. Third service, same defect: the budget has to cover
+            # thinking AND the answer.
+            max_tokens=8192,
             system=EXTRACTION_SYSTEM_PROMPT,
             messages=[
                 {
@@ -351,9 +362,25 @@ class VisaSourceAdapter:
                     text_content = block.text
                     break
 
+        # Truncation is named rather than described by its symptom. "did not
+        # contain a valid JSON object:" followed by nothing sent whoever read it
+        # looking for a prompt or parser bug, when the response had simply been
+        # cut off -- and a retry reproduces it at the same cost.
+        if getattr(response, "stop_reason", None) == "max_tokens":
+            raise ValueError(
+                f"LLM hit the max_tokens ceiling ({telemetry.get('output_tokens')} "
+                f"output tokens) before returning JSON; its response is truncated. "
+                f"Raise max_tokens rather than retrying -- a retry truncates identically."
+            )
+
         stripped = _strip_markdown_fence(text_content)
         if not stripped or "{" not in stripped:
-            raise ValueError(f"LLM response did not contain a valid JSON object: {text_content[:200]}")
+            raise ValueError(
+                f"LLM response did not contain a valid JSON object "
+                f"(stop_reason={getattr(response, 'stop_reason', None)!r}, "
+                f"blocks={[getattr(b, 'type', '?') for b in response.content]}): "
+                f"{text_content[:200]}"
+            )
 
         return json.loads(stripped), telemetry
 

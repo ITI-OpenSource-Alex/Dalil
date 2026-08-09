@@ -163,8 +163,9 @@ export default function OpportunitiesPage() {
             Programmes matched to your profile
           </Heading>
           <Text size="sm" tone="muted" className="mt-1">
-            Ranked against your degree, GPA, credits, IELTS band and target
-            countries. Update any of those and the ranking changes.
+            Live results from the scraped catalogue, checked against your
+            intended field, degree, GPA, credits, IELTS band and target
+            countries.
           </Text>
         </div>
 
@@ -314,6 +315,7 @@ export default function OpportunitiesPage() {
                   <option value="possible">Possible matches</option>
                   <option value="stretch">Stretch</option>
                   <option value="blocked">Requirement not met</option>
+                  <option value="unknown">Requirements not published</option>
                 </Select>
               </label>
 
@@ -341,7 +343,11 @@ export default function OpportunitiesPage() {
               title="Nothing matches that filter"
               description="Every programme found is outside the category you selected."
               actions={
-                <Button size="sm" variant="secondary" onClick={() => setFilter("all")}>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setFilter("all")}
+                >
                   Show all programmes
                 </Button>
               }
@@ -357,12 +363,18 @@ export default function OpportunitiesPage() {
           )}
 
           <div className="mt-8 flex items-start gap-3 rounded-panel border border-border bg-canvas-subtle p-4">
-            <Icon icon={Target} size="sm" className="mt-0.5 shrink-0 text-fg-subtle" />
+            <Icon
+              icon={Target}
+              size="sm"
+              className="mt-0.5 shrink-0 text-fg-subtle"
+            />
             <Text size="sm" tone="muted">
-              Match percentages weigh your profile against each programme&apos;s
-              stated minimums. They are a starting point for a conversation with
-              the university, not an admissions decision — always verify
-              requirements on the official programme page before applying.
+              Programme titles must match or closely relate to your intended
+              field. Fit scores then combine eligibility (40 points), intended
+              subject relevance (up to 35), headroom above published minimums
+              (up to 15), and destination alignment (up to 10). Missing criteria
+              are labelled as limited data rather than counted against you.
+              Always verify the source programme page before applying.
             </Text>
           </div>
         </>

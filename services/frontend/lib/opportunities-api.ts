@@ -23,15 +23,34 @@ export interface MatchedProgram {
   university: string;
   country: string;
   deadline: string | null;
+  sourceUrl?: string | null;
+  dataSource?: "scraped" | "demo";
+  discipline?: string | null;
+  lastScrapedAt?: string | null;
+  updatedAt?: string | null;
+  visaRequirements?: VisaRequirement[];
   requirements?: {
     minEcts: number | null;
     minGpa: number | null;
     minIelts: number | null;
     degreeLevel: string | null;
     minWorkExperience: number | null;
+    requiredCitizenship?: string | null;
   };
   result: {
     score: number;
+    requirements_evaluated?: number;
+    requirements_met?: number;
+    score_breakdown?: {
+      eligibility_points: number;
+      requirement_headroom_points: number | null;
+      subject_points: number | null;
+      destination_points: number | null;
+      headroom_dimensions_evaluated: number;
+      confidence: "standard" | "limited" | "insufficient" | "blocked";
+      subject_relevance?: number | null;
+      total: number;
+    };
     blocked_by: string | null;
     /**
      * Per-dimension shortfalls, keyed by dimension. Values are free-form:
@@ -40,6 +59,18 @@ export interface MatchedProgram {
      */
     gap_report?: Record<string, unknown>;
   };
+}
+
+export interface VisaRequirement {
+  visa_type: string;
+  issuing_body: string;
+  requirements: Record<string, unknown> | null;
+  proof_of_funds: Record<string, unknown> | null;
+  source_url: string | null;
+  processing_days_min: number | null;
+  processing_days_max: number | null;
+  notes: string | null;
+  last_verified_at: string | null;
 }
 
 export interface MatchResponse {
@@ -83,7 +114,8 @@ export class RateLimitedError extends Error {
 
 /** "12 minutes" / "45 seconds" — for telling the user when to come back. */
 export function formatRetryAfter(seconds: number | null): string | null {
-  if (seconds === null || !Number.isFinite(seconds) || seconds <= 0) return null;
+  if (seconds === null || !Number.isFinite(seconds) || seconds <= 0)
+    return null;
   if (seconds < 90) return `${Math.ceil(seconds)} seconds`;
   return `${Math.ceil(seconds / 60)} minutes`;
 }
@@ -114,17 +146,36 @@ export async function searchOpportunities(
   return Array.isArray(data?.programs) ? data.programs : [];
 }
 
+export async function getOpportunity(
+  programId: string,
+): Promise<MatchedProgram> {
+  const response = await fetch(
+    `${API_BASE}/opportunities/${encodeURIComponent(programId)}`,
+    { credentials: "include", cache: "no-store" },
+  );
+  if (response.status === 425) throw new ProfileNotReadyError();
+  if (!response.ok) await throwForResponse(response);
+  return response.json() as Promise<MatchedProgram>;
+}
+
 /* ------------------------------------------------------------------ *
  * Presentation helpers, kept next to the type they describe so the page
  * and the chat cards cannot disagree about what a score means.
  * ------------------------------------------------------------------ */
 
-export type MatchTone = "strong" | "possible" | "stretch" | "blocked";
+export type MatchTone =
+  "strong" | "possible" | "stretch" | "blocked" | "unknown";
 
 export function matchTone(program: MatchedProgram): MatchTone {
   if (program.result.blocked_by) return "blocked";
-  if (program.result.score > 80) return "strong"; // green
-  if (program.result.score >= 60) return "possible"; // amber (60–80 inclusive of 60)
+  if (
+    program.result.requirements_evaluated === 0 ||
+    program.result.score_breakdown?.confidence === "limited" ||
+    program.result.score_breakdown?.confidence === "insufficient"
+  )
+    return "unknown";
+  if (program.result.score >= 90) return "strong";
+  if (program.result.score >= 70) return "possible";
   return "stretch"; // red <60
 }
 
@@ -133,6 +184,7 @@ export const MATCH_TONE_LABEL: Record<MatchTone, string> = {
   possible: "Possible match",
   stretch: "Stretch",
   blocked: "Requirement not met",
+  unknown: "Requirements not published",
 };
 
 /**
@@ -150,7 +202,9 @@ export function blockedReason(gate: string | null): string | null {
     citizenship: "This programme is restricted to certain citizenships.",
     work_experience: "This programme requires more work experience.",
   };
-  return reasons[gate] ?? "You don't meet one of this programme's requirements yet.";
+  return (
+    reasons[gate] ?? "You don't meet one of this programme's requirements yet."
+  );
 }
 
 /** "15 Oct 2026", or null when the programme publishes no deadline. */

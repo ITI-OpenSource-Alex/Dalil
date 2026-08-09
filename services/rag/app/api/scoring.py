@@ -2,7 +2,7 @@ from contextlib import nullcontext
 
 from fastapi import APIRouter, Header
 from app.schemas.scoring import ScoreRequest, MatchRequest
-from app.services.scoring import calculate_score, match_programs
+from app.services.scoring import calculate_score, get_program_detail, match_programs
 from app.services import rag_service
 from app.core.trace_context import parse_traceparent
 import structlog
@@ -10,7 +10,9 @@ import structlog
 
 logger = structlog.get_logger("rag_service.api.scoring")
 router = APIRouter(tags=["scoring"])
-match_router = APIRouter(tags = ["match"] )
+match_router = APIRouter(tags=["match"])
+
+
 @router.post("/score")
 async def score_profile(
     request: ScoreRequest,
@@ -69,3 +71,8 @@ async def match_profile(
             except Exception as exc:
                 logger.warning("langfuse_match_trace_update_failed", error=str(exc))
     return {"programs": programs}
+
+
+@match_router.get("/programs/{program_id}")
+async def program_detail(program_id: str, userId: str):
+    return await get_program_detail(userId, program_id)

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, ListChecks } from "lucide-react";
+import { ArrowRight, ExternalLink, ListChecks } from "lucide-react";
 import { Button, Modal, ModalContent, Text } from "@/components/ui";
 import { type MatchedProgram } from "@/lib/opportunities-api";
 
@@ -14,6 +14,7 @@ const REQUIREMENT_ROWS: {
   { key: "minEcts", label: "Min ECTS" },
   { key: "degreeLevel", label: "Degree level" },
   { key: "minWorkExperience", label: "Work experience (years)" },
+  { key: "requiredCitizenship", label: "Citizenship restriction" },
 ];
 
 const GAP_LABELS: Record<string, string> = {
@@ -42,13 +43,19 @@ function gapMessage(value: unknown): string | null {
     if (typeof message === "string" && message.trim()) return message;
     return null;
   }
-  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+  if (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
     return String(value);
   }
   return null;
 }
 
-function financialLines(value: unknown): { message: string; sourceUrl?: string }[] {
+function financialLines(
+  value: unknown,
+): { message: string; sourceUrl?: string }[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((item) => {
     if (item === null || item === undefined) return [];
@@ -94,6 +101,18 @@ export function OpportunityDetailModal({
         size="lg"
         footer={
           <>
+            <Button
+              size="sm"
+              variant="secondary"
+              trailingIcon={ExternalLink}
+              asChild
+            >
+              <Link
+                href={`/opportunities/${encodeURIComponent(program.programId)}`}
+              >
+                Full programme details
+              </Link>
+            </Button>
             <Button size="sm" variant="ghost" trailingIcon={ArrowRight} asChild>
               <Link
                 href={`/chat?ask=${encodeURIComponent(
@@ -141,6 +160,63 @@ export function OpportunityDetailModal({
             </dl>
           </section>
 
+          {program.sourceUrl && (
+            <section>
+              <Text size="sm" className="mb-2 font-semibold text-fg">
+                Scraped programme source
+              </Text>
+              <a
+                href={program.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-brand-fg underline underline-offset-2"
+              >
+                View the source listing
+              </a>
+            </section>
+          )}
+
+          <section>
+            <Text size="sm" className="mb-2 font-semibold text-fg">
+              Student visa requirements
+            </Text>
+            {(program.visaRequirements?.length ?? 0) === 0 ? (
+              <Text size="sm" tone="muted">
+                No verified visa record is available for this country yet.
+              </Text>
+            ) : (
+              <ul className="space-y-2">
+                {program.visaRequirements?.map((visa, index) => (
+                  <li
+                    key={`${visa.issuing_body}-${index}`}
+                    className="rounded-control border border-border p-3"
+                  >
+                    <Text size="sm" className="font-semibold">
+                      {visa.visa_type} · {visa.issuing_body}
+                    </Text>
+                    {visa.processing_days_min !== null && (
+                      <Text size="sm" tone="muted">
+                        Processing: {visa.processing_days_min}–
+                        {visa.processing_days_max ?? visa.processing_days_min}{" "}
+                        days
+                      </Text>
+                    )}
+                    {visa.source_url && (
+                      <a
+                        href={visa.source_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1 inline-block text-sm text-brand-fg underline"
+                      >
+                        Official visa source
+                      </a>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
           <section>
             <Text size="sm" className="mb-3 font-semibold text-fg">
               Gap report
@@ -160,7 +236,10 @@ export function OpportunityDetailModal({
                         key={key}
                         className="rounded-control border border-border bg-surface px-3 py-2.5"
                       >
-                        <Text size="sm" className="mb-1.5 font-semibold text-fg">
+                        <Text
+                          size="sm"
+                          className="mb-1.5 font-semibold text-fg"
+                        >
                           {gapLabel(key)}
                         </Text>
                         <ul className="flex flex-col gap-2">

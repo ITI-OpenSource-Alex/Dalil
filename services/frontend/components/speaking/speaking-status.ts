@@ -8,6 +8,8 @@
 export type SpeakingState =
   | "idle"
   | "connecting"
+  | "examiner"
+  | "preparing"
   | "listening"
   | "transcribing"
   | "evaluating"
@@ -40,6 +42,22 @@ export const SPEAKING_STATE_META: Record<SpeakingState, SpeakingStateMeta> = {
   },
   connecting: {
     label: "Connecting",
+    text: "text-amber-700",
+    bg: "bg-amber-50",
+    border: "border-amber-200/70",
+    accent: "bg-amber-500",
+    busy: true,
+  },
+  examiner: {
+    label: "Examiner speaking",
+    text: "text-violet-700",
+    bg: "bg-violet-50",
+    border: "border-violet-200/70",
+    accent: "bg-violet-500",
+    busy: true,
+  },
+  preparing: {
+    label: "Preparation",
     text: "text-amber-700",
     bg: "bg-amber-50",
     border: "border-amber-200/70",
@@ -97,7 +115,7 @@ export const SPEAKING_STATE_META: Record<SpeakingState, SpeakingStateMeta> = {
  * behavioural change, not a visual one.
  */
 export function isStartState(state: SpeakingState): boolean {
-  return state === "idle" || state === "error" || state === "connecting";
+  return state === "idle" || state === "error" || state === "connecting" || state === "done";
 }
 
 /** Short helper text shown under the microphone control. */
@@ -107,6 +125,10 @@ export function speakingHint(state: SpeakingState): string {
       return "Tap the microphone to begin";
     case "connecting":
       return "Connecting to the speaking service…";
+    case "examiner":
+      return "Listen to the examiner…";
+    case "preparing":
+      return "Use this time to prepare your long turn…";
     case "listening":
       return "Listening — tap to finish";
     case "transcribing":

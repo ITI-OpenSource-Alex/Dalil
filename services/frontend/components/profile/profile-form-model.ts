@@ -10,6 +10,7 @@ import type { UserProfileDetail } from "@/app/types/profile";
 export interface ProfileFormValues {
   degreeLevel: string;
   fieldOfStudy: string;
+  targetFieldOfStudy: string;
   gpa: string;
   gpaScale: "4.0" | "100";
   ects: string;
@@ -53,6 +54,8 @@ export function valuesFromProfile(
   return {
     degreeLevel: profile?.degreeLevel ?? "",
     fieldOfStudy: profile?.fieldOfStudy ?? "",
+    targetFieldOfStudy:
+      profile?.targetFieldOfStudy ?? profile?.fieldOfStudy ?? "",
     gpa: profile?.gpa != null ? String(profile.gpa) : "",
     gpaScale: profile?.gpaScale ?? "4.0",
     ects: profile?.ects != null ? String(profile.ects) : "",
@@ -128,7 +131,8 @@ export function validateProfile(values: ProfileFormValues): Errors {
     if (!Number.isInteger(years) || years < 0) {
       errors.workExperienceYears = "Enter a whole number of years, e.g. 2.";
     } else if (years > 60) {
-      errors.workExperienceYears = "That looks too high — enter years, not months.";
+      errors.workExperienceYears =
+        "That looks too high — enter years, not months.";
     }
   }
 
@@ -158,6 +162,9 @@ export function payloadFromValues(
   if (values.degreeLevel) payload.degreeLevel = values.degreeLevel;
   if (values.fieldOfStudy.trim())
     payload.fieldOfStudy = values.fieldOfStudy.trim();
+  if (values.targetFieldOfStudy.trim()) {
+    payload.targetFieldOfStudy = values.targetFieldOfStudy.trim();
+  }
 
   if (values.gpa.trim()) {
     payload.gpa = Number(values.gpa);
@@ -212,6 +219,9 @@ export function parsedDetailFromValues(
       : {}),
     ...(payload.fieldOfStudy !== undefined
       ? { fieldOfStudy: payload.fieldOfStudy }
+      : {}),
+    ...(payload.targetFieldOfStudy !== undefined
+      ? { targetFieldOfStudy: payload.targetFieldOfStudy }
       : {}),
     ...(payload.gpa !== undefined ? { gpa: payload.gpa } : {}),
     ...(payload.gpaScale !== undefined ? { gpaScale: payload.gpaScale } : {}),

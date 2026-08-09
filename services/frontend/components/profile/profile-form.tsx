@@ -214,6 +214,30 @@ export function ProfileForm({
         />
       </Field>
 
+      <Field
+        label="Intended Master's field"
+        error={fieldError("targetFieldOfStudy")}
+        hint="This is the subject programme matching prioritises."
+      >
+        <Controller
+          name="targetFieldOfStudy"
+          control={control}
+          render={({ field }) => (
+            <Combobox
+              name={field.name}
+              options={fieldOptions}
+              value={field.value}
+              onChange={(v) => {
+                field.onChange(v);
+                void saveFromBlur();
+              }}
+              allowCustomValue
+              placeholder="e.g. Software Engineering"
+            />
+          )}
+        />
+      </Field>
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_auto] sm:items-start">
         <Field label="GPA" error={fieldError("gpa")}>
           <Input
@@ -393,7 +417,10 @@ export function ProfileForm({
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field label="Work experience" error={fieldError("workExperienceYears")}>
+        <Field
+          label="Work experience"
+          error={fieldError("workExperienceYears")}
+        >
           <Input
             type="number"
             inputMode="numeric"

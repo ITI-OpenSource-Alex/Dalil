@@ -63,6 +63,7 @@ export class AudioRecorder {
   private mediaRecorder: MediaRecorder | null = null;
   private stream: MediaStream | null = null;
   private mimeType: string | null = null;
+  private pendingChunks = new Set<Promise<void>>();
 
   constructor(private options: AudioRecorderOptions) {}
 
@@ -82,12 +83,17 @@ export class AudioRecorder {
     // must describe the bytes rather than the request.
     this.mimeType = this.mediaRecorder.mimeType || mimeType;
 
-    this.mediaRecorder.ondataavailable = async (event) => {
+    this.mediaRecorder.ondataavailable = (event) => {
       if (!event.data.size) return;
 
-      const buffer = await event.data.arrayBuffer();
-
-      this.options.onAudioChunk(buffer);
+      const pending = event.data.arrayBuffer().then((buffer) => {
+        this.options.onAudioChunk(buffer);
+      });
+      this.pendingChunks.add(pending);
+      void pending.then(
+        () => this.pendingChunks.delete(pending),
+        () => this.pendingChunks.delete(pending),
+      );
     };
 
     // Send chunks every 250ms.
@@ -109,8 +115,16 @@ export class AudioRecorder {
     return this.mimeType;
   }
 
-  stop() {
-    this.mediaRecorder?.stop();
+  async stop(): Promise<void> {
+    const recorder = this.mediaRecorder;
+    if (recorder && recorder.state !== "inactive") {
+      await new Promise<void>((resolve) => {
+        recorder.addEventListener("stop", () => resolve(), { once: true });
+        recorder.stop();
+      });
+    }
+
+    await Promise.all([...this.pendingChunks]);
 
     this.stream?.getTracks().forEach((track) => track.stop());
 

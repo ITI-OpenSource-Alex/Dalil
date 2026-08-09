@@ -19,7 +19,7 @@ import { Reveal } from "./reveal";
 const FAQS = [
   {
     q: "Is the free plan actually free?",
-    a: "Yes. Opportunity matching, confidence scoring, application checklists and chat are free with no time limit and no card. Pro ($7/month) adds the IELTS exam simulations and AI band scoring — that is the only paid part.",
+    a: "Yes. Opportunity matching, confidence scoring, application checklists and chat are free with no time limit and no card. Pro ($20/month) adds the IELTS exam simulations and AI band scoring — that is the only paid part.",
   },
   {
     q: "How accurate is the AI band scoring?",

@@ -20,6 +20,8 @@ interface MicButtonProps {
    * true at the same time).
    */
   disabledReason?: string;
+  canBargeIn?: boolean;
+  onBargeIn?: () => void;
 }
 
 /**
@@ -34,13 +36,20 @@ export default function MicButton({
   onStart,
   onStop,
   disabledReason,
+  canBargeIn = false,
+  onBargeIn,
 }: MicButtonProps) {
   const reduceMotion = useReducedMotion();
   const isStart = isStartState(state);
   const isConnecting = state === "connecting";
   const isListening = state === "listening";
-  const isProcessing = state === "transcribing" || state === "evaluating";
+  const isProcessing =
+    state === "transcribing" ||
+    state === "evaluating" ||
+    state === "examiner" ||
+    state === "preparing";
   const isDone = state === "done";
+  const isBargeIn = state === "examiner" && canBargeIn;
   const isLocked = isStart && !isConnecting && Boolean(disabledReason);
 
   // Surface treatment per state. Rose while capturing (the universal
@@ -54,7 +63,9 @@ export default function MicButton({
         ? "bg-emerald-600 hover:bg-emerald-700 focus-visible:ring-emerald-500/40"
         : "bg-emerald-700 hover:bg-emerald-800 focus-visible:ring-emerald-600/40";
 
-  const label = isStart
+  const label = isBargeIn
+    ? "Interrupt examiner and answer"
+    : isStart
     ? isConnecting
       ? "Connecting to speaking session"
       : isLocked
@@ -64,7 +75,9 @@ export default function MicButton({
       ? "Stop recording"
       : "End speaking session";
 
-  const icon = isConnecting || isProcessing ? (
+  const icon = isBargeIn ? (
+    <Mic size={26} />
+  ) : isConnecting || isProcessing ? (
     <Loader2 size={26} className={reduceMotion ? "" : "animate-spin"} />
   ) : isListening ? (
     <Square size={22} fill="currentColor" />
@@ -101,9 +114,9 @@ export default function MicButton({
       )}
 
       <motion.button
-        data-testid={isStart ? "start-speaking-button" : "stop-speaking-button"}
-        onClick={isStart ? onStart : onStop}
-        disabled={isConnecting || isLocked}
+        data-testid={isBargeIn ? "barge-in-button" : isStart ? "start-speaking-button" : "stop-speaking-button"}
+        onClick={isBargeIn ? onBargeIn : isStart ? onStart : onStop}
+        disabled={isConnecting || isLocked || (isProcessing && !isBargeIn)}
         aria-label={label}
         aria-busy={isConnecting || isProcessing}
         title={isLocked ? disabledReason : undefined}

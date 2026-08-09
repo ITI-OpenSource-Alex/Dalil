@@ -38,6 +38,41 @@ export interface SpeakingEvaluation {
   status?: string;
 }
 
+export interface SpeakingPartChange {
+  part: 1 | 2 | 3;
+  part_label: string;
+  expected_duration_s: number;
+}
+
+export interface ExaminerTurn {
+  turn_id: string;
+  part: 1 | 2 | 3;
+  question_id: string;
+  text: string;
+  expects_response: boolean;
+}
+
+export interface SpeakingCueCard {
+  cue_id: string;
+  topic: string;
+  prompts: string[];
+  closing_prompt: string;
+}
+
+export interface SpeakingTimerFrame {
+  duration_s?: number;
+  min_s?: number;
+  max_s?: number;
+  remaining_s?: number;
+  ends_at?: string;
+}
+
+export interface SpeakingSessionComplete {
+  turn_count: number;
+  total_candidate_s: number;
+  partial?: boolean;
+}
+
 /**
  * Version of the speaking WebSocket protocol this client speaks.
  *
@@ -50,19 +85,19 @@ export interface SpeakingEvaluation {
  * end frame matters because a 1.5s silence timer cannot tell a finished
  * recording from a stalled client.
  */
-export const SPEAKING_PROTOCOL_VERSION = 2;
+export const SPEAKING_PROTOCOL_VERSION = 3;
 
-interface SpeakingSessionOptions {
+export interface SpeakingSessionOptions {
   wsUrl: string;
   userId: string;
-  questionPrompt: string;
-  questionType: string;
   /**
    * MIME type of the audio frames this session will send, from
    * AudioRecorder.getMimeType(). Required: the server refuses a session that
    * does not declare one rather than guessing at the encoding.
    */
   audioFormat: string;
+
+  resumeSessionId?: string;
 
   onStateChange?: (state: SocketSpeakingState) => void;
   /** Fires up to four times per utterance, as each agent completes. */
@@ -71,6 +106,17 @@ interface SpeakingSessionOptions {
   onError?: (message: string) => void;
   onTtsChunk?: (audio: ArrayBuffer) => void;
   onTranscript?: (text: string, isFinal: boolean) => void;
+  onPartChange?: (part: SpeakingPartChange) => void;
+  onExaminerTurn?: (turn: ExaminerTurn) => void;
+  onExaminerAudioEnd?: (turnId: string) => void;
+  onCueCard?: (cue: SpeakingCueCard) => void;
+  onPrepStart?: (timer: SpeakingTimerFrame) => void;
+  onPrepEnd?: () => void;
+  onLongTurnStart?: (timer: SpeakingTimerFrame) => void;
+  onLongTurnContinue?: (timer: SpeakingTimerFrame) => void;
+  onSessionComplete?: (session: SpeakingSessionComplete) => void;
+  onSessionResumed?: (part: number, state: string) => void;
+  onSessionStarted?: (sessionId: string, resumed: boolean) => void;
 }
 
 export class SpeakingWebSocket {
@@ -108,9 +154,8 @@ export class SpeakingWebSocket {
           type: "session_init",
           protocolVersion: SPEAKING_PROTOCOL_VERSION,
           userId: this.options.userId,
-          questionPrompt: this.options.questionPrompt,
-          questionType: this.options.questionType,
           audioFormat: this.options.audioFormat,
+          resumeSessionId: this.options.resumeSessionId,
         }),
       );
 
@@ -146,6 +191,50 @@ export class SpeakingWebSocket {
           this.options.onTranscript?.(data.text, data.isFinal ?? false);
           break;
 
+        case "part_change":
+          this.options.onPartChange?.(data as SpeakingPartChange);
+          break;
+
+        case "examiner_turn":
+          this.options.onExaminerTurn?.(data as ExaminerTurn);
+          break;
+
+        case "examiner_audio_end":
+          this.options.onExaminerAudioEnd?.(data.turn_id);
+          break;
+
+        case "cue_card":
+          this.options.onCueCard?.(data as SpeakingCueCard);
+          break;
+
+        case "prep_start":
+          this.options.onPrepStart?.(data as SpeakingTimerFrame);
+          break;
+
+        case "prep_end":
+          this.options.onPrepEnd?.();
+          break;
+
+        case "long_turn_start":
+          this.options.onLongTurnStart?.(data as SpeakingTimerFrame);
+          break;
+
+        case "long_turn_continue":
+          this.options.onLongTurnContinue?.(data as SpeakingTimerFrame);
+          break;
+
+        case "session_complete":
+          this.options.onSessionComplete?.(data as SpeakingSessionComplete);
+          break;
+
+        case "session_resumed":
+          this.options.onSessionResumed?.(data.part, data.text);
+          break;
+
+        case "session_started":
+          this.options.onSessionStarted?.(data.session_id, Boolean(data.resumed));
+          break;
+
         case "criterion":
           this.options.onCriterion?.(data as SpeakingCriterion);
           break;
@@ -155,9 +244,9 @@ export class SpeakingWebSocket {
           break;
 
         case "tts_unavailable":
-          // Not an error the user needs to see: the written evaluation has
-          // already arrived and is the substance. Only the voiceover is missing.
-          this.options.onStateChange?.("done");
+          // Continue from the written examiner turn when voice synthesis is
+          // unavailable; the interview must not stall on TTS.
+          this.options.onExaminerAudioEnd?.(data.turn_id);
           break;
 
         case "error":
@@ -220,6 +309,24 @@ export class SpeakingWebSocket {
 
     if (this.socket?.readyState === WebSocket.OPEN) {
       this.socket.send(JSON.stringify({ type: "audio_end" }));
+    }
+  }
+
+  ready() {
+    this.sendControl("ready");
+  }
+
+  prepComplete() {
+    this.sendControl("prep_complete");
+  }
+
+  abandon() {
+    this.sendControl("abandon");
+  }
+
+  private sendControl(type: string) {
+    if (this.socket?.readyState === WebSocket.OPEN) {
+      this.socket.send(JSON.stringify({ type }));
     }
   }
 

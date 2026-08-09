@@ -28,7 +28,7 @@ async def test_upsert_local_profiles_mapping(monkeypatch):
         "extracurricularsScore": 85,
         "targetCountries": ["Germany"],
         "fieldOfStudy": "Computer Science",
-        "last_synced_at": "2024-01-01T00:00:00Z"
+        "last_synced_at": "2024-01-01T00:00:00Z",
     }
 
     await upsert_local_profiles(profile_payload)
@@ -56,11 +56,30 @@ async def test_upsert_local_profiles_mapping(monkeypatch):
     # from both the event payload and this upsert, so field_of_study was NULL for
     # every replicated user and the filter never engaged.
     assert args[14] == "Computer Science"
+    assert args[15] == "Computer Science"  # target fallback for older events
     # last_synced_at is parsed, not passed through. This line previously asserted
     # the raw string "2024-01-01T00:00:00Z", pinning the defect in place -- that
     # is precisely the value asyncpg refuses to bind to a timestamptz (BUG-024).
-    assert isinstance(args[15], datetime)
-    assert args[15] == datetime(2024, 1, 1, tzinfo=timezone.utc)
+    assert isinstance(args[16], datetime)
+    assert args[16] == datetime(2024, 1, 1, tzinfo=timezone.utc)
+
+
+@pytest.mark.asyncio
+async def test_intended_field_is_replicated_separately_from_bachelors_field(
+    monkeypatch,
+):
+    conn = _mock_pool(monkeypatch)
+
+    await upsert_local_profiles(
+        _payload(
+            fieldOfStudy="Mechanical Engineering",
+            targetFieldOfStudy="Software Engineering",
+        )
+    )
+
+    bound = conn.execute.call_args[0]
+    assert bound[14] == "Mechanical Engineering"
+    assert bound[15] == "Software Engineering"
 
 
 @pytest.mark.asyncio
@@ -84,29 +103,35 @@ async def test_upsert_invalidates_the_cached_match_list(monkeypatch):
     fake_redis.delete = AsyncMock()
 
     async def _scan(match):  # noqa: ARG001 - signature mirrors redis.scan_iter
-        for key in (f"score:123:prog-a", f"score:123:prog-b"):
-            yield key
+        if match.startswith("score:"):
+            for key in ("score:123:prog-a", "score:123:prog-b"):
+                yield key
+        else:
+            yield "match:123:requirements-v2"
 
     fake_redis.scan_iter = _scan
     monkeypatch.setattr("app.services.profile_repo.redis_client.redis", fake_redis)
 
-    await upsert_local_profiles({
-        "userId": "123",
-        "ects": 180,
-        "gpa": 3.8,
-        "gpaScale": "4.0",
-        "ieltsScore": 7.5,
-        "degreeLevel": "Bachelor",
-        "workExperienceYears": 2,
-        "extracurricularsScore": 85,
-        "targetCountries": ["Germany"],
-        "fieldOfStudy": "Computer Science",
-        "last_synced_at": "2026-08-05T10:00:00Z",
-    })
+    await upsert_local_profiles(
+        {
+            "userId": "123",
+            "ects": 180,
+            "gpa": 3.8,
+            "gpaScale": "4.0",
+            "ieltsScore": 7.5,
+            "degreeLevel": "Bachelor",
+            "workExperienceYears": 2,
+            "extracurricularsScore": 85,
+            "targetCountries": ["Germany"],
+            "fieldOfStudy": "Computer Science",
+            "last_synced_at": "2026-08-05T10:00:00Z",
+        }
+    )
 
     fake_redis.delete.assert_awaited_once()
     deleted = set(fake_redis.delete.await_args[0])
     assert "match:123" in deleted
+    assert "match:123:requirements-v2" in deleted
     assert "score:123:prog-a" in deleted
 
 
@@ -162,6 +187,7 @@ async def test_upsert_local_profiles_missing_key(monkeypatch):
 # Shared fixtures for mapping / timestamp / IELTS sub-score cases
 # ---------------------------------------------------------------------------
 
+
 def _mock_pool(monkeypatch):
     mock_pool = MagicMock()
     mock_conn = AsyncMock()
@@ -195,6 +221,7 @@ def _payload(**overrides):
 # GOA-029: IELTS sub-scores replicate into local_user_profiles
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_upsert_local_profiles_ielts_subscores_round_trip(monkeypatch):
     """IELTS section bands must land in local_user_profiles, not only overall.
@@ -220,7 +247,9 @@ async def test_upsert_local_profiles_ielts_subscores_round_trip(monkeypatch):
 
     insert_list = sql.split("INSERT INTO local_user_profiles", 1)[1].split(")", 1)[0]
     insert_list = insert_list.split("(", 1)[1]
-    columns = [c.strip() for c in insert_list.replace("\n", " ").split(",") if c.strip()]
+    columns = [
+        c.strip() for c in insert_list.replace("\n", " ").split(",") if c.strip()
+    ]
 
     for column in (
         "ielts_listening",
@@ -243,6 +272,7 @@ async def test_upsert_local_profiles_ielts_subscores_round_trip(monkeypatch):
 # BUG-024: the envelope timestamp must reach asyncpg as a datetime
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_js_iso_timestamp_is_bound_as_a_datetime(monkeypatch):
     """The User service stamps events with JavaScript's toISOString(), e.g.
@@ -260,8 +290,8 @@ async def test_js_iso_timestamp_is_bound_as_a_datetime(monkeypatch):
 
     await upsert_local_profiles(_payload())
 
-    # $15 last_synced_at — four IELTS sub-score params sit after ielts_score.
-    bound = conn.execute.call_args[0][15]
+    # $16 last_synced_at — target_field_of_study precedes it.
+    bound = conn.execute.call_args[0][16]
     assert isinstance(bound, datetime), f"expected datetime, got {type(bound).__name__}"
     assert bound.year == 2026 and bound.month == 7 and bound.day == 26
     assert bound.tzinfo is not None, "timestamptz comparisons need an aware datetime"
@@ -273,7 +303,7 @@ async def test_absent_timestamp_stays_none(monkeypatch):
 
     await upsert_local_profiles(_payload(last_synced_at=None))
 
-    assert conn.execute.call_args[0][15] is None
+    assert conn.execute.call_args[0][16] is None
 
 
 @pytest.mark.asyncio
@@ -285,4 +315,4 @@ async def test_malformed_timestamp_does_not_block_the_profile(monkeypatch):
     await upsert_local_profiles(_payload(last_synced_at="not-a-timestamp"))
 
     conn.execute.assert_called_once()
-    assert conn.execute.call_args[0][15] is None
+    assert conn.execute.call_args[0][16] is None

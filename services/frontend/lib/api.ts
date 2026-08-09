@@ -44,7 +44,8 @@ export function isSubscriptionRequired(err: unknown): boolean {
     "response" in err &&
     typeof (err as { response?: unknown }).response === "object"
   ) {
-    const response = (err as { response?: { status?: number; data?: unknown } }).response;
+    const response = (err as { response?: { status?: number; data?: unknown } })
+      .response;
     const data = response?.data;
     return (
       response?.status === 403 &&
@@ -68,6 +69,7 @@ export interface UpdateProfilePayload {
   ieltsSpeaking?: number;
   targetCountries?: string[];
   fieldOfStudy?: string;
+  targetFieldOfStudy?: string;
   ects?: number;
   workExperienceYears?: number;
   extracurricularsScore?: number;
@@ -80,23 +82,28 @@ export interface UpdateProfilePayload {
  * §16.1 for how each was confirmed to already exist.
  */
 export const authApi = {
-  register: (email: string, password: string) => api.post("/users", { email, password }),
-  login: (email: string, password: string) => api.post("/auth/login", { email, password }),
+  register: (email: string, password: string) =>
+    api.post("/users", { email, password }),
+  login: (email: string, password: string) =>
+    api.post("/auth/login", { email, password }),
   // POST /auth/forgot-password (gateway/server.go:138) -- the "send me a
   // link" step. Previously nothing in the frontend called this; ResetPasswordForm
   // called /auth/reset-password instead, which is actually the confirm step below.
-  forgotPassword: (email: string) => api.post("/auth/forgot-password", { email }),
+  forgotPassword: (email: string) =>
+    api.post("/auth/forgot-password", { email }),
   // POST /auth/reset-password (gateway/server.go:139) -- confirms a reset with
   // the token from the emailed link plus a new password.
   resetPassword: (token: string, newPassword: string) =>
     api.post("/auth/reset-password", { token, newPassword }),
   // GET /auth/verify-email/:token (gateway/server.go:140).
-  verifyEmail: (token: string) => api.get(`/auth/verify-email/${encodeURIComponent(token)}`),
+  verifyEmail: (token: string) =>
+    api.get(`/auth/verify-email/${encodeURIComponent(token)}`),
   // PUT /api/profile (gateway/server.go, ProfileHandler.UpdateProfile) --
   // proxies to the User service's existing PUT /users/:id/profile. Added in
   // Phase 3 specifically so the onboarding wizard can persist its data instead
   // of discarding it.
-  updateProfile: (payload: UpdateProfilePayload) => api.put("/api/profile", payload),
+  updateProfile: (payload: UpdateProfilePayload) =>
+    api.put("/api/profile", payload),
   // POST /api/writing/cv/upload (gateway/server.go:177) -- a paid-tier route
   // (subscriptionMiddleware.RequirePaid). Reused as-is for the onboarding CV
   // step; free-tier accounts get a 403 { error: "subscription_required" },

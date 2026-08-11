@@ -239,6 +239,7 @@ module "iam" {
   ecs_exec_operator_resource_arns    = var.ecs_exec_operator_resource_arns
   session_manager_log_retention_days = var.session_manager_log_retention_days
   session_manager_kms_key_id         = var.session_manager_kms_key_id
+  manage_session_manager_preferences = var.manage_session_manager_preferences
   lambda_secret_arns                 = concat(var.lambda_secret_arns, values(module.secrets.service_secret_arns))
   lambda_sqs_queue_arns              = concat(var.sqs_notification_queue_arn != null ? [var.sqs_notification_queue_arn] : [], values(module.sqs.queue_arns), [aws_sqs_queue.cv_processed.arn, aws_sqs_queue.cv_processor_failures.arn])
   lambda_s3_bucket_arns              = [module.writing_files_bucket.bucket_arn]

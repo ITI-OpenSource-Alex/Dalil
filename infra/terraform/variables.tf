@@ -404,3 +404,9 @@ variable "cost_report_recipients" {
   type        = list(string)
   default     = []
 }
+
+variable "manage_session_manager_preferences" {
+  description = "Whether this workspace creates the account-global SSM-SessionManagerRunShell document. See the resource comment in modules/iam/main.tf."
+  type        = bool
+  default     = true
+}

@@ -266,27 +266,35 @@ module "ecs_service" {
   for_each = local.ecs_services
   source   = "./modules/ecs-service"
 
-  environment                       = var.environment
-  name_prefix                       = local.name_prefix
-  cluster_id                        = module.ecs_cluster.cluster_id
-  cluster_name                      = module.ecs_cluster.cluster_name
-  service_connect_namespace_arn     = module.ecs_cluster.service_connect_namespace_arn
-  service_name                      = each.key
-  image_uri                         = each.value.image
-  cpu                               = each.value.cpu
-  memory                            = each.value.memory
-  desired_count                     = each.value.desired_count
-  container_port                    = each.value.container_port
-  environment_variables             = each.value.environment
-  secrets                           = each.value.secrets
-  private_subnet_ids                = module.vpc.private_app_subnet_ids
-  security_group_ids                = [each.key == "gateway" ? module.security_groups.gateway_security_group_id : module.security_groups.ecs_services_security_group_id]
-  task_execution_role_arn           = module.iam.ecs_task_execution_role_arns[each.key]
-  task_role_arn                     = module.iam.ecs_task_role_arns[each.key]
-  target_group_arn                  = try(module.alb.target_group_arns[each.key], null)
-  enable_load_balancer              = each.key != "ingestion"
-  enable_service_connect            = true
-  advertise_service                 = each.key != "ingestion"
+  environment                   = var.environment
+  name_prefix                   = local.name_prefix
+  cluster_id                    = module.ecs_cluster.cluster_id
+  cluster_name                  = module.ecs_cluster.cluster_name
+  service_connect_namespace_arn = module.ecs_cluster.service_connect_namespace_arn
+  service_name                  = each.key
+  image_uri                     = each.value.image
+  cpu                           = each.value.cpu
+  memory                        = each.value.memory
+  desired_count                 = each.value.desired_count
+  container_port                = each.value.container_port
+  environment_variables         = each.value.environment
+  secrets                       = each.value.secrets
+  private_subnet_ids            = module.vpc.private_app_subnet_ids
+  security_group_ids            = [each.key == "gateway" ? module.security_groups.gateway_security_group_id : module.security_groups.ecs_services_security_group_id]
+  task_execution_role_arn       = module.iam.ecs_task_execution_role_arns[each.key]
+  task_role_arn                 = module.iam.ecs_task_role_arns[each.key]
+  target_group_arn              = try(module.alb.target_group_arns[each.key], null)
+  # GOA-030: derived from the target-group map rather than by naming the one
+  # service that opts out. `each.key != "ingestion"` was correct while ingestion
+  # was the only service without a target group; the speech and embeddings
+  # sidecars are also internal-only, and the old form would have attached them
+  # to a load balancer with a null target group ARN.
+  enable_load_balancer   = contains(keys(var.alb_target_groups), each.key)
+  enable_service_connect = true
+  # Still advertised over Service Connect even without an ALB -- that is exactly
+  # how RAG reaches embeddings and Speaking reaches speech. Only ingestion, which
+  # listens on no port at all, stays unadvertised.
+  advertise_service                 = local.service_ports[each.key] > 0
   health_check_grace_period_seconds = each.key == "ingestion" ? 0 : each.value.health_check_grace_period_seconds
   log_group_name                    = module.observability.log_group_names[each.key]
   autoscaling_min_capacity          = each.key == "ingestion" ? 0 : 1

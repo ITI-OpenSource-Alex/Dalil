@@ -52,7 +52,16 @@ ecs_desired_counts = {
   writing       = 1
   rag           = 1
   exam          = 1
+  # GOA-030: the two sidecars a deployed environment cannot serve traffic
+  # without. speech is Speaking's STT; embeddings is the Ollama server RAG
+  # embeds every query through.
+  speech     = 1
+  embeddings = 1
 }
+
+# GOA-030: images pushed by infra/build-and-push.sh. NOT "latest" -- ECR
+# repositories are immutable, so a tag is written once; bump this to redeploy.
+ecs_image_tag                    = "goa030-1"
 enable_lambda_workers            = true
 enable_rds_proxy                 = false # RDS Proxy is unavailable on AWS free-plan accounts.
 rds_backup_retention_days        = 1     # AWS free-plan maximum; production remains 7 days.

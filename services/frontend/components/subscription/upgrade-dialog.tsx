@@ -47,6 +47,12 @@ interface UpgradeContextValue {
 
 const UpgradeContext = createContext<UpgradeContextValue | null>(null);
 
+/** Stable no-op used outside UpgradeProvider — must not be recreated per render. */
+const UPGRADE_PROMPT_FALLBACK: UpgradeContextValue = {
+  show: () => {},
+  handle: () => false,
+};
+
 export function UpgradeProvider({ children }: { children: React.ReactNode }) {
   const [prompt, setPrompt] = useState<UpgradePromptState | null>(null);
 
@@ -93,12 +99,7 @@ export function UpgradeProvider({ children }: { children: React.ReactNode }) {
  */
 export function useUpgradePrompt(): UpgradeContextValue {
   const context = useContext(UpgradeContext);
-  return (
-    context ?? {
-      show: () => {},
-      handle: () => false,
-    }
-  );
+  return context ?? UPGRADE_PROMPT_FALLBACK;
 }
 
 export function UpgradeDialog({

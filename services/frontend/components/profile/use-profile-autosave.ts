@@ -26,10 +26,13 @@ export function useProfileAutosave({
   getValues,
   onOptimisticUser,
   onSaveError,
+  onSaved,
 }: {
   getValues: () => ProfileFormValues;
   onOptimisticUser?: (partial: Partial<UserProfileDetail>) => void;
   onSaveError?: (message: string) => void;
+  /** Fired after a PUT that actually changed something succeeded. */
+  onSaved?: () => void;
 }) {
   const lastSaved = useRef<string>("");
   const [saveState, setSaveState] = useState<ProfileSaveState>("idle");
@@ -67,6 +70,7 @@ export function useProfileAutosave({
       await authApi.updateProfile(payload);
       lastSaved.current = fingerprint;
       setSaveState("saved");
+      onSaved?.();
     } catch (err) {
       const message =
         apiErrorMessage(err) ?? "Could not save your profile.";
@@ -80,7 +84,7 @@ export function useProfileAutosave({
         void saveFromBlur();
       }
     }
-  }, [getValues, onOptimisticUser, onSaveError]);
+  }, [getValues, onOptimisticUser, onSaveError, onSaved]);
 
   return { saveState, saveError, fieldErrors, saveFromBlur, seedLastSaved };
 }

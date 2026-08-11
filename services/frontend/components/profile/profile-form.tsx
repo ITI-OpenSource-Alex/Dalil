@@ -3,6 +3,7 @@
 import { useEffect, useMemo } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { Pencil, RotateCcw } from "lucide-react";
+import { FormSection } from "./form-section";
 import {
   bandDescriptor,
   computeOverallBand,
@@ -53,10 +54,12 @@ export function ProfileForm({
   profile,
   onOptimisticUser,
   onSaveError,
+  onSaved,
 }: {
   profile: UserProfileDetail | null;
   onOptimisticUser?: (partial: Partial<UserProfileDetail>) => void;
   onSaveError?: (message: string) => void;
+  onSaved?: () => void;
 }) {
   const defaults = useMemo(() => valuesFromProfile(profile), [profile]);
 
@@ -71,6 +74,7 @@ export function ProfileForm({
       getValues,
       onOptimisticUser,
       onSaveError,
+      onSaved,
     });
 
   // Seed the fingerprint once on mount. Optimistic parent patches must not
@@ -139,7 +143,7 @@ export function ProfileForm({
   return (
     <form
       noValidate
-      className="flex flex-col gap-5"
+      className="flex flex-col gap-6"
       onSubmit={(e) => e.preventDefault()}
     >
       <div className="flex items-center justify-between gap-3">
@@ -165,137 +169,124 @@ export function ProfileForm({
         </Alert>
       )}
 
-      <Field label="Degree level" error={fieldError("degreeLevel")}>
-        <Controller
-          name="degreeLevel"
-          control={control}
-          render={({ field }) => (
-            <Select
-              name={field.name}
-              placeholder="Select your degree"
-              value={field.value}
-              onChange={(e) => {
-                field.onChange(e.target.value);
-                void saveFromBlur();
-              }}
-              onBlur={field.onBlur}
-            >
-              {DEGREE_LEVELS.map((level) => (
-                <option key={level.value} value={level.value}>
-                  {level.label}
-                </option>
-              ))}
-            </Select>
-          )}
-        />
-      </Field>
-
-      <Field
-        label="Field of study"
-        error={fieldError("fieldOfStudy")}
-        hint="Not listed? Type your own and press Enter."
+      <FormSection
+        id="profile-section-academic"
+        title="Academic background"
+        description="What you have already studied. Matching gates on these."
       >
-        <Controller
-          name="fieldOfStudy"
-          control={control}
-          render={({ field }) => (
-            <Combobox
-              name={field.name}
-              options={fieldOptions}
-              value={field.value}
-              onChange={(v) => {
-                field.onChange(v);
-                void saveFromBlur();
-              }}
-              allowCustomValue
-              placeholder="e.g. Computer Science"
-            />
-          )}
-        />
-      </Field>
+        <Field label="Degree level" error={fieldError("degreeLevel")}>
+          <Controller
+            name="degreeLevel"
+            control={control}
+            render={({ field }) => (
+              <Select
+                name={field.name}
+                placeholder="Select your degree"
+                value={field.value}
+                onChange={(e) => {
+                  field.onChange(e.target.value);
+                  void saveFromBlur();
+                }}
+                onBlur={field.onBlur}
+              >
+                {DEGREE_LEVELS.map((level) => (
+                  <option key={level.value} value={level.value}>
+                    {level.label}
+                  </option>
+                ))}
+              </Select>
+            )}
+          />
+        </Field>
 
-      <Field
-        label="Intended Master's field"
-        error={fieldError("targetFieldOfStudy")}
-        hint="This is the subject programme matching prioritises."
-      >
-        <Controller
-          name="targetFieldOfStudy"
-          control={control}
-          render={({ field }) => (
-            <Combobox
-              name={field.name}
-              options={fieldOptions}
-              value={field.value}
-              onChange={(v) => {
-                field.onChange(v);
-                void saveFromBlur();
-              }}
-              allowCustomValue
-              placeholder="e.g. Software Engineering"
-            />
-          )}
-        />
-      </Field>
+        <Field
+          label="Field of study"
+          error={fieldError("fieldOfStudy")}
+          hint="Not listed? Type your own and press Enter."
+        >
+          <Controller
+            name="fieldOfStudy"
+            control={control}
+            render={({ field }) => (
+              <Combobox
+                name={field.name}
+                options={fieldOptions}
+                value={field.value}
+                onChange={(v) => {
+                  field.onChange(v);
+                  void saveFromBlur();
+                }}
+                allowCustomValue
+                placeholder="e.g. Computer Science"
+              />
+            )}
+          />
+        </Field>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_auto] sm:items-start">
-        <Field label="GPA" error={fieldError("gpa")}>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_auto] sm:items-start">
+          <Field label="GPA" error={fieldError("gpa")}>
+            <Input
+              type="number"
+              inputMode="decimal"
+              step="0.01"
+              min={0}
+              max={gpaScale === "4.0" ? 4 : 100}
+              placeholder={gpaScale === "4.0" ? "e.g. 3.8" : "e.g. 85"}
+              {...register("gpa", {
+                onBlur: () => {
+                  void saveFromBlur();
+                },
+              })}
+            />
+          </Field>
+
+          <Field label="Scale">
+            <Controller
+              name="gpaScale"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  value={field.value}
+                  onChange={(e) => {
+                    field.onChange(e.target.value as "4.0" | "100");
+                    void saveFromBlur();
+                  }}
+                  onBlur={field.onBlur}
+                  className="sm:w-28"
+                >
+                  <option value="4.0">/ 4.0</option>
+                  <option value="100">/ 100</option>
+                </Select>
+              )}
+            />
+          </Field>
+        </div>
+
+        <Field
+          label="ECTS credits"
+          error={fieldError("ects")}
+          hint="A Bachelor's is typically 180–240."
+        >
           <Input
             type="number"
-            inputMode="decimal"
-            step="0.01"
+            inputMode="numeric"
             min={0}
-            max={gpaScale === "4.0" ? 4 : 100}
-            placeholder={gpaScale === "4.0" ? "e.g. 3.8" : "e.g. 85"}
-            {...register("gpa", {
+            placeholder="e.g. 180"
+            {...register("ects", {
               onBlur: () => {
                 void saveFromBlur();
               },
             })}
           />
         </Field>
+      </FormSection>
 
-        <Field label="Scale">
-          <Controller
-            name="gpaScale"
-            control={control}
-            render={({ field }) => (
-              <Select
-                value={field.value}
-                onChange={(e) => {
-                  field.onChange(e.target.value as "4.0" | "100");
-                  void saveFromBlur();
-                }}
-                onBlur={field.onBlur}
-                className="sm:w-28"
-              >
-                <option value="4.0">/ 4.0</option>
-                <option value="100">/ 100</option>
-              </Select>
-            )}
-          />
-        </Field>
-      </div>
-
-      <Field
-        label="ECTS credits"
-        error={fieldError("ects")}
-        hint="A Bachelor's is typically 180–240."
+      <FormSection
+        id="profile-section-ielts"
+        title="English (IELTS)"
+        description="Your reported test scores, not practice results."
       >
-        <Input
-          type="number"
-          inputMode="numeric"
-          min={0}
-          placeholder="e.g. 180"
-          {...register("ects", {
-            onBlur: () => {
-              void saveFromBlur();
-            },
-          })}
-        />
-      </Field>
-
-      <div className="flex flex-col gap-5 rounded-card border border-border bg-canvas-subtle p-4 sm:p-5">
+        <div className="flex flex-col gap-5 rounded-card border border-border bg-canvas-subtle p-4 sm:p-5">
         <Text size="sm" tone="muted">
           Enter the four section bands from your IELTS report. Overall is
           calculated for you unless you edit it.
@@ -414,68 +405,101 @@ export function ProfileForm({
             )}
           </div>
         </div>
-      </div>
+        </div>
+      </FormSection>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field
-          label="Work experience"
-          error={fieldError("workExperienceYears")}
-        >
-          <Input
-            type="number"
-            inputMode="numeric"
-            min={0}
-            placeholder="Years, e.g. 2"
-            {...register("workExperienceYears", {
-              onBlur: () => {
-                void saveFromBlur();
-              },
-            })}
-          />
-        </Field>
-
-        <Field
-          label="Extracurriculars"
-          error={fieldError("extracurricularsScore")}
-          hint="Self-rated 0–10: volunteering, research, leadership."
-        >
-          <Input
-            type="number"
-            inputMode="numeric"
-            min={0}
-            max={10}
-            placeholder="e.g. 6"
-            {...register("extracurricularsScore", {
-              onBlur: () => {
-                void saveFromBlur();
-              },
-            })}
-          />
-        </Field>
-      </div>
-
-      <Field
-        label="Target countries"
-        error={fieldError("targetCountries")}
-        hint="Where you'd like to study. This is what programme matching filters on."
-      >
-        <Controller
-          name="targetCountries"
-          control={control}
-          render={({ field }) => (
-            <MultiCombobox
-              options={countryOptions}
-              values={field.value}
-              onChange={(v) => {
-                field.onChange(v);
-                void saveFromBlur();
-              }}
-              max={5}
-              placeholder="Search countries…"
+      <FormSection id="profile-section-experience" title="Experience">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field
+            label="Work experience"
+            error={fieldError("workExperienceYears")}
+          >
+            <Input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              placeholder="Years, e.g. 2"
+              {...register("workExperienceYears", {
+                onBlur: () => {
+                  void saveFromBlur();
+                },
+              })}
             />
-          )}
-        />
-      </Field>
+          </Field>
+
+          <Field
+            label="Extracurriculars"
+            error={fieldError("extracurricularsScore")}
+            hint="Self-rated 0–10: volunteering, research, leadership."
+          >
+            <Input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={10}
+              placeholder="e.g. 6"
+              {...register("extracurricularsScore", {
+                onBlur: () => {
+                  void saveFromBlur();
+                },
+              })}
+            />
+          </Field>
+        </div>
+      </FormSection>
+
+      <FormSection
+        id="profile-section-destinations"
+        title="Study preferences"
+        description="What you want next. This is what programme matching ranks on."
+      >
+        <Field
+          label="Intended Master's field"
+          error={fieldError("targetFieldOfStudy")}
+          hint="This is the subject programme matching prioritises."
+        >
+          <Controller
+            name="targetFieldOfStudy"
+            control={control}
+            render={({ field }) => (
+              <Combobox
+                name={field.name}
+                options={fieldOptions}
+                value={field.value}
+                onChange={(v) => {
+                  field.onChange(v);
+                  void saveFromBlur();
+                }}
+                allowCustomValue
+                placeholder="e.g. Software Engineering"
+              />
+            )}
+          />
+        </Field>
+
+        <Field
+          label="Target countries"
+          error={fieldError("targetCountries")}
+          hint="Where you'd like to study. This is what programme matching filters on."
+        >
+          <Controller
+            name="targetCountries"
+            control={control}
+            render={({ field }) => (
+              <MultiCombobox
+                options={countryOptions}
+                values={field.value}
+                onChange={(v) => {
+                  field.onChange(v);
+                  void saveFromBlur();
+                }}
+                max={5}
+                placeholder="Search countries…"
+              />
+            )}
+          />
+        </Field>
+      </FormSection>
 
       <Text size="sm" tone="subtle">
         Leaving a field blank keeps whatever is already saved — there is no way

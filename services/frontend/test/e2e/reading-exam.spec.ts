@@ -116,6 +116,16 @@ test.describe("Dalil Reading exam (mocked backend)", () => {
     await expect(page.getByText("Coral reefs are among")).toBeVisible();
     await expect(page.getByTestId("passage-panel")).toBeVisible();
     await expect(page.getByTestId("question-nav-sidebar")).toBeVisible();
+    await expect(page.getByTestId("question-nav-legend")).toBeVisible();
+    await expect(page.getByTestId("question-nav-legend")).toContainText(
+      "Current",
+    );
+    await expect(page.getByTestId("question-nav-legend")).toContainText(
+      "Answered",
+    );
+    await expect(page.getByTestId("question-nav-legend")).toContainText(
+      "Unanswered",
+    );
     await expect(page.getByTestId("question-1")).toBeVisible();
     await expect(page.getByTestId("section-tab-1")).toHaveAttribute(
       "aria-selected",

@@ -103,7 +103,7 @@ def test_code_default_matches_the_documented_default():
 
     env_example = env_example_path.read_text(encoding="utf-8")
     match = re.search(r"^ANTHROPIC_TIMEOUT_SECONDS=(\d+(?:\.\d+)?)", env_example, re.M)
-    assert match, ".env.example no longer documents ANTHROPIC_TIMEOUT_SECONDS"
+    assert match, f"{env_example_path} no longer documents ANTHROPIC_TIMEOUT_SECONDS"
     documented = float(match.group(1))
 
     config_source = config_path.read_text(encoding="utf-8")
@@ -119,11 +119,17 @@ def test_code_default_matches_the_documented_default():
     )
     assert field_default and getenv_default, "timeout defaults moved; update this guard"
 
+    # The path is in the message on purpose. This value is declared in THREE
+    # places -- the repo-root .env.example, services/writing/.env.example and
+    # the two code defaults -- and the service-local copy is the one a writing
+    # developer actually copies. When they disagree, the first question is
+    # always "which file did this read?", and answering it cost real time the
+    # first time this fired.
     assert float(field_default.group(1)) == documented, (
-        f"Settings default {field_default.group(1)} disagrees with the "
-        f".env.example value {documented}"
+        f"Settings default {field_default.group(1)} disagrees with "
+        f"{env_example_path}, which says {documented}"
     )
     assert float(getenv_default.group(1)) == documented, (
-        f"get_settings() fallback {getenv_default.group(1)} disagrees with the "
-        f".env.example value {documented}"
+        f"get_settings() fallback {getenv_default.group(1)} disagrees with "
+        f"{env_example_path}, which says {documented}"
     )

@@ -1,4 +1,5 @@
 import { test, expect, Page } from "./fixtures/auth";
+import type { CurrentUser, UserProfileDetail } from "@/app/types/profile";
 
 const GATEWAY = "http://localhost:8080";
 const CV_API_BASE = `${GATEWAY}/api/writing/cv`;
@@ -15,30 +16,32 @@ function withCors(body: unknown, status = 200) {
   };
 }
 
-const BASE_PROFILE = {
+const BASE_PROFILE_DETAIL: UserProfileDetail = {
+  userId: "user-1",
+  degreeLevel: "Bachelors",
+  gpa: 3.2,
+  gpaScale: "4.0",
+  ieltsScore: 7.0,
+  ieltsListening: 7.0,
+  ieltsReading: 7.0,
+  ieltsWriting: 7.0,
+  ieltsSpeaking: 7.0,
+  targetCountries: ["Germany"],
+  fieldOfStudy: "Computer Science",
+  ects: 180,
+  workExperienceYears: 1,
+  extracurricularsScore: 5,
+};
+
+const BASE_PROFILE: CurrentUser = {
   id: "user-1",
   email: "amina.hassan@example.com",
   subscriptionTier: "free",
   isVerified: true,
-  profile: {
-    userId: "user-1",
-    degreeLevel: "Bachelors",
-    gpa: 3.2,
-    gpaScale: "4.0",
-    ieltsScore: 7.0,
-    ieltsListening: 7.0,
-    ieltsReading: 7.0,
-    ieltsWriting: 7.0,
-    ieltsSpeaking: 7.0,
-    targetCountries: ["Germany"],
-    fieldOfStudy: "Computer Science",
-    ects: 180,
-    workExperienceYears: 1,
-    extracurricularsScore: 5,
-  },
+  profile: BASE_PROFILE_DETAIL,
 };
 
-async function mockProfileGet(page: Page, profile = BASE_PROFILE) {
+async function mockProfileGet(page: Page, profile: CurrentUser = BASE_PROFILE) {
   await page.route(`${GATEWAY}/api/profile`, (route) =>
     route.fulfill(withCors(profile)),
   );
@@ -87,7 +90,7 @@ test("profile autosaves GPA on blur and persists after refresh", async ({
     route.fulfill(withCors({ programs: [] })),
   );
 
-  await page.goto("/profile");
+  await page.goto("/profile?tab=edit");
   const gpa = page.getByLabel(/^GPA$/i);
   await gpa.fill("3.9");
   await gpa.blur();
@@ -128,7 +131,7 @@ test("CV upload on profile shows Processing then ready filename", async ({
     ),
   );
 
-  await page.goto("/profile");
+  await page.goto("/profile?tab=edit");
   await page.locator('input[type="file"]').setInputFiles({
     name: "resume.pdf",
     mimeType: "application/pdf",
@@ -233,4 +236,27 @@ test("opportunity matches show score bar and open detail modal", async ({
     "href",
     "/checklist/prog-tum-cs",
   );
+});
+
+test("a missing detail jumps to the section that owns it", async ({ page }) => {
+  await mockProfileGet(page, {
+    ...BASE_PROFILE,
+    profile: { ...BASE_PROFILE_DETAIL, ects: null },
+  });
+  await page.route(`${CV_API_BASE}/latest`, (route) =>
+    route.fulfill(withCors({ detail: "No CV uploaded yet" }, 404)),
+  );
+  await page.route(`${GATEWAY}/api/opportunities/query`, (route) =>
+    route.fulfill(withCors({ programs: [] })),
+  );
+
+  await page.goto("/profile");
+  await page.getByRole("button", { name: "Add ECTS credits" }).click();
+
+  await expect(page.getByRole("tab", { name: "Edit profile" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect(page.getByLabel("ECTS credits")).toBeVisible();
+  await expect(page).toHaveURL(/\?tab=edit/);
 });

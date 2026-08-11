@@ -1,15 +1,21 @@
 "use client";
 
+import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import { useCurrentUser } from "@/app/hooks/useCurrentUser";
 import { isProfileComplete } from "@/app/types/profile";
 import { DEFAULT_UPGRADE_URL } from "@/lib/subscription";
+import type { ProfileSectionId } from "@/lib/profile-readiness";
 import { ProfileForm } from "@/components/profile/profile-form";
+import { ProfileCompletenessCard } from "@/components/profile/profile-completeness-card";
 import { OpportunityMatchesSection } from "@/components/profile/opportunity-matches-section";
 import { useOpportunityMatches } from "@/components/profile/use-opportunity-matches";
+import {
+  useProfileTab,
+  type ProfileTab,
+} from "@/components/profile/use-profile-tab";
 import { CvUploadPanel } from "@/components/cv/cv-upload-panel";
-import Skeleton from "@/components/ui/skeleton";
 import {
   Alert,
   Badge,
@@ -18,6 +24,7 @@ import {
   Heading,
   Icon,
   PageContainer,
+  Skeleton,
   Tabs,
   TabsList,
   TabsPanel,
@@ -27,34 +34,78 @@ import {
 import { ExamProgressTab } from "@/components/profile/exam-progress";
 
 /**
- * Profile hub — header → account → always-on ProfileForm → CV →
- * Opportunities | Exam Progress tabs (GOA-029 + GOA-062).
- * Autosave status lives in the form; hard load failures use the page Alert.
+ * Profile hub — header → account + matching readiness → Matches | Exam
+ * Progress | Edit profile (GOA-029 + GOA-062).
+ *
+ * The edit form used to sit between the user and the two surfaces that show
+ * what the form is *for*. It is now a tab of equal standing, with the meter in
+ * the header carrying the "you still owe us X" message the form's inline
+ * badge used to.
  */
 export default function ProfilePage() {
-  const { user, status, error, retry, patchProfile } = useCurrentUser();
+  // useProfileTab reads useSearchParams, which opts this subtree out of static
+  // prerendering and so needs a boundary — same reason exam/results has one.
+  return (
+    <Suspense fallback={<ProfileSkeleton />}>
+      <ProfileHub />
+    </Suspense>
+  );
+}
 
-  const profileComplete = isProfileComplete(user?.profile ?? null);
+function ProfileSkeleton() {
+  return (
+    <PageContainer size="md">
+      <div className="space-y-4" aria-busy="true" aria-label="Loading profile">
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-28 w-full rounded-card" />
+        <Skeleton className="h-28 w-full rounded-card" />
+        <Skeleton className="h-64 w-full rounded-card" />
+      </div>
+    </PageContainer>
+  );
+}
+
+function ProfileHub() {
+  const { user, status, error, retry, patchProfile } = useCurrentUser();
+  const { tab, setTab } = useProfileTab();
+
+  const [pendingSection, setPendingSection] = useState<ProfileSectionId | null>(
+    null,
+  );
+
   const matches = useOpportunityMatches({
-    enabled: profileComplete,
-    visible: true,
+    enabled: isProfileComplete(user?.profile ?? null),
+    visible: tab === "matches",
     savedAt: 0,
   });
 
-  const focusApplicationProfile = () => {
-    const section = document.getElementById("application-profile");
-    section?.scrollIntoView({ behavior: "smooth", block: "start" });
-    section?.focus({ preventScroll: true });
-    const firstField = section?.querySelector<HTMLElement>(
-      "input:not([type='hidden']), select, textarea, button, [tabindex]:not([tabindex='-1'])",
-    );
-    firstField?.focus({ preventScroll: true });
-  };
+  /** Open the form on the section that owns a missing field, and focus it. */
+  const focusSection = useCallback(
+    (section: ProfileSectionId) => {
+      setTab("edit");
+      setPendingSection(section);
+    },
+    [setTab],
+  );
+
+  // Runs after the edit panel has been committed to the DOM, so the anchor the
+  // user asked for exists by the time we look for it.
+  useEffect(() => {
+    if (tab !== "edit" || !pendingSection) return;
+    const node = document.getElementById(pendingSection);
+    if (!node) return;
+    node.scrollIntoView({ behavior: "smooth", block: "start" });
+    node
+      .querySelector<HTMLElement>(
+        "input:not([type='hidden']), select, textarea, button, [tabindex]:not([tabindex='-1'])",
+      )
+      ?.focus({ preventScroll: true });
+    setPendingSection(null);
+  }, [tab, pendingSection]);
 
   return (
     <PageContainer size="md">
-      {/* 1. Header */}
-      <div className="mb-8">
+      <div className="mb-6">
         <Badge tone="brand" pill>
           Your Profile
         </Badge>
@@ -79,7 +130,6 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* Page-level Alert for hard load failures only */}
       {status === "error" && (
         <Alert
           tone="danger"
@@ -100,121 +150,103 @@ export default function ProfilePage() {
       )}
 
       {status === "success" && user && (
-        <div className="space-y-8">
-          {/* 2. Account card — read-only */}
-          <Card>
-            <Heading as="h2" size="xs" className="mb-4 text-fg-muted">
-              Account
-            </Heading>
-            <dl className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
-              <ReadOnlyField label="Email" value={user.email} />
-              <ReadOnlyField
-                label="Subscription"
-                value={
-                  user.subscriptionTier === "paid" ? "Dalil Pro" : "Free plan"
-                }
-              />
-            </dl>
-            {user.subscriptionTier === "paid" ? (
-              <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-border pt-4">
-                <Icon icon={Sparkles} size="sm" className="text-brand-fg" />
-                <Text size="sm" tone="muted" className="flex-1">
-                  Review your plan or cancel any time.
-                </Text>
-                <Button size="sm" variant="outline" asChild>
-                  <Link href="/billing/manage">Manage subscription</Link>
-                </Button>
-              </div>
-            ) : (
-              <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-border pt-4">
-                <Icon icon={Sparkles} size="sm" className="text-brand-fg" />
-                <Text size="sm" tone="muted" className="flex-1">
-                  IELTS exams, essay scoring and CV review are part of Dalil Pro.
-                </Text>
-                <Button size="sm" variant="outline" asChild>
-                  <Link href={DEFAULT_UPGRADE_URL}>See plans</Link>
-                </Button>
-              </div>
-            )}
-          </Card>
-
-          {/* 3. Application profile — always ProfileForm (no Edit/Cancel/Save) */}
-          <Card
-            id="application-profile"
-            tabIndex={-1}
-            className="scroll-mt-6 outline-none focus-visible:ring-2 focus-visible:ring-brand-muted"
-          >
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <Heading as="h2" size="xs" className="text-fg-muted">
-                Application Profile
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Card>
+              <Heading as="h2" size="xs" className="mb-4 text-fg-muted">
+                Account
               </Heading>
-              {!isProfileComplete(user.profile) && (
-                <Badge tone="warning" size="sm" pill>
-                  Incomplete
-                </Badge>
-              )}
-            </div>
-
-            {!isProfileComplete(user.profile) && (
-              <Alert tone="info" announce="none" className="mb-4">
-                Your application profile is incomplete, so programme matching
-                has little to work with. Fill in the fields below, or{" "}
-                <Link
-                  href="/onboarding"
-                  className="font-medium text-brand-fg underline underline-offset-2"
-                >
-                  use the guided wizard
-                </Link>
-                .
-              </Alert>
-            )}
-
-            <ProfileForm
-              profile={user.profile}
-              onOptimisticUser={patchProfile}
-              onSaveError={() => {
-                // Hard autosave failure: resync from server (rolls form back).
-                void retry();
-              }}
-            />
-          </Card>
-
-          {/* 4. CV upload */}
-          <section className="space-y-3" aria-labelledby="profile-cv-heading">
-            <div>
-              <Heading as="h2" size="sm" id="profile-cv-heading">
-                CV
-              </Heading>
-              <Text size="sm" tone="muted" className="mt-1">
-                Upload or replace your CV here. AI review stays on the CV Review
-                page.
-              </Text>
-            </div>
-            <CvUploadPanel showReviewLink />
-          </section>
-
-          {/* 5. Opportunities | Exam Progress */}
-          <section className="space-y-4" aria-label="Profile tabs">
-            <Tabs defaultValue="opportunities">
-              <TabsList variant="underline">
-                <TabsTrigger value="opportunities">Opportunities</TabsTrigger>
-                <TabsTrigger value="exam-progress">Exam Progress</TabsTrigger>
-              </TabsList>
-              <TabsPanel value="opportunities" className="pt-4">
-                <OpportunityMatchesSection
-                  programs={matches.programs}
-                  status={matches.status}
-                  error={matches.error}
-                  retryAfter={matches.retryAfter}
-                  onReload={matches.reload}
-                  onFocusProfile={focusApplicationProfile}
+              <dl className="grid grid-cols-1 gap-4 text-sm">
+                <ReadOnlyField label="Email" value={user.email} />
+                <ReadOnlyField
+                  label="Subscription"
+                  value={
+                    user.subscriptionTier === "paid" ? "Dalil Pro" : "Free plan"
+                  }
                 />
-              </TabsPanel>
-              <TabsPanel value="exam-progress" className="pt-4">
-                <ExamProgressTab />
-              </TabsPanel>
-            </Tabs>
-          </section>
+              </dl>
+              <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-border pt-4">
+                <Icon icon={Sparkles} size="sm" className="text-brand-fg" />
+                <Text size="sm" tone="muted" className="flex-1">
+                  {user.subscriptionTier === "paid"
+                    ? "Review your plan or cancel any time."
+                    : "IELTS exams, essay scoring and CV review are part of Dalil Pro."}
+                </Text>
+                <Button size="sm" variant="outline" asChild>
+                  <Link
+                    href={
+                      user.subscriptionTier === "paid"
+                        ? "/billing/manage"
+                        : DEFAULT_UPGRADE_URL
+                    }
+                  >
+                    {user.subscriptionTier === "paid"
+                      ? "Manage subscription"
+                      : "See plans"}
+                  </Link>
+                </Button>
+              </div>
+            </Card>
+
+            <ProfileCompletenessCard
+              profile={user.profile}
+              onFix={focusSection}
+            />
+          </div>
+
+          <Tabs
+            value={tab}
+            onValueChange={(value) => setTab(value as ProfileTab)}
+          >
+            <TabsList variant="underline">
+              <TabsTrigger value="matches">Matches</TabsTrigger>
+              <TabsTrigger value="progress">Exam Progress</TabsTrigger>
+              <TabsTrigger value="edit">Edit profile</TabsTrigger>
+            </TabsList>
+
+            <TabsPanel value="matches">
+              <OpportunityMatchesSection
+                programs={matches.programs}
+                status={matches.status}
+                error={matches.error}
+                retryAfter={matches.retryAfter}
+                onReload={matches.reload}
+                onFocusProfile={() => focusSection("profile-section-academic")}
+              />
+            </TabsPanel>
+
+            <TabsPanel value="progress">
+              <ExamProgressTab />
+            </TabsPanel>
+
+            <TabsPanel value="edit" className="space-y-6">
+              <Card>
+                <Heading as="h2" size="xs" className="mb-4 text-fg-muted">
+                  Application Profile
+                </Heading>
+                <ProfileForm
+                  profile={user.profile}
+                  onOptimisticUser={patchProfile}
+                  onSaveError={() => {
+                    // Hard autosave failure: resync from server (rolls the
+                    // form back to what is actually stored).
+                    void retry();
+                  }}
+                />
+              </Card>
+
+              <Card>
+                <Heading as="h2" size="xs" id="profile-cv-heading">
+                  CV
+                </Heading>
+                <Text size="sm" tone="muted" className="mt-1 mb-4">
+                  Upload or replace your CV here. AI review stays on the CV
+                  Review page.
+                </Text>
+                <CvUploadPanel showReviewLink />
+              </Card>
+            </TabsPanel>
+          </Tabs>
         </div>
       )}
     </PageContainer>

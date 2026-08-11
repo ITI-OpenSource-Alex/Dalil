@@ -260,3 +260,41 @@ test("a missing detail jumps to the section that owns it", async ({ page }) => {
   await expect(page.getByLabel("ECTS credits")).toBeVisible();
   await expect(page).toHaveURL(/\?tab=edit/);
 });
+
+test("editing the profile re-ranks matches when you return to them", async ({
+  page,
+}) => {
+  let searches = 0;
+
+  await page.route(`${GATEWAY}/api/profile`, async (route) => {
+    if (route.request().method() === "PUT") {
+      await route.fulfill(withCors({ ok: true }));
+      return;
+    }
+    await route.fulfill(withCors(BASE_PROFILE));
+  });
+  await page.route(`${CV_API_BASE}/latest`, (route) =>
+    route.fulfill(withCors({ detail: "No CV uploaded yet" }, 404)),
+  );
+  await page.route(`${GATEWAY}/api/opportunities/query`, (route) => {
+    searches += 1;
+    return route.fulfill(withCors({ programs: [] }));
+  });
+
+  await page.goto("/profile");
+  await expect(page.getByText("No programmes matched yet")).toBeVisible();
+  expect(searches).toBe(1);
+
+  await page.getByRole("tab", { name: "Edit profile" }).click();
+  const gpa = page.getByLabel("GPA");
+  await gpa.fill("3.9");
+  await gpa.blur();
+  await expect(page.getByText("Saved")).toBeVisible();
+
+  // Flicking to a third tab must not spend a search.
+  await page.getByRole("tab", { name: "Exam Progress" }).click();
+  expect(searches).toBe(1);
+
+  await page.getByRole("tab", { name: "Matches" }).click();
+  await expect.poll(() => searches).toBe(2);
+});

@@ -72,11 +72,15 @@ function ProfileHub() {
   const [pendingSection, setPendingSection] = useState<ProfileSectionId | null>(
     null,
   );
+  // Bumped on every successful save. useOpportunityMatches re-ranks the next
+  // time the Matches tab is shown — not on the save itself, because matching
+  // is capped at 20 searches an hour and a form is many saves.
+  const [savedAt, setSavedAt] = useState(0);
 
   const matches = useOpportunityMatches({
     enabled: isProfileComplete(user?.profile ?? null),
     visible: tab === "matches",
-    savedAt: 0,
+    savedAt,
   });
 
   /** Open the form on the section that owns a missing field, and focus it. */
@@ -227,9 +231,8 @@ function ProfileHub() {
                 <ProfileForm
                   profile={user.profile}
                   onOptimisticUser={patchProfile}
+                  onSaved={() => setSavedAt((n) => n + 1)}
                   onSaveError={() => {
-                    // Hard autosave failure: resync from server (rolls the
-                    // form back to what is actually stored).
                     void retry();
                   }}
                 />

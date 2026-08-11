@@ -54,10 +54,12 @@ export function ProfileForm({
   profile,
   onOptimisticUser,
   onSaveError,
+  onSaved,
 }: {
   profile: UserProfileDetail | null;
   onOptimisticUser?: (partial: Partial<UserProfileDetail>) => void;
   onSaveError?: (message: string) => void;
+  onSaved?: () => void;
 }) {
   const defaults = useMemo(() => valuesFromProfile(profile), [profile]);
 
@@ -72,6 +74,7 @@ export function ProfileForm({
       getValues,
       onOptimisticUser,
       onSaveError,
+      onSaved,
     });
 
   // Seed the fingerprint once on mount. Optimistic parent patches must not

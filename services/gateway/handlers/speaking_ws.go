@@ -151,6 +151,27 @@ func (h *SpeakingWSHandler) Proxy(clientConn *websocket.Conn) {
 	if correlationID != "" {
 		upstreamHeaders.Set(middleware.HeaderCorrelationID, correlationID)
 	}
+	// GOA-030. The identity the token proved, forwarded the way every other
+	// proxied route forwards it.
+	//
+	// This relay is byte-for-byte in both directions, which is right for audio
+	// but meant the `userId` inside the client's session_init frame reached
+	// Speaking unexamined -- so an authenticated caller could attribute a
+	// session to any user id they typed. That is the same defect GOA-132 closed
+	// on the REST side ("Sourcing userId from the validated JWT here closes
+	// that, because the caller no longer controls the value"); only the socket
+	// half was left open.
+	//
+	// Two things ride on this id and both were exploitable: sessions are
+	// persisted and listed by it, and the daily speaking quota is keyed on it --
+	// so a fresh id per connection bought unmetered STT and LLM spend.
+	//
+	// Sent as a header rather than by rewriting the frame, so the relay stays a
+	// relay. Speaking prefers it over the frame's field; see
+	// HandleInterviewWebSocket.
+	if userID != "" {
+		upstreamHeaders.Set("X-User-Id", userID)
+	}
 
 	started := time.Now()
 	log := h.logger.With().

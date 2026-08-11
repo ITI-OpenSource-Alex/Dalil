@@ -353,3 +353,58 @@ test.describe("Dalil Reading exam (mocked backend)", () => {
     await expect(page).toHaveURL(/\/exam$/);
   });
 });
+
+/**
+ * Regression guard: the floating assistant must never sit on top of the exam's
+ * primary action.
+ *
+ * The Dalil chat pill is fixed to the bottom-right of the (app) layout, which
+ * is where the Reading and Listening submit buttons live. When it mounted
+ * inside the exam shell it intercepted their pointer events, and three Reading
+ * specs plus two Listening specs timed out clicking a button Playwright
+ * reported as visible, enabled, and covered. A candidate could not submit.
+ *
+ * Asserted two ways on purpose. Absence of the pill is the current fix;
+ * clickability of the submit button is the actual requirement, and would still
+ * hold if the widget were later reinstated somewhere harmless.
+ */
+test.describe("Reading exam — the assistant does not block submission", () => {
+  test("no floating chat pill covers the submit button inside the exam shell", async ({
+    page,
+  }) => {
+    await mockReadingBackend(page);
+    await gotoReadingExam(page);
+
+    await expect(
+      page.getByTestId("dalil-chat-pill"),
+      "the floating assistant is mounted inside the exam shell, where it " +
+        "overlaps the submit control and compromises the simulation",
+    ).toHaveCount(0);
+
+    const submit = page.getByTestId("reading-submit-button");
+    await expect(submit).toBeVisible();
+
+    // The real requirement: whatever is on screen, the point the candidate
+    // must click has to belong to the submit button.
+    const box = await submit.boundingBox();
+    expect(box).not.toBeNull();
+    const topmost = await page.evaluate(
+      ({ x, y }) => {
+        const el = document.elementFromPoint(x, y);
+        return el?.closest("[data-testid]")?.getAttribute("data-testid") ?? el?.tagName ?? null;
+      },
+      { x: box!.x + box!.width / 2, y: box!.y + box!.height / 2 },
+    );
+    expect(
+      topmost,
+      `something else is on top of the submit button at its centre point: ${topmost}`,
+    ).toBe("reading-submit-button");
+
+    // Exercise the real pointer action too: the confirmation dialog is the
+    // user-visible proof that Submit received the click.
+    await submit.click();
+    await expect(
+      page.getByRole("dialog", { name: "Submit Reading exam?" }),
+    ).toBeVisible();
+  });
+});

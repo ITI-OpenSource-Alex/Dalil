@@ -273,7 +273,26 @@ async function installPausedClock(page: Page) {
   const start = new Date("2024-01-01T12:00:00Z");
   await page.clock.install({ time: start });
   await gotoListeningExam(page);
-  await page.clock.pauseAt(new Date(start.getTime() + 1_000));
+
+  // Pause at whatever the page's clock actually reads, not at a fixed
+  // start + 1s.
+  //
+  // The fixed offset assumed the exam shell finished loading inside one second
+  // of fake-clock time. That stopped being true as the (app) layout grew, and
+  // pauseAt() then pointed into the past -- which Playwright rejects outright
+  // with "Cannot fast-forward to the past". Three specs were failing on a
+  // helper that had quietly become a measurement of page load rather than a
+  // setup for the silence gap.
+  //
+  // Reading the clock first makes this independent of how long the load takes,
+  // so it cannot rot the same way again.
+  // The margin is not superstition: the clock is still running between reading
+  // it and pausing it, so pausing at exactly the value just read is already in
+  // the past by the time the call lands. One second comfortably covers the
+  // round trip while staying far too short to reach the 30s silence gap these
+  // tests then advance through deliberately.
+  const now = await page.evaluate(() => Date.now());
+  await page.clock.pauseAt(new Date(now + 1_000));
 }
 
 test.describe("Dalil Listening exam (mocked backend)", () => {

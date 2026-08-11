@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -129,7 +130,23 @@ func HandleInterviewWebSocket(w http.ResponseWriter, r *http.Request, deps Inter
 		socket.writePolicyError("invalid_audio_format", err.Error())
 		return
 	}
-	socket.userID = init.UserID
+	// GOA-030. When the Gateway proxied this upgrade it asserts the identity it
+	// validated the JWT for, and that always wins over the frame's own field.
+	//
+	// The frame's userId is client-controlled. Sessions are persisted and listed
+	// by this value and the daily quota is keyed on it, so trusting the frame
+	// let a caller both write sessions under someone else's id and mint a fresh
+	// id per connection to escape the quota entirely.
+	//
+	// The fallback to init.UserID is deliberate and is NOT a hole in the
+	// production path: :8082 is not published past the Gateway, and the header
+	// is set on every proxied upgrade. It keeps the direct-connection callers
+	// working -- the Go WebSocket E2E suite and the k6 scenarios, which dial the
+	// service without a Gateway in front of them.
+	socket.userID = strings.TrimSpace(r.Header.Get("X-User-Id"))
+	if socket.userID == "" {
+		socket.userID = init.UserID
+	}
 	socket.audioFormat = format
 	if allowed, _ := speakingQuota.Allow(ctx, socket.userID); !allowed {
 		socket.writePolicyError("quota_exceeded", "You have used your speaking practice time for today. Please come back tomorrow.")

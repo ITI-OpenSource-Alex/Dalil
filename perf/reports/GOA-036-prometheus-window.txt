@@ -1,0 +1,86 @@
+GOA-036 — Prometheus evidence for the 10-minute load window
+Captured 2026-08-11T03:39:16Z
+
+### k6 chat p95 (ms)
+    k6_goa_chat_duration_ms{quantile="0.95"}
+
+### k6 match p95 (ms)
+    k6_goa_match_duration_ms{quantile="0.95"}
+
+### k6 essay eval p95 (ms)
+    k6_goa_essay_evaluation_duration_ms{quantile="0.95"}
+
+### k6 speaking first transcript p95 (ms)
+    k6_goa_speaking_time_to_first_transcript_ms{quantile="0.95"}
+
+### k6 http reqs total
+    k6_http_reqs_total
+                  2475  endpoint=match,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/opportunities/query,proto=HTTP/1.1,scenario=match,status=429,url=http://gateway:8080/api/opportunities/query
+                   181  endpoint=chat,expected_response=true,method=POST,name=http://gateway:8080/api/chat,proto=HTTP/1.1,scenario=chat,status=200,url=http://gateway:8080/api/chat
+                   115  endpoint=essay_upload,expected_response=true,method=POST,name=http://gateway:8080/api/writing/essays/upload,proto=HTTP/1.1,scenario=essay,status=200,url=http://gateway:8080/api/writing/essays/upload
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/73/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/73/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/74/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/74/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/75/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/75/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/76/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/76/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/77/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/77/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/78/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/78/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/79/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/79/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/80/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/80/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/81/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/81/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/82/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/82/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/83/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/83/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/84/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/84/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/85/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/85/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/86/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/86/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/87/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/87/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/88/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/88/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/89/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/89/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/90/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/90/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/91/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/91/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/92/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/92/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/93/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/93/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/94/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/94/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/95/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/95/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/96/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/96/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/97/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/97/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/98/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/98/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/99/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/99/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/100/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/100/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/101/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/101/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/102/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/102/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/103/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/103/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/104/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/104/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/105/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/105/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/106/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/106/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/107/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/107/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/109/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/109/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/108/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/108/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/110/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/110/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/111/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/111/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/112/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/112/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/113/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/113/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/114/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/114/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/115/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/115/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/116/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/116/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/117/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/117/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/118/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/118/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/119/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/119/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/120/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/120/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/122/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/122/evaluate
+                     1  endpoint=essay_evaluate,error_code=1429,expected_response=false,method=POST,name=http://gateway:8080/api/writing/essays/121/evaluate,proto=HTTP/1.1,scenario=essay,status=429,url=http://gateway:8080/api/writing/essays/121/evaluate
+
+### gateway requests by route (10m rate)
+    sum by (route) (rate(gateway_http_requests_total[10m]))
+
+### gateway 5xx (10m increase)
+    sum(increase(gateway_http_requests_total{status=~"5.."}[10m]))
+
+### gateway 429 (10m increase)
+    sum(increase(gateway_http_requests_total{status="429"}[10m]))
+
+### rag query latency p95
+    histogram_quantile(0.95, sum(rate(rag_query_latency_ms_bucket[10m])) by (le))
+
+### speaking active connections
+    speaking_active_connections
+

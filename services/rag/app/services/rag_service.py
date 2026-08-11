@@ -586,7 +586,10 @@ async def query_rag(
 
     # 3. Retrieve matching documents from pgvector database using Cosine Similarity
     retrieval_limit = flags.get("retrieval_width", getattr(settings, "rag_retrieval_width", 15))
-    probes_val = flags.get("ivfflat_probes", getattr(settings, "rag_ivfflat_probes", 1))
+    # The getattr fallback matches the settings default (GOA-030). It used to be
+    # 1, so a settings object missing the attribute silently reverted to the
+    # 1%-of-index scan the default was raised to escape.
+    probes_val = flags.get("ivfflat_probes", getattr(settings, "rag_ivfflat_probes", 10))
     hybrid_enabled = flags.get(
         "hybrid_enabled", getattr(settings, "rag_hybrid_enabled", False)
     )

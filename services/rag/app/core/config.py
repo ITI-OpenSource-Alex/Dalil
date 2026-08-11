@@ -33,7 +33,36 @@ class Settings(BaseSettings):
     rag_threshold_enabled: bool = True
     rag_cache_enabled: bool = True
     rag_retrieval_width: int = 15
-    rag_ivfflat_probes: int = 1
+    # GOA-030. This was 1, meaning every production query scanned one IVFFlat
+    # cluster out of the index's lists=100 -- roughly 1% of the corpus. It is
+    # pgvector's build-time default, not a tuned value, and it survived because
+    # the frozen eval corpus is small enough that one cluster covers it.
+    #
+    # Against the live catalogue (3903 university chunks vs 19 visa chunks) it
+    # is a correctness bug, not a tuning knob: a Germany student-visa question
+    # returned four MastersPortal programme pages and zero visa documents, while
+    # the correct EU-immigration-portal chunk -- which scores 0.854, the highest
+    # similarity in the whole corpus -- sat in a cluster that was never probed.
+    # That is GOA-030's Journey 2 failing on retrieval, not on data.
+    #
+    # 10 is sqrt(lists), pgvector's documented guidance. Measured over 10
+    # questions x 3 repeats against the live catalogue
+    # (perf/rag_probes_bench.py, artefact perf/reports/GOA-030-probes-sweep.json):
+    #
+    #   probes  recall@5  visa recall  programme recall  p50 ms  p95 ms
+    #        1      0.40         0.25              1.00  1949.2  4570.3
+    #        5      0.90         0.88              1.00  1873.9  2250.8
+    #       10      1.00         1.00              1.00  1805.0  2149.7
+    #       20      1.00         1.00              1.00  2028.3  2773.6
+    #       50      1.00         1.00              1.00  2206.2  2686.0
+    #
+    # There is no trade-off to balance here: 10 beats 1 on recall AND on
+    # latency. Raising it further buys no recall and costs time.
+    #
+    # Coupled to the index: documents_embedding_idx is built with lists=100. If
+    # that changes, re-derive as sqrt(lists) and re-run the benchmark rather
+    # than carrying 10 forward.
+    rag_ivfflat_probes: int = 10
     # Demo migrations remain useful for isolated development and integration
     # tests, but user-facing opportunity matching must never mix them into the
     # scraped catalogue unless a developer opts in explicitly.

@@ -131,6 +131,20 @@ locals {
         REDIS_HOST            = module.elasticache.primary_endpoint_address
         REDIS_PORT            = tostring(module.elasticache.port)
         USER_EVENTS_TOPIC_ARN = aws_sns_topic.user_events.arn
+        # GOA-030. RDS is signed by an Amazon CA that is not in Node's bundled
+        # trust store, so the service crash-looped on SELF_SIGNED_CERT_IN_CHAIN
+        # and the Gateway answered "no healthy upstream" for every auth route.
+        #
+        # NODE_EXTRA_CA_CERTS rather than the driver's own ssl option, because
+        # DATABASE_URL carries an sslmode parameter: pg-connection-string builds
+        # its TLS config from the URL and OVERRIDES anything passed
+        # programmatically, so data-source.ts's `ssl: { ca }` never applied.
+        # This augments Node's default trust store instead, which every code
+        # path inherits.
+        #
+        # The bundle is baked into the image at this path by the user
+        # Dockerfile; see the comment there.
+        NODE_EXTRA_CA_CERTS = "/etc/ssl/certs/rds-global-bundle.pem"
         } : service == "orchestration" ? {
         REDIS_URL            = "redis://${module.elasticache.primary_endpoint_address}:${module.elasticache.port}/1"
         RAG_SERVICE_URL      = "http://${local.name_prefix}-rag:8084"

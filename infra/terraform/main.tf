@@ -843,3 +843,30 @@ resource "aws_cloudwatch_metric_alarm" "cv_processor_duration" {
 
 
 
+
+# GOA-030: the Gateway had no network path to the cache, and that alone made
+# every authenticated request fail.
+#
+# The environment looked healthy from outside -- /health returned 200 because it
+# touches no dependency -- while every /api call answered 503 "rate limiter
+# unavailable". Redis is not incidental to the Gateway: it holds the rate-limit
+# counters, the JWT blacklist and the subscription cache, so auth, chat,
+# matching and billing were all blocked by one missing rule.
+#
+# The rule lives here rather than in modules/security-groups because there are
+# two cache security groups. That module defines an `elasticache` group that
+# nothing is attached to, while the real cluster sits in the group created by
+# modules/elasticache. Adding the egress inside the security-groups module
+# pointed it at the unused one and changed nothing -- the fix has to be made
+# where both module outputs are in scope.
+#
+# The matching ingress already exists: modules/elasticache grants it from every
+# id in allowed_security_group_ids, which includes the Gateway.
+resource "aws_vpc_security_group_egress_rule" "gateway_to_elasticache" {
+  security_group_id            = module.security_groups.gateway_security_group_id
+  description                  = "Allow the Gateway to reach ElastiCache for rate limits, the JWT blacklist and the subscription cache."
+  referenced_security_group_id = module.elasticache.security_group_id
+  from_port                    = 6379
+  ip_protocol                  = "tcp"
+  to_port                      = 6379
+}

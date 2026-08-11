@@ -101,7 +101,10 @@ ecs_desired_counts = {
 # and manifest layers". goa030-2 is the same source built with
 # --provenance=false --sbom=false. ECR tags are immutable, hence a new tag rather
 # than a re-push.
-ecs_image_tag = "goa030-2"
+# goa030-3 additionally carries the RDS CA bundle in the user image; without it
+# the user service crash-loops on SELF_SIGNED_CERT_IN_CHAIN and the Gateway
+# answers "no healthy upstream" for every auth route.
+ecs_image_tag = "goa030-3"
 # GOA-030: the three image-based Lambda workers reference the :latest tag, which
 # this project's immutable-ECR pipeline never produces -- so every apply failed
 # with "Source image ...:latest does not exist". None of them sit on a path the

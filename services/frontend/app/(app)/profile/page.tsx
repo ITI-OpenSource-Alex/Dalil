@@ -7,6 +7,7 @@ import { isProfileComplete } from "@/app/types/profile";
 import { DEFAULT_UPGRADE_URL } from "@/lib/subscription";
 import { ProfileForm } from "@/components/profile/profile-form";
 import { OpportunityMatchesSection } from "@/components/profile/opportunity-matches-section";
+import { useOpportunityMatches } from "@/components/profile/use-opportunity-matches";
 import { CvUploadPanel } from "@/components/cv/cv-upload-panel";
 import Skeleton from "@/components/ui/skeleton";
 import {
@@ -32,6 +33,13 @@ import { ExamProgressTab } from "@/components/profile/exam-progress";
  */
 export default function ProfilePage() {
   const { user, status, error, retry, patchProfile } = useCurrentUser();
+
+  const profileComplete = isProfileComplete(user?.profile ?? null);
+  const matches = useOpportunityMatches({
+    enabled: profileComplete,
+    visible: true,
+    savedAt: 0,
+  });
 
   const focusApplicationProfile = () => {
     const section = document.getElementById("application-profile");
@@ -194,7 +202,11 @@ export default function ProfilePage() {
               </TabsList>
               <TabsPanel value="opportunities" className="pt-4">
                 <OpportunityMatchesSection
-                  profileComplete={isProfileComplete(user.profile)}
+                  programs={matches.programs}
+                  status={matches.status}
+                  error={matches.error}
+                  retryAfter={matches.retryAfter}
+                  onReload={matches.reload}
                   onFocusProfile={focusApplicationProfile}
                 />
               </TabsPanel>

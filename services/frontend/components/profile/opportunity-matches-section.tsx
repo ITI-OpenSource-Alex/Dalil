@@ -1,16 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { ArrowRight, RefreshCw, SearchX, UserPen } from "lucide-react";
-import {
-  ProfileNotReadyError,
-  RateLimitedError,
-  formatRetryAfter,
-  searchOpportunities,
-  type MatchedProgram,
-} from "@/lib/opportunities-api";
-import { useUpgradePrompt } from "@/components/subscription/upgrade-dialog";
+import { type MatchedProgram } from "@/lib/opportunities-api";
+import type { MatchesStatus } from "./use-opportunity-matches";
 import { OpportunityCard } from "@/components/opportunities/opportunity-card";
 import { OpportunityDetailModal } from "@/components/opportunities/opportunity-detail-modal";
 import {
@@ -23,16 +17,6 @@ import {
   Text,
 } from "@/components/ui";
 
-type Status =
-  | "loading"
-  | "success"
-  | "error"
-  | "profile-incomplete"
-  | "syncing"
-  | "rate-limited";
-
-const TOP_N = 10;
-
 /**
  * Compact matches strip for the profile hub.
  *
@@ -41,69 +25,21 @@ const TOP_N = 10;
  * search that cannot usefully run.
  */
 export function OpportunityMatchesSection({
-  profileComplete,
+  programs,
+  status,
+  error,
+  retryAfter,
+  onReload,
   onFocusProfile,
 }: {
-  profileComplete: boolean;
+  programs: MatchedProgram[];
+  status: MatchesStatus;
+  error: string | null;
+  retryAfter: string | null;
+  onReload: () => void;
   onFocusProfile?: () => void;
 }) {
-  const upgrade = useUpgradePrompt();
-
-  const [programs, setPrograms] = useState<MatchedProgram[]>([]);
   const [selected, setSelected] = useState<MatchedProgram | null>(null);
-  const [status, setStatus] = useState<Status>(
-    profileComplete ? "loading" : "profile-incomplete",
-  );
-  const [error, setError] = useState<string | null>(null);
-  const [retryAfter, setRetryAfter] = useState<string | null>(null);
-
-  const requestRef = useRef<AbortController | null>(null);
-
-  const load = useCallback(async () => {
-    requestRef.current?.abort();
-    const controller = new AbortController();
-    requestRef.current = controller;
-
-    setStatus("loading");
-    setError(null);
-
-    try {
-      const results = await searchOpportunities(controller.signal);
-      if (controller.signal.aborted) return;
-      setPrograms(results.slice(0, TOP_N));
-      setStatus("success");
-    } catch (err) {
-      if (controller.signal.aborted) return;
-      if (err instanceof ProfileNotReadyError) {
-        setStatus("syncing");
-        return;
-      }
-      if (err instanceof RateLimitedError) {
-        setRetryAfter(formatRetryAfter(err.retryAfterSeconds));
-        setStatus("rate-limited");
-        return;
-      }
-      if (upgrade.handle(err)) {
-        setStatus("error");
-        setError(null);
-        return;
-      }
-      setError(
-        "We couldn't reach programme matching just now. Your profile is unchanged — try again in a moment.",
-      );
-      setStatus("error");
-    }
-  }, [upgrade]);
-
-  useEffect(() => {
-    if (!profileComplete) {
-      setStatus("profile-incomplete");
-      setPrograms([]);
-      return;
-    }
-    void load();
-    return () => requestRef.current?.abort();
-  }, [profileComplete, load]);
 
   return (
     <section className="space-y-4" aria-labelledby="opportunity-matches-heading">
@@ -150,7 +86,7 @@ export function OpportunityMatchesSection({
           announce="polite"
           title="Your profile is still syncing"
           actions={
-            <Button size="sm" onClick={() => void load()}>
+            <Button size="sm" onClick={onReload}>
               Try again
             </Button>
           }
@@ -178,7 +114,7 @@ export function OpportunityMatchesSection({
           tone="danger"
           announce="assertive"
           actions={
-            <Button variant="danger" size="sm" onClick={() => void load()}>
+            <Button variant="danger" size="sm" onClick={onReload}>
               Try again
             </Button>
           }
@@ -218,11 +154,7 @@ export function OpportunityMatchesSection({
                   Adjust profile
                 </Button>
               )}
-              <Button
-                size="sm"
-                leadingIcon={RefreshCw}
-                onClick={() => void load()}
-              >
+              <Button size="sm" leadingIcon={RefreshCw} onClick={onReload}>
                 Refresh matches
               </Button>
             </>

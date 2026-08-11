@@ -392,12 +392,19 @@ module "cv_processor_lambda" {
   lambda_insights_layer_arn      = local.lambda_insights_layer_arn
 
   environment_variables = {
-    ENVIRONMENT               = var.environment
-    WORKER                    = "cv-processor"
-    S3_BUCKET                 = module.writing_files_bucket.bucket_id
-    CV_PROCESSED_QUEUE_URL    = aws_sqs_queue.cv_processed.url
-    CV_EXTRACTION_MODEL       = "claude-opus-5"
-    ANTHROPIC_TIMEOUT_SECONDS = "25"
+    ENVIRONMENT            = var.environment
+    WORKER                 = "cv-processor"
+    S3_BUCKET              = module.writing_files_bucket.bucket_id
+    CV_PROCESSED_QUEUE_URL = aws_sqs_queue.cv_processed.url
+    CV_EXTRACTION_MODEL    = "claude-opus-5"
+    # GOA-030: was "25". .env.example has warned since GOA-014 that a single
+    # criterion agent regularly needs 40-90s and that 25s loses agents to
+    # APITimeoutError. The same value was corrected in
+    # services/writing/app/config.py after a 180-word essay returned
+    # "1 of 4 writing agents failed: Request timed out". This copy is the one
+    # that ships to every deployed environment, so leaving it at 25 would
+    # reintroduce the defect the code fix just removed.
+    ANTHROPIC_TIMEOUT_SECONDS = "120"
     WRITING_SECRET_ARN        = module.secrets.service_secret_arns["writing"]
   }
 

@@ -94,6 +94,13 @@ locals {
         } : service == "rag" ? {
         REDIS_URL      = "redis://${module.elasticache.primary_endpoint_address}:${module.elasticache.port}/1"
         SQS_QUEUE_NAME = module.sqs.queue_names["user_events_rag"]
+        # GOA-030. Without these, RAG falls back to its code default of
+        # host.docker.internal:11434 -- the developer's own Ollama -- and every
+        # /query and /match fails at the embedding call inside a Fargate task.
+        # See the comment on rag_embedding_base_url in variables.tf.
+        EMBEDDING_BASE_URL   = var.rag_embedding_base_url
+        EMBEDDING_MODEL      = var.rag_embedding_model
+        EMBEDDING_DIMENSIONS = tostring(var.rag_embedding_dimensions)
         } : service == "exam" ? {
         SPEAKING_SERVICE_URL = "http://${local.name_prefix}-speaking:8082"
         WRITING_SERVICE_URL  = "http://${local.name_prefix}-writing:8000"

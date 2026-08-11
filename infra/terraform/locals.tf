@@ -125,8 +125,15 @@ locals {
         EXAM_SERVICE_URL          = "http://${local.name_prefix}-exam:8085"
         USER_SERVICE_URL          = "http://${local.name_prefix}-user:8081"
         ORCHESTRATION_SERVICE_URL = "http://${local.name_prefix}-orchestration:8083"
-        INGESTION_QUEUE_URL       = module.sqs.queue_urls["ingestion"]
-        SECURE_COOKIES            = "true"
+        # GOA-030. Missing entirely, so the Gateway fell back to its compose
+        # default of http://rag:8084, which resolves to nothing in the VPC.
+        # Every /api/opportunities/* and /api/checklists/* call answered 502
+        # "failed to contact opportunity search" -- with the real cause invisible,
+        # because the handler reports a friendly message and not the dial error.
+        RAG_SERVICE_URL      = "http://${local.name_prefix}-rag:8084"
+        SPEAKING_SERVICE_URL = "http://${local.name_prefix}-speaking:8082"
+        SECURE_COOKIES       = "true"
+        INGESTION_QUEUE_URL  = module.sqs.queue_urls["ingestion"]
         } : service == "user" ? {
         REDIS_HOST            = module.elasticache.primary_endpoint_address
         REDIS_PORT            = tostring(module.elasticache.port)

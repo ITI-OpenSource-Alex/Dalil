@@ -870,3 +870,22 @@ resource "aws_vpc_security_group_egress_rule" "gateway_to_elasticache" {
   ip_protocol                  = "tcp"
   to_port                      = 6379
 }
+
+# GOA-030: the same missing path for every other service.
+#
+# modules/security-groups has an `ecs_services_to_elasticache` egress rule, but
+# it references that module's own unused `elasticache` group rather than the one
+# the cluster is actually in -- so RAG died at startup with
+# "redis.exceptions.TimeoutError: Timeout connecting to server" and every
+# opportunity search answered 502 "failed to contact opportunity search".
+#
+# The module rule is left in place: it is harmless, and removing it belongs with
+# deleting the orphan security group, which is a wider cleanup than this ticket.
+resource "aws_vpc_security_group_egress_rule" "ecs_services_to_elasticache_real" {
+  security_group_id            = module.security_groups.ecs_services_security_group_id
+  description                  = "Allow ECS services to reach the ElastiCache cluster they are actually configured with."
+  referenced_security_group_id = module.elasticache.security_group_id
+  from_port                    = 6379
+  ip_protocol                  = "tcp"
+  to_port                      = 6379
+}

@@ -48,6 +48,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+import boto3
+
 # Allow imports from project root
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -77,6 +79,23 @@ CURATED_LISTENING_KEYS = (
     / "curated"
     / "listening_answer_keys.json"
 )
+
+# Manual chart crops for Academic Writing Task 1 live here (see acceptance
+# criteria). Only Academic Task 1 shows a chart/graph/map — General Training
+# Task 1 is a letter with no stimulus image, so its crop is simply absent and
+# the upload below is skipped, leaving that test with no image key.
+CHARTS_DIR = Path(__file__).resolve().parent.parent / "data" / "charts"
+
+# Writing stimulus images live in their own bucket, distinct from the Listening
+# audio bucket. Overridable so the same script targets LocalStack in dev and
+# real S3 in CI/prod.
+WRITING_IMAGE_BUCKET = os.environ.get("WRITING_IMAGE_BUCKET", "goa-writing-files")
+
+# Default to LocalStack's published port; AWS_ENDPOINT_URL overrides for real S3.
+_S3_ENDPOINT_URL = os.environ.get("AWS_ENDPOINT_URL") or "http://localhost:4566"
+_S3_REGION = os.environ.get("AWS_REGION", "us-east-1")
+
+_s3_client = None
 
 
 def _compute_text_hash(text: str) -> str:
@@ -128,6 +147,64 @@ def _load_curated_listening_key(slug: str, test_number: int) -> dict[str, Any] |
             f"Curated Listening key for {slug}/test{test_number} must contain answers 1-40"
         )
     return key
+
+
+def _get_s3_client():
+    """Return one shared S3 client, built lazily on first use.
+
+    boto3 clients are connectionless until a call is made, so a reading- or
+    listening-only parse that never uploads a chart never touches the network.
+    """
+    global _s3_client
+    if _s3_client is None:
+        _s3_client = boto3.client(
+            "s3",
+            region_name=_S3_REGION,
+            endpoint_url=_S3_ENDPOINT_URL,
+        )
+    return _s3_client
+
+
+def _upload_writing_chart(slug: str, test_number: int, book_ref: str) -> str | None:
+    """Upload the Task 1 chart crop for one writing test; return its S3 key.
+
+    The crop is expected at ``data/charts/<slug>-test<N>-task1.png`` (e.g.
+    ``data/charts/IELTS15-test1-task1.png``) — that is where manual crops land.
+    If it is absent (every General Training test, and any Academic test not yet
+    cropped) we return None so the parsed JSON keeps no image key, which is what
+    makes re-running safe. When present it is uploaded under the deterministic
+    key ``charts/<book_ref>-test-<N>-task1.png``; re-runs overwrite the same key,
+    so the step stays idempotent.
+
+    An upload failure is non-fatal: we warn and return None rather than discard
+    a successfully parsed test over a transient S3 problem. A later re-run picks
+    the chart back up.
+    """
+    chart_path = CHARTS_DIR / f"{slug}-test{test_number}-task1.png"
+    if not chart_path.exists():
+        return None
+
+    image_key = f"charts/{book_ref}-test-{test_number}-task1.png"
+    try:
+        _get_s3_client().upload_file(
+            str(chart_path),
+            WRITING_IMAGE_BUCKET,
+            image_key,
+            ExtraArgs={"ContentType": "image/png"},
+        )
+    except Exception as exc:  # noqa: BLE001 - ingestion CLI: keep parsing going
+        print(
+            f"  [chart     ] Test {test_number}: [WARN] upload failed for "
+            f"{chart_path.name}: {exc}"
+        )
+        return None
+
+    print(
+        f"  [chart     ] Test {test_number}: uploaded "
+        f"s3://{WRITING_IMAGE_BUCKET}/{image_key}"
+    )
+    return image_key
+
 
 
 def _write_metadata(
@@ -285,6 +362,14 @@ def main() -> int:
                         curated_key = _load_curated_listening_key(slug, test_num)
                         if curated_key is not None:
                             parsed["answer_key"] = curated_key
+                    elif skill == "writing":
+                        # Academic Task 1 asks the candidate to describe a chart;
+                        # attach it here so the question is actually answerable.
+                        image_key = _upload_writing_chart(
+                            slug, test_num, parsed["book_ref"]
+                        )
+                        if image_key is not None:
+                            parsed["image_s3_key"] = image_key
 
                     q_count = len(parsed.get("questions", []))
                     answer_key = parsed.get("answer_key", {})

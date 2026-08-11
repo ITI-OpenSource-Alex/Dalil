@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Sidebar } from "@/components/ui/sidebar";
+import { AppShell } from "@/components/app-shell";
 import { UpgradeProvider } from "@/components/subscription/upgrade-dialog";
 import { DalilChatProvider } from "@/components/chat/dalil-chat-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -22,18 +22,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     <UpgradeProvider>
       <TooltipProvider>
         <DalilChatProvider>
-      {/* flex-col below lg, flex-row at lg+: Sidebar renders two siblings --
-          a sticky mobile top bar (in normal flow below lg) and the aside
-          itself (position: fixed below lg, so out of flow there; lg:sticky,
-          back in flow at lg+). A row container at every breakpoint put that
-          mobile top bar side-by-side with the page content instead of above
-          it, splitting a 375px viewport into a ~145px sidebar-ish column and
-          a ~230px content column -- every authenticated page was rendering
-          in barely 60% of the screen's width on mobile. */}
-      <div className="flex min-h-screen flex-col bg-canvas text-fg lg:flex-row">
-        <Sidebar />
-        <div className="min-w-0 flex-1">{children}</div>
-      </div>
+          <AppShell>{children}</AppShell>
         </DalilChatProvider>
       </TooltipProvider>
     </UpgradeProvider>

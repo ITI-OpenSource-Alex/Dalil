@@ -40,6 +40,7 @@ In priority order (unchanged since the original plan, restated here because ever
 | 4 | Authenticated app shell | ✅ Complete | [phase-4-app-shell.md](phase-4-app-shell.md) |
 | 5 | Exams, chat & practice surfaces + states | 📋 Planned, not started | [phase-5-exams.md](phase-5-exams.md) |
 | 6 | Checklist, profile, and final polish sweep | 📋 Planned, not started | [phase-6-polish.md](phase-6-polish.md) |
+| 6a | Profile hub high-impact uplift (early slice of Phase 6's profile work) | 📋 Planned, not started | [phase-6a-profile-hub.md](phase-6a-profile-hub.md) |
 
 ## Current status
 

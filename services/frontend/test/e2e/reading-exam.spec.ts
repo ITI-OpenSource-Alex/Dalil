@@ -115,7 +115,18 @@ test.describe("Dalil Reading exam (mocked backend)", () => {
 
     await expect(page.getByText("Coral reefs are among")).toBeVisible();
     await expect(page.getByTestId("passage-panel")).toBeVisible();
+    await expect(page.getByTestId("reading-split-handle")).toBeVisible();
     await expect(page.getByTestId("question-nav-sidebar")).toBeVisible();
+    await expect(page.getByTestId("question-nav-legend")).toBeVisible();
+    await expect(page.getByTestId("question-nav-legend")).toContainText(
+      "Current",
+    );
+    await expect(page.getByTestId("question-nav-legend")).toContainText(
+      "Answered",
+    );
+    await expect(page.getByTestId("question-nav-legend")).toContainText(
+      "Unanswered",
+    );
     await expect(page.getByTestId("question-1")).toBeVisible();
     await expect(page.getByTestId("section-tab-1")).toHaveAttribute(
       "aria-selected",
@@ -241,8 +252,11 @@ test.describe("Dalil Reading exam (mocked backend)", () => {
       "true",
     );
 
-    // 5 of 40 answered so far.
-    await expect(page.getByText("5 of 40 answered")).toBeVisible();
+    // 5 answered across sections; footer shows dual progress for active
+    // section (3) plus exam-wide total.
+    await expect(page.getByTestId("reading-progress")).toHaveText(
+      "Section 3: 1/14 · Exam: 5/40",
+    );
   });
 
   test("submit confirmation modal shows the exact unanswered count and cancel does not submit", async ({

@@ -37,7 +37,7 @@ export default function PassagePanel({
         </span>
       </div>
 
-      <article className="prose prose-sm max-w-none space-y-4 text-sm leading-relaxed whitespace-pre-wrap text-fg-muted select-text">
+      <article className="prose prose-base max-w-none space-y-5 text-base leading-7 whitespace-pre-wrap text-fg select-text">
         {paragraphs.map((paragraph, paragraphIndex) => (
           <Paragraph
             key={paragraphIndex}

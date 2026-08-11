@@ -18,6 +18,7 @@ import {
   formatReadingProgress,
   getReadingProgress,
 } from "@/lib/reading-progress";
+import { useReadingSplit } from "@/app/hooks/useReadingSplit";
 import PassagePanel from "./PassagePanel";
 import SectionTabs from "./SectionTabs";
 import QuestionNavSidebar from "./QuestionNavSidebar";
@@ -134,6 +135,14 @@ export default function ReadingExam({
 }: ReadingExamProps) {
   const [state, dispatch] = useReducer(reducer, session, buildInitialState);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const {
+    containerRef,
+    passagePercent,
+    onSeparatorPointerDown,
+    onSeparatorKeyDown,
+    min: splitMin,
+    max: splitMax,
+  } = useReadingSplit();
 
   const activeQuestions = state.questions.filter(
     (q) => q.section === state.activeSection,
@@ -207,11 +216,14 @@ export default function ReadingExam({
         }
       />
 
-      <div className="flex min-h-0 flex-1">
+      <div ref={containerRef} className="flex min-h-0 flex-1">
         {/* Left: passage, independently scrollable. Keyed on section so a
             new passage never inherits highlights that belong to a
-            different passage's text. */}
-        <div className="min-h-0 w-1/2">
+            different passage's text. Width is user-resizable (persisted). */}
+        <div
+          className="min-h-0 min-w-0 shrink-0"
+          style={{ width: `${passagePercent}%` }}
+        >
           <PassagePanel
             key={state.activeSection}
             passageText={activePassage}
@@ -219,8 +231,28 @@ export default function ReadingExam({
           />
         </div>
 
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize reading passage"
+          aria-valuenow={passagePercent}
+          aria-valuemin={splitMin}
+          aria-valuemax={splitMax}
+          tabIndex={0}
+          data-testid="reading-split-handle"
+          onPointerDown={onSeparatorPointerDown}
+          onKeyDown={onSeparatorKeyDown}
+          className="group relative z-10 w-1.5 shrink-0 cursor-col-resize bg-transparent transition-colors hover:bg-brand focus-visible:bg-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted"
+        >
+          {/* Wider invisible hit target */}
+          <span
+            aria-hidden="true"
+            className="absolute inset-y-0 -left-1.5 -right-1.5"
+          />
+        </div>
+
         {/* Right: questions, independently scrollable, plus the nav sidebar. */}
-        <div className="flex min-h-0 w-1/2">
+        <div className="flex min-h-0 min-w-0 flex-1">
           <div className="min-h-0 flex-1 space-y-8 overflow-y-auto p-8">
             {activeQuestions.map((question) => (
               <QuestionRenderer

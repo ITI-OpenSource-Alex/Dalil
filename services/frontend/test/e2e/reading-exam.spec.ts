@@ -115,6 +115,7 @@ test.describe("Dalil Reading exam (mocked backend)", () => {
 
     await expect(page.getByText("Coral reefs are among")).toBeVisible();
     await expect(page.getByTestId("passage-panel")).toBeVisible();
+    await expect(page.getByTestId("reading-split-handle")).toBeVisible();
     await expect(page.getByTestId("question-nav-sidebar")).toBeVisible();
     await expect(page.getByTestId("question-nav-legend")).toBeVisible();
     await expect(page.getByTestId("question-nav-legend")).toContainText(

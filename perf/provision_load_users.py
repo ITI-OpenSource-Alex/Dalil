@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import random
 import string
 import sys
@@ -38,6 +39,18 @@ import httpx
 
 PASSWORD = "SecurePassword123!"
 
+# Staging's ALB presents a self-signed certificate
+# (create_self_signed_alb_certificate = true in environments/staging.tfvars),
+# which is not in any public trust store.
+#
+# GOA_CA_BUNDLE points at that certificate so it can be trusted EXPLICITLY.
+# Deliberately a CA bundle rather than a verify=False switch: pinning the one
+# certificate we expect still authenticates the endpoint, whereas disabling
+# verification would accept any certificate from anything that answered, and
+# would silently keep doing so if this harness were ever pointed at a real
+# environment.
+CA_BUNDLE = os.getenv("GOA_CA_BUNDLE") or True
+
 
 def suffix(n: int = 6) -> str:
     return "".join(random.choices(string.ascii_lowercase + string.digits, k=n))
@@ -47,7 +60,7 @@ def provision_one(gateway: str, index: int) -> dict | None:
     """Registers, profiles and upgrades one account. Returns its token."""
     email = f"k6-load-{int(time.time())}-{index}-{suffix()}@example.com"
     try:
-        with httpx.Client(base_url=gateway, timeout=60) as client:
+        with httpx.Client(base_url=gateway, timeout=60, verify=CA_BUNDLE) as client:
             registration = client.post(
                 "/users", json={"email": email, "password": PASSWORD}
             )
@@ -118,7 +131,7 @@ def wait_for_replication(gateway: str, accounts: list[dict], timeout: float = 18
     pending = list(accounts)
     replicated = 0
 
-    with httpx.Client(base_url=gateway, timeout=120) as client:
+    with httpx.Client(base_url=gateway, timeout=120, verify=CA_BUNDLE) as client:
         while pending and time.time() < deadline:
             still_pending = []
             for account in pending:

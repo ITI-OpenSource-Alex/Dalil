@@ -79,3 +79,4 @@ evals/.judge_cache.json
 .go-build-cache/
 .go-mod-cache/
 infra/seeder/rag_seed.sql.gz
+perf/alb-ca.pem

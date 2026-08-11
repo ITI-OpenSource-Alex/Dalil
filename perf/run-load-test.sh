@@ -113,19 +113,44 @@ echo "== k6 =="
 # MSYS_NO_PATHCONV stops Git Bash rewriting the container-side paths into
 # Windows ones before docker sees them. This has silently produced a wrong
 # experimental result in this repo before.
-MSYS_NO_PATHCONV=1 docker run --rm --network "${COMPOSE_NETWORK}" \
+# Local compose is the default target; a deployed environment overrides these.
+# Against staging the Gateway is a public ALB, so k6 needs no compose network --
+# DOCKER_NETWORK=bridge -- and the URLs are https/wss.
+K6_GATEWAY="${K6_GATEWAY:-http://gateway:8080}"
+K6_GATEWAY_WS="${K6_GATEWAY_WS:-ws://gateway:8080}"
+DOCKER_NETWORK="${DOCKER_NETWORK:-${COMPOSE_NETWORK}}"
+
+# Prometheus remote-write only exists on the local stack. Pointing k6 at a
+# compose hostname from a bridge-network container makes every flush fail and
+# floods the run output, so the output is dropped unless a URL is supplied.
+K6_OUTPUT_ARGS=()
+if [[ -n "${K6_PROM_RW_URL:-}" ]]; then
+  K6_OUTPUT_ARGS+=(--out experimental-prometheus-rw)
+fi
+
+# Staging's ALB presents a self-signed certificate
+# (create_self_signed_alb_certificate = true). This flag is scoped to that run
+# and must never be set against a real certificate -- it would hide exactly the
+# TLS misconfiguration a load test ought to surface.
+K6_TLS_ARGS=()
+if [[ "${K6_INSECURE_TLS:-}" == "true" ]]; then
+  K6_TLS_ARGS+=(--insecure-skip-tls-verify)
+fi
+
+MSYS_NO_PATHCONV=1 docker run --rm --network "${DOCKER_NETWORK}" \
   -v "${REPO_ROOT}/perf:/perf" \
-  -e GATEWAY="http://gateway:8080" \
-  -e GATEWAY_WS="ws://gateway:8080" \
+  -e GATEWAY="${K6_GATEWAY}" \
+  -e GATEWAY_WS="${K6_GATEWAY_WS}" \
   -e TOKENS_FILE="/perf/tokens.json" \
   -e LOAD_SCALE="${LOAD_SCALE}" \
   -e LOAD_DURATION="${LOAD_DURATION}" \
   -e AUDIO_SECONDS="${AUDIO_SECONDS:-8}" \
   -e SPEAKING_TURNS="${SPEAKING_TURNS:-2}" \
-  -e K6_PROMETHEUS_RW_SERVER_URL="http://prometheus:9090/api/v1/write" \
+  -e K6_PROMETHEUS_RW_SERVER_URL="${K6_PROM_RW_URL:-}" \
   -e K6_PROMETHEUS_RW_TREND_STATS="p(50),p(95),p(99),max" \
   grafana/k6 run \
-    --out experimental-prometheus-rw \
+    "${K6_OUTPUT_ARGS[@]}" \
+    "${K6_TLS_ARGS[@]}" \
     --summary-export="/perf/reports/${STAMP}-k6.json" \
     /perf/load-test.js
 K6_STATUS=$?

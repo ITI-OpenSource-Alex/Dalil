@@ -96,7 +96,12 @@ ecs_desired_counts = {
 
 # GOA-030: images pushed by infra/build-and-push.sh. NOT "latest" -- ECR
 # repositories are immutable, so a tag is written once; bump this to redeploy.
-ecs_image_tag = "goa030-1"
+# goa030-1 was pushed by Buildx with default attestations, so the tag resolved to
+# a 1.5 KB in-toto manifest and Fargate refused it with "mismatched image rootfs
+# and manifest layers". goa030-2 is the same source built with
+# --provenance=false --sbom=false. ECR tags are immutable, hence a new tag rather
+# than a re-push.
+ecs_image_tag = "goa030-2"
 # GOA-030: the three image-based Lambda workers reference the :latest tag, which
 # this project's immutable-ECR pipeline never produces -- so every apply failed
 # with "Source image ...:latest does not exist". None of them sit on a path the

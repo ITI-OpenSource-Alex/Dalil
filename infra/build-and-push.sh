@@ -48,7 +48,23 @@ build_one() {
   # --platform is not optional: Fargate runs linux/amd64, and a silently-built
   # arm64 image fails at task start with an exec format error that reads as a
   # broken entrypoint.
-  if docker build --platform linux/amd64 \
+  # --provenance=false --sbom=false are load-bearing, not hygiene.
+  #
+  # Buildx attaches provenance and SBOM attestations by default and publishes an
+  # OCI image INDEX. Pushed to ECR, the tag then resolves to a ~1.5 KB
+  # attestation manifest whose layers are application/vnd.in-toto+json, and
+  # Fargate fails to start the task with:
+  #
+  #   CannotPullContainerError: failed to unpack image on snapshotter
+  #   overlayfs: mismatched image rootfs and manifest layers
+  #
+  # which reads like a corrupt image rather than a manifest-format problem.
+  # Disabling both makes the push a plain single-platform manifest.
+  #
+  # --load keeps the result in the local image store so `docker push` sends that
+  # exact manifest rather than re-resolving an index.
+  if docker buildx build --platform linux/amd64 \
+      --provenance=false --sbom=false --load \
       -t "${local_tag}" \
       -f "${REPO_ROOT}/${dockerfile}" \
       "${REPO_ROOT}/${context}"; then

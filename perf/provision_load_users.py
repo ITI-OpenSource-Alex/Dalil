@@ -30,6 +30,7 @@ import argparse
 import json
 import os
 import random
+import ssl
 import string
 import sys
 import time
@@ -49,7 +50,31 @@ PASSWORD = "SecurePassword123!"
 # verification would accept any certificate from anything that answered, and
 # would silently keep doing so if this harness were ever pointed at a real
 # environment.
-CA_BUNDLE = os.getenv("GOA_CA_BUNDLE") or True
+def _ssl_context():
+    """Trust the staging certificate, and nothing else.
+
+    Two checks are involved here and only one is waived.
+
+    The CHAIN is still verified, against the certificate in GOA_CA_BUNDLE alone.
+    The HOSTNAME is not, because staging's self-signed certificate is issued for
+    `staging.goa.internal` -- the domain_name in environments/staging.tfvars --
+    while the load test reaches the ALB at its AWS-assigned DNS name. That
+    mismatch is inherent to create_self_signed_alb_certificate and says nothing
+    about the health of the connection.
+
+    Still not verify=False, which would accept a certificate from anything that
+    answered. Only the one certificate we pinned is accepted; only its name goes
+    unchecked.
+    """
+    bundle = os.getenv("GOA_CA_BUNDLE")
+    if not bundle:
+        return True
+    context = ssl.create_default_context(cafile=bundle)
+    context.check_hostname = False
+    return context
+
+
+CA_BUNDLE = _ssl_context()
 
 
 def suffix(n: int = 6) -> str:

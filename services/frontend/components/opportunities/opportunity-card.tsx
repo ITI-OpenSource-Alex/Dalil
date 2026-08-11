@@ -21,6 +21,8 @@ import {
   type MatchedProgram,
 } from "@/lib/opportunities-api";
 import { Badge, Button, Card, Icon, Text } from "@/components/ui";
+import { AskDalilButton } from "@/components/chat/ask-dalil-button";
+import { programmeAdvicePrompt } from "@/lib/dalil-prompts";
 
 const TONE_BADGE: Record<
   MatchTone,
@@ -213,15 +215,12 @@ export function OpportunityCard({
             Get checklist
           </Link>
         </Button>
-        <Button size="sm" variant="ghost" trailingIcon={ArrowRight} asChild>
-          <Link
-            href={`/chat?ask=${encodeURIComponent(
-              `Tell me more about ${program.programName} at ${program.university}.`,
-            )}`}
-          >
-            Ask Dalil
-          </Link>
-        </Button>
+        <AskDalilButton
+          size="sm"
+          variant="ghost"
+          trailingIcon={ArrowRight}
+          prompt={programmeAdvicePrompt(program)}
+        />
         {program.sourceUrl && program.dataSource === "scraped" && (
           <Button size="sm" variant="ghost" trailingIcon={ExternalLink} asChild>
             <a

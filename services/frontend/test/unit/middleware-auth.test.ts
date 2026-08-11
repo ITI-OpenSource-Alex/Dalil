@@ -58,7 +58,7 @@ describe("middleware route protection", () => {
 
   it("sends a signed-in visitor on /login into the app", () => {
     const response = middleware(request("/login", "token"));
-    expect(new URL(response.headers.get("location")!).pathname).toBe("/chat");
+    expect(new URL(response.headers.get("location")!).pathname).toBe("/dashboard");
   });
 
   it("honours redirectUrl when a signed-in visitor lands on /login", () => {
@@ -72,7 +72,7 @@ describe("middleware route protection", () => {
     );
     const location = new URL(response.headers.get("location")!);
     expect(location.hostname).toBe("localhost");
-    expect(location.pathname).toBe("/chat");
+    expect(location.pathname).toBe("/dashboard");
   });
 });
 

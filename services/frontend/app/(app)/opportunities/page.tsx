@@ -23,6 +23,8 @@ import { isProfileComplete } from "@/app/types/profile";
 import { useUpgradePrompt } from "@/components/subscription/upgrade-dialog";
 import { OpportunityCard } from "@/components/opportunities/opportunity-card";
 import { OpportunityDetailModal } from "@/components/opportunities/opportunity-detail-modal";
+import { AskDalilButton } from "@/components/chat/ask-dalil-button";
+import { noMatchesAdvicePrompt } from "@/lib/dalil-prompts";
 import {
   Alert,
   Badge,
@@ -280,9 +282,12 @@ export default function OpportunitiesPage() {
               <Button asChild>
                 <Link href="/profile">Adjust your targets</Link>
               </Button>
-              <Button variant="secondary" asChild>
-                <Link href="/chat">Ask Dalil for advice</Link>
-              </Button>
+              <AskDalilButton
+                variant="secondary"
+                prompt={noMatchesAdvicePrompt()}
+              >
+                Ask Dalil for advice
+              </AskDalilButton>
             </>
           }
         />

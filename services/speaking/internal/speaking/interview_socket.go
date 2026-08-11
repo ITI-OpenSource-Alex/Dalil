@@ -472,12 +472,37 @@ func (s *interviewSocket) resumeOutputs() []interview.Output {
 	if snapshot.State == interview.StatePart2LongTurn {
 		return append(outputs, interview.Output{Type: "long_turn_start", MinS: 0, MaxS: int(time.Until(snapshot.Deadline).Seconds()), EndsAt: snapshot.Deadline})
 	}
+	// The cue card is on screen for the whole of Part 2, and the client keys the
+	// turn below against it, so it has to be restored before the turn is.
+	if snapshot.State == interview.StatePart2Cue {
+		outputs = append(outputs, interview.Output{
+			Type: "cue_card", CueID: s.selection.Cue.CueID, Topic: s.selection.Cue.Topic,
+			Prompts: s.selection.Cue.Prompts, ClosingPrompt: s.selection.Cue.ClosingPrompt,
+		})
+	}
+	// Replay the last examiner turn, whatever it was.
+	//
+	// Matching on CurrentQuestionID instead misses precisely the states that
+	// carry no question: part1_intro (the greeting) and part2_cue (the card
+	// being read out). Both of those are waiting on `ready`, and the client only
+	// sends `ready` in response to an examiner turn — so emitting nothing left
+	// both sides waiting on each other with the examiner silent, which is how a
+	// reload during the greeting killed the session for good.
+	//
+	// ExpectsResponse is derived from the state rather than assumed: telling the
+	// client to record in a state that refuses candidate audio ends the session
+	// with audio_not_accepted.
 	for i := len(snapshot.Transcript.Turns) - 1; i >= 0; i-- {
 		turn := snapshot.Transcript.Turns[i]
-		if turn.Speaker == interview.SpeakerExaminer && turn.QuestionID == snapshot.CurrentQuestionID {
-			outputs = append(outputs, interview.Output{Type: "examiner_turn", TurnID: turn.TurnID, Part: turn.Part, QuestionID: turn.QuestionID, Text: turn.Text, ExpectsResponse: true})
-			break
+		if turn.Speaker != interview.SpeakerExaminer {
+			continue
 		}
+		outputs = append(outputs, interview.Output{
+			Type: "examiner_turn", TurnID: turn.TurnID, Part: turn.Part,
+			QuestionID: turn.QuestionID, Text: turn.Text,
+			ExpectsResponse: stateAcceptsAudio(snapshot.State),
+		})
+		break
 	}
 	return outputs
 }

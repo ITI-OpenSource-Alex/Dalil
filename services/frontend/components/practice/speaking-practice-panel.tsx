@@ -33,6 +33,7 @@ export default function SpeakingPracticePanel() {
   const partRef = useRef<1 | 2 | 3>(1);
   const cueCardRef = useRef<SpeakingCueCard | null>(null);
   const recordingTurnID = useRef<string | null>(null);
+  const resumeRetried = useRef(false);
 
   const [state, setState] = useState<SpeakingState>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -184,7 +185,19 @@ export default function SpeakingPracticePanel() {
         setEvaluation(result);
         setState("done");
       },
-      onError: (message) => {
+      onError: (message, code) => {
+        // A resume the server cannot honour — the interview was completed or
+        // abandoned elsewhere, or its record is gone. The session that failed
+        // is unrecoverable either way, so start a new one rather than leaving
+        // the candidate looking at a dead panel and a silent examiner. Once
+        // only: a fresh session that fails to initialise is a real fault.
+        if (code === "session_initialization_failed" && resumeSessionId && !resumeRetried.current) {
+          resumeRetried.current = true;
+          window.localStorage.removeItem(RESUME_STORAGE_KEY);
+          setState("connecting");
+          openSocket(audioFormat);
+          return;
+        }
         setError(message);
         setState("error");
         if (message.includes("resume") || message.includes("already")) {
@@ -204,6 +217,7 @@ export default function SpeakingPracticePanel() {
     setPart(1);
     partRef.current = 1;
     cueCardRef.current = null;
+    resumeRetried.current = false;
     setPartLabel("Introduction and interview");
     setSessionKey((key) => key + 1);
     try {
@@ -229,6 +243,11 @@ export default function SpeakingPracticePanel() {
   };
 
   const closeSpeaking = () => {
+    // Drop the resume key here rather than waiting for session_complete to come
+    // back: close() follows abandon() immediately, so that frame may never be
+    // read, and a key pointing at an abandoned interview makes the next session
+    // resume something the server has already finished.
+    window.localStorage.removeItem(RESUME_STORAGE_KEY);
     speakingSocket.current?.abandon();
     void stopRecorder(false);
     audioPlayer.current.stop();

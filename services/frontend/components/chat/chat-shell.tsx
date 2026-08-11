@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { RotateCcw } from "lucide-react";
+import { Plus, RotateCcw, Trash2, X } from "lucide-react";
 import { streamChatResponse, ChatEvent } from "@/lib/chat-stream";
 import MessageList from "./message-list";
 import ChatInput from "./chat-input";
@@ -81,7 +81,29 @@ function nextMessageId(prefix: string): string {
   return `${prefix}-${messageSequence}-${Date.now()}`;
 }
 
-export default function ChatShell() {
+interface ChatShellProps {
+  variant?: "page" | "widget";
+  draft?: string;
+  onDraftChange?: (value: string) => void;
+  focusRequestKey?: number;
+  onClose?: () => void;
+  onBusyChange?: (busy: boolean) => void;
+  onResponseComplete?: () => void;
+}
+
+export default function ChatShell({
+  variant = "page",
+  draft,
+  onDraftChange,
+  focusRequestKey,
+  onClose,
+  onBusyChange,
+  onResponseComplete,
+}: ChatShellProps) {
+  const isWidget = variant === "widget";
+  const [internalDraft, setInternalDraft] = useState("");
+  const composerDraft = draft ?? internalDraft;
+  const setComposerDraft = onDraftChange ?? setInternalDraft;
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
@@ -141,6 +163,11 @@ export default function ChatShell() {
   const userInitials = user?.email ? emailInitials(user.email) : "";
   const [memoryNotice, setMemoryNotice] = useState<string | null>(null);
   const [forgetting, setForgetting] = useState(false);
+  const [confirmingForget, setConfirmingForget] = useState(false);
+
+  useEffect(() => {
+    onBusyChange?.(isSending);
+  }, [isSending, onBusyChange]);
 
   // Load session history on mount
   useEffect(() => {
@@ -247,7 +274,9 @@ export default function ChatShell() {
 
     setSessionId(startNewChatSession());
     setMessages([]);
+    setComposerDraft("");
     setMemoryNotice(null);
+    setConfirmingForget(false);
     // Lets the new session's history load apply again — it is a different
     // conversation, and nothing has been sent in it yet.
     hasSentRef.current = false;
@@ -261,13 +290,15 @@ export default function ChatShell() {
    * check; adding a second such route for a destructive endpoint would put an
    * unauthenticated erasure path on the frontend server.
    */
-  const handleForgetMe = async () => {
-    const confirmed = window.confirm(
-      "Delete everything Dalil remembers about you?\n\n" +
-        "This removes your saved profile facts (degree, GPA, target country, " +
-        "programmes and concerns) and your stored conversations. It cannot be undone.",
-    );
-    if (!confirmed) return;
+  const handleForgetMe = async (skipConfirmation = false) => {
+    if (!skipConfirmation) {
+      const confirmed = window.confirm(
+        "Delete everything Dalil remembers about you?\n\n" +
+          "This removes your saved profile facts (degree, GPA, target country, " +
+          "programmes and concerns) and your stored conversations. It cannot be undone.",
+      );
+      if (!confirmed) return;
+    }
 
     setForgetting(true);
     try {
@@ -288,6 +319,7 @@ export default function ChatShell() {
       hasSentRef.current = false;
       setSessionId(startNewChatSession());
       setMessages([]);
+      setComposerDraft("");
       setMemoryNotice(
         `Deleted ${result.factsDeleted} saved fact${result.factsDeleted === 1 ? "" : "s"} ` +
           `and ${result.sessionsCleared} conversation${result.sessionsCleared === 1 ? "" : "s"}.`,
@@ -301,6 +333,7 @@ export default function ChatShell() {
       );
     } finally {
       setForgetting(false);
+      setConfirmingForget(false);
     }
   };
 
@@ -525,6 +558,7 @@ export default function ChatShell() {
       sendingRef.current = false;
       setIsSending(false);
       setIsTyping(false);
+      if (!controller.signal.aborted) onResponseComplete?.();
     }
   };
 
@@ -539,27 +573,66 @@ export default function ChatShell() {
   }, []);
 
   return (
-    <main className="min-h-screen flex flex-col bg-canvas text-fg">
+    <div
+      className={`${isWidget ? "h-full min-h-0" : "min-h-screen"} flex flex-col bg-canvas text-fg`}
+    >
       {/* Top Banner indicating interactive session */}
       <motion.div
         initial={{ opacity: 0, y: -12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
-        className="border-b border-border px-4 sm:px-8 py-4 bg-surface flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+        className={`border-b border-border bg-surface flex gap-3 ${
+          isWidget
+            ? "items-center justify-between px-4 py-3"
+            : "flex-col px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-8"
+        }`}
       >
         <div>
           <h1 className="text-lg font-bold text-brand-fg">Dalil Assistant</h1>
           <p className="text-xs text-fg-muted">
-            {profileStatus === "success" && user
-              ? user.email
-              : identityLoading
-                ? "Loading your profile…"
-                : "Not signed in"}
+            {isWidget
+              ? "Ask anything, or refine a suggested prompt"
+              : profileStatus === "success" && user
+                ? user.email
+                : identityLoading
+                  ? "Loading your profile…"
+                  : "Not signed in"}
           </p>
         </div>
         {/* flex-wrap: "New conversation" + "Forget what you know about me" +
             the sync indicator don't fit in one unbroken row under ~500px --
             they used to clip past the edge of the screen instead of wrapping. */}
+        {isWidget ? (
+          <div className="flex shrink-0 items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
+              aria-label="Start a new conversation"
+              title="New conversation"
+              onClick={handleNewConversation}
+              leadingIcon={Plus}
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
+              aria-label="Forget what Dalil knows about me"
+              title="Forget what Dalil knows about me"
+              onClick={() => setConfirmingForget(true)}
+              leadingIcon={Trash2}
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
+              aria-label="Close Dalil chat"
+              title="Close"
+              onClick={onClose}
+              leadingIcon={X}
+            />
+          </div>
+        ) : (
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {/* GOA-038. Two different things, deliberately worded apart: one
               starts a new thread and keeps what the assistant knows about you,
@@ -573,7 +646,7 @@ export default function ChatShell() {
           </button>
           <button
             type="button"
-            onClick={handleForgetMe}
+            onClick={() => void handleForgetMe()}
             disabled={forgetting}
             title="Delete your saved profile facts and stored conversations"
             className="text-xs px-3 py-1.5 rounded-full border border-border text-danger-fg hover:bg-danger-subtle transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger-border disabled:opacity-50"
@@ -585,12 +658,28 @@ export default function ChatShell() {
             <span className="text-xs text-fg-muted">Sync Ready</span>
           </span>
         </div>
+        )}
       </motion.div>
+
+      {isWidget && confirmingForget && (
+        <div role="alert" className="border-b border-danger-border bg-danger-subtle px-4 py-3 text-xs text-danger-fg">
+          <p className="font-semibold">Delete Dalil memory and stored conversations?</p>
+          <p className="mt-1 text-fg-muted">This cannot be undone.</p>
+          <div className="mt-2 flex justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setConfirmingForget(false)}>
+              Cancel
+            </Button>
+            <Button variant="danger" size="sm" loading={forgetting} onClick={() => void handleForgetMe(true)}>
+              Delete memory
+            </Button>
+          </div>
+        </div>
+      )}
 
       {memoryNotice && (
         <div
           role="status"
-          className="px-8 py-2 text-xs text-brand-fg bg-canvas-subtle border-b border-border"
+          className={`${isWidget ? "px-4" : "px-8"} py-2 text-xs text-brand-fg bg-canvas-subtle border-b border-border`}
         >
           {memoryNotice}
         </div>
@@ -601,12 +690,13 @@ export default function ChatShell() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.4, delay: 0.1 }}
-        className="flex-1 overflow-y-auto px-4 sm:px-8 py-6"
+        className={`min-h-0 flex-1 overflow-y-auto ${isWidget ? "px-3 py-4" : "px-4 py-6 sm:px-8"}`}
       >
         <MessageList
           messages={messages}
           isTyping={isTyping}
           userInitials={userInitials}
+          compact={isWidget}
         />
       </motion.section>
 
@@ -615,7 +705,7 @@ export default function ChatShell() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.15, ease: "easeOut" }}
-        className="border-t border-border bg-surface px-4 sm:px-8 py-4"
+        className={`border-t border-border bg-surface ${isWidget ? "px-3 py-3" : "px-4 py-4 sm:px-8"}`}
       >
         {profileStatus === "error" && (
           <Alert
@@ -634,6 +724,10 @@ export default function ChatShell() {
         )}
         <ChatInput
           onSendMessage={handleSendMessage}
+          value={composerDraft}
+          onValueChange={setComposerDraft}
+          focusRequestKey={focusRequestKey}
+          showPracticeShortcuts={!isWidget}
           disabled={identityLoading}
           sending={isSending}
         />
@@ -641,6 +735,6 @@ export default function ChatShell() {
           Dalil can make mistakes. Verify university requirements before applying.
         </div>
       </motion.section>
-    </main>
+    </div>
   );
 }

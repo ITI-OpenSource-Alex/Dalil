@@ -13,7 +13,6 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
-  MessageSquare,
   Sparkles,
   Target,
   User as UserIcon,
@@ -73,7 +72,6 @@ const NAV_ITEMS: NavItem[] = [
   // Phase E (docs/IA-REDESIGN-PROPOSAL.md): the user's home after
   // onboarding, replacing the temporary redirect to /opportunities.
   { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
-  { label: "Chat", icon: MessageSquare, href: "/chat" },
   {
     label: "IELTS Exam",
     icon: GraduationCap,

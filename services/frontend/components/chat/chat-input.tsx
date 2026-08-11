@@ -7,6 +7,10 @@ import { Mic, PenSquare, Send } from "lucide-react";
 
 interface ChatInputProps {
   onSendMessage: (text: string) => void;
+  value?: string;
+  onValueChange?: (value: string) => void;
+  focusRequestKey?: number;
+  showPracticeShortcuts?: boolean;
   /**
    * True while the real user identity (useCurrentUser) hasn't resolved yet.
    * Disables Send so a message can't go out carrying the CURRENT_USER_ID
@@ -24,11 +28,17 @@ interface ChatInputProps {
 
 export default function ChatInput({
   onSendMessage,
+  value,
+  onValueChange,
+  focusRequestKey = 0,
+  showPracticeShortcuts = true,
   disabled = false,
   sending = false,
 }: ChatInputProps) {
-  const [inputText, setInputText] = useState("");
+  const [internalInput, setInternalInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const inputText = value ?? internalInput;
+  const setInputText = onValueChange ?? setInternalInput;
   const locked = disabled || sending;
 
   useEffect(() => {
@@ -40,6 +50,19 @@ export default function ChatInput({
       160,
     )}px`;
   }, [inputText]);
+
+  useEffect(() => {
+    if (!focusRequestKey) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+      textarea.focus();
+      textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusRequestKey]);
 
   const handleSubmit = () => {
     if (!inputText.trim() || locked) return;
@@ -75,24 +98,28 @@ export default function ChatInput({
         {/* Writing Practice now has its own page (Phase D) -- these are
             deep links into it, not an inline toggle. Chat is a secondary
             entry point, not the only one. */}
-        <Link
-          href="/practice/writing"
-          className="p-2 hover:bg-canvas-subtle rounded-lg text-fg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted"
-          title="Writing Practice"
-          aria-label="Writing Practice"
-        >
-          <PenSquare size={19} />
-        </Link>
+        {showPracticeShortcuts && (
+          <Link
+            href="/practice/writing"
+            className="p-2 hover:bg-canvas-subtle rounded-lg text-fg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted"
+            title="Writing Practice"
+            aria-label="Writing Practice"
+          >
+            <PenSquare size={19} />
+          </Link>
+        )}
 
         {/* Speaking Practice */}
-        <Link
-          href="/practice/speaking"
-          className="p-2 hover:bg-canvas-subtle rounded-lg text-fg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted"
-          title="Speaking Practice"
-          aria-label="Speaking Practice"
-        >
-          <Mic size={19} />
-        </Link>
+        {showPracticeShortcuts && (
+          <Link
+            href="/practice/speaking"
+            className="p-2 hover:bg-canvas-subtle rounded-lg text-fg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted"
+            title="Speaking Practice"
+            aria-label="Speaking Practice"
+          >
+            <Mic size={19} />
+          </Link>
+        )}
 
         {/* Send */}
         <motion.button

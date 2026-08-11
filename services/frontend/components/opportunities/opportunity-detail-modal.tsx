@@ -4,6 +4,8 @@ import Link from "next/link";
 import { ArrowRight, ExternalLink, ListChecks } from "lucide-react";
 import { Button, Modal, ModalContent, Text } from "@/components/ui";
 import { type MatchedProgram } from "@/lib/opportunities-api";
+import { AskDalilButton } from "@/components/chat/ask-dalil-button";
+import { programmeAdvicePrompt } from "@/lib/dalil-prompts";
 
 const REQUIREMENT_ROWS: {
   key: keyof NonNullable<MatchedProgram["requirements"]>;
@@ -113,16 +115,13 @@ export function OpportunityDetailModal({
                 Full programme details
               </Link>
             </Button>
-            <Button size="sm" variant="ghost" trailingIcon={ArrowRight} asChild>
-              <Link
-                href={`/chat?ask=${encodeURIComponent(
-                  `Tell me more about ${program.programName} at ${program.university}.`,
-                )}`}
-                onClick={() => onOpenChange(false)}
-              >
-                Ask GOA
-              </Link>
-            </Button>
+            <AskDalilButton
+              size="sm"
+              variant="ghost"
+              trailingIcon={ArrowRight}
+              prompt={programmeAdvicePrompt(program)}
+              onBeforeOpen={() => onOpenChange(false)}
+            />
             <Button size="sm" leadingIcon={ListChecks} asChild>
               <Link
                 href={`/checklist/${encodeURIComponent(program.programId)}`}

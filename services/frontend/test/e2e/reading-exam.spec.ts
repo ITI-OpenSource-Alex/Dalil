@@ -241,8 +241,11 @@ test.describe("Dalil Reading exam (mocked backend)", () => {
       "true",
     );
 
-    // 5 of 40 answered so far.
-    await expect(page.getByText("5 of 40 answered")).toBeVisible();
+    // 5 answered across sections; footer shows dual progress for active
+    // section (3) plus exam-wide total.
+    await expect(page.getByTestId("reading-progress")).toHaveText(
+      "Section 3: 1/14 · Exam: 5/40",
+    );
   });
 
   test("submit confirmation modal shows the exact unanswered count and cancel does not submit", async ({

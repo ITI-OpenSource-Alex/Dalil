@@ -14,6 +14,10 @@ import type {
   ReadingAnswers,
   ReadingSubmitResponse,
 } from "@/app/types/reading";
+import {
+  formatReadingProgress,
+  getReadingProgress,
+} from "@/lib/reading-progress";
 import PassagePanel from "./PassagePanel";
 import SectionTabs from "./SectionTabs";
 import QuestionNavSidebar from "./QuestionNavSidebar";
@@ -139,6 +143,11 @@ export default function ReadingExam({
   const unansweredCount = state.questions.filter(
     (q) => !state.answers[String(q.number)]?.trim(),
   ).length;
+  const progress = getReadingProgress({
+    questions: state.questions,
+    answers: state.answers,
+    activeSection: state.activeSection,
+  });
 
   const handleJump = (questionNumber: number) => {
     const target = state.questions.find((q) => q.number === questionNumber);
@@ -244,9 +253,11 @@ export default function ReadingExam({
         {state.submitError ? (
           <p className="text-xs text-danger" role="alert">{state.submitError}</p>
         ) : (
-          <span className="text-xs text-fg-subtle">
-            {state.questions.length - unansweredCount} of{" "}
-            {state.questions.length} answered
+          <span
+            data-testid="reading-progress"
+            className="text-xs text-fg-subtle"
+          >
+            {formatReadingProgress(progress)}
           </span>
         )}
         <button

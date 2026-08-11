@@ -105,6 +105,48 @@ describe("ChatShell message pipeline", () => {
     expect(screen.getAllByTestId("assistant-message")).toHaveLength(2);
   });
 
+  it("shows removable turn-scoped evidence and sends it separately from editable text", async () => {
+    const user = userEvent.setup();
+    const clearContext = vi.fn();
+    const explanationContext = {
+      kind: "programme_match" as const,
+      title: "MSc Computer Science 91% fit",
+      subjectId: "tum-cs",
+      facts: [
+        { label: "Fit score", value: "91%" },
+        { label: "University", value: "Technical University of Munich" },
+      ],
+      limitations: ["A fit score is not an admission decision."],
+    };
+
+    render(
+      <ChatShell
+        draft="Why is this a strong fit?"
+        onDraftChange={vi.fn()}
+        explanationContext={explanationContext}
+        onClearExplanationContext={clearContext}
+      />,
+    );
+
+    await screen.findByText("amina@example.com");
+    expect(screen.getByTestId("explanation-context-card")).toHaveTextContent(
+      "MSc Computer Science 91% fit",
+    );
+
+    await user.click(screen.getByTestId("send-message-button"));
+
+    await waitFor(() => {
+      const chatCall = fetchMock.mock.calls.find((call) =>
+        String(call[0]).endsWith("/api/chat"),
+      );
+      expect(chatCall).toBeDefined();
+      const body = JSON.parse(String((chatCall?.[1] as RequestInit).body));
+      expect(body.message).toBe("Why is this a strong fit?");
+      expect(body.explanationContext).toEqual(explanationContext);
+    });
+    expect(clearContext).toHaveBeenCalledOnce();
+  });
+
   it("refuses a second send while a reply is still streaming", async () => {
     // A stream that never completes until we let it, so the second submit
     // lands squarely mid-turn -- which is exactly how the duplicate-reply

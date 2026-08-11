@@ -6,6 +6,7 @@ import { Sparkles } from "lucide-react";
 import { Button, Icon } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import ChatShell from "./chat-shell";
+import type { ExplanationContext } from "@/lib/explanation-context";
 
 interface ChatWidgetProps {
   open: boolean;
@@ -13,6 +14,8 @@ interface ChatWidgetProps {
   onOpenChange: (open: boolean) => void;
   draft: string;
   onDraftChange: (value: string) => void;
+  explanationContext: ExplanationContext | null;
+  onClearExplanationContext: () => void;
   focusRequestKey: number;
   busy: boolean;
   unread: boolean;
@@ -50,6 +53,8 @@ export default function ChatWidget({
   onOpenChange,
   draft,
   onDraftChange,
+  explanationContext,
+  onClearExplanationContext,
   focusRequestKey,
   busy,
   unread,
@@ -144,6 +149,8 @@ export default function ChatWidget({
               variant="widget"
               draft={draft}
               onDraftChange={onDraftChange}
+              explanationContext={explanationContext}
+              onClearExplanationContext={onClearExplanationContext}
               focusRequestKey={focusRequestKey}
               onClose={() => handleOpenChange(false)}
               onBusyChange={onBusyChange}

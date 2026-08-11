@@ -8,9 +8,12 @@ import {
   TASK_WEIGHT_PERCENT,
 } from "@/lib/writing-exam";
 import type { WritingResultResponse, WritingTaskResult } from "@/lib/exam-api";
+import { ExplainWithDalilButton } from "@/components/chat/explain-with-dalil-button";
+import { compactFacts, fact } from "@/lib/explanation-context";
 
 interface CombinedWritingResultsProps {
   result: WritingResultResponse;
+  subjectId?: string;
 }
 
 function taskBand(task: WritingTaskResult | undefined): number {
@@ -30,6 +33,7 @@ function taskBand(task: WritingTaskResult | undefined): number {
  */
 export default function CombinedWritingResults({
   result,
+  subjectId,
 }: CombinedWritingResultsProps) {
   const task1 = result.tasks?.["1"];
   const task2 = result.tasks?.["2"];
@@ -52,7 +56,7 @@ export default function CombinedWritingResults({
           </p>
         </div>
 
-        <div className="shrink-0 rounded-2xl border border-border bg-canvas-subtle px-8 py-4 text-center">
+        <div className="relative shrink-0 rounded-2xl border border-border bg-canvas-subtle px-8 py-4 text-center">
           <p className="text-[10px] font-bold uppercase tracking-widest text-fg-subtle">
             Overall Band
           </p>
@@ -62,6 +66,26 @@ export default function CombinedWritingResults({
           >
             {formatBand(result.overall_band)}
           </p>
+          <ExplainWithDalilButton
+            context={{
+              kind: "exam_score",
+              title: `your Writing simulation band ${formatBand(result.overall_band)}`,
+              subjectId,
+              facts: compactFacts([
+                fact("Overall writing band", formatBand(result.overall_band)),
+                fact("Task 1 band", formatBand(band1)),
+                fact("Task 1 weight", `${TASK_WEIGHT_PERCENT[1]}%`),
+                fact("Task 2 band", formatBand(band2)),
+                fact("Task 2 weight", `${TASK_WEIGHT_PERCENT[2]}%`),
+                fact("Calculation", formatWeightedFormula(band1, band2, result.overall_band)),
+              ]),
+              limitations: [
+                "This is an official-simulation result, not an official IELTS score.",
+              ],
+            }}
+            prompt={`Explain how Task 1 band ${formatBand(band1)} and Task 2 band ${formatBand(band2)} produced my overall Writing band ${formatBand(result.overall_band)}. Why does Task 2 matter more?`}
+            className="absolute -right-3 -top-3"
+          />
         </div>
       </div>
 
@@ -124,6 +148,7 @@ export default function CombinedWritingResults({
                 evaluations={task.evaluation?.evaluations ?? []}
                 essayText={task.response_text}
                 defaultExpanded
+                subjectId={subjectId ? `${subjectId}:task-${taskNumber}` : undefined}
               />
             );
           })}

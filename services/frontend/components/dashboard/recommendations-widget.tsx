@@ -4,6 +4,8 @@ import Link from "next/link";
 import { Lightbulb } from "lucide-react";
 import { useExamProgress } from "@/app/hooks/useExamProgress";
 import { Button, Card, Icon, Text } from "@/components/ui";
+import { ExplainWithDalilButton } from "@/components/chat/explain-with-dalil-button";
+import { compactFacts, fact } from "@/lib/explanation-context";
 
 const SKILL_LABEL: Record<string, string> = {
   reading: "Reading",
@@ -63,9 +65,30 @@ export function RecommendationsWidget() {
           </Text>
         </div>
       </div>
-      <Button size="sm" asChild>
-        <Link href={href}>Practice {label}</Link>
-      </Button>
+      <div className="flex flex-wrap items-center gap-2">
+        <ExplainWithDalilButton
+          display="compact"
+          context={{
+            kind: "recommendation",
+            title: `the recommendation to practise ${label}`,
+            summary: `${label} is currently the lowest latest skill band.`,
+            facts: compactFacts([
+              fact("Recommended skill", label),
+              fact("Latest band", weakest.band.toFixed(1)),
+              ...latestBySkill.map((entry) =>
+                fact(`${SKILL_LABEL[entry.skill] ?? entry.skill} latest band`, entry.band.toFixed(1)),
+              ),
+            ]),
+            limitations: [
+              "The recommendation compares only the latest recorded attempt for each available skill.",
+            ],
+          }}
+          prompt={`Why are you recommending ${label} practice based on my latest bands? Explain the comparison and suggest a focused next session.`}
+        />
+        <Button size="sm" asChild>
+          <Link href={href}>Practice {label}</Link>
+        </Button>
+      </div>
     </Card>
   );
 }

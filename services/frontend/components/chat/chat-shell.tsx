@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Plus, RotateCcw, Trash2, X } from "lucide-react";
+import { Plus, RotateCcw, Sparkles, Trash2, X } from "lucide-react";
 import { streamChatResponse, ChatEvent } from "@/lib/chat-stream";
 import MessageList from "./message-list";
 import ChatInput from "./chat-input";
@@ -22,6 +22,7 @@ import {
   SubscriptionRequiredError,
 } from "@/lib/subscription";
 import { useUpgradePrompt } from "@/components/subscription/upgrade-dialog";
+import type { ExplanationContext } from "@/lib/explanation-context";
 
 // Chat goes through the Gateway. These two calls used relative paths, i.e. to
 // the Next.js server itself, where no route handler was ever written — both
@@ -85,6 +86,8 @@ interface ChatShellProps {
   variant?: "page" | "widget";
   draft?: string;
   onDraftChange?: (value: string) => void;
+  explanationContext?: ExplanationContext | null;
+  onClearExplanationContext?: () => void;
   focusRequestKey?: number;
   onClose?: () => void;
   onBusyChange?: (busy: boolean) => void;
@@ -95,6 +98,8 @@ export default function ChatShell({
   variant = "page",
   draft,
   onDraftChange,
+  explanationContext = null,
+  onClearExplanationContext,
   focusRequestKey,
   onClose,
   onBusyChange,
@@ -275,6 +280,7 @@ export default function ChatShell({
     setSessionId(startNewChatSession());
     setMessages([]);
     setComposerDraft("");
+    onClearExplanationContext?.();
     setMemoryNotice(null);
     setConfirmingForget(false);
     // Lets the new session's history load apply again — it is a different
@@ -320,6 +326,7 @@ export default function ChatShell({
       setSessionId(startNewChatSession());
       setMessages([]);
       setComposerDraft("");
+      onClearExplanationContext?.();
       setMemoryNotice(
         `Deleted ${result.factsDeleted} saved fact${result.factsDeleted === 1 ? "" : "s"} ` +
           `and ${result.sessionsCleared} conversation${result.sessionsCleared === 1 ? "" : "s"}.`,
@@ -455,6 +462,8 @@ export default function ChatShell({
     sendingRef.current = true;
     hasSentRef.current = true;
     setIsSending(true);
+    const turnExplanationContext = explanationContext;
+    if (turnExplanationContext) onClearExplanationContext?.();
 
     const controller = new AbortController();
     // Supersede rather than accumulate: if a previous turn somehow survived
@@ -497,6 +506,7 @@ export default function ChatShell({
           sessionId,
           message: text,
           attachments: [],
+          explanationContext: turnExplanationContext ?? undefined,
         }),
       });
 
@@ -707,6 +717,40 @@ export default function ChatShell({
         transition={{ duration: 0.4, delay: 0.15, ease: "easeOut" }}
         className={`border-t border-border bg-surface ${isWidget ? "px-3 py-3" : "px-4 py-4 sm:px-8"}`}
       >
+        {explanationContext && (
+          <div
+            data-testid="explanation-context-card"
+            className="mb-3 overflow-hidden rounded-xl border border-brand-border bg-[linear-gradient(135deg,var(--color-brand-subtle),var(--color-surface))] shadow-e1"
+          >
+            <div className="flex items-start gap-3 px-3 py-2.5">
+              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-fg-on-brand shadow-e1">
+                <Sparkles size={15} aria-hidden="true" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-brand-fg">
+                  Evidence attached for this question
+                </p>
+                <p className="mt-0.5 truncate text-sm font-semibold text-fg">
+                  {explanationContext.title}
+                </p>
+                <p className="mt-0.5 text-xs text-fg-muted">
+                  {explanationContext.facts.length} evidence detail
+                  {explanationContext.facts.length === 1 ? "" : "s"} · removed
+                  after you send
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                iconOnly
+                leadingIcon={X}
+                aria-label={`Remove explanation context for ${explanationContext.title}`}
+                onClick={onClearExplanationContext}
+                className="h-8 w-8 rounded-full"
+              />
+            </div>
+          </div>
+        )}
         {profileStatus === "error" && (
           <Alert
             tone="danger"

@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Sidebar } from "@/components/ui/sidebar";
 import { UpgradeProvider } from "@/components/subscription/upgrade-dialog";
 import { DalilChatProvider } from "@/components/chat/dalil-chat-provider";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 /*
  * The shared shell for every authenticated route (chat, exam, profile,
@@ -19,7 +20,8 @@ import { DalilChatProvider } from "@/components/chat/dalil-chat-provider";
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <UpgradeProvider>
-      <DalilChatProvider>
+      <TooltipProvider>
+        <DalilChatProvider>
       {/* flex-col below lg, flex-row at lg+: Sidebar renders two siblings --
           a sticky mobile top bar (in normal flow below lg) and the aside
           itself (position: fixed below lg, so out of flow there; lg:sticky,
@@ -32,7 +34,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         <Sidebar />
         <div className="min-w-0 flex-1">{children}</div>
       </div>
-      </DalilChatProvider>
+        </DalilChatProvider>
+      </TooltipProvider>
     </UpgradeProvider>
   );
 }

@@ -41,6 +41,7 @@ export default function SpeakingPracticePanel() {
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
   const [sessionKey, setSessionKey] = useState(0);
   const [evaluation, setEvaluation] = useState<SpeakingEvaluation | null>(null);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [part, setPart] = useState<1 | 2 | 3>(1);
   const [partLabel, setPartLabel] = useState("Introduction and interview");
   const [examinerText, setExaminerText] = useState("");
@@ -117,6 +118,7 @@ export default function SpeakingPracticePanel() {
 
   const openSocket = (audioFormat: string) => {
     const resumeSessionId = window.localStorage.getItem(RESUME_STORAGE_KEY) ?? undefined;
+    setActiveSessionId(resumeSessionId ?? null);
     audioFormatRef.current = audioFormat;
     speakingSocket.current?.close();
     speakingSocket.current = new SpeakingWebSocket({
@@ -130,7 +132,10 @@ export default function SpeakingPracticePanel() {
         if (socketState === "processing") setState("transcribing");
         if (socketState === "error") setState("error");
       },
-      onSessionStarted: (sessionId) => window.localStorage.setItem(RESUME_STORAGE_KEY, sessionId),
+      onSessionStarted: (sessionId) => {
+        setActiveSessionId(sessionId);
+        window.localStorage.setItem(RESUME_STORAGE_KEY, sessionId);
+      },
       onSessionResumed: (resumedPart) => setPart(resumedPart as 1 | 2 | 3),
       onPartChange: (change) => {
         partRef.current = change.part;
@@ -288,6 +293,8 @@ export default function SpeakingPracticePanel() {
           overallBand={evaluation.overall_band ?? null}
           criteria={extractCriteriaScores(evaluation.dimensions as SpeakingDimensions)}
           feedback={evaluation.overall_feedback}
+          enableAskDalil
+          subjectId={activeSessionId ?? undefined}
           className="rounded-card border border-brand-border bg-surface p-6 shadow-e1"
         />
       )}

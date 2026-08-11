@@ -13,6 +13,8 @@ import {
 import type { CriterionEvaluation } from "@/lib/writing-api";
 import EssayHighlighter, { EssayIssue } from "./essay-highlighter";
 import InlineAlert from "@/components/speaking/inline-alert";
+import { ExplainWithDalilButton } from "@/components/chat/explain-with-dalil-button";
+import { compactFacts, fact } from "@/lib/explanation-context";
 
 interface SimpleCriterionScore {
   band: number;
@@ -135,13 +137,31 @@ export default function WritingEvaluationPanel({
                 exit={{ opacity: 0 }}
                 className="space-y-2"
               >
-                <div className="flex justify-between">
+                <div className="flex items-center justify-between gap-3">
                   <span className="text-sm font-medium text-fg">
                     {labels[key] ?? key}
                   </span>
 
-                  <span className="font-bold" style={{ color: barColour }}>
-                    Band {value.band.toFixed(1)}
+                  <span className="flex items-center gap-1.5">
+                    <span className="font-bold" style={{ color: barColour }}>
+                      Band {value.band.toFixed(1)}
+                    </span>
+                    <ExplainWithDalilButton
+                      context={{
+                        kind: "writing_score",
+                        title: `${labels[key] ?? key} writing band ${value.band.toFixed(1)}`,
+                        facts: compactFacts([
+                          fact("Criterion", labels[key] ?? key),
+                          fact("Estimated criterion band", value.band.toFixed(1)),
+                          fact("Estimated overall band", overallBand?.toFixed(1)),
+                          fact("Evaluator feedback", value.feedback),
+                        ]),
+                        limitations: [
+                          "This is an AI-assisted practice estimate, not an official IELTS result.",
+                        ],
+                      }}
+                      prompt={`Why did my ${labels[key] ?? key} receive band ${value.band.toFixed(1)}? Explain the feedback in plain language and give me one before-and-after example of how to improve it.`}
+                    />
                   </span>
                 </div>
 
@@ -183,8 +203,26 @@ export default function WritingEvaluationPanel({
             <span className="font-semibold">Estimated Overall Band</span>
           </div>
 
-          <span className="text-xl font-bold text-success-fg">
-            {overallBand.toFixed(1)}
+          <span className="flex items-center gap-2">
+            <span className="text-xl font-bold text-success-fg">
+              {overallBand.toFixed(1)}
+            </span>
+            <ExplainWithDalilButton
+              context={{
+                kind: "writing_score",
+                title: `your estimated overall writing band ${overallBand.toFixed(1)}`,
+                facts: compactFacts([
+                  fact("Estimated overall band", overallBand.toFixed(1)),
+                  ...Object.entries(evaluations).map(([key, value]) =>
+                    fact(`${labels[key] ?? key} band`, value.band.toFixed(1)),
+                  ),
+                ]),
+                limitations: [
+                  "This is an AI-assisted practice estimate, not an official IELTS result.",
+                ],
+              }}
+              prompt={`Explain why my estimated overall Writing band is ${overallBand.toFixed(1)}. Which criterion is limiting it most, and what should I work on first?`}
+            />
           </span>
         </motion.div>
       )}
@@ -257,29 +295,6 @@ export default function WritingEvaluationPanel({
           </div>
         </div>
       )}
-
-      <style jsx global>{`
-        @media print {
-          body * {
-            visibility: hidden;
-          }
-          #writing-evaluation-panel,
-          #writing-evaluation-panel * {
-            visibility: visible;
-          }
-          #writing-evaluation-panel {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            box-shadow: none;
-            border: none;
-          }
-          #writing-evaluation-panel .print-hide {
-            display: none !important;
-          }
-        }
-      `}</style>
     </motion.div>
   );
 }

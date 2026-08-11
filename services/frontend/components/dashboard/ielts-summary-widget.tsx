@@ -4,6 +4,8 @@ import Link from "next/link";
 import { GraduationCap, Sparkles } from "lucide-react";
 import { useExamProgress } from "@/app/hooks/useExamProgress";
 import { Button, Card, EmptyState, Skeleton, Text } from "@/components/ui";
+import { ExplainWithDalilButton } from "@/components/chat/explain-with-dalil-button";
+import { compactFacts, fact } from "@/lib/explanation-context";
 
 const SKILLS: { key: "reading" | "listening" | "speaking" | "writing"; label: string }[] = [
   { key: "reading", label: "Reading" },
@@ -87,13 +89,32 @@ export function IeltsSummaryWidget() {
             ? entries.reduce((a, b) => (a.date > b.date ? a : b))
             : null;
           return (
-            <div key={skill.key}>
+            <div key={skill.key} className="rounded-control bg-canvas-subtle p-2.5">
               <Text size="xs" tone="subtle">
                 {skill.label}
               </Text>
-              <Text size="lg" weight="semibold" className="mt-1">
-                {latest ? latest.band.toFixed(1) : "—"}
-              </Text>
+              <div className="mt-1 flex items-center justify-between gap-1">
+                <Text size="lg" weight="semibold">
+                  {latest ? latest.band.toFixed(1) : "—"}
+                </Text>
+                {latest && (
+                  <ExplainWithDalilButton
+                    context={{
+                      kind: "exam_score",
+                      title: `your latest ${skill.label} band ${latest.band.toFixed(1)}`,
+                      facts: compactFacts([
+                        fact("Skill", skill.label),
+                        fact("Latest band", latest.band.toFixed(1)),
+                        fact("Attempt date", latest.date),
+                      ]),
+                      limitations: [
+                        "This summary shows the latest recorded attempt, not a trend or official IELTS score.",
+                      ],
+                    }}
+                    prompt={`What does my latest ${skill.label} band ${latest.band.toFixed(1)} mean, and what should I practise next?`}
+                  />
+                )}
+              </div>
             </div>
           );
         })}

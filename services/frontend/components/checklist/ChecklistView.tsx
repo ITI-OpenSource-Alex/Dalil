@@ -107,13 +107,19 @@ export default function ChecklistView({
           phase={phase}
           items={grouped.get(phase) ?? []}
           onToggle={toggleItem}
+          programId={programId}
+          programName={programName}
         />
       ))}
 
       {/* Financial Requirements is rendered from a separate, structured-only
           source (financialItems), never from the LLM-generated checklist items
           above — see FinancialRequirements.tsx. */}
-      <FinancialRequirements items={financialItems} />
+      <FinancialRequirements
+        items={financialItems}
+        programId={programId}
+        programName={programName}
+      />
     </div>
   );
 }

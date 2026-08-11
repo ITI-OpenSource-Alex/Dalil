@@ -93,6 +93,52 @@ test.describe("Dalil Chat System", () => {
     );
   });
 
+  test("renders structured Markdown in assistant explanations", async ({
+    page,
+  }, testInfo) => {
+    const explanation = [
+      "It is shown as **100% fit** because the recorded score components are:",
+      "",
+      "- Eligibility: **40 points**",
+      "- Requirement headroom: **15 points**",
+      "- Subject fit: **35 points**",
+      "- Destination fit: **10 points**",
+      "",
+      "**Most important next step:** Verify the application deadline on the source listing.",
+    ].join("\n");
+    await page.route("**/api/chat", async (route) => {
+      await route.fulfill({
+        status: 200,
+        headers: { "Content-Type": "text/event-stream" },
+        body: [
+          `data: ${JSON.stringify({ type: "token", content: explanation })}`,
+          "",
+        ].join("\n"),
+      });
+    });
+
+    await page.getByTestId("dalil-chat-pill").click();
+    await page.getByTestId("chat-input").fill("Explain this fit score.");
+    await page.getByTestId("send-message-button").click();
+
+    const response = page.getByTestId("assistant-message").last();
+    await expect(response.getByText("100% fit", { exact: true })).toHaveCSS(
+      "font-weight",
+      "600",
+    );
+    await expect(response.getByRole("listitem")).toHaveCount(4);
+    await expect(response).not.toContainText("**");
+    await expect(response.locator("ul")).toHaveCSS("list-style-type", "disc");
+    await expect
+      .poll(async () => (await response.boundingBox())?.width ?? 0)
+      .toBeGreaterThan(280);
+
+    await page.screenshot({
+      path: testInfo.outputPath("formatted-explanation.png"),
+      fullPage: false,
+    });
+  });
+
   test("should disable sending an empty message", async ({ page }) => {
     await page.getByTestId("dalil-chat-pill").click();
     const sendButton = page.getByTestId("send-message-button");
@@ -137,6 +183,15 @@ test.describe("Dalil Chat System", () => {
   });
 
   test("Ask Dalil pastes editable programme context without auto-sending", async ({ page }) => {
+    const chatPayloads: Array<Record<string, unknown>> = [];
+    await page.route("**/api/chat", async (route) => {
+      chatPayloads.push(route.request().postDataJSON());
+      await route.fulfill({
+        status: 200,
+        headers: { "Content-Type": "text/event-stream" },
+        body: ['data: {"type":"token","content":"Evidence-based reply"}', ""].join("\n"),
+      });
+    });
     await page.route("**/api/profile", async (route) => {
       await route.fulfill({
         status: 200,
@@ -185,17 +240,43 @@ test.describe("Dalil Chat System", () => {
     });
 
     await page.goto("/opportunities");
-    await page.getByRole("button", { name: "Ask Dalil" }).click();
+    await page.locator('[data-explanation-kind="programme_match"]').first().click();
 
     const input = page.getByTestId("chat-input");
     await expect(page.getByTestId("dalil-chat-panel")).toBeVisible();
     await expect(input).toBeFocused();
     await expect(input).toHaveValue(/MSc Computer Science/);
     await expect(input).toHaveValue(/Technical University of Munich/);
+    await expect(page.getByTestId("explanation-context-card")).toContainText(
+      "MSc Computer Science",
+    );
     await input.fill("What scholarships could I use for this programme?");
     await expect(input).toHaveValue(
       "What scholarships could I use for this programme?",
     );
     await expect(page.getByTestId("user-message")).toHaveCount(0);
+
+    await page.getByTestId("send-message-button").click();
+    await expect(page.getByTestId("assistant-message").last()).toContainText(
+      "Evidence-based reply",
+    );
+    expect(chatPayloads[0]).toMatchObject({
+      explanationContext: {
+        kind: "programme_match",
+        subjectId: "tum-cs",
+        facts: expect.arrayContaining([
+          expect.objectContaining({
+            label: "Application deadline",
+            value: "No published deadline",
+          }),
+        ]),
+      },
+    });
+    await expect(page.getByTestId("explanation-context-card")).toHaveCount(0);
+
+    await input.fill("How do I prepare for a scholarship interview?");
+    await page.getByTestId("send-message-button").click();
+    await expect.poll(() => chatPayloads.length).toBe(2);
+    expect(chatPayloads[1].explanationContext).toBeUndefined();
   });
 });

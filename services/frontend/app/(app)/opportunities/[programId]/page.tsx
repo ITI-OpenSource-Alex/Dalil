@@ -15,6 +15,8 @@ import {
   Skeleton,
   Text,
 } from "@/components/ui";
+import { ExplainWithDalilButton } from "@/components/chat/explain-with-dalil-button";
+import { compactFacts, fact } from "@/lib/explanation-context";
 
 function value(value: unknown) {
   if (value === null || value === undefined || value === "")
@@ -146,9 +148,36 @@ export default function ProgrammeDetailPage() {
           )}
         </Card>
         <Card>
-          <Heading as="h2" size="md">
-            Your programme fit
-          </Heading>
+          <div className="flex items-center justify-between gap-3">
+            <Heading as="h2" size="md">
+              Your programme fit
+            </Heading>
+            <ExplainWithDalilButton
+              context={{
+                kind: "programme_match",
+                title: `${program.programName} fit result`,
+                subjectId: program.programId,
+                summary: `${program.university} · ${program.country}`,
+                facts: compactFacts([
+                  fact("Fit score", limitedScore ? "Insufficient data" : `${Math.round(program.result.score)}%`),
+                  fact("Blocking requirement", program.result.blocked_by),
+                  fact("Requirements met", program.result.requirements_met),
+                  fact("Requirements evaluated", program.result.requirements_evaluated),
+                  fact("Eligibility points", scoreBreakdown?.eligibility_points),
+                  fact("Requirement headroom points", scoreBreakdown?.requirement_headroom_points),
+                  fact("Subject fit points", scoreBreakdown?.subject_points),
+                  fact("Destination fit points", scoreBreakdown?.destination_points),
+                  ...Object.entries(requirements).map(([key, entry]) =>
+                    fact(`Published ${key}`, entry, program.sourceUrl),
+                  ),
+                ]),
+                limitations: limitedScore
+                  ? ["Not enough structured academic data was published for a reliable fit score."]
+                  : ["The calculation uses the profile currently saved in Dalil."],
+              }}
+              prompt={`Explain my fit for ${program.programName} at ${program.university}. Walk through the calculation, the decisive requirement, and what I should verify before applying.`}
+            />
+          </div>
           {limitedScore ? (
             <Text className="mt-2 font-semibold">
               Not enough structured academic data for a reliable fit score.
@@ -225,9 +254,31 @@ export default function ProgrammeDetailPage() {
           <div className="space-y-4">
             {program.visaRequirements?.map((visa, index) => (
               <Card key={`${visa.issuing_body}-${index}`}>
-                <Heading as="h3" size="sm">
-                  {visa.visa_type}
-                </Heading>
+                <div className="flex items-start justify-between gap-3">
+                  <Heading as="h3" size="sm">
+                    {visa.visa_type}
+                  </Heading>
+                  <ExplainWithDalilButton
+                    context={{
+                      kind: "visa_requirement",
+                      title: `${visa.visa_type} requirements for ${program.country}`,
+                      subjectId: program.programId,
+                      facts: compactFacts([
+                        fact("Visa type", visa.visa_type, visa.source_url),
+                        fact("Issuing body", visa.issuing_body, visa.source_url),
+                        fact("Requirements", JSON.stringify(visa.requirements), visa.source_url),
+                        fact("Proof of funds", JSON.stringify(visa.proof_of_funds), visa.source_url),
+                        fact("Minimum processing days", visa.processing_days_min, visa.source_url),
+                        fact("Maximum processing days", visa.processing_days_max, visa.source_url),
+                        fact("Notes", visa.notes, visa.source_url),
+                      ]),
+                      limitations: [
+                        "Visa rules can change; the linked official source remains authoritative.",
+                      ],
+                    }}
+                    prompt={`Explain the ${visa.visa_type} requirements for ${program.country} in plain language. Which documents and funds are mentioned, what is still uncertain, and what must I verify with ${visa.issuing_body}?`}
+                  />
+                </div>
                 <Text size="sm" tone="muted">
                   {visa.issuing_body}
                 </Text>

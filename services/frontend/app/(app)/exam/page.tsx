@@ -13,6 +13,8 @@ import { startListeningSession } from "@/lib/listening-api";
 import { useCurrentUser } from "@/app/hooks/useCurrentUser";
 import { useUpgradePrompt } from "@/components/subscription/upgrade-dialog";
 import { Alert, Button, Card, PageContainer } from "@/components/ui";
+import { ExplainWithDalilButton } from "@/components/chat/explain-with-dalil-button";
+import { compactFacts, fact } from "@/lib/explanation-context";
 
 export default function ExamLandingPage() {
   const router = useRouter();
@@ -357,10 +359,29 @@ export default function ExamLandingPage() {
             <span className="text-xs text-fg-subtle font-medium block mb-1">
               Current overall
             </span>
-            <div className="flex items-baseline gap-2">
+            <div className="flex items-center gap-2">
               <span className="text-3xl font-serif font-semibold text-fg">
                 {overallBand ?? "—"}
               </span>
+              {overallBand !== null && (
+                <ExplainWithDalilButton
+                  context={{
+                    kind: "exam_score",
+                    title: `your current IELTS practice average ${overallBand}`,
+                    facts: compactFacts([
+                      fact("Displayed average", overallBand),
+                      ...skillCards.map((card) =>
+                        fact(`${card.title} latest band`, latestBand(card.key)?.toFixed(1)),
+                      ),
+                    ]),
+                    limitations: [
+                      "The dashboard average uses only the latest available practice band for each completed skill.",
+                      "This is not an official IELTS result.",
+                    ],
+                  }}
+                  prompt={`How is my current IELTS practice average ${overallBand} formed from my latest skill scores? Tell me which skill is pulling it down most.`}
+                />
+              )}
             </div>
           </Card>
         </div>
@@ -444,13 +465,36 @@ export default function ExamLandingPage() {
               <div>
                 <div className="flex justify-between items-start mb-2">
                   <div className="p-1">{card.icon}</div>
-                  <div className="text-right">
-                    <span className="text-2xl font-serif font-bold text-fg leading-none block">
-                      {latestBand(card.key)?.toFixed(1) ?? "—"}
-                    </span>
-                    <span className="text-[10px] uppercase font-bold text-fg-subtle tracking-wider">
-                      CURRENT BAND
-                    </span>
+                  <div className="flex items-start gap-1">
+                    <div className="text-right">
+                      <span className="text-2xl font-serif font-bold text-fg leading-none block">
+                        {latestBand(card.key)?.toFixed(1) ?? "—"}
+                      </span>
+                      <span className="text-[10px] uppercase font-bold text-fg-subtle tracking-wider">
+                        CURRENT BAND
+                      </span>
+                    </div>
+                    {latestBand(card.key) !== null && (
+                      <ExplainWithDalilButton
+                        context={{
+                          kind: "exam_score",
+                          title: `your latest ${card.title} practice band ${latestBand(card.key)?.toFixed(1)}`,
+                          facts: compactFacts([
+                            fact("Skill", card.title),
+                            fact("Latest practice band", latestBand(card.key)?.toFixed(1)),
+                            fact(
+                              "Recorded attempts",
+                              progress?.[card.key.toLowerCase() as keyof ExamProgress]?.length,
+                            ),
+                          ]),
+                          limitations: [
+                            "This summary does not include the question- or criterion-level evidence; open the result for the full breakdown.",
+                          ],
+                        }}
+                        prompt={`What does my latest ${card.title} practice band ${latestBand(card.key)?.toFixed(1)} mean, and what should I inspect in the full result before deciding what to practise next?`}
+                        className="-mt-1"
+                      />
+                    )}
                   </div>
                 </div>
 

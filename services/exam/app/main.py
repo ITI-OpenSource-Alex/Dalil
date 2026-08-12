@@ -9,6 +9,7 @@ import structlog
 
 from app.api.heartbeat import router as heartbeat_router
 from app.api.history import router as history_router
+from app.api.demo import router as demo_router
 from app.api.internal import router as internal_router
 from app.api.listening import router as listening_router
 from app.api.questions import router as questions_router
@@ -137,6 +138,7 @@ app.include_router(reading_router)
 app.include_router(listening_router)
 app.include_router(internal_router)
 app.include_router(history_router)
+app.include_router(demo_router)
 
 
 # Health endpoint

@@ -8,6 +8,24 @@
 name: goa
 
 services:
+  frontend:
+    build:
+      context: ./services/frontend
+      target: dev
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8080
+      - NEXT_PUBLIC_BILLING_ENABLED=true
+      - WATCHPACK_POLLING=true
+    volumes:
+      - ./services/frontend:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      gateway:
+        condition: service_started
+
   gateway:
     build:
       context: ./services/gateway
@@ -105,6 +123,9 @@ services:
 
     volumes:
       - ./services/user:/usr/src/app
+      # GOA-047 operator tooling runs in this Node image so the repository does
+      # not need a second root-level JavaScript dependency tree.
+      - ./scripts:/workspace/scripts:ro
       - /usr/src/app/node_modules
 
     depends_on:
@@ -490,6 +511,7 @@ services:
       - SQS_QUEUE_NAME=user-events-exam
     volumes:
       - ./services/exam:/app
+      - ./evals:/evals:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -612,6 +634,7 @@ services:
       - INGESTION_VISIBILITY_TIMEOUT=4320
     volumes:
       - ./services/ingestion:/app
+      - ./scripts:/workspace/scripts:ro
       - ./packages/contracts/py/contracts:/app/contracts:ro
       # GOA-135: same shape as `contracts` above. The Dockerfile COPYs the price
       # table into /app/goa_pricing, and the /app mount on the first line hides

@@ -141,6 +141,8 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	app.Use(middleware.RequestLogger(logger, metrics))
 	app.Get("/health", handlers.Health(startTime, cfg.Version))
 	app.Get("/metrics", handlers.Metrics())
+	internalDemo := app.Group("/internal/demo", middleware.InternalKey(cfg.InternalApiKey))
+	internalDemo.Post("/users/:userId/quotas/reset", handlers.DemoResetAIQuotas(redisClient))
 
 	// Public auth endpoints
 	app.Post("/users", authHandler.Register)

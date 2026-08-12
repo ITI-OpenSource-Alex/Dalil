@@ -40,6 +40,8 @@ const (
 	localsSpeakingUserID      = "speaking_ws_user_id"
 	localsSpeakingCorrelation = "speaking_ws_correlation_id"
 	localsSpeakingTraceparent = "speaking_ws_traceparent"
+	localsSpeakingExamSession = "speaking_ws_exam_session_id"
+	localsSpeakingExamMode    = "speaking_ws_exam_mode"
 )
 
 // speakingWSDeadline bounds a single blocked read or write on either leg.
@@ -106,6 +108,17 @@ func NewSpeakingWSHandler(speakingServiceURL string, logger zerolog.Logger) (*Sp
 // is mounted inside the /api group, so middleware.JWT has already rejected a
 // missing, expired or blacklisted token before the socket exists.
 func (h *SpeakingWSHandler) Upgrade(c *fiber.Ctx) error {
+	return h.upgrade(c, false)
+}
+
+// UpgradeExam is mounted only inside the paid Exam route group and after the
+// session-ownership check. It marks the upstream leg as exam-only without
+// trusting a client frame to select that privileged mode.
+func (h *SpeakingWSHandler) UpgradeExam(c *fiber.Ctx) error {
+	return h.upgrade(c, true)
+}
+
+func (h *SpeakingWSHandler) upgrade(c *fiber.Ctx, examMode bool) error {
 	if !websocket.IsWebSocketUpgrade(c) {
 		// 426, not 400: a plain GET here is a client bug, and 426 says which one.
 		return fiber.NewError(fiber.StatusUpgradeRequired, "this endpoint requires a WebSocket upgrade")
@@ -125,6 +138,10 @@ func (h *SpeakingWSHandler) Upgrade(c *fiber.Ctx) error {
 	c.Locals(localsSpeakingUserID, utils.CopyString(userID))
 	c.Locals(localsSpeakingCorrelation, utils.CopyString(correlationID))
 	c.Locals(localsSpeakingTraceparent, utils.CopyString(c.Query("traceparent")))
+	if examMode {
+		c.Locals(localsSpeakingExamMode, true)
+		c.Locals(localsSpeakingExamSession, utils.CopyString(c.Query("exam_session_id")))
+	}
 	c.Locals(middleware.ContextKeyUpstream, "speaking")
 
 	return c.Next()
@@ -137,8 +154,13 @@ func (h *SpeakingWSHandler) Proxy(clientConn *websocket.Conn) {
 	userID, _ := clientConn.Locals(localsSpeakingUserID).(string)
 	correlationID, _ := clientConn.Locals(localsSpeakingCorrelation).(string)
 	traceparent, _ := clientConn.Locals(localsSpeakingTraceparent).(string)
+	examSessionID, _ := clientConn.Locals(localsSpeakingExamSession).(string)
+	examMode, _ := clientConn.Locals(localsSpeakingExamMode).(bool)
 
 	target := h.upstreamWSURL
+	if examMode {
+		target += "/exam"
+	}
 	if traceparent != "" {
 		// Speaking parses ?traceparent= at upgrade to link its Langfuse spans to
 		// the caller's trace. Dropping it here would silently orphan every
@@ -171,6 +193,9 @@ func (h *SpeakingWSHandler) Proxy(clientConn *websocket.Conn) {
 	// HandleInterviewWebSocket.
 	if userID != "" {
 		upstreamHeaders.Set("X-User-Id", userID)
+	}
+	if examMode {
+		upstreamHeaders.Set("X-Exam-Session-Id", examSessionID)
 	}
 
 	started := time.Now()

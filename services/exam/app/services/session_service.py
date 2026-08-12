@@ -62,6 +62,16 @@ class SessionService:
             skill_area=request.skill_area.value,
             user_id=request.user_id,
         )
+        # Academic and General Training use the same Speaking interview. The
+        # current bank predates General rows, so reuse a Speaking set rather
+        # than making General candidates fail before the live interviewer (the
+        # source of the questions used during the socket) can start.
+        if question is None and request.skill_area.value == "speaking":
+            question = await self.question_repository.get_random_question(
+                exam_type="academic",
+                skill_area="speaking",
+                user_id=request.user_id,
+            )
         if question is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,

@@ -150,7 +150,7 @@ func TestInterviewProtocolV3EndToEnd(t *testing.T) {
 
 	readUntilType(t, conn, "examiner_audio_end") // introduction
 	wsWriteJSON(t, conn, map[string]any{"type": "ready"})
-	for part1 := 0; part1 < 12; part1++ {
+	for part1 := 0; part1 < 8; part1++ {
 		readQuestion(t, conn, 1)
 		writeAnswer(t, conn)
 	}
@@ -191,7 +191,7 @@ func TestInterviewProtocolV3EndToEnd(t *testing.T) {
 			t.Fatalf("turn/progress persistence drifted: record=%#v turns=%d", record, len(store.turns[id]))
 		}
 	}
-	if generator.calls != 3 || transcriber.calls != 18 || voice.calls == 0 {
+	if generator.calls != 3 || transcriber.calls != 14 || voice.calls == 0 {
 		t.Fatalf("unexpected adaptive pipeline calls: generator=%d stt=%d tts=%d", generator.calls, transcriber.calls, voice.calls)
 	}
 }
@@ -345,7 +345,7 @@ func TestInterviewProtocolResumeReplaysTheTurnItIsWaitingOn(t *testing.T) {
 		sessionID, _ := readUntilType(t, first, "session_started")["session_id"].(string)
 		readUntilType(t, first, "examiner_audio_end")
 		wsWriteJSON(t, first, map[string]any{"type": "ready"})
-		for part1 := 0; part1 < 12; part1++ {
+		for part1 := 0; part1 < 8; part1++ {
 			readQuestion(t, first, 1)
 			writeAnswer(t, first)
 		}

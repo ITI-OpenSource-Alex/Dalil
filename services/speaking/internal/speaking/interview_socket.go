@@ -47,6 +47,8 @@ type InterviewSocketDeps struct {
 	Timing       interview.Timing
 	Now          func() time.Time
 	Part3MaxTurn int
+	ExamClient   ExamSessionClient
+	ExamMode     bool
 }
 
 type interviewInitFrame struct {
@@ -64,19 +66,22 @@ type interviewInbound struct {
 }
 
 type interviewSocket struct {
-	id          string
-	userID      string
-	audioFormat string
-	conn        *websocket.Conn
-	ctx         context.Context
-	cancel      context.CancelFunc
-	writeMu     sync.Mutex
-	deps        InterviewSocketDeps
-	session     *interview.Session
-	selection   interview.Selection
-	audio       bytes.Buffer
-	startedAt   time.Time
-	pendingLong *interview.CandidateTurn
+	id            string
+	userID        string
+	audioFormat   string
+	conn          *websocket.Conn
+	ctx           context.Context
+	cancel        context.CancelFunc
+	writeMu       sync.Mutex
+	deps          InterviewSocketDeps
+	session       *interview.Session
+	selection     interview.Selection
+	audio         bytes.Buffer
+	startedAt     time.Time
+	pendingLong   *interview.CandidateTurn
+	examSessionID string
+	abandoned     bool
+	normalClose   bool
 }
 
 type interviewTurnSink struct {
@@ -148,7 +153,13 @@ func HandleInterviewWebSocket(w http.ResponseWriter, r *http.Request, deps Inter
 		socket.userID = init.UserID
 	}
 	socket.audioFormat = format
-	if allowed, _ := speakingQuota.Allow(ctx, socket.userID); !allowed {
+	if deps.ExamMode {
+		socket.examSessionID = strings.TrimSpace(r.Header.Get("X-Exam-Session-Id"))
+		if socket.examSessionID == "" || deps.ExamClient == nil {
+			socket.writePolicyError("invalid_exam_session", "A validated exam session is required.")
+			return
+		}
+	} else if allowed, _ := speakingQuota.Allow(ctx, socket.userID); !allowed {
 		socket.writePolicyError("quota_exceeded", "You have used your speaking practice time for today. Please come back tomorrow.")
 		return
 	}
@@ -156,6 +167,13 @@ func HandleInterviewWebSocket(w http.ResponseWriter, r *http.Request, deps Inter
 	if err := socket.initialize(init.ResumeSessionID); err != nil {
 		socket.sendError("session_initialization_failed", err.Error())
 		return
+	}
+	if deps.ExamMode {
+		if err := deps.ExamClient.Heartbeat(ctx, socket.examSessionID, socket.userID); err != nil {
+			socket.sendError("exam_session_unavailable", "The exam attempt could not be verified.")
+			return
+		}
+		go socket.examHeartbeatLoop()
 	}
 	socket.prewarmSelectedQuestions()
 	socket.sendJSON(map[string]any{"type": "session_started", "session_id": socket.id, "resumed": init.ResumeSessionID != ""})
@@ -232,6 +250,7 @@ func HandleInterviewWebSocket(w http.ResponseWriter, r *http.Request, deps Inter
 			}
 			if complete {
 				socket.evaluateAndPersist()
+				socket.normalClose = true
 				return
 			}
 		}
@@ -358,6 +377,9 @@ func (s *interviewSocket) handleInbound(message interviewInbound) (bool, bool) {
 		return false, true
 	}
 	partial := control.Type == "abandon"
+	if partial {
+		s.abandoned = true
+	}
 	if err := s.persistProgress(partial); err != nil || !s.emit(outputs) {
 		return false, false
 	}
@@ -395,8 +417,8 @@ func (s *interviewSocket) finishCandidateTurn() (bool, bool) {
 		if timing == (interview.Timing{}) {
 			timing = interview.DefaultTiming()
 		}
-		minimumEndsAt := s.session.Snapshot().LongTurnStartedAt.Add(timing.LongTurnMin)
-		s.sendJSON(map[string]any{"type": "long_turn_continue", "remaining_s": max(0, int(time.Until(minimumEndsAt).Seconds()+1))})
+		remaining := timing.LongTurnMin.Seconds() - candidate.DurationS
+		s.sendJSON(map[string]any{"type": "long_turn_continue", "remaining_s": max(0, int(remaining+0.999))})
 		return false, true
 	}
 	if err != nil {
@@ -411,7 +433,7 @@ func (s *interviewSocket) finishCandidateTurn() (bool, bool) {
 
 func (s *interviewSocket) handleTimer() bool {
 	var candidate interview.CandidateTurn
-	if s.session.State() == interview.StatePart2LongTurn && s.audio.Len() > 0 {
+	if stateAcceptsAudio(s.session.State()) && s.audio.Len() > 0 {
 		audio := append([]byte(nil), s.audio.Bytes()...)
 		s.audio.Reset()
 		transcription, err := s.deps.Transcriber.TranscribeTurn(s.ctx, audio, s.audioFormat)
@@ -526,6 +548,10 @@ func (s *interviewSocket) resumeOutputs() []interview.Output {
 
 func (s *interviewSocket) evaluateAndPersist() {
 	transcript := s.session.Transcript()
+	if s.deps.ExamMode {
+		s.evaluateExam(transcript)
+		return
+	}
 	candidateText := transcript.CandidateText()
 	if candidateText == "" || s.deps.ScoringLLM == nil {
 		s.sendJSON(map[string]any{"type": "evaluation", "status": "insufficient_evidence", "completed_count": 0, "dimensions": map[string]any{}})
@@ -555,6 +581,56 @@ func (s *interviewSocket) evaluateAndPersist() {
 	}
 	s.sendJSON(evaluationFrame{Type: "evaluation", Status: result.Status, Partial: result.Partial, CompletedCount: result.CompletedCount, OverallBand: result.OverallBand, Dimensions: result.Dimensions, OverallFeedback: result.OverallFeedback})
 	s.persistEvaluation(candidateText, &result)
+}
+
+func (s *interviewSocket) evaluateExam(transcript interview.Transcript) {
+	if s.abandoned {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := s.deps.ExamClient.Abandon(ctx, s.examSessionID, s.userID); err != nil {
+			log.Warn().Err(err).Str("exam_session_id", s.examSessionID).Msg("Could not abandon exam session")
+		}
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+	var evaluation map[string]any
+	for part := 1; part <= 3; part++ {
+		payload := buildExamPart(transcript, part)
+		if strings.TrimSpace(payload.TranscriptText) == "" {
+			s.sendError("evaluation_failed", fmt.Sprintf("Part %d has no candidate transcript.", part))
+			return
+		}
+		result, err := s.deps.ExamClient.SubmitPart(ctx, s.examSessionID, s.userID, payload)
+		if err != nil {
+			log.Error().Err(err).Str("exam_session_id", s.examSessionID).Int("part", part).Msg("Exam transcript handoff failed")
+			s.sendError("evaluation_failed", "The exam was saved, but scoring is unavailable right now.")
+			return
+		}
+		if part == 3 {
+			evaluation = result
+		}
+	}
+	evaluation["type"] = "evaluation"
+	s.sendJSON(evaluation)
+}
+
+func (s *interviewSocket) examHeartbeatLoop() {
+	ticker := time.NewTicker(60 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-s.ctx.Done():
+			return
+		case <-ticker.C:
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			err := s.deps.ExamClient.Heartbeat(ctx, s.examSessionID, s.userID)
+			cancel()
+			if err != nil {
+				log.Warn().Err(err).Str("exam_session_id", s.examSessionID).Msg("Exam heartbeat failed")
+			}
+		}
+	}
 }
 
 func (s *interviewSocket) persistEvaluation(candidateText string, result *agents.SwarmResult) {
@@ -679,11 +755,16 @@ func (s *interviewSocket) writePolicyError(code, message string) {
 }
 
 func (s *interviewSocket) close() {
+	if s.normalClose {
+		s.writeMu.Lock()
+		_ = s.conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "complete"), time.Now().Add(2*time.Second))
+		s.writeMu.Unlock()
+	}
 	s.cancel()
 	_ = s.conn.Close()
 	atomic.AddInt32(&activeConns, -1)
 	activeConnectionsMetric.Dec()
-	if s.userID != "" {
+	if s.userID != "" && !s.deps.ExamMode {
 		speakingQuota.Record(context.Background(), s.userID, time.Since(s.startedAt).Seconds())
 	}
 	log.Info().Str("session_id", s.id).Str("user_id", s.userID).Msg("Interview WebSocket closed")

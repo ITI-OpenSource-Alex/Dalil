@@ -30,6 +30,7 @@ type RouterDeps struct {
 	InterviewTiming interview.Timing
 	Now             func() time.Time
 	Part3MaxTurns   int
+	ExamSessions    ExamSessionClient
 }
 
 // preflight answers CORS preflight requests. WithCORS short-circuits every
@@ -89,6 +90,14 @@ func NewRouter(deps RouterDeps) *http.ServeMux {
 			ScoringLLM: deps.PracticeLLM, Transcriber: transcriber, Voice: voice,
 			Bank: bank, Followups: followups, Timing: deps.InterviewTiming,
 			Now: deps.Now, Part3MaxTurn: deps.Part3MaxTurns,
+		})
+	})
+	mux.HandleFunc("/ws/exam", func(w http.ResponseWriter, r *http.Request) {
+		HandleInterviewWebSocket(w, r, InterviewSocketDeps{
+			Config: deps.Config, Sessions: deps.Repo, Store: store,
+			Transcriber: transcriber, Voice: voice, Bank: bank, Followups: followups,
+			Timing: deps.InterviewTiming, Now: deps.Now, Part3MaxTurn: deps.Part3MaxTurns,
+			ExamClient: deps.ExamSessions, ExamMode: true,
 		})
 	})
 	mux.HandleFunc("/ws/v2", func(w http.ResponseWriter, r *http.Request) {

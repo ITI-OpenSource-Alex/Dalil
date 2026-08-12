@@ -291,6 +291,10 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	// route up.
 	exam.Get("/history", examHandler.GetHistory)
 	exam.Get("/weak-areas", examHandler.GetWeakAreas)
+	// Paid speaking exams have their own socket. The ownership middleware runs
+	// before the upgrade, then the relay injects the validated session id into a
+	// server-only upstream header. Practice /api/speaking/ws remains separate.
+	exam.Get("/speaking/ws", examOwnership.ValidateQuery("exam_session_id"), speakingWSHandler.UpgradeExam, websocket.New(speakingWSHandler.Proxy))
 
 	// TODO(GOA-059): GET /api/exam/audio/:sessionId/:section is not implemented.
 	// It would validate ownership (examOwnership.Validate) and then hand back the

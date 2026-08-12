@@ -381,6 +381,8 @@ services:
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
       - LANGFUSE_HOST=${LANGFUSE_HOST}
       - SPEECH_SERVICE_URL=http://speech:8086
+      - EXAM_SERVICE_URL=http://exam:8085
+      - INTERNAL_API_KEY=supersecret_internal_key_123
       - AWS_REGION=us-east-1
       - AWS_ACCESS_KEY_ID=test
       - AWS_SECRET_ACCESS_KEY=test

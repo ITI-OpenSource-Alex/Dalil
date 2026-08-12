@@ -15,6 +15,8 @@ type Config struct {
 	LangfuseHost                 string
 	DatabaseURL                  string
 	SpeechServiceURL             string
+	ExamServiceURL               string
+	InternalAPIKey               string
 	AWSRegion                    string
 	AWSEndpointURL               string
 	AccountDeletedQueueName      string
@@ -39,6 +41,8 @@ func LoadConfig() *Config {
 		LangfuseHost:                 getEnv("LANGFUSE_HOST", "https://cloud.langfuse.com"),
 		DatabaseURL:                  getEnv("DATABASE_URL", "postgresql://goa:goa_pass@postgres:5432/speaking_db"),
 		SpeechServiceURL:             getEnv("SPEECH_SERVICE_URL", "http://speech:8086"),
+		ExamServiceURL:               getEnv("EXAM_SERVICE_URL", "http://exam:8085"),
+		InternalAPIKey:               getEnv("INTERNAL_API_KEY", ""),
 		AWSRegion:                    getEnv("AWS_REGION", "us-east-1"),
 		AWSEndpointURL:               getEnv("AWS_ENDPOINT_URL", ""),
 		AccountDeletedQueueName:      getEnv("SQS_QUEUE_NAME", "user-events-speaking"),

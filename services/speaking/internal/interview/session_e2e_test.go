@@ -47,8 +47,8 @@ func TestThreePartInterviewEndToEnd(t *testing.T) {
 			assertFrameTypes(t, frames, "part_change", "examiner_turn", "cue_card", "examiner_turn")
 		}
 	}
-	if part1Answers != 12 {
-		t.Fatalf("Part 1 had %d answers, want 12", part1Answers)
+	if part1Answers != 8 {
+		t.Fatalf("Part 1 had %d answers, want 8", part1Answers)
 	}
 	assertFrameTypes(t, mustHandle(t, ctx, session, Event{Type: EventReady}), "prep_start")
 

@@ -47,6 +47,7 @@ interface SpeakingSessionPanelProps {
   onClose: () => void;
   canBargeIn?: boolean;
   onBargeIn?: () => void;
+  title?: string;
 }
 
 /** Static bars shown when the visualiser is idle, so the stage never collapses. */
@@ -72,6 +73,7 @@ export default function SpeakingSessionPanel({
   onClose,
   canBargeIn = false,
   onBargeIn,
+  title = "Speaking Practice",
 }: SpeakingSessionPanelProps) {
   const reduceMotion = useReducedMotion();
 
@@ -104,7 +106,7 @@ export default function SpeakingSessionPanel({
             {/* Deliberately not truncated: the chat column can get very narrow,
                 and wrapping to two lines reads far better than "Spe…". */}
             <h3 className="text-sm leading-snug font-semibold text-balance text-brand-fg">
-              Speaking Practice
+              {title}
             </h3>
 
             {/*
@@ -131,7 +133,7 @@ export default function SpeakingSessionPanel({
           <button
             data-testid="close-speaking-button"
             onClick={onClose}
-            aria-label="Close speaking practice"
+            aria-label={`Close ${title.toLowerCase()}`}
             className="rounded-lg p-2 text-fg-subtle outline-none transition-colors hover:bg-canvas-subtle hover:text-brand-fg focus-visible:ring-2 focus-visible:ring-brand-muted"
           >
             <X size={18} aria-hidden="true" />
@@ -147,7 +149,10 @@ export default function SpeakingSessionPanel({
         </div>
 
         <section aria-label="Interview progress" className="space-y-3">
-          <div className="flex items-center gap-2" data-testid="speaking-part-indicator">
+          <div
+            className="flex items-center gap-2"
+            data-testid="speaking-part-indicator"
+          >
             {[1, 2, 3].map((number) => (
               <span
                 key={number}
@@ -162,7 +167,9 @@ export default function SpeakingSessionPanel({
                 {number}
               </span>
             ))}
-            <span className="ml-1 text-sm font-medium text-brand-fg">{partLabel}</span>
+            <span className="ml-1 text-sm font-medium text-brand-fg">
+              {partLabel}
+            </span>
             {remainingSeconds !== null && remainingSeconds !== undefined && (
               <span
                 data-testid="speaking-countdown"
@@ -174,18 +181,32 @@ export default function SpeakingSessionPanel({
           </div>
 
           {examinerText && (
-            <div data-testid="examiner-turn" className="rounded-xl border border-violet-100 bg-violet-50/70 p-4">
-              <p className="mb-1 text-[11px] font-semibold tracking-wide text-violet-700 uppercase">Examiner</p>
-              <p className="text-sm leading-relaxed text-violet-950">{examinerText}</p>
+            <div
+              data-testid="examiner-turn"
+              className="rounded-xl border border-violet-100 bg-violet-50/70 p-4"
+            >
+              <p className="mb-1 text-[11px] font-semibold tracking-wide text-violet-700 uppercase">
+                Examiner
+              </p>
+              <p className="text-sm leading-relaxed text-violet-950">
+                {examinerText}
+              </p>
             </div>
           )}
 
           {cueCard && (
-            <div data-testid="speaking-cue-card" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-950">
+            <div
+              data-testid="speaking-cue-card"
+              className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-950"
+            >
               <p className="text-base font-semibold">{cueCard.topic}</p>
-              <p className="mt-3 text-xs font-semibold tracking-wide uppercase">You should say</p>
+              <p className="mt-3 text-xs font-semibold tracking-wide uppercase">
+                You should say
+              </p>
               <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
-                {cueCard.prompts.map((prompt) => <li key={prompt}>{prompt}</li>)}
+                {cueCard.prompts.map((prompt) => (
+                  <li key={prompt}>{prompt}</li>
+                ))}
               </ul>
               <p className="mt-3 text-sm">{cueCard.closing_prompt}</p>
             </div>
@@ -230,9 +251,7 @@ export default function SpeakingSessionPanel({
                     className="w-1 rounded-full bg-border-strong"
                     style={{ height: h }}
                     animate={
-                      reduceMotion
-                        ? undefined
-                        : { opacity: [0.45, 0.85, 0.45] }
+                      reduceMotion ? undefined : { opacity: [0.45, 0.85, 0.45] }
                     }
                     transition={{
                       duration: 2.4,

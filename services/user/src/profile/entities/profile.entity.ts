@@ -16,7 +16,10 @@ export class UserProfile {
   // common/database/numeric.transformer.ts.
   @Column({
     type: 'decimal',
-    precision: 3,
+    // The public profile contract accepts either a 4.0-scale GPA or a
+    // percentage up to 100. numeric(3,2) only stores values below 10 and made
+    // every percentage-scale onboarding/profile update fail at the database.
+    precision: 5,
     scale: 2,
     nullable: true,
     transformer: numericTransformer,

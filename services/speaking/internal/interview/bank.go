@@ -150,7 +150,7 @@ func (b *Bank) Validate() error {
 	return nil
 }
 
-// Select deterministically chooses three distinct Part 1 topics and one cue
+// Select deterministically chooses two distinct Part 1 topics and one cue
 // card. recentlyUsedCueIDs is the caller-owned repetition window; selection
 // never silently falls back to a repeated card.
 func (b *Bank) Select(sessionSeed string, recentlyUsedCueIDs []string) (Selection, error) {
@@ -164,8 +164,8 @@ func (b *Bank) Select(sessionSeed string, recentlyUsedCueIDs []string) (Selectio
 	digest := sha256.Sum256([]byte(sessionSeed))
 	rng := rand.New(rand.NewSource(int64(binary.LittleEndian.Uint64(digest[:8]))))
 	permutation := rng.Perm(len(b.Part1))
-	topics := make([]Part1Topic, 0, 3)
-	for _, index := range permutation[:3] {
+	topics := make([]Part1Topic, 0, 2)
+	for _, index := range permutation[:2] {
 		topics = append(topics, b.Part1[index])
 	}
 

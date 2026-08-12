@@ -11,6 +11,31 @@ from app.schemas.documents import (
 router = APIRouter()
 
 
+@router.get("/internal/documents/stats")
+async def document_stats(_=Security(verify_api_key)):
+    """Return corpus readiness without exposing document bodies.
+
+    Ingestion and demo tooling use this owner API instead of querying rag_db.
+    """
+    try:
+        async with db.pool.acquire() as conn:
+            total = await conn.fetchval("SELECT COUNT(*) FROM documents")
+            rows = await conn.fetch(
+                "SELECT category, COUNT(*) AS count FROM documents GROUP BY category"
+            )
+            last_updated = await conn.fetchval("SELECT MAX(last_updated) FROM documents")
+        return {
+            "total": total,
+            "by_category": {row["category"]: row["count"] for row in rows},
+            "last_updated_at": last_updated,
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Database query failed: {str(e)}",
+        )
+
+
 @router.post("/internal/documents/check-existing", response_model=DocumentCheckResponse)
 async def check_existing_documents(
     request: DocumentCheckRequest, _=Security(verify_api_key)

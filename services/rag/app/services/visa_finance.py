@@ -100,12 +100,19 @@ async def get_student_visa_finance(country: str, conn=None) -> list[dict]:
                     if rendered:
                         amounts_str.append(rendered)
 
-                # Proof-of-funds is the requirement Egyptian applicants must plan months
-                # ahead for, so a pathway with no published figure and no accepted
-                # evidence is not actionable — it produced items reading "requires proof
-                # of financial proof via self_funded", which tells the student nothing.
-                # Skip it and let the source's URL be fixed to a page that has amounts.
+                # An official source can require sufficient funds without publishing a
+                # number.  That is still a real, source-backed *informational* gap and is
+                # exactly what GOA-047's walkthrough must distinguish from a zero amount.
+                # Preserve its evidence quote and say explicitly that this source has no
+                # figure; do not turn absence into 0 or silently prefer a commercial
+                # provider just because it publishes a number.
                 if not amounts_str and not p.get("accepted_evidence"):
+                    notes = str(p.get("notes") or "").strip()
+                    if notes:
+                        messages.append(
+                            f"requires {notes}; no amount is published by this source"
+                        )
+                        continue
                     logger.warning(
                         "visa_pathway_without_amounts",
                         country=r["country"],

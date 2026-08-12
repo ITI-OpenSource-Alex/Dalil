@@ -42,6 +42,7 @@ export interface SpeakingPartChange {
   part: 1 | 2 | 3;
   part_label: string;
   expected_duration_s: number;
+  ends_at?: string;
 }
 
 export interface ExaminerTurn {
@@ -233,7 +234,10 @@ export class SpeakingWebSocket {
           break;
 
         case "session_started":
-          this.options.onSessionStarted?.(data.session_id, Boolean(data.resumed));
+          this.options.onSessionStarted?.(
+            data.session_id,
+            Boolean(data.resumed),
+          );
           break;
 
         case "criterion":

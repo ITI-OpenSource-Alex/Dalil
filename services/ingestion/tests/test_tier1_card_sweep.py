@@ -102,6 +102,24 @@ async def test_tier1_marks_extracted_not_scraped(mocker):
 
 
 @pytest.mark.asyncio
+async def test_tier1_batches_multiple_pages_without_committing_cursor(mocker):
+    adapter = MastersPortalAdapter()
+    first = [_card(url=f"/studies/{i}/p.html") for i in range(20)]
+    second = [_card(url=f"/studies/{i}/p.html") for i in range(20, 40)]
+    state = _wire(
+        mocker,
+        adapter,
+        [(first, 40), (second, 40), (first, 40), (second, 40)],
+    )
+
+    docs = await adapter.scrape_cards(per_run_cap_per_discipline=100)
+
+    assert len(docs) == 80
+    assert adapter.last_run_telemetry["engineering"]["next_offset"] == 40
+    state.update_cursor.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_tier1_resumes_from_saved_offset(mocker):
     adapter = MastersPortalAdapter()
     seen = []

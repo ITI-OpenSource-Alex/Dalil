@@ -97,6 +97,17 @@ func newFakeSpeakingUpstream(t *testing.T, handler func(*websocket.Conn)) *fakeS
 		}
 		return c.Next()
 	}, websocket.New(handler))
+	app.Get("/ws/exam", func(c *fiber.Ctx) error {
+		captured := http.Header{}
+		c.Request().Header.VisitAll(func(k, v []byte) {
+			captured.Set(string(k), string(v))
+		})
+		select {
+		case up.headers <- captured:
+		default:
+		}
+		return c.Next()
+	}, websocket.New(handler))
 	up.addr = listenApp(t, app)
 	return up
 }
@@ -454,5 +465,38 @@ func TestSpeakingWS_AuthenticatedUserIDForwarded(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("upstream handshake headers were never captured")
+	}
+}
+
+func TestSpeakingWS_ExamRouteUsesExamUpstreamAndTrustedSessionHeader(t *testing.T) {
+	upstream := newFakeSpeakingUpstream(t, func(c *websocket.Conn) {
+		_, _, _ = c.ReadMessage()
+	})
+	h, err := NewSpeakingWSHandler("http://"+upstream.addr, zerolog.Nop())
+	if err != nil {
+		t.Fatal(err)
+	}
+	app := fiber.New()
+	app.Use(func(c *fiber.Ctx) error {
+		c.Locals(middleware.ContextKeyUserID, "user-1")
+		return c.Next()
+	})
+	app.Get("/api/exam/speaking/ws", h.UpgradeExam, websocket.New(h.Proxy))
+	addr := listenApp(t, app)
+	conn, _, err := fastws.DefaultDialer.Dial(
+		"ws://"+addr+"/api/exam/speaking/ws?exam_session_id=session-123", nil,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	_ = conn.WriteMessage(websocket.TextMessage, []byte(`{"type":"session_init"}`))
+	select {
+	case headers := <-upstream.headers:
+		if got := headers.Get("X-Exam-Session-Id"); got != "session-123" {
+			t.Fatalf("X-Exam-Session-Id = %q", got)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("upstream exam handshake was not captured")
 	}
 }

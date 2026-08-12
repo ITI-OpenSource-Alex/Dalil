@@ -12,7 +12,7 @@ export interface ChecklistItem {
 export interface ChecklistResponse {
   checklistId: string;
   programId: string;
-  generatedBy: "llm" | "fallback";
+  generatedBy: "llm" | "fallback" | "requirements";
   items: ChecklistItem[];
 }
 

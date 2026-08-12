@@ -68,12 +68,11 @@
   --color-sage-900: #1f2824;
   --color-sage-950: #121714;
 
-  /* Typography families. --font-sans is restored to Geist here; the previous
-     `body { font-family: Arial }` rule silently discarded the font that
-     layout.tsx loads. --font-serif is the display face (Fraunces). */
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-serif: var(--font-fraunces), ui-serif, Georgia, serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  /* Offline-safe system stacks: production builds and demos must not depend on
+     a live fonts.googleapis.com request. */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-serif: ui-serif, Georgia, "Times New Roman", serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
 }
 
 /* --------------------------------------------------------------------------

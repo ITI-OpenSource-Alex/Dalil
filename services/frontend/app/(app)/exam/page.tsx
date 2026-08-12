@@ -111,11 +111,6 @@ export default function ExamLandingPage() {
       return;
     }
 
-    if (skill === "Speaking") {
-      router.push("/practice/speaking?mode=exam");
-      return;
-    }
-
     try {
       setStartingExam(skill);
 
@@ -162,7 +157,13 @@ export default function ExamLandingPage() {
         }),
       );
 
-      router.push(`/exam/shell?session=${session.session_id}`);
+      if (skill === "Speaking") {
+        router.push(
+          `/practice/speaking?mode=exam&session=${session.session_id}`,
+        );
+      } else {
+        router.push(`/exam/shell?session=${session.session_id}`);
+      }
     } catch (error) {
       // A paid-tier refusal is a product decision, not a fault. The whole
       // /api/exam group is gated (GOA-059), so on a Free account this is the
@@ -314,7 +315,8 @@ export default function ExamLandingPage() {
   // is still loading would flash a paywall badge at a paying subscriber.
   const isFreeTier =
     profileStatus === "success" && user?.subscriptionTier !== "paid";
-  const identityLoading = profileStatus === "loading" || profileStatus === "idle";
+  const identityLoading =
+    profileStatus === "loading" || profileStatus === "idle";
 
   return (
     <PageContainer
@@ -371,7 +373,10 @@ export default function ExamLandingPage() {
                     facts: compactFacts([
                       fact("Displayed average", overallBand),
                       ...skillCards.map((card) =>
-                        fact(`${card.title} latest band`, latestBand(card.key)?.toFixed(1)),
+                        fact(
+                          `${card.title} latest band`,
+                          latestBand(card.key)?.toFixed(1),
+                        ),
                       ),
                     ]),
                     limitations: [
@@ -432,7 +437,7 @@ export default function ExamLandingPage() {
                 <Button
                   size="sm"
                   onClick={handleRetryStartExam}
-                          disabled={startingExam !== null || identityLoading}
+                  disabled={startingExam !== null || identityLoading}
                 >
                   Retry
                 </Button>
@@ -481,10 +486,15 @@ export default function ExamLandingPage() {
                           title: `your latest ${card.title} practice band ${latestBand(card.key)?.toFixed(1)}`,
                           facts: compactFacts([
                             fact("Skill", card.title),
-                            fact("Latest practice band", latestBand(card.key)?.toFixed(1)),
+                            fact(
+                              "Latest practice band",
+                              latestBand(card.key)?.toFixed(1),
+                            ),
                             fact(
                               "Recorded attempts",
-                              progress?.[card.key.toLowerCase() as keyof ExamProgress]?.length,
+                              progress?.[
+                                card.key.toLowerCase() as keyof ExamProgress
+                              ]?.length,
                             ),
                           ]),
                           limitations: [

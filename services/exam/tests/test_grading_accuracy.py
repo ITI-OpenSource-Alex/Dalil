@@ -8,10 +8,11 @@ import pytest
 from app.services.grading_service import GradingService
 
 
-FIXTURE_DIR = Path(__file__).parents[3] / "evals" / "exam_answer_keys"
+SERVICE_ROOT = Path(__file__).resolve().parents[1]
+HOST_FIXTURE_DIR = SERVICE_ROOT.parents[1] / "evals" / "exam_answer_keys" if len(SERVICE_ROOT.parents) > 1 else Path("/__missing__")
+FIXTURE_DIR = HOST_FIXTURE_DIR if HOST_FIXTURE_DIR.exists() else Path("/evals/exam_answer_keys")
 READING_FIXTURE = FIXTURE_DIR / "cambridge_ielts_17_reading.json"
 LISTENING_FIXTURE = FIXTURE_DIR / "cambridge_ielts_15_listening.json"
-REPO_ROOT = Path(__file__).parents[3]
 
 
 def _load(path: Path) -> dict:
@@ -156,7 +157,7 @@ def test_live_bank_answer_key_matches_independent_fixture(
     test_number: str,
 ) -> None:
     fixture = _load(fixture_path)["tests"][test_number]["answers"]
-    live_path = REPO_ROOT / "services" / "exam" / "data" / "parsed" / book_ref / skill / f"test{test_number}.json"
+    live_path = SERVICE_ROOT / "data" / "parsed" / book_ref / skill / f"test{test_number}.json"
     live = _load(live_path)["answer_key"]
 
     assert live == fixture

@@ -4,7 +4,7 @@ import time
 from typing import Any
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel
 import structlog
 
@@ -152,8 +152,13 @@ async def get_session_owner(session_id: UUID):
 
 
 @router.post("/sessions/{session_id}/speaking/transcripts")
-async def submit_transcript(session_id: UUID, payload: TranscriptPayload):
-    if payload.part == 2 and payload.duration_s < 60:
+async def submit_transcript(
+    session_id: UUID,
+    payload: TranscriptPayload,
+    x_user_id: UUID | None = Header(default=None),
+):
+    measured_duration = payload.audio_duration_s or float(payload.duration_s)
+    if payload.part == 2 and measured_duration < 60:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Bad Request",
@@ -165,6 +170,21 @@ async def submit_transcript(session_id: UUID, payload: TranscriptPayload):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Session not found",
+        )
+    if x_user_id is not None and str(sessions_res["user_id"]) != str(x_user_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Session belongs to another user",
+        )
+    if sessions_res["skill_area"] != "speaking":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Session is not a speaking exam",
+        )
+    if sessions_res["status"] == "abandoned":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Session is abandoned",
         )
     if sessions_res["status"] in ("submitted", "scored"):
         return {}
@@ -287,9 +307,26 @@ async def submit_transcript(session_id: UUID, payload: TranscriptPayload):
             question_bank_ref=question.get("book_ref") if question else None,
         )
 
-        return {}
+        return eval_data.model_dump()
 
     return {}
+
+
+@router.post("/sessions/{session_id}/speaking/abandon", status_code=204)
+async def abandon_speaking_exam(
+    session_id: UUID,
+    x_user_id: UUID = Header(),
+):
+    session_repo = SessionRepository(db.pool)
+    session = await session_repo.get_by_id(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if str(session["user_id"]) != str(x_user_id):
+        raise HTTPException(status_code=403, detail="Session belongs to another user")
+    if session["skill_area"] != "speaking":
+        raise HTTPException(status_code=400, detail="Session is not a speaking exam")
+    if session["status"] == "in_progress":
+        await session_repo.update_status(session_id, "abandoned")
 
 
 @router.get("/users/{user_id}/exam-history")

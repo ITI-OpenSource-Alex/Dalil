@@ -311,10 +311,37 @@ services:
     image: prom/prometheus:v2.50.1
     ports:
       - "9090:9090"
+    # --web.enable-remote-write-receiver lets k6 stream metrics straight in
+    # during a load test (GOA-036) -- the local stand-in for the ticket's "k6
+    # CloudWatch output plugin, latency percentile charts visible during the
+    # run". The other four flags are the image's own defaults, restated because
+    # specifying `command` REPLACES the image command rather than appending to
+    # it; omitting them leaves Prometheus with no config file and no storage
+    # path.
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.console.libraries=/usr/share/prometheus/console_libraries
+      - --web.console.templates=/usr/share/prometheus/consoles
+      - --web.enable-remote-write-receiver
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
       - ./monitoring/prometheus/gateway-alerts.yml:/etc/prometheus/gateway-alerts.yml
       - ./monitoring/prometheus/writing-alerts.yml:/etc/prometheus/writing-alerts.yml
+
+  # GOA-030 requires goa_e2e_step_duration_ms{journey,step} to be queryable
+  # alongside the service metrics. The ticket asks for a CloudWatch custom
+  # metric; there is no CloudWatch, and Prometheus is what this stack has.
+  #
+  # A Pushgateway rather than a scrape target because the producer is a
+  # Playwright run: short-lived, no stable address, and finished long before the
+  # next 15-second scrape would find it. That is the case Pushgateway exists
+  # for, and the case where its usual "don't use it for this" caveat does not
+  # apply.
+  pushgateway:
+    image: prom/pushgateway:v1.8.0
+    ports:
+      - "9091:9091"
 
   grafana:
     image: grafana/grafana:10.4.0

@@ -139,7 +139,10 @@ export interface ButtonProps
 
 type IconOnlyProps = ButtonProps & { iconOnly: true; "aria-label": string };
 
-export function Button(props: ButtonProps | IconOnlyProps) {
+export const Button = React.forwardRef<
+  HTMLButtonElement,
+  ButtonProps | IconOnlyProps
+>(function Button(props, forwardedRef) {
   const {
     variant = "primary",
     size = "md",
@@ -220,6 +223,7 @@ export function Button(props: ButtonProps | IconOnlyProps) {
 
   return (
     <button
+      ref={forwardedRef}
       // Defaulting to "button" prevents the classic bug where a button inside
       // a form submits it by accident. Callers opt into type="submit".
       type={type ?? "button"}
@@ -231,4 +235,6 @@ export function Button(props: ButtonProps | IconOnlyProps) {
       {content(children)}
     </button>
   );
-}
+});
+
+Button.displayName = "Button";

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { clearAuthCookie, seedAuthCookie } from "./fixtures/auth";
+import { clearAuthCookie, seedAuthCookie, signInThroughApi } from "./fixtures/auth";
 
 test.describe("Frontend E2E & Browser Integration Tests (FE-01 to FE-06)", () => {
   // These specs drive protected routes (/chat, /onboarding, /exam) which
@@ -227,14 +227,30 @@ test.describe("Frontend E2E & Browser Integration Tests (FE-01 to FE-06)", () =>
       `Speaking service not reachable at ${speakingServiceURL} — FE-05 needs a live WebSocket handshake.`,
     );
 
+    // A REAL session. GOA-132 moved this socket behind the Gateway, so the
+    // upgrade now goes through middleware.JWT and the placeholder cookie seeded
+    // in beforeEach is rejected -- the panel reports "Status: Error" and never
+    // reaches "connected", so Stop never replaces Start.
+    const account = await signInThroughApi(page, request);
+    test.skip(!account, "Gateway unreachable - cannot mint a real session for a live socket.");
+
     // Grant microphone permissions
     await context.grantPermissions(["microphone"]);
 
-    await page.goto("/chat");
+    // Entry point is the Dashboard's Quick Actions, not a chat icon.
+    //
+    // /chat is no longer a page: it redirects to /dashboard and opens the
+    // floating Dalil widget, and that widget renders its composer with
+    // showPracticeShortcuts={!isWidget} -- so the mic deep link this test used
+    // to click does not exist in the widget by design. It survives only in the
+    // full chat shell, which /chat no longer renders.
+    //
+    // The behaviour under test (a real handshake, mic permission, a live
+    // transcript panel) is unchanged; only the route a user takes to reach it
+    // moved, so the test takes the route that exists.
+    await page.goto("/dashboard");
 
-    // Click Speaking Practice — a deep link into Practice now, not an inline
-    // toggle.
-    const speakingLink = page.getByTitle("Speaking Practice");
+    const speakingLink = page.getByRole("link", { name: /speaking practice/i }).first();
     await expect(speakingLink).toBeVisible();
     await speakingLink.click();
 

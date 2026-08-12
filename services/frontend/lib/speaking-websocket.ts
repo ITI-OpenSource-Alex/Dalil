@@ -103,7 +103,8 @@ export interface SpeakingSessionOptions {
   /** Fires up to four times per utterance, as each agent completes. */
   onCriterion?: (criterion: SpeakingCriterion) => void;
   onEvaluation?: (evaluation: SpeakingEvaluation) => void;
-  onError?: (message: string) => void;
+  /** `code` is the server's machine-readable reason, absent on transport failures. */
+  onError?: (message: string, code?: string) => void;
   onTtsChunk?: (audio: ArrayBuffer) => void;
   onTranscript?: (text: string, isFinal: boolean) => void;
   onPartChange?: (part: SpeakingPartChange) => void;
@@ -250,7 +251,7 @@ export class SpeakingWebSocket {
           break;
 
         case "error":
-          this.options.onError?.(data.message);
+          this.options.onError?.(data.message, data.code);
           break;
       }
     };

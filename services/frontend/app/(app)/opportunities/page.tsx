@@ -23,6 +23,8 @@ import { isProfileComplete } from "@/app/types/profile";
 import { useUpgradePrompt } from "@/components/subscription/upgrade-dialog";
 import { OpportunityCard } from "@/components/opportunities/opportunity-card";
 import { OpportunityDetailModal } from "@/components/opportunities/opportunity-detail-modal";
+import { AskDalilButton } from "@/components/chat/ask-dalil-button";
+import { noMatchesAdvicePrompt } from "@/lib/dalil-prompts";
 import {
   Alert,
   Badge,
@@ -153,7 +155,10 @@ export default function OpportunitiesPage() {
   const eligibleCount = programs.filter((p) => !p.result.blocked_by).length;
 
   return (
-    <PageContainer size="2xl">
+    <PageContainer
+      size="full"
+      className="max-w-[88rem] px-4 sm:px-6 lg:px-8"
+    >
       <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
           <Badge tone="brand" pill>
@@ -257,10 +262,10 @@ export default function OpportunitiesPage() {
         <div
           aria-busy="true"
           aria-label="Finding programmes that match your profile"
-          className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
+          className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3"
         >
           {[0, 1, 2, 3, 4, 5].map((i) => (
-            <Card key={i} className="flex flex-col gap-4">
+            <Card key={i} className="flex w-full min-w-0 flex-col gap-4">
               <Skeleton className="h-5 w-3/4" />
               <Skeleton shape="text" lines={3} />
               <Skeleton className="h-1.5 w-full" />
@@ -280,9 +285,12 @@ export default function OpportunitiesPage() {
               <Button asChild>
                 <Link href="/profile">Adjust your targets</Link>
               </Button>
-              <Button variant="secondary" asChild>
-                <Link href="/chat">Ask Dalil for advice</Link>
-              </Button>
+              <AskDalilButton
+                variant="secondary"
+                prompt={noMatchesAdvicePrompt()}
+              >
+                Ask Dalil for advice
+              </AskDalilButton>
             </>
           }
         />
@@ -353,9 +361,16 @@ export default function OpportunitiesPage() {
               }
             />
           ) : (
-            <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <ul
+              data-testid="opportunities-grid"
+              className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3"
+            >
               {visible.map((program) => (
-                <li key={program.programId} className="flex">
+                <li
+                  key={program.programId}
+                  data-testid="opportunity-card-cell"
+                  className="flex min-w-0"
+                >
                   <OpportunityCard program={program} onOpen={setSelected} />
                 </li>
               ))}

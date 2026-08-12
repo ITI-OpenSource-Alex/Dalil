@@ -274,6 +274,120 @@ func TestInterviewProtocolResumesTheUnansweredTurn(t *testing.T) {
 	}
 }
 
+// A reconnect before the candidate has answered anything must still put the
+// examiner back in the room. The interview waits on `ready` in part1_intro and
+// part2_cue, and the client only sends it in response to an examiner turn — so
+// a resume that emits no turn leaves both sides waiting on each other and the
+// session is dead with the examiner silent.
+func TestInterviewProtocolResumeReplaysTheTurnItIsWaitingOn(t *testing.T) {
+	bank, _ := interview.LoadDefaultBank()
+	store := newMemoryInterviewStore()
+	deps := InterviewSocketDeps{
+		Config: &Config{MaxConnections: 10}, Store: store,
+		Transcriber: &deterministicTranscriber{}, Voice: &instantVoice{}, Bank: bank,
+		Timing: interview.Timing{
+			Part1Expected: time.Second, Part2Expected: time.Second, Part3Expected: time.Second,
+			Prep: 5 * time.Millisecond, LongTurnMin: 5 * time.Millisecond, LongTurnMax: 30 * time.Millisecond,
+		},
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		HandleInterviewWebSocket(w, r, deps)
+	}))
+	defer server.Close()
+	dial := func() *websocket.Conn {
+		u, _ := url.Parse(server.URL)
+		u.Scheme = "ws"
+		conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = conn.SetReadDeadline(time.Now().Add(10 * time.Second))
+		return conn
+	}
+	resume := func(userID, sessionID string) *websocket.Conn {
+		conn := dial()
+		wsWriteJSON(t, conn, map[string]any{
+			"type": "session_init", "protocolVersion": 3, "userId": userID,
+			"audioFormat": "audio/pcm;rate=16000", "resumeSessionId": sessionID,
+		})
+		if started := readUntilType(t, conn, "session_started"); started["resumed"] != true {
+			t.Fatalf("resume was not acknowledged: %#v", started)
+		}
+		return conn
+	}
+
+	t.Run("during the introduction", func(t *testing.T) {
+		first := dial()
+		wsWriteJSON(t, first, map[string]any{"type": "session_init", "protocolVersion": 3, "userId": "intro-user", "audioFormat": "audio/pcm;rate=16000"})
+		sessionID, _ := readUntilType(t, first, "session_started")["session_id"].(string)
+		intro := readUntilType(t, first, "examiner_turn")
+		readUntilType(t, first, "examiner_audio_end")
+		// The candidate never got as far as `ready`.
+		_ = first.Close()
+
+		resumed := resume("intro-user", sessionID)
+		defer resumed.Close()
+		replayed := readExaminerTurn(t, resumed, "script.part1.intro")
+		if replayed["text"] != intro["text"] {
+			t.Fatalf("the replayed greeting is not the one already given: %#v", replayed)
+		}
+		if replayed["expects_response"] == true {
+			t.Fatal("the greeting must not ask the candidate to speak; the interview is waiting on ready")
+		}
+		// And the interview continues from there rather than stalling.
+		wsWriteJSON(t, resumed, map[string]any{"type": "ready"})
+		readQuestion(t, resumed, 1)
+	})
+
+	t.Run("during the cue card", func(t *testing.T) {
+		first := dial()
+		wsWriteJSON(t, first, map[string]any{"type": "session_init", "protocolVersion": 3, "userId": "cue-user", "audioFormat": "audio/pcm;rate=16000"})
+		sessionID, _ := readUntilType(t, first, "session_started")["session_id"].(string)
+		readUntilType(t, first, "examiner_audio_end")
+		wsWriteJSON(t, first, map[string]any{"type": "ready"})
+		for part1 := 0; part1 < 12; part1++ {
+			readQuestion(t, first, 1)
+			writeAnswer(t, first)
+		}
+		cueCard := readUntilType(t, first, "cue_card")
+		cueID, _ := cueCard["cue_id"].(string)
+		readExaminerTurn(t, first, cueID)
+		// Dropped after the cue card was read out, before `ready`.
+		_ = first.Close()
+
+		resumed := resume("cue-user", sessionID)
+		defer resumed.Close()
+		// The cue card has to come back too: it is on screen for the whole of
+		// Part 2 and the client keys the turn against it.
+		if replayedCard := readUntilType(t, resumed, "cue_card"); replayedCard["cue_id"] != cueID {
+			t.Fatalf("resume delivered a different cue card: %#v", replayedCard)
+		}
+		if replayed := readExaminerTurn(t, resumed, cueID); replayed["expects_response"] == true {
+			t.Fatal("the cue card reading must not ask for speech; one minute of preparation comes first")
+		}
+		wsWriteJSON(t, resumed, map[string]any{"type": "ready"})
+		readUntilType(t, resumed, "prep_start")
+	})
+}
+
+// readExaminerTurn waits for the examiner turn carrying questionID and for its
+// audio to finish, mirroring what the browser client waits for before it acts.
+func readExaminerTurn(t *testing.T, conn *websocket.Conn, questionID string) map[string]any {
+	t.Helper()
+	for {
+		frame := readNextJSON(t, conn)
+		if frame["type"] != "examiner_turn" || frame["question_id"] != questionID {
+			continue
+		}
+		for {
+			end := readNextJSON(t, conn)
+			if end["type"] == "examiner_audio_end" && end["turn_id"] == frame["turn_id"] {
+				return frame
+			}
+		}
+	}
+}
+
 func writeAnswer(t *testing.T, conn *websocket.Conn) {
 	t.Helper()
 	if err := conn.WriteMessage(websocket.BinaryMessage, []byte{1, 2, 3, 4}); err != nil {
@@ -330,5 +444,125 @@ func readNextJSON(t *testing.T, conn *websocket.Conn) map[string]any {
 			t.Fatal(err)
 		}
 		return frame
+	}
+}
+
+// TestInterviewGatewayIdentityOverridesClientClaim is a security guard.
+//
+// The frame's userId is client-controlled, and two things ride on it: sessions
+// are persisted and listed under it, and the daily practice quota is keyed on
+// it. Trusting it let a caller write sessions under another user's id and mint a
+// fresh id per connection to escape the quota entirely -- unmetered STT and LLM
+// spend behind an authenticated socket.
+//
+// The Gateway validates the JWT at upgrade and now asserts the subject as
+// X-User-Id. That header wins.
+func TestInterviewGatewayIdentityOverridesClientClaim(t *testing.T) {
+	bank, err := interview.LoadDefaultBank()
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := newMemoryInterviewStore()
+	repo := &recordingSessionRepo{mockDBRepo: &mockDBRepo{}, created: make(chan *db.SpeakingSession, 1)}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		HandleInterviewWebSocket(w, r, InterviewSocketDeps{
+			Config: &Config{MaxConnections: 10}, Sessions: repo, Store: store,
+			ScoringLLM: &mockLLMClient{}, Transcriber: &deterministicTranscriber{},
+			Voice: &instantVoice{}, Bank: bank,
+			Timing:       interview.Timing{Part1Expected: time.Second, Part2Expected: time.Second, Part3Expected: time.Second, Prep: 5 * time.Millisecond, LongTurnMin: 5 * time.Millisecond, LongTurnMax: 30 * time.Millisecond},
+			Part3MaxTurn: 4,
+		})
+	}))
+	defer server.Close()
+
+	u, _ := url.Parse(server.URL)
+	u.Scheme = "ws"
+	header := http.Header{}
+	header.Set("X-User-Id", "identity-from-jwt")
+	conn, _, err := websocket.DefaultDialer.Dial(u.String(), header)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	_ = conn.SetReadDeadline(time.Now().Add(15 * time.Second))
+
+	if err := conn.WriteJSON(map[string]any{
+		"type": "session_init", "protocolVersion": 3,
+		"userId":      "attacker-supplied-id",
+		"audioFormat": "audio/pcm;rate=16000",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	readUntilType(t, conn, "examiner_audio_end")
+	wsWriteJSON(t, conn, map[string]any{"type": "ready"})
+	readQuestion(t, conn, 1)
+	writeAnswer(t, conn)
+	wsWriteJSON(t, conn, map[string]any{"type": "abandon"})
+	readUntilType(t, conn, "session_complete")
+
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	if len(store.records) != 1 {
+		t.Fatalf("got %d interview records, want 1", len(store.records))
+	}
+	for _, record := range store.records {
+		if record.UserID != "identity-from-jwt" {
+			t.Fatalf("session persisted under %q; the client's claim won over the Gateway's assertion", record.UserID)
+		}
+	}
+}
+
+// TestInterviewFallsBackToFrameIdentityWithoutGatewayHeader keeps the direct
+// path working. :8082 is not published past the Gateway, but the Go E2E suite
+// and the k6 scenarios dial the service with no proxy in front of them, so an
+// absent header must not mean an absent identity.
+func TestInterviewFallsBackToFrameIdentityWithoutGatewayHeader(t *testing.T) {
+	bank, err := interview.LoadDefaultBank()
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := newMemoryInterviewStore()
+	repo := &recordingSessionRepo{mockDBRepo: &mockDBRepo{}, created: make(chan *db.SpeakingSession, 1)}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		HandleInterviewWebSocket(w, r, InterviewSocketDeps{
+			Config: &Config{MaxConnections: 10}, Sessions: repo, Store: store,
+			ScoringLLM: &mockLLMClient{}, Transcriber: &deterministicTranscriber{},
+			Voice: &instantVoice{}, Bank: bank,
+			Timing:       interview.Timing{Part1Expected: time.Second, Part2Expected: time.Second, Part3Expected: time.Second, Prep: 5 * time.Millisecond, LongTurnMin: 5 * time.Millisecond, LongTurnMax: 30 * time.Millisecond},
+			Part3MaxTurn: 4,
+		})
+	}))
+	defer server.Close()
+
+	u, _ := url.Parse(server.URL)
+	u.Scheme = "ws"
+	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	_ = conn.SetReadDeadline(time.Now().Add(15 * time.Second))
+
+	if err := conn.WriteJSON(map[string]any{
+		"type": "session_init", "protocolVersion": 3,
+		"userId": "direct-caller", "audioFormat": "audio/pcm;rate=16000",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	readUntilType(t, conn, "examiner_audio_end")
+	wsWriteJSON(t, conn, map[string]any{"type": "ready"})
+	readQuestion(t, conn, 1)
+	writeAnswer(t, conn)
+	wsWriteJSON(t, conn, map[string]any{"type": "abandon"})
+	readUntilType(t, conn, "session_complete")
+
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	for _, record := range store.records {
+		if record.UserID != "direct-caller" {
+			t.Fatalf("direct caller identity lost: got %q", record.UserID)
+		}
 	}
 }

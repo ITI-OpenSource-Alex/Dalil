@@ -42,6 +42,56 @@ export async function clearAuthCookie(page: Page) {
   await page.context().clearCookies({ name: "access_token" });
 }
 
+export const GATEWAY_URL = process.env.GATEWAY_URL ?? "http://localhost:8080";
+
+/**
+ * Registers a throwaway account against a live Gateway and installs its REAL
+ * token, so the browser holds a session the Gateway will actually validate.
+ *
+ * The comment above has referred to this function ever since the placeholder
+ * cookie was introduced -- "Any spec that talks to a live Gateway needs a real
+ * token from the login flow instead, see signInThroughApi below" -- but it was
+ * never written, and the specs that needed it kept using the placeholder.
+ *
+ * That stayed invisible until GOA-132 moved the Speaking WebSocket behind the
+ * Gateway. Before it, the browser dialled :8082 directly with no JWT check at
+ * all (BUG-029), so a fake cookie was enough to open a real socket. After it,
+ * middleware.JWT rejects the placeholder at upgrade time and the panel shows
+ * "Status: Error" -- the security fix working exactly as designed, surfacing as
+ * three failing tests.
+ *
+ * Returns null when the Gateway is unreachable, so a frontend-only checkout can
+ * skip rather than fail.
+ */
+export async function signInThroughApi(
+  page: Page,
+  request: import("@playwright/test").APIRequestContext,
+): Promise<{ id: string; email: string; token: string } | null> {
+  const email = `e2e-live-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
+  const password = "SecurePassword123!";
+
+  try {
+    const registration = await request.post(`${GATEWAY_URL}/users`, {
+      data: { email, password },
+      timeout: 15000,
+    });
+    if (!registration.ok()) return null;
+    const { id } = await registration.json();
+
+    const login = await request.post(`${GATEWAY_URL}/auth/login`, {
+      data: { email, password },
+      timeout: 15000,
+    });
+    if (!login.ok()) return null;
+    const { access_token: token } = await login.json();
+
+    await seedAuthCookie(page, token);
+    return { id, email, token };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Drop-in replacement for `@playwright/test`'s `test`, with the session cookie
  * already installed:

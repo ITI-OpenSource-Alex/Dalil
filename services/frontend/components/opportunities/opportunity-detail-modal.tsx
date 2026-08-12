@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, ExternalLink, ListChecks } from "lucide-react";
+import { ExternalLink, ListChecks } from "lucide-react";
 import { Button, Modal, ModalContent, Text } from "@/components/ui";
 import { type MatchedProgram } from "@/lib/opportunities-api";
+import { ExplainWithDalilButton } from "@/components/chat/explain-with-dalil-button";
+import { compactFacts, fact } from "@/lib/explanation-context";
 
 const REQUIREMENT_ROWS: {
   key: keyof NonNullable<MatchedProgram["requirements"]>;
@@ -113,16 +115,30 @@ export function OpportunityDetailModal({
                 Full programme details
               </Link>
             </Button>
-            <Button size="sm" variant="ghost" trailingIcon={ArrowRight} asChild>
-              <Link
-                href={`/chat?ask=${encodeURIComponent(
-                  `Tell me more about ${program.programName} at ${program.university}.`,
-                )}`}
-                onClick={() => onOpenChange(false)}
-              >
-                Ask GOA
-              </Link>
-            </Button>
+            <ExplainWithDalilButton
+              display="compact"
+              context={{
+                kind: "programme_match",
+                title: `${program.programName} fit and requirements`,
+                subjectId: program.programId,
+                summary: `${program.university} · ${program.country}`,
+                facts: compactFacts([
+                  fact("Programme", program.programName, program.sourceUrl),
+                  fact("University", program.university, program.sourceUrl),
+                  fact("Country", program.country),
+                  fact("Fit score", `${Math.round(program.result.score)}%`),
+                  fact("Blocking requirement", program.result.blocked_by),
+                  ...REQUIREMENT_ROWS.map(({ key, label }) =>
+                    fact(label, requirements?.[key], program.sourceUrl),
+                  ),
+                ]),
+                limitations: [
+                  "The fit result depends on the profile information currently saved in Dalil.",
+                ],
+              }}
+              prompt={`Explain my fit for ${program.programName} at ${program.university}. Which requirements do I meet, which gaps matter, and what should I verify at the source?`}
+              onBeforeOpen={() => onOpenChange(false)}
+            />
             <Button size="sm" leadingIcon={ListChecks} asChild>
               <Link
                 href={`/checklist/${encodeURIComponent(program.programId)}`}

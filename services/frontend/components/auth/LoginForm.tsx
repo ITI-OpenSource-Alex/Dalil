@@ -58,11 +58,11 @@ export default function LoginForm() {
         // still wins for an unfinished profile: sending someone to a matching
         // page with nothing to match on is a worse landing than the wizard.
         const destination = isProfileComplete(me.profile)
-          ? (redirectTo ?? "/chat")
+          ? (redirectTo ?? "/dashboard")
           : "/onboarding";
         router.push(destination);
       } catch {
-        router.push(redirectTo ?? "/chat");
+        router.push(redirectTo ?? "/dashboard");
       }
     } catch (err) {
       // Surfaces the backend's own message where it has one (e.g. an

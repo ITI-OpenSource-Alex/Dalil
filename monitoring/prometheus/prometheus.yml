@@ -29,3 +29,14 @@ scrape_configs:
   - job_name: 'exam'
     static_configs:
       - targets: ['exam:8085']
+  # GOA-030. The E2E journey suite pushes goa_e2e_step_duration_ms{journey,step}
+  # here, because a Playwright run finishes long before a 15-second scrape could
+  # reach it directly.
+  #
+  # honor_labels is required rather than cosmetic: without it Prometheus
+  # overwrites the pushed `job` and `instance` labels with this scrape job's
+  # own, and every journey's step timings collapse into one series.
+  - job_name: 'pushgateway'
+    honor_labels: true
+    static_configs:
+      - targets: ['pushgateway:9091']

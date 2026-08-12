@@ -421,3 +421,38 @@ func TestSpeakingWS_NoGoroutineLeak(t *testing.T) {
 			sessions, baseline, runtime.NumGoroutine())
 	}
 }
+
+// TestSpeakingWS_AuthenticatedUserIDForwarded is a security guard, not a
+// plumbing check.
+//
+// The relay is byte-for-byte, so the `userId` a client puts in its session_init
+// frame used to reach Speaking unexamined -- and Speaking both persists sessions
+// under that id and keys the daily practice quota on it. An authenticated caller
+// could therefore attribute sessions to another user and, by sending a fresh id
+// per connection, spend STT and LLM budget without ever hitting a quota.
+//
+// GOA-132 closed exactly this on the REST session routes by sourcing userId from
+// the validated JWT. This asserts the socket half now does the same.
+func TestSpeakingWS_AuthenticatedUserIDForwarded(t *testing.T) {
+	upstream := newFakeSpeakingUpstream(t, func(c *websocket.Conn) {
+		_, _, _ = c.ReadMessage()
+	})
+	addr := newProxyApp(t, upstream.addr, true)
+
+	conn, _, err := dialProxy(t, addr)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	// A client claiming to be somebody else, which is the whole point.
+	_ = conn.WriteMessage(websocket.TextMessage,
+		[]byte(`{"type":"session_init","protocolVersion":3,"userId":"someone-elses-id"}`))
+
+	select {
+	case headers := <-upstream.headers:
+		if got := headers.Get("X-User-Id"); got != "user-1" {
+			t.Errorf("upstream X-User-Id = %q, want %q (the JWT subject, not the frame's claim)", got, "user-1")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("upstream handshake headers were never captured")
+	}
+}

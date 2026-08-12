@@ -5,10 +5,14 @@ export default function PhaseSection({
   phase,
   items,
   onToggle,
+  programId,
+  programName,
 }: {
   phase: Phase;
   items: ChecklistItem[];
   onToggle: (itemId: string, checked: boolean) => void;
+  programId: string;
+  programName?: string;
 }) {
   if (items.length === 0) {
     return null;
@@ -29,6 +33,9 @@ export default function PhaseSection({
           <ChecklistItemRow
             key={item.itemId}
             item={item}
+            programId={programId}
+            programName={programName}
+            phase={phase}
             onToggle={(checked) => onToggle(item.itemId, checked)}
           />
         ))}

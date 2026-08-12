@@ -61,10 +61,10 @@ export default function RootError({
           </button>
 
           <a
-            href="/chat"
+            href="/dashboard"
             className="rounded-full border border-border px-4 py-2 text-xs font-semibold text-fg-muted transition hover:bg-canvas-subtle focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted"
           >
-            Back to Chat
+            Back to dashboard
           </a>
         </div>
       </div>

@@ -42,7 +42,11 @@ export default function MessageBubble({
         </div>
       )}
 
-      <div className="flex flex-col gap-2 max-w-[75%]">
+      <div
+        className={`flex min-w-0 flex-col gap-2 ${
+          isUser ? "max-w-[82%]" : "max-w-[calc(100%_-_3rem)]"
+        }`}
+      >
         <motion.div
           data-testid={`${role}-message`}
           layout
@@ -52,7 +56,11 @@ export default function MessageBubble({
               : "bg-surface text-fg rounded-tl-none border border-border"
           }`}
         >
-          <StreamingMessage content={content} isStreaming={isStreaming} />
+          <StreamingMessage
+            content={content}
+            isStreaming={isStreaming}
+            markdown={!isUser}
+          />
         </motion.div>
       </div>
 

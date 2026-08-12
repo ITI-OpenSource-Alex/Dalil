@@ -44,7 +44,7 @@ const PROTECTED_PREFIXES = [
 const AUTH_ROUTES = ["/login", "/register"];
 
 /** Where a signed-in user lands when they ask for /login with no destination. */
-const DEFAULT_SIGNED_IN_DESTINATION = "/chat";
+const DEFAULT_SIGNED_IN_DESTINATION = "/dashboard";
 
 function isProtected(pathname: string): boolean {
   // /speaking/share/:token is deliberately absent: a share link is meant to be

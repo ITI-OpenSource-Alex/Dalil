@@ -330,7 +330,7 @@ export default function OnboardingWizardPage() {
       <Text size="sm" tone="subtle">
         Rather do this later?{" "}
         <Button variant="link" size="sm" asChild>
-          <Link href="/chat">Skip to Dalil</Link>
+          <Link href="/dashboard">Skip to dashboard</Link>
         </Button>
       </Text>
     </div>

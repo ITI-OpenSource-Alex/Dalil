@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import QuestionResultRow from "./QuestionResultRow";
 import QuestionTypeBreakdown from "./QuestionTypeBreakdown";
 import SectionBreakdownBars from "./SectionBreakdownBars";
+import { ExplainWithDalilButton } from "@/components/chat/explain-with-dalil-button";
+import { compactFacts, fact } from "@/lib/explanation-context";
 
 interface Props {
   result: {
@@ -31,6 +33,7 @@ interface Props {
   sections?: Array<{ key: string; label: string }>;
   /** "Passage" for Reading, "Section" for Listening. Forwarded per row. */
   locationLabel?: string;
+  subjectId?: string;
 }
 
 /**
@@ -55,6 +58,7 @@ export default function ReadingResultsView({
   questionTypeLabels,
   sections,
   locationLabel,
+  subjectId,
 }: Props) {
   const router = useRouter();
 
@@ -66,7 +70,7 @@ export default function ReadingResultsView({
         <span className="rounded-full border border-brand-border bg-brand-subtle px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-brand-fg">
           {title}
         </span>
-        <div className="mt-4 flex items-baseline gap-6">
+        <div className="mt-4 flex items-end gap-6">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest text-fg-subtle">
               Overall Band
@@ -81,6 +85,30 @@ export default function ReadingResultsView({
           <p className="text-sm text-fg-subtle">
             Raw score: {result.raw_score}/{questions.length}
           </p>
+          <ExplainWithDalilButton
+            context={{
+              kind: "exam_score",
+              title: `${title.replace(" Results", "")} band ${result.band_score}`,
+              subjectId,
+              summary: "A simulation band converted from the recorded number of correct answers.",
+              facts: compactFacts([
+                fact("Skill", title.replace(" Results", "")),
+                fact("Band score", result.band_score),
+                fact("Correct answers", result.raw_score),
+                fact("Total questions", questions.length),
+                ...Object.entries(result.section_breakdown).map(([section, score]) =>
+                  fact(
+                    `${section.replaceAll("_", " ")} correct answers`,
+                    `${score.correct}/${score.total}`,
+                  ),
+                ),
+              ]),
+              limitations: [
+                "This is a simulation result, not an official IELTS Test Report Form.",
+              ],
+            }}
+            prompt={`How was my ${title.replace(" Results", "")} band ${result.band_score} calculated from ${result.raw_score}/${questions.length} correct answers? Which section should I improve first?`}
+          />
         </div>
       </div>
 

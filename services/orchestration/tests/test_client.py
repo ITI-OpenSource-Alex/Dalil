@@ -1,6 +1,11 @@
 import pytest
 import httpx
-from app.services.client import forward_downstream_stream, rag_breaker, writing_breaker
+from app.services.client import (
+    _build_explanation_response,
+    forward_downstream_stream,
+    rag_breaker,
+    writing_breaker,
+)
 from app.core.metrics import goa_orchestration_circuit_breaker_state
 
 
@@ -64,6 +69,128 @@ async def test_speaking_intent_routing(mocker):
     assert len(events) == 1
     assert events[0].type == "speaking_url"
     assert "ws" in events[0].wsUrl
+
+
+@pytest.mark.asyncio
+async def test_explanation_context_bypasses_downstream_services(mocker):
+    mock_client = mocker.AsyncMock()
+    explanation = mocker.patch(
+        "app.services.client._build_explanation_response",
+        new=mocker.AsyncMock(return_value="Your score is based on the attached criteria."),
+    )
+    context = {
+        "kind": "speaking_score",
+        "title": "your speaking band 6.5",
+        "facts": [{"label": "Fluency", "value": "6.0"}],
+        "limitations": ["Practice estimate only"],
+    }
+
+    events = [
+        event
+        async for event in forward_downstream_stream(
+            mock_client,
+            "GENERAL",
+            "Why did I get this score?",
+            "user_1",
+            "corr-explain",
+            explanation_context=context,
+        )
+    ]
+
+    explanation.assert_awaited_once_with("Why did I get this score?", context)
+    mock_client.post.assert_not_called()
+    assert "".join(event.content or "" for event in events) == (
+        "Your score is based on the attached criteria."
+    )
+    assert all(event.type == "token" for event in events)
+
+
+@pytest.mark.asyncio
+async def test_explanation_extracts_text_after_agentrouter_thinking_blocks(mocker):
+    response = mocker.MagicMock()
+    response.content = [
+        {"type": "thinking", "thinking": ""},
+        {"type": "tool_use", "name": "internal"},
+        {"type": "text", "text": "The 100% is the displayed fit score."},
+    ]
+    llm_mock = mocker.MagicMock()
+    llm_mock.ainvoke = mocker.AsyncMock(return_value=response)
+    mocker.patch("app.services.client.llm", llm_mock)
+
+    answer = await _build_explanation_response(
+        "Why is this 100% fit?",
+        {
+            "kind": "programme_match",
+            "title": "Computer Science fit result",
+            "facts": [{"label": "Fit score", "value": "100%"}],
+        },
+    )
+
+    assert answer == "The 100% is the displayed fit score."
+    llm_mock.ainvoke.assert_awaited_once()
+    messages = llm_mock.ainvoke.await_args.args[0]
+    assert "Fit score" in messages[1].content
+
+
+@pytest.mark.asyncio
+async def test_programme_explanation_is_deterministic_and_actionable(mocker):
+    llm_mock = mocker.MagicMock()
+    llm_mock.ainvoke = mocker.AsyncMock()
+    mocker.patch("app.services.client.llm", llm_mock)
+
+    answer = await _build_explanation_response(
+        "Why is Computer Science shown as 100% fit?",
+        {
+            "kind": "programme_match",
+            "title": "Computer Science fit result",
+            "facts": [
+                {"label": "Fit score", "value": "100%"},
+                {"label": "Eligibility points", "value": "40"},
+                {"label": "Requirement headroom points", "value": "15"},
+                {"label": "Subject fit points", "value": "35"},
+                {"label": "Destination fit points", "value": "10"},
+                {"label": "Published requirements met", "value": "3"},
+                {"label": "Published requirements evaluated", "value": "3"},
+                {"label": "Application deadline", "value": "No published deadline"},
+            ],
+            "limitations": [
+                "The fit score depends on the profile information currently saved in Dalil."
+            ],
+        },
+    )
+
+    assert "40" in answer
+    assert "15" in answer
+    assert "35" in answer
+    assert "10" in answer
+    assert "3 of 3" in answer
+    assert "no score gap" in answer
+    assert "verify the application deadline" in answer.lower()
+    assert "not an admission decision" in answer
+    llm_mock.ainvoke.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_thinking_only_response_falls_back_to_attached_evidence(mocker):
+    response = mocker.MagicMock()
+    response.content = [{"type": "thinking", "thinking": "internal"}]
+    llm_mock = mocker.MagicMock()
+    llm_mock.ainvoke = mocker.AsyncMock(return_value=response)
+    mocker.patch("app.services.client.llm", llm_mock)
+
+    answer = await _build_explanation_response(
+        "Why did I receive this band?",
+        {
+            "kind": "writing_score",
+            "title": "Writing score",
+            "facts": [{"label": "Grammar band", "value": "6.0"}],
+            "limitations": ["This is a practice estimate."],
+        },
+    )
+
+    assert "Grammar band: **6.0**" in answer
+    assert "This is a practice estimate." in answer
+    assert "couldn't produce" not in answer
 
 
 @pytest.mark.asyncio

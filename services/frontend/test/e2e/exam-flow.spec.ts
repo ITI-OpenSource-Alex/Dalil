@@ -1,4 +1,66 @@
 import { test, expect } from "./fixtures/auth";
+import type { Page } from "@playwright/test";
+
+/**
+ * Stubs the exam session endpoints the shell loads on mount.
+ *
+ * This file already documents the defect for a test it deleted: "Nothing
+ * stubbed GET /api/exam/sessions/:id, so the shell's session load failed and it
+ * redirected to /exam, a page with no textarea at all -- the assertions ran
+ * against a page that was never the exam."
+ *
+ * The remaining tests had exactly the same flaw and were never repaired. Both
+ * are also gated behind RequirePaid, so even a reachable Gateway would answer
+ * 403 for the placeholder session this fixture seeds. Stubbing is the right
+ * answer here rather than a live account: these are shell mechanics -- timer
+ * persistence, the evaluating overlay -- not a backend contract, and
+ * test/journeys/ covers the live paths.
+ */
+async function mockExamSession(page: Page, sessionId: string, skillArea: string) {
+  await page.route("**/api/exam/sessions/**", async (route) => {
+    const url = route.request().url();
+
+    // Submission returns a graded result so the shell can move on to results.
+    if (route.request().method() === "PUT" || url.includes("/submit")) {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          session_id: sessionId,
+          status: "submitted",
+          band_score: 7,
+        }),
+      });
+    }
+    if (url.includes("/heartbeat")) {
+      return route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+    }
+
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        id: sessionId,
+        session_id: sessionId,
+        exam_type: "academic",
+        skill_area: skillArea.toLowerCase(),
+        status: "in_progress",
+        // A real remaining-time value: the timer assertions are about this
+        // number surviving a reload, so a null would make them vacuous.
+        remaining_time_seconds: 3600,
+        questions: [
+          {
+            section: 1,
+            questions: [
+              { id: "q1", prompt: `${skillArea} Task 1 Prompt` },
+              { id: "q2", prompt: `${skillArea} Task 2 Prompt` },
+            ],
+          },
+        ],
+      }),
+    });
+  });
+}
 
 test.describe("IELTS Exam Flow E2E Tests", () => {
   test.beforeEach(async ({ page }) => {
@@ -22,6 +84,8 @@ test.describe("IELTS Exam Flow E2E Tests", () => {
         }),
       );
     });
+
+    await mockExamSession(page, "test-reading-session", "Reading");
 
     // Navigate directly into the exam shell page
     await page.goto("/exam/shell?session=test-reading-session");
@@ -68,6 +132,8 @@ test.describe("IELTS Exam Flow E2E Tests", () => {
       );
     });
 
+    await mockExamSession(page, "test-session-speaking", "Speaking");
+
     await page.goto("/exam/shell?session=test-session-speaking");
 
     // Trigger submission
@@ -103,6 +169,8 @@ test.describe("IELTS Exam Flow E2E Tests", () => {
         }),
       );
     });
+
+    await mockExamSession(page, "test-session-timeout", "Reading");
 
     await page.goto("/exam/shell?session=test-session-timeout");
 

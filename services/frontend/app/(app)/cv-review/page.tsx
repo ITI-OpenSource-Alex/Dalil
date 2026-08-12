@@ -24,6 +24,8 @@ import {
   Spinner,
   Text,
 } from "@/components/ui";
+import { ExplainWithDalilButton } from "@/components/chat/explain-with-dalil-button";
+import { compactFacts, fact } from "@/lib/explanation-context";
 
 /**
  * CV Review, standalone (Phase E, docs/IA-REDESIGN-PROPOSAL.md). All CV
@@ -164,9 +166,31 @@ export default function CvReviewPage() {
                 Review results
               </Heading>
               {overallScore !== undefined && (
-                <Badge tone="brand" pill>
-                  Overall score {overallScore}/100
-                </Badge>
+                <span className="flex items-center gap-1.5">
+                  <Badge tone="brand" pill>
+                    Overall score {overallScore}/100
+                  </Badge>
+                  <ExplainWithDalilButton
+                    context={{
+                      kind: "cv_review",
+                      title: `your CV overall score ${overallScore}/100`,
+                      subjectId: cv?.cvId ? String(cv.cvId) : undefined,
+                      summary: `${targetField || "Target field not specified"} · ${targetCountry || "Target country not specified"}`,
+                      facts: compactFacts([
+                        fact("Overall CV score", `${overallScore}/100`),
+                        fact("Target field", targetField),
+                        fact("Target country", targetCountry),
+                        ...sections.map((section) =>
+                          fact(`${section.name} score`, `${section.score}/100`),
+                        ),
+                      ]),
+                      limitations: [
+                        "The review reflects the uploaded CV and selected target, not an admissions decision.",
+                      ],
+                    }}
+                    prompt={`Why did my CV receive ${overallScore}/100 for ${targetField} applications in ${targetCountry}? Which section is reducing the score most, and what should I change first?`}
+                  />
+                </span>
               )}
             </div>
 
@@ -182,6 +206,28 @@ export default function CvReviewPage() {
             <div className="space-y-5">
               {sections.map((section) => (
                 <div key={section.name}>
+                  <div className="mb-1 flex justify-end">
+                    <ExplainWithDalilButton
+                      context={{
+                        kind: "cv_review",
+                        title: `${section.name} CV score ${section.score}/100`,
+                        subjectId: cv?.cvId ? String(cv.cvId) : undefined,
+                        facts: compactFacts([
+                          fact("Review section", section.name),
+                          fact("Section score", `${section.score}/100`),
+                          fact("Overall CV score", overallScore ? `${overallScore}/100` : undefined),
+                          fact("Issues", section.issues.join("; ")),
+                          fact("Suggestions", section.suggestions.join("; ")),
+                          fact("Target field", targetField),
+                          fact("Target country", targetCountry),
+                        ]),
+                        limitations: [
+                          "The suggestions are based on the uploaded CV and are not a guarantee of admission.",
+                        ],
+                      }}
+                      prompt={`Explain why my CV's ${section.name} section scored ${section.score}/100. Connect each issue to a concrete revision and show me the highest-impact change.`}
+                    />
+                  </div>
                   <Progress
                     value={section.score}
                     label={section.name}

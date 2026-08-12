@@ -12,6 +12,8 @@ import {
   type WritingTaskNumber,
 } from "@/lib/writing-exam";
 import type { WritingCriterionEvaluation } from "@/lib/exam-api";
+import { ExplainWithDalilButton } from "@/components/chat/explain-with-dalil-button";
+import { compactFacts, fact } from "@/lib/explanation-context";
 
 interface TaskResultCardProps {
   taskNumber: WritingTaskNumber;
@@ -23,6 +25,7 @@ interface TaskResultCardProps {
   essayText: string;
   /** Collapsed by default during the exam; results pages open it. */
   defaultExpanded?: boolean;
+  subjectId?: string;
 }
 
 /**
@@ -42,6 +45,7 @@ export default function TaskResultCard({
   evaluations,
   essayText,
   defaultExpanded = false,
+  subjectId,
 }: TaskResultCardProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
 
@@ -54,41 +58,65 @@ export default function TaskResultCard({
       data-expanded={expanded}
       className="rounded-2xl border border-border bg-surface shadow-2xs"
     >
-      <button
-        type="button"
-        onClick={() => setExpanded((value) => !value)}
-        aria-expanded={expanded}
-        data-testid={`task-${taskNumber}-result-toggle`}
-        className="flex w-full items-center justify-between gap-4 p-5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted rounded-2xl"
-      >
-        <div className="flex items-center gap-3">
-          {expanded ? (
-            <ChevronDown size={16} className="text-fg-subtle" aria-hidden="true" />
-          ) : (
-            <ChevronRight size={16} className="text-fg-subtle" aria-hidden="true" />
-          )}
-          <div>
-            <h4 className="font-serif text-sm font-bold text-fg">
-              Task {taskNumber} — evaluated
-            </h4>
-            <p className="text-xs text-fg-subtle">
-              {wordCount} words · {expanded ? "Hide" : "Show"} full feedback
+      <div className="flex items-center gap-1 pr-4">
+        <button
+          type="button"
+          onClick={() => setExpanded((value) => !value)}
+          aria-expanded={expanded}
+          data-testid={`task-${taskNumber}-result-toggle`}
+          className="flex min-w-0 flex-1 items-center justify-between gap-4 rounded-2xl p-5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted"
+        >
+          <div className="flex items-center gap-3">
+            {expanded ? (
+              <ChevronDown size={16} className="text-fg-subtle" aria-hidden="true" />
+            ) : (
+              <ChevronRight size={16} className="text-fg-subtle" aria-hidden="true" />
+            )}
+            <div>
+              <h4 className="font-serif text-sm font-bold text-fg">
+                Task {taskNumber} — evaluated
+              </h4>
+              <p className="text-xs text-fg-subtle">
+                {wordCount} words · {expanded ? "Hide" : "Show"} full feedback
+              </p>
+            </div>
+          </div>
+
+          <div className="shrink-0 text-right">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-fg-subtle">
+              Band
+            </p>
+            <p
+              data-testid={`task-${taskNumber}-band`}
+              className="font-serif text-2xl font-bold text-brand-fg"
+            >
+              {formatBand(overallBand)}
             </p>
           </div>
-        </div>
-
-        <div className="shrink-0 text-right">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-fg-subtle">
-            Band
-          </p>
-          <p
-            data-testid={`task-${taskNumber}-band`}
-            className="font-serif text-2xl font-bold text-brand-fg"
-          >
-            {formatBand(overallBand)}
-          </p>
-        </div>
-      </button>
+        </button>
+        <ExplainWithDalilButton
+          context={{
+            kind: "writing_score",
+            title: `Writing Task ${taskNumber} band ${formatBand(overallBand)}`,
+            subjectId,
+            facts: compactFacts([
+              fact("Task", `Writing Task ${taskNumber}`),
+              fact("Estimated band", formatBand(overallBand)),
+              fact("Word count", wordCount),
+              fact("Under-length penalty", penaltyFlag ? "Applied" : "Not applied"),
+              ...evaluations.flatMap((evaluation) => [
+                fact(`${evaluation.criterion} band`, formatBand(evaluation.band_score)),
+                fact(`${evaluation.criterion} feedback`, evaluation.feedback),
+                fact(`${evaluation.criterion} improvement`, evaluation.improvement_tip),
+              ]),
+            ]),
+            limitations: [
+              "This is an estimated practice score based on the submitted response, not an official IELTS result.",
+            ],
+          }}
+          prompt={`Explain why my Writing Task ${taskNumber} response received band ${formatBand(overallBand)}. Which criterion limited it most, and what should I revise first?`}
+        />
+      </div>
 
       {/*
         The penalty is reported by the server (penalty_flag), not recomputed
@@ -124,9 +152,30 @@ export default function TaskResultCard({
                 >
                   {item.label}
                 </span>
-                <span className="text-xs font-bold text-fg-muted">
-                  {formatBand(item.band)}
-                </span>
+                <div className="flex items-center gap-1">
+                  <span className="text-xs font-bold text-fg-muted">
+                    {formatBand(item.band)}
+                  </span>
+                  <ExplainWithDalilButton
+                    context={{
+                      kind: "writing_score",
+                      title: `Writing Task ${taskNumber} ${item.label} band ${formatBand(item.band)}`,
+                      subjectId,
+                      facts: compactFacts([
+                        fact("Task", `Writing Task ${taskNumber}`),
+                        fact("Criterion", item.label),
+                        fact("Criterion band", formatBand(item.band)),
+                        fact("Finding", item.issue),
+                        fact("Suggested improvement", item.suggestion),
+                      ]),
+                      limitations: [
+                        "The explanation is limited to the recorded evaluator feedback for this response.",
+                      ],
+                    }}
+                    prompt={`Why did my Writing Task ${taskNumber} ${item.label} receive band ${formatBand(item.band)}? Explain the recorded finding and turn it into one concrete revision.`}
+                    className="h-7 w-7"
+                  />
+                </div>
               </div>
               <p className="text-xs leading-relaxed text-fg-muted">
                 {item.issue}

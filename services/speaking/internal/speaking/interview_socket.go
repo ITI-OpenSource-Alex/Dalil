@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -129,7 +130,23 @@ func HandleInterviewWebSocket(w http.ResponseWriter, r *http.Request, deps Inter
 		socket.writePolicyError("invalid_audio_format", err.Error())
 		return
 	}
-	socket.userID = init.UserID
+	// GOA-030. When the Gateway proxied this upgrade it asserts the identity it
+	// validated the JWT for, and that always wins over the frame's own field.
+	//
+	// The frame's userId is client-controlled. Sessions are persisted and listed
+	// by this value and the daily quota is keyed on it, so trusting the frame
+	// let a caller both write sessions under someone else's id and mint a fresh
+	// id per connection to escape the quota entirely.
+	//
+	// The fallback to init.UserID is deliberate and is NOT a hole in the
+	// production path: :8082 is not published past the Gateway, and the header
+	// is set on every proxied upgrade. It keeps the direct-connection callers
+	// working -- the Go WebSocket E2E suite and the k6 scenarios, which dial the
+	// service without a Gateway in front of them.
+	socket.userID = strings.TrimSpace(r.Header.Get("X-User-Id"))
+	if socket.userID == "" {
+		socket.userID = init.UserID
+	}
 	socket.audioFormat = format
 	if allowed, _ := speakingQuota.Allow(ctx, socket.userID); !allowed {
 		socket.writePolicyError("quota_exceeded", "You have used your speaking practice time for today. Please come back tomorrow.")
@@ -472,12 +489,37 @@ func (s *interviewSocket) resumeOutputs() []interview.Output {
 	if snapshot.State == interview.StatePart2LongTurn {
 		return append(outputs, interview.Output{Type: "long_turn_start", MinS: 0, MaxS: int(time.Until(snapshot.Deadline).Seconds()), EndsAt: snapshot.Deadline})
 	}
+	// The cue card is on screen for the whole of Part 2, and the client keys the
+	// turn below against it, so it has to be restored before the turn is.
+	if snapshot.State == interview.StatePart2Cue {
+		outputs = append(outputs, interview.Output{
+			Type: "cue_card", CueID: s.selection.Cue.CueID, Topic: s.selection.Cue.Topic,
+			Prompts: s.selection.Cue.Prompts, ClosingPrompt: s.selection.Cue.ClosingPrompt,
+		})
+	}
+	// Replay the last examiner turn, whatever it was.
+	//
+	// Matching on CurrentQuestionID instead misses precisely the states that
+	// carry no question: part1_intro (the greeting) and part2_cue (the card
+	// being read out). Both of those are waiting on `ready`, and the client only
+	// sends `ready` in response to an examiner turn — so emitting nothing left
+	// both sides waiting on each other with the examiner silent, which is how a
+	// reload during the greeting killed the session for good.
+	//
+	// ExpectsResponse is derived from the state rather than assumed: telling the
+	// client to record in a state that refuses candidate audio ends the session
+	// with audio_not_accepted.
 	for i := len(snapshot.Transcript.Turns) - 1; i >= 0; i-- {
 		turn := snapshot.Transcript.Turns[i]
-		if turn.Speaker == interview.SpeakerExaminer && turn.QuestionID == snapshot.CurrentQuestionID {
-			outputs = append(outputs, interview.Output{Type: "examiner_turn", TurnID: turn.TurnID, Part: turn.Part, QuestionID: turn.QuestionID, Text: turn.Text, ExpectsResponse: true})
-			break
+		if turn.Speaker != interview.SpeakerExaminer {
+			continue
 		}
+		outputs = append(outputs, interview.Output{
+			Type: "examiner_turn", TurnID: turn.TurnID, Part: turn.Part,
+			QuestionID: turn.QuestionID, Text: turn.Text,
+			ExpectsResponse: stateAcceptsAudio(snapshot.State),
+		})
+		break
 	}
 	return outputs
 }

@@ -570,4 +570,28 @@
   .print-avoid-break {
     break-inside: avoid;
   }
+
+  /* Writing evaluation export. Keeping this in the global stylesheet avoids
+     styled-jsx adding different hydration-only class hashes in dev mode. */
+  body:has(#writing-evaluation-panel) * {
+    visibility: hidden;
+  }
+
+  #writing-evaluation-panel,
+  #writing-evaluation-panel * {
+    visibility: visible;
+  }
+
+  #writing-evaluation-panel {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    box-shadow: none;
+    border: none;
+  }
+
+  #writing-evaluation-panel .print-hide {
+    display: none !important;
+  }
 }

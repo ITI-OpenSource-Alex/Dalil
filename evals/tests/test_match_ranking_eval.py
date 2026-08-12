@@ -1,6 +1,8 @@
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 from evals.match_ranking_eval import (
@@ -43,7 +45,6 @@ def test_ranking_quality_metric_matches_hand_computed_example():
 # --- sweep, with the reasoning recorded"). The sweep above scores a mock function
 # --- that shares nothing with production, so it could never justify anything.
 
-import pytest
 
 RAG_APP = Path(__file__).resolve().parents[2] / "services" / "rag"
 
@@ -78,9 +79,31 @@ def _catalog():
     return profile, programs
 
 
+@pytest.mark.skip(
+    reason="PROGRAM_FIT_WEIGHT was removed by 1d818cf; see the docstring below."
+)
 def test_zero_fit_weight_collapses_the_ranking():
-    """The regression this constant exists to prevent: at weight 0 every program
-    that passes the gate scores identically — the 83.46 tie, reproduced on demand."""
+    """OBSOLETE: the scoring model this sweeps no longer exists.
+
+    1d818cf replaced PROGRAM_FIT_WEIGHT -- a single scalar blending candidate
+    strength against program fit -- with four independent point budgets:
+    ELIGIBILITY_POINTS 40, REQUIREMENT_HEADROOM_POINTS 15,
+    SUBJECT_RELEVANCE_POINTS 35, DESTINATION_POINTS 10. There is no longer a
+    weight to sweep, so these two tests import a name that is gone.
+
+    They only surfaced now because the evals job was failing at COLLECTION
+    (no repo root on sys.path, fixed in the same branch), so nothing in this
+    directory had run since the scoring rewrite landed.
+
+    The question they protect is still worth asking: if the programme-fit
+    contribution is zero, does every eligible programme tie? The nearest
+    analogue is SUBJECT_RELEVANCE_POINTS. But the port is NOT mechanical --
+    under the new model eligibility and headroom still vary per programme, so
+    zeroing subject relevance probably does not collapse the ranking, and the
+    old assertion (distinct_scores == 1) would be wrong rather than merely
+    renamed. Establishing what the points model actually guarantees is a
+    scoring-owner decision, not a rename.
+    """
     from evals.match_ranking_eval import run_real_program_fit_sweep
     profile, programs = _catalog()
     result = run_real_program_fit_sweep(profile, programs, weights=(0.0,))[0.0]
@@ -88,17 +111,30 @@ def test_zero_fit_weight_collapses_the_ranking():
     assert result["spread"] == 0.0
 
 
+@pytest.mark.skip(
+    reason="PROGRAM_FIT_WEIGHT was removed by 1d818cf; see the docstring below."
+)
 def test_ranking_quality_is_flat_across_every_non_zero_weight():
-    """What the sweep actually establishes — and what it does not.
+    """OBSOLETE: the scoring model this sweeps no longer exists.
 
-    Ordering quality and score distinctness are IDENTICAL for every non-zero weight;
-    only the spread grows, linearly. So the sweep settles exactly one question — the
-    weight must not be zero — and cannot select 0.35 over 0.5 or 0.15. The magnitude
-    is a product judgement about how far program fit may displace a candidate's
-    absolute strength, and it should be recorded as such rather than dressed up as an
-    empirical optimum. The first version of this test asserted 0.35 was the cheapest
-    point on a plateau; it passed on one catalog and failed on another, which is how
-    the flatness came to light.
+    1d818cf replaced PROGRAM_FIT_WEIGHT -- a single scalar blending candidate
+    strength against program fit -- with four independent point budgets:
+    ELIGIBILITY_POINTS 40, REQUIREMENT_HEADROOM_POINTS 15,
+    SUBJECT_RELEVANCE_POINTS 35, DESTINATION_POINTS 10. There is no longer a
+    weight to sweep, so these two tests import a name that is gone.
+
+    They only surfaced now because the evals job was failing at COLLECTION
+    (no repo root on sys.path, fixed in the same branch), so nothing in this
+    directory had run since the scoring rewrite landed.
+
+    The question they protect is still worth asking: if the programme-fit
+    contribution is zero, does every eligible programme tie? The nearest
+    analogue is SUBJECT_RELEVANCE_POINTS. But the port is NOT mechanical --
+    under the new model eligibility and headroom still vary per programme, so
+    zeroing subject relevance probably does not collapse the ranking, and the
+    old assertion (distinct_scores == 1) would be wrong rather than merely
+    renamed. Establishing what the points model actually guarantees is a
+    scoring-owner decision, not a rename.
     """
     from evals.match_ranking_eval import run_real_program_fit_sweep
     from app.services.soft_score import PROGRAM_FIT_WEIGHT

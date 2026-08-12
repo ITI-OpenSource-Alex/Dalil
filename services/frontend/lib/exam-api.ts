@@ -55,6 +55,14 @@ export interface ExamQuestion {
   skill_area: string;
   passage_text?: string | null;
   audio_s3_key?: string | null;
+  // Academic Writing Task 1 stimulus (the chart the candidate describes).
+  // `image_s3_key` is the raw object key; `image_url` is the pre-signed,
+  // browser-reachable URL the exam service mints at session start
+  // (services/exam/app/schemas/question.py, QuestionResponse). Both are null
+  // for every non-visual task — General Training Task 1, Task 2 and every
+  // Reading/Listening/Speaking payload — so this is purely additive.
+  image_s3_key?: string | null;
+  image_url?: string | null;
   questions: Record<string, unknown>[];
 }
 

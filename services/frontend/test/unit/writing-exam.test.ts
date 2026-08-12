@@ -238,13 +238,20 @@ describe("formatWeightedFormula", () => {
 });
 
 describe("normalizeWritingTasks", () => {
-  const questionSet = (questions: Record<string, unknown>[]): ExamQuestion[] => [
+  const questionSet = (
+    questions: Record<string, unknown>[],
+    imageUrl?: string,
+  ): ExamQuestion[] => [
     {
       id: "q1",
       book_ref: "IELTS-14",
       test_number: 1,
       exam_type: "academic",
       skill_area: "writing",
+      // The exam service pre-signs the Task 1 chart at the question-set level
+      // (ExamQuestion.image_url), not per task, so that is where the normaliser
+      // reads it from. Omitted (undefined) for the non-image cases.
+      image_url: imageUrl,
       questions,
     },
   ];
@@ -279,16 +286,64 @@ describe("normalizeWritingTasks", () => {
     expect(tasks[1].taskNumber).toBe(2);
   });
 
-  // Image-based evaluation is postponed (the Writing agents no longer consume
-  // an image), so the UI must not read or depend on any stimulus field. A
-  // payload that happens to carry one is simply ignored rather than surfaced.
-  it("ignores any image/stimulus field on the payload", () => {
+  // The Academic Task 1 stimulus is the question set's pre-signed `image_url`.
+  // It belongs to task 1 (the only visual task) and must never leak onto task 2.
+  const STIMULUS_URL = "https://s3.example/chart.png?sig=abc";
+
+  it("attaches the set-level image_url to task 1 only (list shape)", () => {
+    const tasks = normalizeWritingTasks(
+      questionSet(
+        [
+          { number: 1, prompt: "Describe the chart." },
+          { number: 2, prompt: "Discuss both views." },
+        ],
+        STIMULUS_URL,
+      ),
+    );
+
+    expect(tasks[0].stimulusImageUrl).toBe(STIMULUS_URL);
+    expect(tasks[1].stimulusImageUrl).toBeUndefined();
+  });
+
+  it("attaches the set-level image_url to task 1 only (dict shape)", () => {
+    const tasks = normalizeWritingTasks(
+      questionSet(
+        [
+          {
+            task1: { prompt: "Describe the chart." },
+            task2: { prompt: "Discuss both views." },
+          },
+        ],
+        STIMULUS_URL,
+      ),
+    );
+
+    expect(tasks[0].stimulusImageUrl).toBe(STIMULUS_URL);
+    expect(tasks[1].stimulusImageUrl).toBeUndefined();
+  });
+
+  it("leaves task 1 image-less when the set carries no image_url", () => {
+    const tasks = normalizeWritingTasks(
+      questionSet([
+        { number: 1, prompt: "Describe the chart." },
+        { number: 2, prompt: "Discuss both views." },
+      ]),
+    );
+
+    expect(tasks[0].stimulusImageUrl).toBeUndefined();
+    expect(Object.keys(tasks[0])).not.toContain("stimulusImageUrl");
+  });
+
+  // The chart URL is read only from the set-level `image_url`. A per-task entry
+  // that happens to carry its own image field (a legacy/stray shape) is not a
+  // stimulus source and must be ignored, so it can never smuggle an image in.
+  it("ignores per-task image/stimulus fields, reading only the set-level image_url", () => {
     const tasks = normalizeWritingTasks(
       questionSet([
         {
           number: 1,
           prompt: "Describe the chart.",
-          stimulus_image_url: "https://s3.example/chart.png?sig=abc",
+          stimulus_image_url: "https://s3.example/stray.png?sig=xyz",
           image_s3_key: "writing-stimuli/chart.png",
         },
         { number: 2, prompt: "Discuss both views." },
@@ -301,7 +356,7 @@ describe("normalizeWritingTasks", () => {
       prompt: "Describe the chart.",
       instructions: undefined,
     });
-    expect(Object.keys(tasks[0])).not.toContain("stimulusImageUrl");
+    expect(tasks[0].stimulusImageUrl).toBeUndefined();
   });
 
   it("degrades gracefully when there is no data, or only one task", () => {

@@ -100,9 +100,19 @@ function evaluations(band: number) {
   ];
 }
 
+interface SessionOptions {
+  // Set-level pre-signed chart URL, mirroring the exam service's
+  // QuestionResponse.image_url. Only Academic Task 1 renders it; null for
+  // General Training and any set whose stimulus was unavailable.
+  imageUrl?: string | null;
+  // A per-task image field of the legacy/stray shape. The chart is delivered at
+  // the question-set level, never per entry, so this must be ignored entirely.
+  withStrayImageField?: boolean;
+}
+
 function sessionResponse(
   examType: "academic" | "general",
-  options: { withStrayImageField?: boolean } = {},
+  options: SessionOptions = {},
 ) {
   const task1: Record<string, unknown> = {
     number: 1,
@@ -116,10 +126,11 @@ function sessionResponse(
         : "Write a letter of at least 150 words.",
   };
 
-  // Simulates a backend that still carries a legacy image key. The UI must
-  // ignore it entirely — image support is postponed.
+  // Simulates a backend that carries a legacy per-task image key. The chart is
+  // delivered at the question-set level (image_url); a per-entry field is not a
+  // stimulus source and the UI must ignore it entirely.
   if (options.withStrayImageField) {
-    task1.stimulus_image_url = "https://s3.example/chart.png?sig=abc";
+    task1.stimulus_image_url = "https://s3.example/stray.png?sig=xyz";
     task1.image_s3_key = "writing-stimuli/chart.png";
   }
 
@@ -142,6 +153,10 @@ function sessionResponse(
         skill_area: "writing",
         passage_text: null,
         audio_s3_key: null,
+        // The Academic Task 1 chart is a pre-signed URL on the question SET,
+        // exactly as services/exam/app/schemas/question.py (QuestionResponse)
+        // exposes it. null for General Training and any set with no stimulus.
+        image_url: options.imageUrl ?? null,
         questions: [
           task1,
           {
@@ -160,6 +175,21 @@ const TASK2_BAND = 7.0;
 // The exam service's rule: round((6.5 + 2*7.0) / 3 * 2) / 2 = 7.0
 const OVERALL_BAND = 7.0;
 
+// A stand-in for the exam service's pre-signed stimulus URL. The shape mirrors a
+// real LocalStack/S3 SigV4 link (host + query signature) so the assertions read
+// like the live ones; the route below actually serves bytes for it, so the
+// rendered <img> genuinely loads rather than 404-ing.
+const STIMULUS_IMAGE_URL =
+  "http://localhost:4566/exam-writing-stimuli/charts/test-book-test-1-task1.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Signature=deadbeefcafef00d";
+
+// Smallest valid PNG (1×1, transparent). Enough for the browser to decode the
+// image and report naturalWidth > 0 — i.e. "the src resolved, not a broken
+// image", the mocked-suite equivalent of the live not-404 check.
+const PNG_1X1 = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+  "base64",
+);
+
 /**
  * Installs the full mock backend. `onSubmit` records each task submitted so a
  * test can assert what the UI actually sent.
@@ -168,8 +198,21 @@ async function mockExamApi(
   page: Page,
   examType: "academic" | "general",
   submitted: number[],
-  options: { withStrayImageField?: boolean } = {},
+  options: SessionOptions = {},
 ) {
+  // Serve real bytes for the pre-signed stimulus URL so the rendered <img>
+  // actually decodes. Registered before the session route (Playwright matches
+  // most-recently-added first, but these patterns are disjoint) and only hit
+  // when a test supplies an imageUrl pointing here.
+  await page.route(STIMULUS_IMAGE_URL, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "image/png",
+      headers: corsHeaders(),
+      body: PNG_1X1,
+    }),
+  );
+
   await page.route(`${GATEWAY_API_BASE}/sessions/${SESSION_ID}`, (route) =>
     withPreflight(route, (r) =>
       fulfillJson(r, sessionResponse(examType, options)),
@@ -249,14 +292,55 @@ async function openExam(page: Page) {
 }
 
 test.describe("Writing exam UI", () => {
-  // Image-based evaluation is postponed (the Writing agents changed and the
-  // pipeline no longer supports it), so Academic Task 1 renders prompt-only.
-  // TODO(GOA-058 follow-up): when the stimulus pipeline lands, restore the
-  // image + zoom assertions here (mock a stimulus URL on the task 1 payload,
-  // then assert stimulus-image-1, stimulus-zoom-button-1, the modal and
-  // Escape-to-close).
-  test("Academic Task 1 shows the prompt and no image", async ({ page }) => {
-    await mockExamApi(page, "academic", []);
+  // The Academic Task 1 stimulus chart is delivered as a pre-signed URL on the
+  // question set (QuestionResponse.image_url). It renders only for Academic
+  // Task 1 and only when the payload carried one; General Training, Task 2 and
+  // any set with a null image_url stay prompt-only.
+  test("Academic Task 1 renders the pre-signed chart and it actually loads", async ({
+    page,
+  }) => {
+    await mockExamApi(page, "academic", [], { imageUrl: STIMULUS_IMAGE_URL });
+    await openExam(page);
+
+    await expect(page.getByTestId("stimulus-prompt-1")).toContainText(
+      "The chart below shows household spending",
+    );
+
+    const image = page.getByTestId("stimulus-image-1");
+    await expect(image).toBeVisible();
+    // The src is the pre-signed URL verbatim (next/image `unoptimized` — it must
+    // not be re-keyed through the optimizer, which would drop the signature).
+    await expect(image).toHaveAttribute("src", STIMULUS_IMAGE_URL);
+    // ...and it decoded: naturalWidth > 0 means the URL resolved to real bytes,
+    // not a broken image. This is the mocked-suite mirror of the live not-404
+    // assertion.
+    await expect
+      .poll(() =>
+        image.evaluate((img: HTMLImageElement) => img.naturalWidth),
+      )
+      .toBeGreaterThan(0);
+  });
+
+  test("Academic Task 1 zoom opens a modal and Escape closes it", async ({
+    page,
+  }) => {
+    await mockExamApi(page, "academic", [], { imageUrl: STIMULUS_IMAGE_URL });
+    await openExam(page);
+
+    const modal = page.getByTestId("stimulus-zoom-modal-1");
+    await expect(modal).toHaveCount(0);
+
+    await page.getByTestId("stimulus-zoom-button-1").click();
+    await expect(modal).toBeVisible();
+
+    await page.keyboard.press("Escape");
+    await expect(modal).toHaveCount(0);
+  });
+
+  test("Academic Task 1 with no chart stays prompt-only", async ({ page }) => {
+    // A session whose stimulus was unavailable degrades to image_url: null. The
+    // task must still render, prompt-only, with no image or zoom control.
+    await mockExamApi(page, "academic", [], { imageUrl: null });
     await openExam(page);
 
     await expect(page.getByTestId("stimulus-prompt-1")).toContainText(
@@ -264,14 +348,15 @@ test.describe("Writing exam UI", () => {
     );
     await expect(page.getByTestId("stimulus-image-1")).toHaveCount(0);
     await expect(page.getByTestId("stimulus-zoom-button-1")).toHaveCount(0);
+    await expect(page.getByTestId("task-1-textarea")).toBeEditable();
   });
 
-  test("Academic Task 1 stays usable even if the payload carries an image field", async ({
+  test("Academic Task 1 ignores a stray per-task image field", async ({
     page,
   }) => {
-    // Guards the "do not expect or require image fields" requirement from the
-    // other direction: an unexpected field must be ignored, never rendered and
-    // never fatal.
+    // The chart is delivered at the question-set level, never per entry. A
+    // legacy per-task image field must be ignored, never rendered and never
+    // fatal — so with no set-level image_url the task stays prompt-only.
     await mockExamApi(page, "academic", [], { withStrayImageField: true });
     await openExam(page);
 
@@ -283,7 +368,9 @@ test.describe("Writing exam UI", () => {
   test("General Training Task 1 shows scenario text and no image", async ({
     page,
   }) => {
-    await mockExamApi(page, "general", []);
+    // General Training Task 1 is a letter scenario — prose by nature, and the
+    // exam service never mints an image_url for it even though the field exists.
+    await mockExamApi(page, "general", [], { imageUrl: STIMULUS_IMAGE_URL });
     await openExam(page);
 
     await expect(page.getByTestId("stimulus-scenario-text-1")).toContainText(

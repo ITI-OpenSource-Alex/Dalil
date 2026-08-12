@@ -12,5 +12,8 @@ class Question:
     skill_area: str
     passage_text: Optional[str]
     audio_s3_key: Optional[str]
+    # S3 key of the Academic Writing Task 1 stimulus image (chart/graph/map).
+    # NULL for every other question type -- see migration 009.
+    image_s3_key: Optional[str]
     questions: dict
     answer_key: dict

@@ -3,21 +3,24 @@ import type { ExamQuestion } from "@/lib/exam-api";
 /**
  * A Writing task, normalized into the one shape the UI renders.
  *
- * TODO(GOA-058 follow-up): when the Academic Task 1 stimulus pipeline lands
- * (ingestion -> S3 -> pre-signing -> exposed on the session API), add:
- *
- *     stimulusImageUrl?: string;
- *
- * and populate it in both branches of normalizeWritingTasks below (task 1
- * only). Image-based evaluation is postponed for now: the Writing agents were
- * changed and the current pipeline no longer supports it, so no backend
- * response carries an image field and the UI must not expect one.
+ * `stimulusImageUrl` carries the Academic Task 1 chart. The exam service
+ * exposes it as a pre-signed URL at the *question-set* level
+ * (`ExamQuestion.image_url`, minted at session start), not per task, because a
+ * writing question set has exactly one visual stimulus and it is always Task
+ * 1's — so it is threaded onto task 1 here and left undefined everywhere else
+ * (General Training Task 1, Task 2, and any set whose `image_url` is null,
+ * which is every non-Academic-Task-1 payload).
  */
 export interface NormalizedWritingTask {
   taskNumber: 1 | 2;
   prompt: string;
   /** Sub-instruction, e.g. "Write at least 150 words." Absent in some books. */
   instructions?: string;
+  /**
+   * Pre-signed, browser-reachable URL for the Academic Task 1 stimulus chart.
+   * Only ever set on task 1, and only when the session payload carried one.
+   */
+  stimulusImageUrl?: string;
 }
 
 function asString(value: unknown): string | undefined {
@@ -51,13 +54,19 @@ function asString(value: unknown): string | undefined {
  * it assumed shape B and raised AttributeError on shape A, returning HTTP 500
  * on every real writing submit. Both sides now handle both shapes.)
  *
- * Note this reads no image or stimulus field of any kind — see the TODO on
- * NormalizedWritingTask.
+ * The Academic Task 1 stimulus URL is read from the question set itself
+ * (`image_url`), not from a per-task entry — the exam service pre-signs it at
+ * `QuestionResponse` level because a writing set has a single visual stimulus,
+ * always Task 1's. It is attached to task 1 only and is undefined whenever the
+ * payload carried no image (null `image_url`), which covers General Training
+ * and Task 2.
  */
 export function normalizeWritingTasks(
   questionSets: ExamQuestion[] | undefined,
 ): NormalizedWritingTask[] {
-  const entries = questionSets?.[0]?.questions ?? [];
+  const set = questionSets?.[0];
+  const entries = set?.questions ?? [];
+  const stimulusImageUrl = asString(set?.image_url ?? undefined);
   const first = entries[0] as Record<string, unknown> | undefined;
 
   // Shape B: a single wrapper object carrying task1/task2 keys.
@@ -74,6 +83,7 @@ export function normalizeWritingTasks(
           taskNumber,
           prompt,
           instructions: asString(task.instructions),
+          ...(taskNumber === 1 && stimulusImageUrl ? { stimulusImageUrl } : {}),
         };
       })
       .filter((task): task is NormalizedWritingTask => task !== null);
@@ -94,6 +104,7 @@ export function normalizeWritingTasks(
         taskNumber,
         prompt,
         instructions: asString(source.instructions),
+        ...(taskNumber === 1 && stimulusImageUrl ? { stimulusImageUrl } : {}),
       };
     })
     .filter((task): task is NormalizedWritingTask => task !== null)

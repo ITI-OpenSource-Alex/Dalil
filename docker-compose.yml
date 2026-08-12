@@ -506,6 +506,12 @@ services:
       - AWS_ACCESS_KEY_ID=test
       - AWS_SECRET_ACCESS_KEY=test
       - AWS_ENDPOINT_URL=http://localstack:4566
+      # Server-to-server boto calls use AWS_ENDPOINT_URL (the internal host).
+      # Browser-facing pre-signed URLs must instead be SIGNED against a host the
+      # browser can resolve, or the SigV4 signature is invalid on first request
+      # (BUG-016). LocalStack is published on 4566, so localhost:4566 is that
+      # host in local dev; point this at the real S3/CDN host in other envs.
+      - S3_PUBLIC_ENDPOINT_URL=http://localhost:4566
       - S3_BUCKET=goa-exam-audio
       - WRITING_IMAGE_BUCKET=goa-writing-files
       - SQS_QUEUE_NAME=user-events-exam

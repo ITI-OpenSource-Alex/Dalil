@@ -1,0 +1,47 @@
+{
+  "schema_version": "goa-demo-snapshot/v1",
+  "captured_at": "2026-08-09T05:48:35Z",
+  "capture_origin": "GOA-111 MastersPortal ingestion and live RAG scoring",
+  "demo_user": {
+    "display_name": "Ahmed",
+    "email": "ahmed.sprint4.demo@goa.local",
+    "profile": {
+      "degreeLevel": "Master",
+      "gpa": 60,
+      "gpaScale": "100",
+      "ieltsScore": 6.5,
+      "ieltsListening": 6.5,
+      "ieltsReading": 6.5,
+      "ieltsWriting": 6.5,
+      "ieltsSpeaking": 6.5,
+      "targetCountries": ["Germany", "United Kingdom"],
+      "fieldOfStudy": "Electrical Engineering",
+      "targetFieldOfStudy": "Electrical Engineering",
+      "ects": 180,
+      "workExperienceYears": 0,
+      "extracurricularsScore": 0
+    }
+  },
+  "programs": [
+    {"tier":"high","programId":"24cbe7f4-3183-4e6f-afa8-d3268aa25f9a","university":"University of Applied Sciences Ulm","country":"Germany","degree_level":"Master","program_name":"Electrical Energy Systems and Electromobility","min_ects":90,"min_gpa":null,"min_ielts":null,"required_citizenship":null,"min_work_experience":null,"deadline":null,"discipline":"engineering","source_url":"https://www.mastersportal.com/studies/280878/electrical-energy-systems-and-electromobility.html","content_hash":"340c71fd2dc5f3a0606058b908663168636a3ec62937dda59bd27d57447d796b","last_scraped_at":"2026-08-09T05:17:10.268409"},
+    {"tier":"mid","programId":"51504716-1157-4fce-bc49-22a04654e250","university":"Queen Mary University of London","country":"United Kingdom","degree_level":"Master","program_name":"Advanced Electronic and Electrical Engineering","min_ects":null,"min_gpa":null,"min_ielts":6.5,"required_citizenship":null,"min_work_experience":null,"deadline":null,"discipline":"engineering","source_url":"https://www.mastersportal.com/studies/165095/advanced-electronic-and-electrical-engineering.html","content_hash":"a1b7a7fbd821f93455963fb919ac2ce489563c9e66d98220d080686af37009e0","last_scraped_at":"2026-08-09T05:15:58.474247"},
+    {"tier":"mid","programId":"46ef155d-6356-4900-ac12-3404f940afa8","university":"UCL","country":"United Kingdom","degree_level":"Master","program_name":"Telecommunications (IGDP)","min_ects":null,"min_gpa":null,"min_ielts":6.5,"required_citizenship":null,"min_work_experience":null,"deadline":null,"discipline":"engineering","source_url":"https://www.mastersportal.com/studies/450200/telecommunications.html","content_hash":"2e5f645b3c608f793282419a42d0c0481c34380c87aa610bbcbef2880db53ca7","last_scraped_at":"2026-08-09T04:10:10.106311"},
+    {"tier":"low","programId":"0f51020b-fe87-45cc-a34d-ae59f76190e8","university":"Kingston University","country":"United Kingdom","degree_level":"Master","program_name":"Automation and Control Engineering","min_ects":null,"min_gpa":null,"min_ielts":6.5,"required_citizenship":null,"min_work_experience":null,"deadline":null,"discipline":"engineering","source_url":"https://www.mastersportal.com/studies/490606/automation-and-control-engineering.html","content_hash":"7b8d7b3700479344ba0d0df0bc1d7c9ee0fd998213c9bbfafb5a5ff313c77127","last_scraped_at":"2026-08-09T04:44:17.576913"},
+    {"tier":"blocked","programId":"786f0bc6-62a9-4fc3-9760-b41027a67011","university":"University of Rostock","country":"Germany","degree_level":"Master","program_name":"Electrical Engineering","min_ects":120,"min_gpa":null,"min_ielts":7.0,"required_citizenship":null,"min_work_experience":null,"deadline":null,"discipline":"engineering","source_url":"https://www.mastersportal.com/studies/457684/electrical-engineering.html","content_hash":"80aefb22b60993d000c369801b06d1a9a17ecb09313c12a9eb72fb30c14df474","last_scraped_at":"2026-08-09T04:21:55.824391"}
+  ],
+  "visa": {
+    "country":"Germany",
+    "visa_type":"national student visa",
+    "issuing_body":"European Commission - EU Immigration Portal",
+    "requirements":{"registration":"registered or have an invitation to register as a student in an educational institution","student_visa":"obtain a student visa","accommodation":"accommodation","german_language":"knowledge of German needed for your studies","health_insurance":"health insurance","residence_permit":"be granted a residence permit","acceptance_letter":"acceptance from the educational institution","financial_resources":"sufficient financial resources to cover living and study expenses","residence_permit_validity":"valid for a maximum of two years"},
+    "proof_of_funds":{"notes":null,"pathways":[{"notes":"sufficient financial resources to cover living and study expenses","amounts":[],"pathway":"self_funded","accepted_evidence":null}]},
+    "source_url":"https://home-affairs.ec.europa.eu/policies/migration-and-asylum/eu-immigration-portal/student-germany_en",
+    "processing_days_min":null,
+    "processing_days_max":null,
+    "notes":null,
+    "content_hash":"70d6cada3074026d660a026d1a41d162a463102520f52a5ba21f1542b25a3aa1",
+    "egyptian_specific":true,
+    "extraction_evidence":{"requirements.registration":"registered or have an invitation to register","requirements.student_visa":"obtain a student visa","requirements.accommodation":"accommodation","requirements.german_language":"knowledge of German needed for your studies","requirements.health_insurance":"health insurance","requirements.residence_permit":"be granted a residence permit","requirements.acceptance_letter":"acceptance from the educational institution","proof_of_funds.pathways[0].notes":"sufficient financial resources to cover living and study expenses","requirements.financial_resources":"sufficient financial resources to cover living and study expenses","requirements.residence_permit_validity":"valid for a maximum of two years"},
+    "last_verified_at":"2026-08-09T05:25:18.360627Z"
+  }
+}

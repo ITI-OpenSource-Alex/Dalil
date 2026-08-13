@@ -210,6 +210,11 @@ async def test_one_source_failure_doesnt_kill_run(mocker, dummy_source):
     mocker.patch.object(
         adapter, "_call_llm", return_value=_llm({"extraction_valid": True, "requirements": {}})
     )
+    # A failed fetch now triggers relocation, which reaches the live internet and
+    # would also consume source 3's queued response. Stubbing it to find nothing
+    # keeps this test about what its name says -- the run surviving one failure --
+    # and keeps it hermetic.
+    mocker.patch("app.adapters.visa_discovery.discover", return_value=None)
 
     outcomes = await adapter.run([dummy_source, source2, source3])
 
@@ -493,7 +498,7 @@ async def test_missing_fields_yield_nulls_not_guesses(mocker, dummy_source):
 def test_extraction_model_is_config_driven():
     from app.adapters.visa_adapter import EXTRACTION_MODEL
     import os
-    assert EXTRACTION_MODEL == os.environ.get("EXTRACTION_MODEL", "claude-opus-4-8")
+    assert EXTRACTION_MODEL == os.environ.get("EXTRACTION_MODEL", "claude-opus-5")
 
 @pytest.mark.asyncio
 async def test_extraction_evidence_quotes_are_verbatim(mocker, dummy_source):

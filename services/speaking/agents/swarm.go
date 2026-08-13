@@ -20,6 +20,23 @@ const maxAgentErrorChars = 200
 // failing. Callers classify on this exact value, so it is a constant.
 const AgentErrorDeadline = "deadline exceeded"
 
+// AgentErrorInsufficientEvidence marks a criterion that could not be assessed
+// because the evidence it is defined over was never supplied.
+//
+// Distinct from a provider failure and from a deadline, because it is neither:
+// nothing went wrong, and retrying cannot help. The input simply did not
+// contain what this criterion measures.
+//
+// SPEAK-EVAL-007 found why this is needed. Asked to judge Pronunciation from a
+// transcript with no acoustic features, the agent wrote "pronunciation cannot
+// be assessed ... no measured speech features were supplied" -- and returned
+// band 0.0. Band 0.0 is a legal IELTS value, so the contract accepted it as a
+// real score and averaged it in, dragging a band 8 candidate to 5.5. The
+// contract defends against an agent that FAILS; it had no defence against one
+// that succeeds while saying it has no evidence. Refusing before the model is
+// called is the only place that can be closed.
+const AgentErrorInsufficientEvidence = "insufficient evidence"
+
 // errorSummary renders a provider failure as a short, safe breadcrumb.
 func errorSummary(err error) string {
 	if err == nil {
@@ -108,6 +125,7 @@ func EvaluateSwarm(
 	ctx context.Context,
 	client LLMClient,
 	questionPrompt, questionType, transcript string,
+	features *ProsodyFeatures,
 	onCriterion func(CriterionEvent),
 ) (SwarmResult, error) {
 	start := time.Now()
@@ -119,14 +137,14 @@ func EvaluateSwarm(
 	results := make(map[string]AgentResult)
 
 	// Helper to coordinate parallel execution and individual timeout fallback
-	runAgent := func(criterionName string, evalFn func(context.Context, LLMClient, string, string, string) (AgentResult, error)) {
+	runAgent := func(criterionName string, evalFn func(context.Context, LLMClient, string, string, string, *ProsodyFeatures) (AgentResult, error)) {
 		defer wg.Done()
 
 		resChan := make(chan AgentResult, 1)
 		errChan := make(chan error, 1)
 
 		go func() {
-			res, err := evalFn(ctx, client, questionPrompt, questionType, transcript)
+			res, err := evalFn(ctx, client, questionPrompt, questionType, transcript, features)
 			if err != nil {
 				errChan <- err
 				return
@@ -199,18 +217,19 @@ func EvaluateSwarm(
 
 	wg.Wait()
 
-	var totalBand float64
-	var completedCount int
-	var partial bool
-
+	// The arithmetic lives in aggregateBands (canonical.go), shared with
+	// EvaluateHolisticSwarm. It used to be a second copy of these lines, kept
+	// aligned by a KEEP IN SYNC comment; GOA-134 is what such a comment is worth
+	// as a synchronisation mechanism.
+	var scored []float64
 	for _, res := range results {
 		if !res.TimedOut {
-			totalBand += res.Band
-			completedCount++
-		} else {
-			partial = true
+			scored = append(scored, res.Band)
 		}
 	}
+	agg := aggregateBands(scored, len(CriterionOrder))
+	completedCount := agg.CompletedCount
+	partial := agg.Partial
 
 	// If all 4 agents failed, return top-level failed status. Kept distinct from
 	// the "fewer than 3 completed" branch below: the client shows an error for
@@ -226,14 +245,10 @@ func EvaluateSwarm(
 		}, fmt.Errorf("all evaluation agents timed out or failed")
 	}
 
-	// Average only successfully completed criteria, and only once enough of them
-	// completed for the average to describe the candidate rather than describe
-	// which agents happened to survive.
-	var overallBand *float64
-	if completedCount >= MinCriteriaForOverallBand {
-		rounded := RoundIELTSBand(totalBand / float64(completedCount))
-		overallBand = &rounded
-	}
+	// Nil below the threshold: only successfully completed criteria are averaged,
+	// and only once enough of them completed for the average to describe the
+	// candidate rather than describe which agents happened to survive.
+	overallBand := agg.OverallBand
 
 	// Synthesize overall feedback deterministically using templates
 	var feedbackLines []string

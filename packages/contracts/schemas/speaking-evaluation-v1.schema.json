@@ -1,0 +1,296 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://goa.iti/schemas/speaking-evaluation-v1.schema.json",
+  "title": "GOA canonical speaking evaluation",
+  "description": "SPEAK-EVAL-003. The one shape a speaking evaluation takes, whatever produced it.\n\nBefore this schema the practice WebSocket, the exam holistic endpoint, the persisted JSONB, the eval runner and the frontend each had their own idea of a result, and they had already drifted: a criterion that timed out carried band 0.0 in one place and an absent key in another, and nothing anywhere recorded which model, prompt or rubric produced a score.\n\nTwo rules run through every definition here:\n\n1. STATUS IS SEPARATE FROM VALUE. A criterion that did not complete has status 'unavailable' and NO band. Band 0.0 is a real IELTS value meaning the candidate said nothing usable; it must never stand in for 'we did not measure this'. This is the BUG-055 defect class, and it has recurred often enough in this codebase to be worth encoding in the type system.\n\n2. EVERY CLAIM IS ADDRESSABLE. A rubric match names a descriptor id from the frozen rubric. Evidence names a transcript offset, an audio interval or a measurement id. A validator resolves all of them before the result is shown, so a displayed reason is checkable rather than merely fluent.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "evaluation_id",
+    "mode",
+    "status",
+    "score_semantics",
+    "criteria",
+    "overall",
+    "provenance"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "speaking-evaluation/v1",
+      "description": "Every representation carries this. A breaking field or meaning change creates v2; additive optional fields may stay v1 only if older consumers ignore unknown keys safely."
+    },
+    "evaluation_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable id for this evaluation. A re-score creates a NEW evaluation linked to the prior one, never an overwrite."
+    },
+    "mode": {
+      "enum": ["practice", "exam", "benchmark"],
+      "description": "Which transport produced this. The scoring core is identical across all three; only the envelope differs. 'benchmark' exists so an eval run is never mistaken for a user's result."
+    },
+    "status": {
+      "enum": ["complete", "partial", "failed"],
+      "description": "complete: every requested criterion scored. partial: at least one scored, at least one did not. failed: none scored. A 'failed' evaluation still carries per-criterion reasons; it is not an empty object."
+    },
+    "score_semantics": {
+      "const": "estimated_ielts_practice_band",
+      "description": "Fixed, and deliberately not 'ielts_band'. This system is not a certified examiner and the product must not imply it is. Widening this enum requires evidence that the claim is true."
+    },
+    "criteria": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/criterionResult" }
+    },
+    "overall": { "$ref": "#/$defs/overallResult" },
+    "provenance": { "$ref": "#/$defs/provenance" },
+    "telemetry": { "$ref": "#/$defs/telemetry" }
+  },
+  "$defs": {
+    "criterionId": {
+      "enum": ["fluency_coherence", "lexical_resource", "grammatical_range", "pronunciation"],
+      "description": "The four official IELTS speaking criteria. Snake_case ids rather than the display strings ('Fluency and Coherence') the swarm currently keys its map by: a display string is a label, and labels change. GOA-133 renamed pronunciation in the UI without touching this id, which is exactly the separation this buys."
+    },
+    "criterionResult": {
+      "type": "object",
+      "required": ["criterion_id", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "criterion_id": { "$ref": "#/$defs/criterionId" },
+        "status": {
+          "enum": ["scored", "unavailable"],
+          "description": "'unavailable' covers every way a criterion can fail to produce a score: provider error, deadline, unparseable output, or an input the criterion cannot be assessed from."
+        },
+        "band": {
+          "$ref": "#/$defs/band",
+          "description": "Present if and only if status is 'scored'. Enforced by the allOf below, not merely by convention."
+        },
+        "unavailable_reason": {
+          "enum": ["provider_error", "deadline_exceeded", "invalid_output", "insufficient_evidence"],
+          "description": "Present if and only if status is 'unavailable'. 'insufficient_evidence' is the honest answer when the input cannot support the criterion at all -- e.g. pronunciation with no acoustic features."
+        },
+        "summary": {
+          "type": "string",
+          "description": "One or two sentences for the student. Not the place for hedging or for restating the band."
+        },
+        "rubric_matches": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/rubricMatch" }
+        },
+        "evidence": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/evidence" }
+        },
+        "measurements": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Ids into provenance.measurements. Referenced rather than inlined so one measured value cannot disagree with itself across two criteria."
+        },
+        "limitations": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "What this score does NOT cover. Required in practice for pronunciation until acoustic analysis exists; the criterion currently reasons from recognition confidence and pause structure, which is not the same thing as assessing sounds."
+        },
+        "improvement_actions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/improvementAction" }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "scored" } }, "required": ["status"] },
+          "then": { "required": ["band"], "not": { "required": ["unavailable_reason"] } }
+        },
+        {
+          "if": { "properties": { "status": { "const": "unavailable" } }, "required": ["status"] },
+          "then": { "required": ["unavailable_reason"], "not": { "required": ["band"] } }
+        }
+      ]
+    },
+    "band": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 9,
+      "multipleOf": 0.5,
+      "description": "Half-band steps only. A band of 6.3 is not an IELTS score, and accepting one would mean some upstream rounding rule was skipped."
+    },
+    "rubricMatch": {
+      "type": "object",
+      "required": ["rubric_id", "rubric_version", "descriptor_id", "descriptor_band", "polarity"],
+      "additionalProperties": false,
+      "properties": {
+        "rubric_id": { "type": "string", "minLength": 1 },
+        "rubric_version": { "type": "string", "minLength": 1 },
+        "descriptor_id": {
+          "type": "string",
+          "pattern": "^(fc|lr|gra|pr)\\.[0-9](\\.[0-9]+)?$",
+          "description": "Stable id into the frozen rubric, e.g. 'fc.7'. The model may cite ONLY ids supplied in its request; a validator rejects anything else, which is what stops a plausible-sounding descriptor being invented."
+        },
+        "descriptor_band": { "$ref": "#/$defs/band" },
+        "polarity": {
+          "enum": ["supports", "caps_below", "reaches_toward"],
+          "description": "supports: the response meets this descriptor. caps_below: this is why the band is not higher. reaches_toward: partial evidence of the band above. The second is what lets an explanation answer 'why not a 7' rather than only 'why a 6'."
+        },
+        "application": {
+          "type": "string",
+          "description": "How this descriptor applies to THIS response. One sentence, concrete."
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "required": ["kind", "supports_claim"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": ["transcript_span", "audio_interval", "measurement_ref", "part_or_turn", "absence_or_distribution"]
+        },
+        "supports_claim": {
+          "type": "string",
+          "minLength": 1,
+          "description": "What this evidence is evidence FOR. Evidence attached to nothing is decoration."
+        },
+        "quote": {
+          "type": "string",
+          "description": "Exact text at the stated offsets. A validator re-reads the transcript at char_start..char_end and rejects a mismatch, so a paraphrase presented as a quote cannot ship."
+        },
+        "char_start": { "type": "integer", "minimum": 0 },
+        "char_end": { "type": "integer", "minimum": 0 },
+        "audio_start_s": { "type": "number", "minimum": 0 },
+        "audio_end_s": { "type": "number", "minimum": 0 },
+        "measurement_id": { "type": "string" },
+        "part": { "type": "integer", "minimum": 1, "maximum": 3 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "transcript_span" } }, "required": ["kind"] },
+          "then": { "required": ["quote", "char_start", "char_end"] }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "audio_interval" } }, "required": ["kind"] },
+          "then": { "required": ["audio_start_s", "audio_end_s"] }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "measurement_ref" } }, "required": ["kind"] },
+          "then": { "required": ["measurement_id"] }
+        }
+      ]
+    },
+    "improvementAction": {
+      "type": "object",
+      "required": ["action"],
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Concrete and doable. 'Improve your fluency' is not an action."
+        },
+        "because": {
+          "type": "string",
+          "description": "The observation this action responds to, tying advice back to evidence rather than to a generic template."
+        }
+      }
+    },
+    "overallResult": {
+      "type": "object",
+      "required": ["included_criteria", "rounding_rule", "min_criteria_required"],
+      "additionalProperties": false,
+      "properties": {
+        "band": {
+          "$ref": "#/$defs/band",
+          "description": "ABSENT when fewer than min_criteria_required criteria scored. Not null, not zero -- absent. A band averaged from one surviving agent describes which agents survived, not the candidate (BUG-040)."
+        },
+        "unrounded_mean": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 9,
+          "description": "The mean before IELTS rounding. Shown so a student can see the arithmetic instead of being asked to trust it, and so a discrepancy between mean and band is detectable."
+        },
+        "included_criteria": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/criterionId" },
+          "description": "Exactly the criteria that contributed. Unavailable ones are excluded here AND from the mean."
+        },
+        "excluded_criteria": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/criterionId" }
+        },
+        "rounding_rule": {
+          "type": "string",
+          "description": "Versioned id of the rounding applied, e.g. 'ielts_half_band_v1'. Named rather than assumed so a change to it is visible in stored results."
+        },
+        "min_criteria_required": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "The policy threshold in force when this was scored. Stored per-result because it is a product decision that may change, and an old result must still explain itself."
+        }
+      }
+    },
+    "measurement": {
+      "type": "object",
+      "required": ["id", "name", "value", "unit", "extractor_version"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "value": { "type": "number" },
+        "unit": {
+          "enum": ["words_per_minute", "seconds", "count", "ratio", "probability"]
+        },
+        "extractor_version": { "type": "string", "minLength": 1 },
+        "scope": {
+          "enum": ["utterance", "part", "session"],
+          "description": "What the value was computed over. A pause count means different things per-answer and per-session."
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["created_at", "rubric_id", "rubric_version", "scorer_version"],
+      "additionalProperties": false,
+      "description": "What produced this score. Enough to reproduce it, or at least to explain why it cannot be reproduced.",
+      "properties": {
+        "created_at": { "type": "string", "format": "date-time" },
+        "scorer_version": { "type": "string", "minLength": 1 },
+        "rubric_id": { "type": "string", "minLength": 1 },
+        "rubric_version": { "type": "string", "minLength": 1 },
+        "rubric_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "llm_provider": { "type": "string" },
+        "llm_model": {
+          "type": "string",
+          "description": "The EFFECTIVE model, read from configuration at call time. This was hardcoded to a Haiku id in the Langfuse span while the service ran Opus, which made every model-to-model telemetry comparison meaningless."
+        },
+        "prompt_template_ids": { "type": "array", "items": { "type": "string" } },
+        "stt_provider": { "type": "string" },
+        "stt_model": { "type": "string" },
+        "transcript_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "audio_format": {
+          "type": "string",
+          "description": "The declared container, e.g. 'audio/webm'. Recorded because SPEAK-EVAL-002 established that a mislabelled format silently produces a score from noise."
+        },
+        "feature_extractor_version": { "type": "string" },
+        "measurements": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/measurement" },
+          "description": "Every measured value referenced by any criterion, stored once."
+        }
+      }
+    },
+    "telemetry": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "total_latency_ms": { "type": "integer", "minimum": 0 },
+        "transcription_ms": { "type": "integer", "minimum": 0 },
+        "audio_duration_s": { "type": "number", "minimum": 0 },
+        "prompt_tokens": { "type": "integer", "minimum": 0 },
+        "completion_tokens": { "type": "integer", "minimum": 0 },
+        "cost_usd": {
+          "type": ["number", "null"],
+          "description": "Null, never 0.0, when the model is absent from the shared price table (GOA-135). 'We could not price this' and 'this was free' are different facts."
+        }
+      }
+    }
+  }
+}

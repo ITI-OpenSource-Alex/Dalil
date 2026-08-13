@@ -1,0 +1,131 @@
+{
+  "evaluation": {
+    "schema_version": "speaking-evaluation/v1",
+    "evaluation_id": "ielts-official-kenn",
+    "mode": "benchmark",
+    "status": "partial",
+    "score_semantics": "estimated_ielts_practice_band",
+    "criteria": [
+      {
+        "criterion_id": "fluency_coherence",
+        "status": "scored",
+        "band": 8,
+        "summary": "Note: no MEASURED SPEECH FEATURES (words per minute, articulation rate, pause counts/durations) were supplied with this transcript, so I cannot verify rate of speech, flow or pausing from the audio. I have therefore assessed the coherence and cohesion components from the transcript, and commented on hesitation only where it is visible in the wording. On coherence, your performance is very strong: you develop each topic with clear reasoning and relevant, well-chosen examples (Jack Neo for local celebrities, Bono for positive public influence, body-image concerns for potential harm), and you sequence ideas logically with contrast and cause-effect. Your cohesion is also excellent, drawing on a flexible range of connectives and discourse markers ('mainly because', 'other than that', 'whereas', 'in that way', 'to a certain extent', 'for example'). What holds this below Band 9 is that repetition and self-correction, while occasional, occur more than 'rarely' in the transcript ('who who', 'it's it's', 'to affect to affect', 'cele... uh... celebrities'), and without pause data I cannot confirm that delivery is effortless. This sits comfortably in Band 8, where topics are developed coherently and appropriately with occasional self-correction.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "fc.8",
+            "descriptor_band": 8,
+            "polarity": "supports",
+            "application": "The candidate develops each topic coherently and appropriately with only occasional self-correction and content-search hesitation."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "fc.7",
+            "descriptor_band": 7,
+            "polarity": "supports",
+            "application": "A range of connectives and discourse markers is used flexibly to link ideas and extend answers at length."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "fc.9",
+            "descriptor_band": 9,
+            "polarity": "caps_below",
+            "application": "Repetition and self-correction are occasional rather than rare ('who who', 'it's it's', 'to affect to affect'), and no timing data confirms effortless delivery, so full Band 9 fluency is not established."
+          }
+        ]
+      },
+      {
+        "criterion_id": "lexical_resource",
+        "status": "scored",
+        "band": 9,
+        "summary": "You use vocabulary with full flexibility and precision across a range of abstract sub-topics (fame, advertising, body image, public influence). Your word choice is consistently accurate and sophisticated, and you deploy less common items naturally rather than for show — 'emulate', 'susceptible to', 'prevalent', 'repercussions', 'endorsing a cause' and 'charitable causes' are all used correctly and in appropriate collocation. Paraphrase and variety are strong, and only very minor slips appear (e.g. 'aspire towards' where 'aspire to' is standard; 'conscious of the body image' with a slightly redundant article), but these do not detract from meaning or precision. To be even more secure at the top band, you could continue to weave in a broader spread of natural idiomatic phrasing, since much of your range is academic/formal rather than idiomatic.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "lr.9",
+            "descriptor_band": 9,
+            "polarity": "supports",
+            "application": "Vocabulary is used with full flexibility and precision across varied abstract topics, with accurate word choice throughout and only trivial errors."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "lr.8",
+            "descriptor_band": 8,
+            "polarity": "supports",
+            "application": "Less common vocabulary such as 'emulate', 'susceptible', 'prevalent' and 'endorsing a cause' is deployed skilfully and readily to convey precise meaning."
+          }
+        ]
+      },
+      {
+        "criterion_id": "grammatical_range",
+        "status": "scored",
+        "band": 8.5,
+        "summary": "You use a wide, near-full range of grammatical structures naturally and flexibly, with an impressive density of error-free complex sentences. You handle cleft constructions, relative clauses, comparatives, conditionals and subordination ('whereas', 'whereby', 'because') with genuine control, and the vast majority of your sentences are accurate. What holds you just below a clean Band 9 is a small cluster of genuine errors that go slightly beyond minor slips: missing auxiliary verbs and noun-number errors, mostly at the start. Eliminating these habitual small omissions would give the consistent accuracy required for the top band.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.8",
+            "descriptor_band": 8,
+            "polarity": "supports",
+            "application": "The candidate uses a wide range of structures flexibly and produces well over a majority of error-free, sophisticated sentences."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.7",
+            "descriptor_band": 7,
+            "polarity": "supports",
+            "application": "A range of complex structures (cleft sentences, comparatives, multiple layers of subordination) is deployed with clear flexibility and frequent accuracy."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.9",
+            "descriptor_band": 9,
+            "polarity": "caps_below",
+            "application": "A handful of genuine errors—omitted auxiliaries ('the film industry still growing') and noun-number slips ('films/televisions celebrities')—exceed 'minor slips', so accuracy is not quite consistent enough for Band 9."
+          }
+        ]
+      },
+      {
+        "criterion_id": "pronunciation",
+        "status": "unavailable",
+        "unavailable_reason": "insufficient_evidence",
+        "summary": "Evaluation unavailable due to an internal error."
+      }
+    ],
+    "overall": {
+      "band": 8.5,
+      "unrounded_mean": 8.5,
+      "included_criteria": [
+        "fluency_coherence",
+        "lexical_resource",
+        "grammatical_range"
+      ],
+      "excluded_criteria": [
+        "pronunciation"
+      ],
+      "rounding_rule": "ielts_half_band_v1",
+      "min_criteria_required": 3
+    },
+    "provenance": {
+      "created_at": "2026-08-09T01:15:56.1252405Z",
+      "scorer_version": "speaking@dev",
+      "rubric_id": "ielts-speaking-public",
+      "rubric_version": "2023-06",
+      "rubric_sha256": "40820db22ab572944baa4ecc399d6ff2597291e076dd5c990bd7bc578974f9cb",
+      "llm_provider": "agentrouter",
+      "llm_model": "claude-opus-4-8"
+    }
+  },
+  "lane": "scorer_only",
+  "latency_ms": 86795,
+  "swarm_error": ""
+}

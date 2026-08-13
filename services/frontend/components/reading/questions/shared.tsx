@@ -17,12 +17,12 @@ export function QuestionShell({
 }: QuestionShellProps) {
   return (
     <div data-testid={`question-${number}`} className="space-y-2">
-      <p className="text-sm text-gray-800">
-        <span className="mr-2 font-semibold text-gray-900">{number}.</span>
+      <p className="text-sm text-fg-muted">
+        <span className="mr-2 font-semibold text-fg">{number}.</span>
         {prompt}
       </p>
       {instructions && (
-        <p className="text-xs italic text-gray-500">{instructions}</p>
+        <p className="text-xs italic text-fg-subtle">{instructions}</p>
       )}
       {children}
     </div>
@@ -49,7 +49,7 @@ export function TextAnswerInput({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder ?? "Type your answer"}
-      className="w-full max-w-sm rounded-lg border border-gray-300 px-3 py-1.5 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20"
+      className="w-full max-w-sm rounded-lg border border-border-strong px-3 py-1.5 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand-muted"
     />
   );
 }

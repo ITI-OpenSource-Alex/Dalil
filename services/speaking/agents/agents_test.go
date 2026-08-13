@@ -33,7 +33,7 @@ func TestEvaluateCriterion_Success(t *testing.T) {
 		},
 	}
 
-	res, err := EvaluateLexical(context.Background(), mockClient, "Describe a hobby.", "IELTS Part 2", "I enjoy playing tennis...")
+	res, err := EvaluateLexical(context.Background(), mockClient, "Describe a hobby.", "IELTS Part 2", "I enjoy playing tennis...", nil)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -60,7 +60,7 @@ func TestEvaluateCriterion_MarkdownWrapper(t *testing.T) {
 		},
 	}
 
-	res, err := EvaluateFluency(context.Background(), mockClient, "Describe a hobby.", "IELTS Part 2", "I enjoy playing tennis...")
+	res, err := EvaluateFluency(context.Background(), mockClient, "Describe a hobby.", "IELTS Part 2", "I enjoy playing tennis...", nil)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -77,7 +77,7 @@ func TestEvaluateCriterion_BoundsSafety(t *testing.T) {
 			Text: `{"band": 10.5, "feedback": "Perfect.", "examples": []}`,
 		},
 	}
-	resHigh, err := EvaluateGrammar(context.Background(), mockClientHigh, "Prompt", "Type", "Transcript")
+	resHigh, err := EvaluateGrammar(context.Background(), mockClientHigh, "Prompt", "Type", "Transcript", nil)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -91,7 +91,7 @@ func TestEvaluateCriterion_BoundsSafety(t *testing.T) {
 			Text: `{"band": -2.0, "feedback": "Off topic.", "examples": []}`,
 		},
 	}
-	resLow, err := EvaluateGrammar(context.Background(), mockClientLow, "Prompt", "Type", "Transcript")
+	resLow, err := EvaluateGrammar(context.Background(), mockClientLow, "Prompt", "Type", "Transcript", nil)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -107,7 +107,7 @@ func TestEvaluateCriterion_InvalidJSON(t *testing.T) {
 		},
 	}
 
-	_, err := EvaluatePronunciation(context.Background(), mockClient, "Prompt", "Type", "Transcript")
+	_, err := EvaluatePronunciation(context.Background(), mockClient, "Prompt", "Type", "Transcript", nil)
 	if err == nil {
 		t.Fatal("expected error on parsing invalid JSON, got nil")
 	}
@@ -118,7 +118,7 @@ func TestEvaluateCriterion_APIError(t *testing.T) {
 		Err: errors.New("API Rate Limit Exceeded"),
 	}
 
-	_, err := EvaluateFluency(context.Background(), mockClient, "Prompt", "Type", "Transcript")
+	_, err := EvaluateFluency(context.Background(), mockClient, "Prompt", "Type", "Transcript", nil)
 	if err == nil {
 		t.Fatal("expected error on stream API failure, got nil")
 	}
@@ -142,7 +142,7 @@ func TestEvaluateCriterion_MissingBandIsAnErrorNotZero(t *testing.T) {
 		},
 	}
 
-	res, err := EvaluateLexical(context.Background(), mockClient, "Describe a hobby.", "IELTS Part 2", "I enjoy tennis...")
+	res, err := EvaluateLexical(context.Background(), mockClient, "Describe a hobby.", "IELTS Part 2", "I enjoy tennis...", nil)
 	if err == nil {
 		t.Fatalf("expected an error for a response with no band, got band %v", res.Band)
 	}
@@ -160,7 +160,7 @@ func TestEvaluateCriterion_ExplicitZeroBandIsAccepted(t *testing.T) {
 		},
 	}
 
-	res, err := EvaluateLexical(context.Background(), mockClient, "Describe a hobby.", "IELTS Part 2", "...")
+	res, err := EvaluateLexical(context.Background(), mockClient, "Describe a hobby.", "IELTS Part 2", "...", nil)
 	if err != nil {
 		t.Fatalf("an explicit band of 0 is a legitimate score, got error %v", err)
 	}
@@ -179,7 +179,7 @@ func TestEvaluateCriterion_AcceptsBandScoreAlias(t *testing.T) {
 		},
 	}
 
-	res, err := EvaluateLexical(context.Background(), mockClient, "Describe a hobby.", "IELTS Part 2", "I enjoy tennis...")
+	res, err := EvaluateLexical(context.Background(), mockClient, "Describe a hobby.", "IELTS Part 2", "I enjoy tennis...", nil)
 	if err != nil {
 		t.Fatalf("expected band_score to be accepted, got error %v", err)
 	}

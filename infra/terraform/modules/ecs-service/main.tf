@@ -29,7 +29,18 @@ resource "aws_ecs_task_definition" "this" {
     name      = var.service_name
     image     = var.image_uri
     essential = true
-    portMappings = var.enable_load_balancer ? [{
+    # GOA-030: keyed on whether the container LISTENS, not on whether an ALB
+    # sits in front of it. Those are different questions, and conflating them
+    # broke Service Connect: an advertised service needs a NAMED port mapping,
+    # and ECS refuses it with "portName(rag) does not refer to any named
+    # PortMapping in the container definitions" when there is none.
+    #
+    # It stayed invisible while enable_load_balancer was true for every service
+    # except ingestion -- which listens on nothing -- so the two conditions
+    # happened to agree. They stop agreeing the moment a service is
+    # internal-only (rag, writing, user, orchestration, speech, embeddings),
+    # which is exactly what correct ALB wiring produces.
+    portMappings = var.container_port > 0 ? [{
       name          = var.service_name
       containerPort = var.container_port
       hostPort      = var.container_port

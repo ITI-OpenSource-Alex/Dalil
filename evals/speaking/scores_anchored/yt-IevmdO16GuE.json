@@ -1,0 +1,163 @@
+{
+  "evaluation": {
+    "schema_version": "speaking-evaluation/v1",
+    "evaluation_id": "yt-IevmdO16GuE",
+    "mode": "benchmark",
+    "status": "complete",
+    "score_semantics": "estimated_ielts_practice_band",
+    "criteria": [
+      {
+        "criterion_id": "fluency_coherence",
+        "status": "scored",
+        "band": 8,
+        "summary": "Your delivery is highly fluent. The measured features show a fast speech rate of 172 words per minute (181 excluding pauses), only 5% of total time spent paused, and no pauses of one second or longer, so there is no noticeable effort or hesitation in your flow. You develop topics coherently and appropriately, most notably in the extended Eminem documentary answer, where ideas are sequenced logically and built out with reasons and examples. You use a good range of discourse markers and connectives ('so that's why', 'I mean', 'that goes to show', 'no matter what... no matter where'). What holds you back from band 9 is that repetition and filler are more than rare: the word 'like' recurs frequently as a filler, and some phrases repeat structurally, so cohesive features are not yet fully appropriate throughout.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "fc.8",
+            "descriptor_band": 8,
+            "polarity": "supports",
+            "application": "The candidate speaks fluently with excellent pace and minimal pausing, developing topics coherently and appropriately with only occasional repetition."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "fc.7",
+            "descriptor_band": 7,
+            "polarity": "supports",
+            "application": "Speaks at length without noticeable effort or loss of coherence and uses a range of connectives and discourse markers flexibly."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "fc.9",
+            "descriptor_band": 9,
+            "polarity": "caps_below",
+            "application": "Repetition and frequent 'like' filler go beyond the 'only rare repetition' and 'fully appropriate cohesive features' required for band 9."
+          }
+        ]
+      },
+      {
+        "criterion_id": "lexical_resource",
+        "status": "scored",
+        "band": 7,
+        "summary": "You demonstrate a wide vocabulary and discuss a variety of topics flexibly, using some less common and idiomatic vocabulary with good awareness of collocation (e.g. 'handpick locations', 'make it big in the music industry', 'fast-paced life', 'grew impatient'). Paraphrase is generally successful and you extend answers naturally. However, band 8 requires more consistent precision and skilful idiomatic use; you show some imprecise word choices ('for plantation' where 'planting trees' was meant), a few informal fillers ('and stuff'), and noticeable repetition of high-frequency words such as 'love', 'beautiful', and 'inspiring'. Broadening your range of precise synonyms and reducing repetition would push you higher.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "lr.7",
+            "descriptor_band": 7,
+            "polarity": "supports",
+            "application": "You use less common and idiomatic vocabulary such as 'make it big', 'grew impatient', and 'fast-paced life' with awareness of collocation while covering varied topics."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "lr.6",
+            "descriptor_band": 6,
+            "polarity": "supports",
+            "application": "You clearly have a wide enough vocabulary to discuss topics at length and paraphrase successfully to keep meaning clear."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "lr.8",
+            "descriptor_band": 8,
+            "polarity": "caps_below",
+            "application": "Occasional imprecise word choices ('for plantation'), informal fillers ('and stuff'), and repetition of words like 'love' and 'beautiful' show you do not yet convey precise meaning as skilfully and flexibly as band 8 requires."
+          }
+        ]
+      },
+      {
+        "criterion_id": "grammatical_range",
+        "status": "scored",
+        "band": 7,
+        "summary": "You use a range of complex structures with good flexibility — relative clauses, conditionals, concessive 'no matter' constructions, and embedded question clauses all appear naturally, and you frequently produce error-free sentences across a long, sustained response. However, recurring errors keep you from Band 8, where a wide range must be handled with a majority of consistently error-free sentences. The most noticeable issues are pronoun-antecedent agreement (referring to plural nouns with singular 'it'), subject-verb agreement ('there is a lot of different genres'), and an occasional tense slip ('people grew impatient now'). Tightening these basic accuracy points while maintaining your complex range would push you toward the next band.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.7",
+            "descriptor_band": 7,
+            "polarity": "supports",
+            "application": "The candidate deploys a range of complex structures (relative, conditional, concessive and embedded clauses) with some flexibility and frequently produces error-free sentences."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.8",
+            "descriptor_band": 8,
+            "polarity": "caps_below",
+            "application": "Recurring agreement errors ('they rent it out to people', 'there is a lot of different genres') and a tense slip stop the response from delivering the consistently error-free majority required for Band 8."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.6",
+            "descriptor_band": 6,
+            "polarity": "supports",
+            "application": "The candidate comfortably mixes simple and complex structures, though occasional mistakes still occur within them."
+          }
+        ]
+      },
+      {
+        "criterion_id": "pronunciation",
+        "status": "scored",
+        "band": 7,
+        "summary": "Two evidence streams were available and they point in different directions in terms of usability. The speech-recognition confidence reads mean 0.00 with 100% of words below 0.5, which is not a plausible measurement for a transcript this long and coherent — an ASR that genuinely returned zero confidence on every word would not yield fluent, connected text. I therefore treat the confidence figure as unavailable/degenerate rather than as evidence of unintelligible speech, and I cannot assess intelligibility from it. What can be assessed is chunking and phrasing, and here the evidence is strong: 172 words per minute (articulation rate 181 wpm) is a fluent pace, only 5% of total time was spent paused, and there were no pauses at or beyond 1.0s (longest 1.0s) across 323 seconds. The 35 pauses of 0.3s or more work out to roughly one every nine seconds, consistent with even, natural phrase boundaries rather than hesitant, fragmented delivery. This smooth phrasing supports a band 7 placement; a higher band is not awarded because the intelligibility signal that would confirm 'easy to understand throughout' could not be evaluated from the supplied data.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "pr.7",
+            "descriptor_band": 7,
+            "polarity": "supports",
+            "application": "Even, well-distributed pausing and a fluent 172 wpm rate with no long hesitations show positive delivery features consistent with band 7."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "pr.6",
+            "descriptor_band": 6,
+            "polarity": "supports",
+            "application": "The steady phrasing and absence of long silent pauses are consistent with speech that can generally be followed without breakdown at phrase level."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "pr.8",
+            "descriptor_band": 8,
+            "polarity": "caps_below",
+            "application": "'Easy to understand throughout' cannot be confirmed because the recognition-confidence metric returned a degenerate 0.00 value, so intelligibility itself was not measurable."
+          }
+        ]
+      }
+    ],
+    "overall": {
+      "band": 7.5,
+      "unrounded_mean": 7.25,
+      "included_criteria": [
+        "fluency_coherence",
+        "lexical_resource",
+        "grammatical_range",
+        "pronunciation"
+      ],
+      "rounding_rule": "ielts_half_band_v1",
+      "min_criteria_required": 3
+    },
+    "provenance": {
+      "created_at": "2026-08-08T22:35:15.6825135Z",
+      "scorer_version": "speaking@dev",
+      "rubric_id": "ielts-speaking-public",
+      "rubric_version": "2023-06",
+      "rubric_sha256": "40820db22ab572944baa4ecc399d6ff2597291e076dd5c990bd7bc578974f9cb",
+      "llm_provider": "agentrouter",
+      "llm_model": "claude-opus-4-8"
+    }
+  },
+  "lane": "goa_audio",
+  "latency_ms": 62007,
+  "swarm_error": ""
+}

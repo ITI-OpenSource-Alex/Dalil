@@ -1,6 +1,5 @@
 import asyncio
 import base64
-import json
 import logging
 import os
 import re
@@ -10,15 +9,16 @@ from functools import lru_cache
 from typing import Any, Literal
 
 import boto3
-import httpx
 from botocore.exceptions import ClientError
 from fastapi import HTTPException, status
 
 from pydantic import BaseModel, Field, ValidationError
 
+from goa_pricing import cost_usd as price_call
 from goa_security import wrap_untrusted
 
 from app.config import get_settings
+from app.metrics import UNPRICED_MODEL_TOTAL
 from app.schemas import CriterionEvaluation, InlineIssue
 
 logger = logging.getLogger(__name__)
@@ -97,7 +97,11 @@ def _task_instructions(exam_type: str, task_number: int) -> str:
         return TASK1_ACADEMIC_INSTRUCTIONS
     return TASK2_INSTRUCTIONS
 
-SYSTEM_PROMPT = """You are a certified IELTS Writing examiner. Apply the public IELTS
+SYSTEM_PROMPT = """You are a strict JSON API. You MUST output ONLY valid JSON. Do not
+include any extended thinking, reasoning blocks, or conversational text. Start your
+response immediately with { and end with }.
+
+You are a certified IELTS Writing examiner. Apply the public IELTS
 Writing band descriptors conservatively and evaluate only the requested criterion.
 The input is computer-typed text; never discuss handwriting, OCR, or image quality.
 
@@ -155,7 +159,11 @@ class AgentExecution:
     prompt_tokens: int
     completion_tokens: int
     latency_ms: float
-    cost_usd: float
+    # None when the model is absent from the shared price table (GOA-135).
+    # Deliberately not defaulted to 0.0: "we could not price this call" and "this
+    # call was free" must stay distinguishable, or a pricing gap looks like an
+    # idle service. Aggregators skip None rather than coercing it.
+    cost_usd: float | None
 
 
 def _round_to_half(value: float) -> float:
@@ -236,14 +244,68 @@ async def _fetch_chart_bytes(s3_key: str) -> bytes:
     return await asyncio.to_thread(_get)
 
 
-async def extract_chart_context(s3_key: str) -> str:
+def _vision_span(
+    trace: Any,
+    *,
+    model: str,
+    s3_key: str,
+    media_type: str,
+) -> Any:
+    if trace is None:
+        return None
+    try:
+        return trace.start_observation(
+            name="writing-vision-stimulus",
+            as_type="generation",
+            model=model,
+            input={"s3_key": s3_key, "media_type": media_type},
+        )
+    except Exception:
+        return None
+
+
+def _end_vision_span(span: Any, *, description: str, usage: Any) -> None:
+    if span is None:
+        return
+    try:
+        span.update(
+            output=description,
+            usage_details={
+                "input": getattr(usage, "input_tokens", 0),
+                "output": getattr(usage, "output_tokens", 0),
+            },
+        )
+        span.end()
+    except Exception:
+        pass
+
+
+def _fail_vision_span(span: Any, exc: BaseException) -> None:
+    if span is None:
+        return
+    try:
+        span.update(
+            level="ERROR",
+            status_message=str(exc),
+            output={"error": str(exc)},
+        )
+        span.end()
+    except Exception:
+        pass
+
+
+async def extract_chart_context(s3_key: str, *, trace: Any = None) -> str:
     """
-    Fetches an IELTS Task 1 (Academic) stimulus image from S3 and asks claude-opus-4-8
-    for a neutral, factual description, so the Claude-based examiner can verify
-    the candidate's data accuracy without needing vision input itself.
+    Fetches an IELTS Task 1 (Academic) stimulus image from S3 and asks the
+    configured Claude vision model for a neutral, factual description, so the
+    Claude-based examiner can verify the candidate's data accuracy without
+    needing vision input itself.
+
+    `trace` is the caller's Langfuse observation. When supplied, the vision call
+    gets its own generation child span so the single multimodal request is
+    attributed separately from the four criterion agents (GOA-093).
     """
     import logging
-    import base64
     from anthropic import AsyncAnthropic
 
     settings = get_settings()
@@ -270,42 +332,68 @@ async def extract_chart_context(s3_key: str) -> str:
         **({"base_url": settings.anthropic_base_url} if settings.anthropic_base_url else {}),
     )
 
-    response = await client.messages.create(
-        model="claude-opus-4-8",
-        # No `temperature`. The gateway fronts Bedrock, which rejects the parameter
-        # outright for this model:
-        #   ValidationException: `temperature` is deprecated for this model
-        # It surfaced as an intermittent 502 ("2 of 4 writing agents failed") because
-        # only some requests land on the backend that enforces it — the same erratic
-        # routing seen elsewhere on this gateway. Determinism now comes from the
-        # rubric and the JSON schema, not from a sampling parameter.
-        max_tokens=500,
-        messages=[
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "image",
-                        "source": {
-                            "type": "base64",
-                            "media_type": media_type,
-                            "data": encoded_image,
-                        },
-                    },
-                    {
-                        "type": "text",
-                        "text": "You objectively describe IELTS Writing Task 1 (Academic) stimulus images (line/bar charts, pie charts, tables, or process diagrams) so an examiner who cannot see the image can verify the candidate's data accuracy. List the exact axis labels, units, categories, and key data points/trends visible in the image. Do not evaluate or judge; describe only, factually and neutrally.\n\nDescribe this IELTS Task 1 chart/graph/table/diagram.",
-                    },
-                ],
-            }
-        ],
+    span = _vision_span(
+        trace,
+        model=settings.vision_model,
+        s3_key=s3_key,
+        media_type=media_type,
     )
-    return response.content[0].text.strip()
+
+    try:
+        response = await client.messages.create(
+            model=settings.vision_model,
+            # No `temperature`. The gateway fronts Bedrock, which rejects the parameter
+            # outright for this model:
+            #   ValidationException: `temperature` is deprecated for this model
+            # It surfaced as an intermittent 502 ("2 of 4 writing agents failed") because
+            # only some requests land on the backend that enforces it — the same erratic
+            # routing seen elsewhere on this gateway. Determinism now comes from the
+            # rubric and the JSON schema, not from a sampling parameter.
+            #
+            # opus-4-8 is an extended-thinking model: at 500 the ThinkingBlock alone
+            # exhausted the budget (stop_reason='max_tokens', a single ThinkingBlock
+            # and no text), so no chart description was emitted and _response_text
+            # raised "no text content" — a fast raw 500 before the grading swarm even
+            # started. The text prompt below now forbids reasoning blocks, and 4000
+            # leaves ample room for the factual chart description.
+            max_tokens=4000,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": media_type,
+                                "data": encoded_image,
+                            },
+                        },
+                        {
+                            "type": "text",
+                            "text": "You are a strict text API. Do not include any extended thinking, reasoning blocks, or conversational preamble. Start immediately with the factual chart description. You objectively describe IELTS Writing Task 1 (Academic) stimulus images (line/bar charts, pie charts, tables, or process diagrams) so an examiner who cannot see the image can verify the candidate's data accuracy. List the exact axis labels, units, categories, and key data points/trends visible in the image. Do not evaluate or judge; describe only, factually and neutrally.\n\nDescribe this IELTS Task 1 chart/graph/table/diagram.",
+                        },
+                    ],
+                }
+            ],
+        )
+    except Exception as exc:
+        _fail_vision_span(span, exc)
+        raise
+
+    # Extended-thinking Claude Opus backends via the gateway can prepend a
+    # ThinkingBlock, which has no `.text`, so response.content[0] is not the
+    # answer. _response_text iterates every block and keeps only the text ones —
+    # the same reader the grading agents use.
+    description = _response_text(response).strip()
+    _end_vision_span(span, description=description, usage=getattr(response, "usage", None))
+    return description
 
 class WritingAgentRunner:
-    def __init__(self, client: Any, *, model: str) -> None:
+    def __init__(self, client: Any, *, model: str, max_tokens: int = 16000) -> None:
         self.client = client
         self.model = model
+        self.max_tokens = max_tokens
 
     async def evaluate(
         self,
@@ -424,10 +512,11 @@ class WritingAgentRunner:
                 model=self.model,
                 # A criterion response carries feedback, sentence examples AND the
                 # highlighted-issue spans, so it scales with essay length. At 1600 a
-                # 375-word essay truncated mid-JSON, and because the cut landed inside a
-                # string there was no closing brace to find — surfacing as the useless
-                # "did not return a JSON object" rather than "you ran out of room".
-                max_tokens=4000,
+                # 375-word essay truncated mid-JSON, and AgentRouter later began
+                # exhausting 4000 tokens on ordinary 198-word samples. The ceiling is
+                # configurable so deployments can absorb provider-side output changes
+                # without changing the model, rubric, or retry policy.
+                max_tokens=self.max_tokens,
                 # See the note in describe_task1_stimulus: `temperature` is rejected for
                 # this model and was failing 2 of the 4 criterion agents per request.
                 system=system,
@@ -477,8 +566,16 @@ class WritingAgentRunner:
         usage = getattr(response, "usage", None)
         prompt_tokens = int(getattr(usage, "input_tokens", 0) or 0)
         completion_tokens = int(getattr(usage, "output_tokens", 0) or 0)
-        cost_usd = (prompt_tokens * 3 + completion_tokens * 15) / 1_000_000
-        
+        # GOA-135: priced from the shared table, not a literal. This was
+        # `prompt_tokens * 3 + completion_tokens * 15` -- Sonnet's prices against
+        # the $2/$10 claude-opus-4-8 table current during GOA-135, so writing
+        # costs were overstated 1.5x while RAG's were understated 8x. Current
+        # rates come from packages/pricing rather than this historical comment.
+        cost_usd = price_call(self.model, prompt_tokens, completion_tokens)
+        if cost_usd is None:
+            UNPRICED_MODEL_TOTAL.labels(model=self.model).inc()
+
+
         try:
             from app.telemetry import record_llm_cost
             record_llm_cost(user_id, self.model, prompt_tokens, completion_tokens)
@@ -512,7 +609,11 @@ def get_agent_runner() -> WritingAgentRunner:
         default_headers={"User-Agent": settings.anthropic_user_agent},
         **({"base_url": settings.anthropic_base_url} if settings.anthropic_base_url else {}),
     )
-    return WritingAgentRunner(client, model=settings.writing_model)
+    return WritingAgentRunner(
+        client,
+        model=settings.writing_model,
+        max_tokens=settings.writing_agent_max_tokens,
+    )
 
 
 async def _public_evaluation(

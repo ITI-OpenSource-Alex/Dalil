@@ -1,0 +1,304 @@
+{
+    "metrics": {
+        "goa_chat_duration_ms": {
+            "p(95)": 59885.283932,
+            "avg": 29162.2646058011,
+            "min": 3399.775341,
+            "med": 26923.010678,
+            "max": 99896.064226,
+            "p(90)": 47915.855519,
+            "thresholds": {
+                "p(95)<5000": true
+            }
+        },
+        "iteration_duration": {
+            "med": 10299.787683499999,
+            "max": 104579.606066,
+            "p(90)": 12381.804444000001,
+            "p(95)": 25684.43041625,
+            "avg": 11726.721433757688,
+            "min": 4096.583582
+        },
+        "data_received": {
+            "count": 80923186,
+            "rate": 128461.75343882915
+        },
+        "ws_connecting": {
+            "med": 4.0529815,
+            "max": 66.636017,
+            "p(90)": 19.09925820000001,
+            "p(95)": 27.445135449999974,
+            "avg": 8.2331282,
+            "min": 1.859593
+        },
+        "http_req_failed": {
+            "passes": 2585,
+            "fails": 757,
+            "value": 0.7734889287851586
+        },
+        "goa_speaking_empty_transcripts": {
+            "rate": 0,
+            "count": 0,
+            "thresholds": {
+                "count==0": false
+            }
+        },
+        "http_req_sending": {
+            "min": 0.024803,
+            "med": 0.117311,
+            "max": 15.180729,
+            "p(90)": 0.246524,
+            "p(95)": 0.40171879999999993,
+            "avg": 0.17937329892280116
+        },
+        "goa_server_errors": {
+            "count": 0,
+            "rate": 0,
+            "thresholds": {
+                "count<10": false
+            }
+        },
+        "http_req_duration{expected_response:true}": {
+            "avg": 8013.815984935273,
+            "min": 15.230263,
+            "med": 1427.580357,
+            "max": 99896.064226,
+            "p(90)": 29877.79610399999,
+            "p(95)": 37558.982975999985
+        },
+        "data_sent": {
+            "count": 17323058,
+            "rate": 27499.540188673946
+        },
+        "http_req_waiting": {
+            "avg": 600.5208404150218,
+            "min": 1.138609,
+            "med": 3.4525255,
+            "max": 19129.132342,
+            "p(90)": 2063.1859987000003,
+            "p(95)": 4321.9655797
+        },
+        "goa_chat_source_count": {
+            "p(95)": 5,
+            "avg": 9.353591160220995,
+            "min": 0,
+            "med": 5,
+            "max": 150,
+            "p(90)": 5
+        },
+        "goa_speaking_transcripts": {
+            "rate": 0.09524717929827614,
+            "count": 60
+        },
+        "goa_essay_criteria_completed": {
+            "avg": 4,
+            "min": 4,
+            "med": 4,
+            "max": 4,
+            "p(90)": 4,
+            "p(95)": 4
+        },
+        "goa_match_program_count": {
+            "avg": 45.791666666666664,
+            "min": 35,
+            "med": 50,
+            "max": 50,
+            "p(90)": 50,
+            "p(95)": 50
+        },
+        "http_req_duration": {
+            "max": 99896.064226,
+            "p(90)": 2064.4593947000003,
+            "p(95)": 9694.799200899977,
+            "avg": 1818.7732712175361,
+            "min": 1.337322,
+            "med": 3.8417935
+        },
+        "checks": {
+            "passes": 787,
+            "fails": 0,
+            "value": 1
+        },
+        "ws_session_duration": {
+            "p(95)": 49784.41630015,
+            "avg": 40163.25788256666,
+            "min": 34378.725744,
+            "med": 39355.4141505,
+            "max": 50280.786377,
+            "p(90)": 49406.889047900004
+        },
+        "http_req_receiving": {
+            "avg": 1218.0730575035918,
+            "min": 0.034204,
+            "med": 0.1806165,
+            "max": 84831.065915,
+            "p(90)": 0.8916261000000008,
+            "p(95)": 1759.0523386998384
+        },
+        "ws_msgs_received": {
+            "count": 510,
+            "rate": 0.8096010240353472
+        },
+        "iterations": {
+            "count": 3256,
+            "rate": 5.168746929919785
+        },
+        "vus_max": {
+            "min": 63,
+            "max": 63,
+            "value": 63
+        },
+        "http_req_tls_handshaking": {
+            "p(90)": 0,
+            "p(95)": 0,
+            "avg": 0,
+            "min": 0,
+            "med": 0,
+            "max": 0
+        },
+        "goa_essay_evaluation_duration_ms": {
+            "min": 1.394017,
+            "med": 3.140507,
+            "max": 23381.28084,
+            "p(90)": 7.777509000000002,
+            "p(95)": 12.726229599999982,
+            "avg": 208.73061560869562,
+            "thresholds": {
+                "p(95)<30000": false
+            }
+        },
+        "ws_msgs_sent": {
+            "count": 1110,
+            "rate": 1.7620728170181086
+        },
+        "goa_speaking_time_to_first_transcript_ms": {
+            "avg": 20260.666666666668,
+            "min": 14816,
+            "med": 19414,
+            "max": 26050,
+            "p(90)": 24531,
+            "p(95)": 25406.3,
+            "thresholds": {
+                "p(95)<45000": false
+            }
+        },
+        "goa_match_duration_ms": {
+            "min": 1.337322,
+            "med": 3.557863,
+            "max": 10221.894521,
+            "p(90)": 211.2929,
+            "p(95)": 2131.4143255,
+            "avg": 263.57088832002734,
+            "thresholds": {
+                "p(95)<5000": false
+            }
+        },
+        "http_reqs": {
+            "count": 3342,
+            "rate": 5.305267886913981
+        },
+        "vus": {
+            "max": 63,
+            "value": 1,
+            "min": 1
+        },
+        "http_req_connecting": {
+            "max": 25.853521,
+            "p(90)": 0.9111548000000002,
+            "p(95)": 1.4708075999999988,
+            "avg": 0.5756786032315975,
+            "min": 0,
+            "med": 0.373487
+        },
+        "goa_speaking_ws_upgrade_success": {
+            "passes": 30,
+            "fails": 0,
+            "thresholds": {
+                "rate>0.99": false
+            },
+            "value": 1
+        },
+        "http_req_blocked": {
+            "avg": 0.8296460780969491,
+            "min": 0.0052,
+            "med": 0.543454,
+            "max": 25.931528,
+            "p(90)": 1.3830358999999999,
+            "p(95)": 2.4522852499999965
+        },
+        "goa_essay_upload_duration_ms": {
+            "med": 25.25037,
+            "max": 212.582584,
+            "p(90)": 40.59716900000001,
+            "p(95)": 56.58613199999998,
+            "avg": 29.913776504347823,
+            "min": 15.230263
+        },
+        "ws_sessions": {
+            "count": 30,
+            "rate": 0.04762358964913807
+        },
+        "goa_rate_limited": {
+            "count": 2585,
+            "rate": 4.103565974767397
+        },
+        "goa_speaking_time_to_complete_ms": {
+            "p(95)": 49774.4,
+            "avg": 40150.36666666667,
+            "min": 34368,
+            "med": 39318,
+            "max": 50271,
+            "p(90)": 49379.1
+        },
+        "goa_essay_agent_failures": {
+            "count": 0,
+            "rate": 0,
+            "thresholds": {
+                "count==0": false
+            }
+        }
+    },
+    "root_group": {
+        "groups": {},
+        "checks": {
+                "essay_upload: 2xx": {
+                    "id": "68e538b20e0f0edd938d90c690c96f63",
+                    "passes": 115,
+                    "fails": 0,
+                    "name": "essay_upload: 2xx",
+                    "path": "::essay_upload: 2xx"
+                },
+                "match: 2xx": {
+                    "name": "match: 2xx",
+                    "path": "::match: 2xx",
+                    "id": "c09cec39cb118f4cd3ac6b485d0e61b3",
+                    "passes": 456,
+                    "fails": 0
+                },
+                "chat: 2xx": {
+                    "name": "chat: 2xx",
+                    "path": "::chat: 2xx",
+                    "id": "c94c8e3fc1d20383ec04cabcbbead859",
+                    "passes": 181,
+                    "fails": 0
+                },
+                "essay_evaluate: 2xx": {
+                    "path": "::essay_evaluate: 2xx",
+                    "id": "3f48bc8034636747b8d760b74da3b165",
+                    "passes": 5,
+                    "fails": 0,
+                    "name": "essay_evaluate: 2xx"
+                },
+                "speaking: upgrade accepted (101)": {
+                    "name": "speaking: upgrade accepted (101)",
+                    "path": "::speaking: upgrade accepted (101)",
+                    "id": "ce81b6de501d2f9b02b2cc0ca7da7b61",
+                    "passes": 30,
+                    "fails": 0
+                }
+            },
+        "name": "",
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e"
+    }
+}

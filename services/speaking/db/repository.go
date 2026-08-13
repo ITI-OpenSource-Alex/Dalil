@@ -37,6 +37,33 @@ type SpeakingSession struct {
 	CreatedAt   time.Time `json:"created_at"`
 }
 
+// SpeakingExplanation is the immutable record of what a student was actually
+// shown (SPEAK-EVAL-008).
+//
+// Written once at scoring time and never updated. Regenerating at read time
+// would give different text for the same band on every visit -- the model is not
+// deterministic, prompts change as they are tuned, and the rubric is versioned.
+// A student told "band 6 because you paused five times" who returns to "band 6
+// because your vocabulary was limited" has two reasons for one score and no way
+// to know which was real.
+type SpeakingExplanation struct {
+	SessionID string          `json:"session_id"`
+	Renderable json.RawMessage `json:"renderable"`
+
+	RubricID      string `json:"rubric_id"`
+	RubricVersion string `json:"rubric_version"`
+	RubricSHA256  string `json:"rubric_sha256,omitempty"`
+	ScorerVersion string `json:"scorer_version"`
+	LLMModel      string `json:"llm_model,omitempty"`
+
+	// Denormalised so a history listing can show "2 unverified" without parsing
+	// every row's JSONB.
+	ClaimCount    int `json:"claim_count"`
+	WithheldCount int `json:"withheld_count"`
+
+	CreatedAt time.Time `json:"created_at"`
+}
+
 // SpeakingSessionSummary is the lightweight projection used for session
 // history listings — it deliberately omits the transcript/evaluation JSONB
 // payloads so listing a user's history stays cheap regardless of how many
@@ -59,6 +86,12 @@ type Repository interface {
 	GetByShareToken(ctx context.Context, token string) (*SpeakingSession, error)
 	DeleteByUser(ctx context.Context, userID string) (int64, error)
 	DeleteOlderThan(ctx context.Context, cutoff time.Time) (int64, error)
+
+	// SaveExplanation writes the explanation once. There is deliberately no
+	// UpdateExplanation: see SpeakingExplanation for why an explanation must not
+	// change after the student has read it.
+	SaveExplanation(ctx context.Context, e *SpeakingExplanation) error
+	GetExplanation(ctx context.Context, sessionID string) (*SpeakingExplanation, error)
 }
 
 type PostgresRepository struct {
@@ -234,3 +267,58 @@ func generateShareToken() (string, error) {
 	return hex.EncodeToString(buf), nil
 }
 
+
+
+// SaveExplanation persists the explanation exactly as it was shown.
+//
+// ON CONFLICT DO NOTHING rather than DO UPDATE. A second write for the same
+// session is a re-score or a retry, and the student has already read the first
+// one -- silently replacing it is the regeneration this table exists to prevent.
+// The insert is a no-op and the caller is told nothing changed, because nothing
+// should.
+func (r *PostgresRepository) SaveExplanation(ctx context.Context, e *SpeakingExplanation) error {
+	query := `
+		INSERT INTO speaking_explanations (
+			session_id, renderable, rubric_id, rubric_version, rubric_sha256,
+			scorer_version, llm_model, claim_count, withheld_count, created_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		ON CONFLICT (session_id) DO NOTHING
+	`
+	_, err := r.pool.Exec(ctx, query,
+		e.SessionID, e.Renderable, e.RubricID, e.RubricVersion, e.RubricSHA256,
+		e.ScorerVersion, e.LLMModel, e.ClaimCount, e.WithheldCount, e.CreatedAt,
+	)
+	if err != nil {
+		// Logged and returned, never swallowed: a session whose explanation
+		// failed to persist will render nothing in history, and the cause has to
+		// be visible now rather than inferred later from an empty page.
+		log.Error().Err(err).Str("session_id", e.SessionID).
+			Msg("Failed to persist speaking explanation")
+		return err
+	}
+	return nil
+}
+
+// GetExplanation reads the stored explanation. Returns (nil, nil) when a session
+// predates this table -- history renders the score without an explanation rather
+// than fabricating one for an old session.
+func (r *PostgresRepository) GetExplanation(ctx context.Context, sessionID string) (*SpeakingExplanation, error) {
+	query := `
+		SELECT session_id, renderable, rubric_id, rubric_version,
+		       COALESCE(rubric_sha256, ''), scorer_version, COALESCE(llm_model, ''),
+		       claim_count, withheld_count, created_at
+		FROM speaking_explanations WHERE session_id = $1
+	`
+	var e SpeakingExplanation
+	err := r.pool.QueryRow(ctx, query, sessionID).Scan(
+		&e.SessionID, &e.Renderable, &e.RubricID, &e.RubricVersion, &e.RubricSHA256,
+		&e.ScorerVersion, &e.LLMModel, &e.ClaimCount, &e.WithheldCount, &e.CreatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &e, nil
+}

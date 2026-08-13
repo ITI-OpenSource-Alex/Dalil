@@ -5,6 +5,7 @@ from uuid import UUID, uuid4
 
 from fastapi import HTTPException, status
 
+from app.core.exam_observability import record_exam_completion
 from app.core.metrics import (
     goa_writing_exam_task1_evaluation_ms,
     goa_writing_exam_task2_evaluation_ms,
@@ -18,6 +19,10 @@ from app.services.grading_service import GradingService
 from app.services.audio_delivery_service import (
     ListeningAudioUnavailableError,
     S3AudioDeliveryService,
+)
+from app.services.writing_image_delivery_service import (
+    S3WritingImageDeliveryService,
+    WritingImageUnavailableError,
 )
 from app.services.timer_service import TimerService
 from app.repositories.writing_response_repository import WritingResponseRepository
@@ -42,6 +47,7 @@ class SessionService:
         writing_response_repository: WritingResponseRepository | None = None,
         writing_client: WritingClient | None = None,
         audio_delivery_service: S3AudioDeliveryService | None = None,
+        image_delivery_service: S3WritingImageDeliveryService | None = None,
     ):
         self.session_repository = session_repository
         self.question_repository = question_repository
@@ -51,6 +57,7 @@ class SessionService:
         self.writing_response_repository = writing_response_repository
         self.writing_client = writing_client
         self.audio_delivery_service = audio_delivery_service
+        self.image_delivery_service = image_delivery_service
 
     async def create_session(
         self,
@@ -61,6 +68,16 @@ class SessionService:
             skill_area=request.skill_area.value,
             user_id=request.user_id,
         )
+        # Academic and General Training use the same Speaking interview. The
+        # current bank predates General rows, so reuse a Speaking set rather
+        # than making General candidates fail before the live interviewer (the
+        # source of the questions used during the socket) can start.
+        if question is None and request.skill_area.value == "speaking":
+            question = await self.question_repository.get_random_question(
+                exam_type="academic",
+                skill_area="speaking",
+                user_id=request.user_id,
+            )
         if question is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -69,6 +86,15 @@ class SessionService:
 
         session_id = uuid4()
         time_limit_seconds = self._time_limit_for(request.skill_area.value)
+
+        # Refuse a broken Academic Writing Task 1 before any state exists.
+        # Computing the URL here -- ahead of the session row -- means a missing
+        # stimulus image costs the candidate nothing: no row, no clock, retry
+        # later. Serving the prompt without its chart would be worse than
+        # refusing, because the task is literally "describe the chart" (BUG-022
+        # shape). NULL image_s3_key (every non-visual task) returns None and is
+        # untouched.
+        image_url = self._require_image_url(question, session_id)
 
         await self.session_repository.create(
             session_id=session_id,
@@ -82,7 +108,7 @@ class SessionService:
 
         return {
             "session_id": session_id,
-            "first_question_set": self._public_question(question),
+            "first_question_set": self._public_question(question, image_url=image_url),
         }
 
     async def get_session(self, session_id: UUID) -> dict[str, Any]:
@@ -100,6 +126,14 @@ class SessionService:
                 detail="Question not found",
             )
 
+        # Best-effort on the read path: presigned URLs expire (7200s) and are
+        # never persisted, so a page reload mid-exam has to re-mint one. Unlike
+        # session start this must NOT refuse -- get_session also backs the submit
+        # flow (sessions.py reads it for metrics), and a chart that vanished
+        # mid-attempt should not block the candidate from submitting what they
+        # already wrote. A missing image degrades to image_url=None here.
+        image_url = self._optional_image_url(question, session["id"])
+
         return {
             "id": session["id"],
             "user_id": session["user_id"],
@@ -113,7 +147,7 @@ class SessionService:
                 session["started_at"],
                 session["time_limit_seconds"],
             ),
-            "questions": [self._public_question(question)],
+            "questions": [self._public_question(question, image_url=image_url)],
         }
 
     async def submit_session(
@@ -178,6 +212,16 @@ class SessionService:
         await self.session_repository.submit(session_id)
         await self.session_repository.mark_scored(session_id)
 
+        record_exam_completion(
+            session_id=session_id,
+            user_id=session["user_id"],
+            skill_area=session["skill_area"],
+            exam_type=session["exam_type"],
+            band_score=grading["band_score"],
+            duration_s=self.timer_service.elapsed_seconds(session["started_at"]),
+            question_bank_ref=question.get("book_ref"),
+        )
+
         return {
             "session_id": session_id,
             "status": "submitted",
@@ -185,12 +229,17 @@ class SessionService:
             "band_score": grading["band_score"],
         }
 
-    async def get_result(self, session_id: UUID) -> dict[str, Any]:
+    async def get_result(self, session_id: UUID, requester_id: UUID) -> dict[str, Any]:
         session = await self.session_repository.get_by_id(session_id)
         if session is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Session not found",
+            )
+        if str(session["user_id"]) != str(requester_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Session belongs to another user",
             )
         if session["status"] not in {"submitted", "scored"}:
             raise HTTPException(
@@ -335,6 +384,16 @@ class SessionService:
         await self.session_repository.submit(session_id)
         await self.session_repository.mark_scored(session_id)
 
+        record_exam_completion(
+            session_id=session_id,
+            user_id=session["user_id"],
+            skill_area="reading",
+            exam_type=session["exam_type"],
+            band_score=grading["band_score"],
+            duration_s=self.timer_service.elapsed_seconds(session["started_at"]),
+            question_bank_ref=question.get("book_ref"),
+        )
+
         return grading
 
     async def create_listening_session(
@@ -468,12 +527,83 @@ class SessionService:
         )
         await self.session_repository.submit(session_id)
         await self.session_repository.mark_scored(session_id)
+
+        record_exam_completion(
+            session_id=session_id,
+            user_id=session["user_id"],
+            skill_area="listening",
+            exam_type=session["exam_type"],
+            band_score=grading["band_score"],
+            duration_s=self.timer_service.elapsed_seconds(session["started_at"]),
+            question_bank_ref=question.get("book_ref"),
+        )
+
         return grading
 
     def _time_limit_for(self, skill_area: str) -> int:
         return self.DEFAULT_TIME_LIMITS_SECONDS[skill_area]
 
-    def _public_question(self, question: Any) -> dict[str, Any]:
+    def _require_image_url(self, question: Any, session_id: UUID) -> str | None:
+        """Mint the Task 1 stimulus URL, refusing the session if it can't be served.
+
+        Returns None when the question carries no image (the common case: every
+        non-visual task). When it does carry one, a failure to produce a usable
+        URL is fatal here -- raised as an HTTPException so no session row is
+        created -- because serving "describe the chart" without the chart is a
+        broken exam, not a degraded one.
+        """
+        image_s3_key = question.get("image_s3_key")
+        if not image_s3_key:
+            return None
+
+        if self.image_delivery_service is None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Writing image delivery is not configured",
+            )
+
+        try:
+            return self.image_delivery_service.generate_image_url(
+                image_s3_key=image_s3_key,
+                session_id=session_id,
+            )
+        except WritingImageUnavailableError as exc:
+            # 503, not 500: the key is well-formed and this code is correct --
+            # the image was simply never uploaded. Same reasoning as the
+            # listening audio guard (BUG-022): refuse before creating state.
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=str(exc),
+            ) from exc
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=str(exc),
+            ) from exc
+
+    def _optional_image_url(self, question: Any, session_id: UUID) -> str | None:
+        """Mint the Task 1 stimulus URL on the read path, degrading to None.
+
+        The read/submit path must never raise on a missing image (see
+        get_session), so every failure -- unconfigured service, missing object,
+        malformed key -- collapses to None. Start-of-session already refused the
+        genuinely broken cases; this only re-mints an expiring URL.
+        """
+        image_s3_key = question.get("image_s3_key")
+        if not image_s3_key or self.image_delivery_service is None:
+            return None
+
+        try:
+            return self.image_delivery_service.generate_image_url(
+                image_s3_key=image_s3_key,
+                session_id=session_id,
+            )
+        except Exception:
+            return None
+
+    def _public_question(
+        self, question: Any, image_url: str | None = None
+    ) -> dict[str, Any]:
         questions_data = self._question_list(question["questions"])
         if question["skill_area"] == "speaking":
             questions_data = self._shape_speaking_questions(questions_data)
@@ -485,6 +615,8 @@ class SessionService:
             "skill_area": question["skill_area"],
             "passage_text": question["passage_text"],
             "audio_s3_key": question["audio_s3_key"],
+            "image_s3_key": question.get("image_s3_key"),
+            "image_url": image_url,
             "questions": questions_data,
         }
         return QuestionResponse.model_validate(payload).model_dump()
@@ -634,6 +766,20 @@ class SessionService:
             await self.session_repository.submit(session_id)
             await self.session_repository.mark_scored(session_id)
 
+            overall_band = self._writing_overall_band(responses)
+            question = await self.question_repository.get_by_id(
+                session["question_id"]
+            )
+            record_exam_completion(
+                session_id=session_id,
+                user_id=session["user_id"],
+                skill_area="writing",
+                exam_type=session["exam_type"],
+                band_score=overall_band,
+                duration_s=self.timer_service.elapsed_seconds(session["started_at"]),
+                question_bank_ref=question.get("book_ref") if question else None,
+            )
+
         return {
             "session_id": session_id,
             "task_number": request.task_number,
@@ -750,8 +896,7 @@ class SessionService:
 
         band_task1 = tasks.get(1, {}).get("evaluation", {}).get("overall_band", 0.0)
         band_task2 = tasks.get(2, {}).get("evaluation", {}).get("overall_band", 0.0)
-        # IELTS weighting: Task 2 counts twice Task 1. Confirm this is what you want.
-        overall_band = round((band_task1 + 2 * band_task2) / 3 * 2) / 2  # nearest 0.5
+        overall_band = self._weight_writing_bands(band_task1, band_task2)
 
         return {
             "session_id": session_id,
@@ -760,3 +905,20 @@ class SessionService:
             "overall_band": overall_band,
             "tasks": tasks,
         }
+
+    def _weight_writing_bands(self, band_task1: float, band_task2: float) -> float:
+        # IELTS weighting: Task 2 counts twice Task 1, rounded to nearest 0.5.
+        return round((band_task1 + 2 * band_task2) / 3 * 2) / 2
+
+    def _writing_overall_band(self, responses: list[Any]) -> float:
+        """Overall writing band from the two stored task evaluations.
+
+        Shares ``_weight_writing_bands`` with ``_get_writing_result`` so the
+        completion log and the result endpoint never disagree.
+        """
+
+        bands: dict[int, float] = {}
+        for r in responses:
+            evaluation = self._decode_json(r["evaluation_result"]) or {}
+            bands[r["task_number"]] = evaluation.get("overall_band", 0.0)
+        return self._weight_writing_bands(bands.get(1, 0.0), bands.get(2, 0.0))

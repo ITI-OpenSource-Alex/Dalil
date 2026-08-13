@@ -1,12 +1,15 @@
 "use client";
 
+import { useEffect } from "react";
 import { useChecklist } from "@/app/hooks/useChecklist";
+import { rememberChecklist } from "@/lib/checklist-index";
 import { phaseForItem } from "@/lib/checklist-phases";
 import type { ChecklistItem, Phase } from "@/app/types/checklist";
 import PhaseSection from "./PhaseSection";
 import FinancialRequirements from "./FinancialRequirements";
 import ChecklistProgress from "./ChecklistProgress";
 import PrintButton from "./PrintButton";
+import { Alert, Button, Skeleton } from "@/components/ui";
 
 const GENERATED_PHASES: Exclude<Phase, "Financial Requirements">[] = [
   "Language Prep",
@@ -24,15 +27,43 @@ function groupByPhase(items: ChecklistItem[]) {
   return groups;
 }
 
-export default function ChecklistView({ programId }: { programId: string }) {
+export default function ChecklistView({
+  programId,
+  programName,
+  university,
+  country,
+}: {
+  programId: string;
+  /** Programme metadata for the /checklists index, when the caller knows it. */
+  programName?: string;
+  university?: string | null;
+  country?: string | null;
+}) {
   const { checklist, financialItems, status, error, toggleError, retry, toggleItem } =
     useChecklist(programId);
+
+  // Records this checklist (and its live progress) in the local index that
+  // backs /checklists -- see lib/checklist-index.ts for why that page cannot
+  // simply ask the backend for a list. Re-runs on every toggle, so the
+  // percentage shown on the index is never stale by more than a page visit.
+  const items = checklist?.items;
+  useEffect(() => {
+    if (!items) return;
+    rememberChecklist({
+      programId,
+      programName: programName || programId,
+      university: university ?? null,
+      country: country ?? null,
+      totalItems: items.length,
+      completedItems: items.filter((item) => item.checked).length,
+    });
+  }, [items, programId, programName, university, country]);
 
   if (status === "loading" || status === "idle") {
     return (
       <div className="space-y-3" aria-busy="true" aria-label="Loading checklist">
         {[0, 1, 2].map((i) => (
-          <div key={i} className="h-16 w-full animate-pulse rounded-2xl bg-gray-100" />
+          <Skeleton key={i} shape="block" className="h-16 w-full" />
         ))}
       </div>
     );
@@ -40,16 +71,16 @@ export default function ChecklistView({ programId }: { programId: string }) {
 
   if (status === "error" || !checklist) {
     return (
-      <div className="rounded-2xl border border-red-100 bg-red-50 p-6 text-center">
-        <p className="text-sm text-red-700">{error}</p>
-        <button
-          type="button"
-          onClick={retry}
-          className="mt-3 rounded-full bg-red-600 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-red-700"
-        >
-          Retry
-        </button>
-      </div>
+      <Alert
+        tone="danger"
+        actions={
+          <Button variant="danger" size="sm" onClick={retry}>
+            Retry
+          </Button>
+        }
+      >
+        {error}
+      </Alert>
     );
   }
 
@@ -65,7 +96,9 @@ export default function ChecklistView({ programId }: { programId: string }) {
       </div>
 
       {toggleError && (
-        <p className="print-hidden text-xs text-red-600">{toggleError}</p>
+        <Alert tone="danger" className="print-hidden">
+          {toggleError}
+        </Alert>
       )}
 
       {GENERATED_PHASES.map((phase) => (
@@ -74,13 +107,19 @@ export default function ChecklistView({ programId }: { programId: string }) {
           phase={phase}
           items={grouped.get(phase) ?? []}
           onToggle={toggleItem}
+          programId={programId}
+          programName={programName}
         />
       ))}
 
       {/* Financial Requirements is rendered from a separate, structured-only
           source (financialItems), never from the LLM-generated checklist items
           above — see FinancialRequirements.tsx. */}
-      <FinancialRequirements items={financialItems} />
+      <FinancialRequirements
+        items={financialItems}
+        programId={programId}
+        programName={programName}
+      />
     </div>
   );
 }

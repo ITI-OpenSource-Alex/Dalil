@@ -40,6 +40,11 @@ COPY services/ingestion/app/migrations ./app/migrations
 # .github/workflows/deploy-ingestion.yml and docker-compose.yml.
 COPY packages/contracts/py/contracts ./contracts
 
+# 5. The shared LLM price table (GOA-135). Same failure shape as `contracts`
+# above: handler.py imports `goa_pricing` for the run summary's cost figure, and
+# it runs from the host during development where sys.path already covers it.
+COPY packages/pricing/py/goa_pricing ./goa_pricing
+
 # We'll override this CMD in docker-compose or during manual runs, 
 # but this is a good default entrypoint for a python service.
 CMD ["python", "handler.py", "--consume-queue"]

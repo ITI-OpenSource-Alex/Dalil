@@ -213,6 +213,22 @@ func TestOpportunities_UnauthenticatedRejected(t *testing.T) {
 	}
 }
 
+func TestOpportunities_DetailScopesFitToAuthenticatedUser(t *testing.T) {
+	upstream, captured := newCapturingUpstream(t, 200, `{"programId":"program-1"}`)
+	h := NewOpportunitiesHandler(upstream.Client(), upstream.URL, "internal-key")
+	app := newAuthedApp("user-42", func(app *fiber.App) {
+		app.Get("/api/opportunities/:programId", h.Detail)
+	})
+
+	resp, err := app.Test(httptest.NewRequest(fiber.MethodGet, "/api/opportunities/program-1", nil))
+	if err != nil || resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("detail request: status=%d err=%v", resp.StatusCode, err)
+	}
+	if captured.path != "/programs/program-1" || captured.query != "userId=user-42" {
+		t.Fatalf("upstream = %s?%s", captured.path, captured.query)
+	}
+}
+
 // TestOpportunities_ForwardsTraceparent keeps RAG's Langfuse spans attached to
 // the caller's trace instead of orphaning them behind the Gateway.
 func TestOpportunities_ForwardsTraceparent(t *testing.T) {

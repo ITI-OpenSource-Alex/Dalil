@@ -27,6 +27,30 @@ export class UpdateProfileDto {
   ieltsScore?: number;
 
   @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 1 })
+  @Min(0)
+  @Max(9.0)
+  ieltsListening?: number;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 1 })
+  @Min(0)
+  @Max(9.0)
+  ieltsReading?: number;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 1 })
+  @Min(0)
+  @Max(9.0)
+  ieltsWriting?: number;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 1 })
+  @Min(0)
+  @Max(9.0)
+  ieltsSpeaking?: number;
+
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
   targetCountries?: string[];
@@ -34,6 +58,10 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsString()
   fieldOfStudy?: string;
+
+  @IsOptional()
+  @IsString()
+  targetFieldOfStudy?: string;
 
   @IsOptional()
   @IsNumber()

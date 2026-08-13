@@ -1,0 +1,67 @@
+[
+  {
+    "pair": "p01",
+    "script": "I would like to talk about a journey that I took last summer. It was a trip to a small coastal town about three hours from my home. I travelled there with two friends from university. We stayed for a week in a rented apartment near the harbour. What made it memorable was the food and the people we met. I would definitely go back there again if I had the chance.",
+    "fluent": "p01-fluent.wav",
+    "halting": "p01-halting.wav",
+    "fluent_duration_s": 18.87,
+    "halting_duration_s": 33.67,
+    "synthetic": true,
+    "token_overlap": 1.0,
+    "fluent_transcript": "I would like to talk about a journey that I took last summer. It was a trip to a small coastal town about three hours from my home. I traveled there with two friends from university. We stayed for a week in a rented apartment near the harbor. What made it memorable was the food and the people we met. I would definitely go back there again if I had the chance.",
+    "halting_transcript": "I would like to talk about a journey that I took last summer. It was a trip to a small coastal town about three hours from my home. I traveled there with two friends from university. We stayed for a week in a rented apartment near the harbor. What made it memorable was the food and the people we met. I would definitely go back there again if I had the chance.",
+    "valid": true
+  },
+  {
+    "pair": "p02",
+    "script": "The skill I want to describe is learning to cook properly. I started about two years ago when I moved out of my family home. At first I could only make very simple dishes like pasta and eggs. I learned mostly from videos online and from calling my mother. Now I can prepare a full meal for six or seven people. It has saved me money and made me much healthier.",
+    "fluent": "p02-fluent.wav",
+    "halting": "p02-halting.wav",
+    "fluent_duration_s": 20.17,
+    "halting_duration_s": 35.43,
+    "synthetic": true,
+    "token_overlap": 1.0,
+    "fluent_transcript": "The skill I want to describe is learning to cook properly. I started about two years ago when I moved out of my family home. At first I could only make very simple dishes like pasta and eggs. I learned mostly from videos online and from calling my mother. Now I can prepare a full meal for six or seven people. It has saved me money and made me much healthier.",
+    "halting_transcript": "The skill I want to describe is learning to cook properly. I started about two years ago when I moved out of my family home. At first I could only make very simple dishes like pasta and eggs. I learned mostly from videos online and from calling my mother. Now I can prepare a full meal for six or seven people. It has saved me money and made me much healthier.",
+    "valid": true
+  },
+  {
+    "pair": "p03",
+    "script": "I want to describe a teacher who influenced me a great deal. She taught mathematics in my final two years of secondary school. What made her different was that she never simply gave us answers. She would ask a question back and wait until somebody tried. Because of her I chose to study engineering at university. I still remember her advice whenever I face a difficult problem.",
+    "fluent": "p03-fluent.wav",
+    "halting": "p03-halting.wav",
+    "fluent_duration_s": 20.13,
+    "halting_duration_s": 35.36,
+    "synthetic": true,
+    "token_overlap": 1.0,
+    "fluent_transcript": "I want to describe a teacher who influenced me a great deal, she taught mathematics in my final two years of secondary school. What made her different was that she never simply gave us answers, she would ask a question back and wait until somebody tried. Because of her I chose to study engineering at university. I still remember her advice whenever I face a difficult problem.",
+    "halting_transcript": "I want to describe a teacher who influenced me a great deal. She taught mathematics in my final two years of secondary school. What made her different was that she never simply gave us answers. She would ask a question back and wait until somebody tried. Because of her I chose to study engineering at university. I still remember her advice whenever I face a difficult problem.",
+    "valid": true
+  },
+  {
+    "pair": "p04",
+    "script": "The book I would like to talk about is one I read three times. It is a novel about a family living through a long period of change. I first read it when I was seventeen and did not understand it well. The second time I noticed how carefully the author builds each character. It taught me that patience with a difficult text is usually rewarded. I recommend it to anyone who enjoys slow and detailed storytelling.",
+    "fluent": "p04-fluent.wav",
+    "halting": "p04-halting.wav",
+    "fluent_duration_s": 21.6,
+    "halting_duration_s": 37.35,
+    "synthetic": true,
+    "token_overlap": 0.966,
+    "fluent_transcript": "The book I would like to talk about is one I read three times. It is a novel about a family living through a long period of change. I first read it when I was 17 and did not understand it well. The second time I noticed how carefully the author builds each character. It taught me that patience with a difficult text is usually rewarded. I recommend it to anyone who enjoys slow and detailed storytelling.",
+    "halting_transcript": "The book I would like to talk about is one I read three times. It is a novel about a family living through a long period of change. I first read it when I was seventeen and did not understand it well. The second time I noticed how carefully the author builds each character. It taught me that patience with a difficult text is usually rewarded. I recommend it to anyone who enjoys slow and detailed storytelling.",
+    "valid": true
+  },
+  {
+    "pair": "p05",
+    "script": "I would like to describe a decision that changed my direction. Two years ago I was offered a place on a programme in another city. Accepting it meant leaving my job and most of my friends behind. I thought about it for several weeks before I finally agreed. The first months were genuinely difficult and I doubted the choice. Looking back now it was clearly the right thing to have done.",
+    "fluent": "p05-fluent.wav",
+    "halting": "p05-halting.wav",
+    "fluent_duration_s": 20.16,
+    "halting_duration_s": 35.41,
+    "synthetic": true,
+    "token_overlap": 1.0,
+    "fluent_transcript": "I would like to describe a decision that changed my direction. Two years ago I was offered a place on a program in another city, accepting it meant leaving my job and most of my friends behind. I thought about it for several weeks before I finally agreed. The first months were genuinely difficult and I doubted the choice. Looking back now it was clearly the right thing to have done.",
+    "halting_transcript": "I would like to describe a decision that changed my direction. Two years ago I was offered a place on a program in another city. Accepting it meant leaving my job and most of my friends behind. I thought about it for several weeks before I finally agreed. The first months were genuinely difficult and I doubted the choice. Looking back now it was clearly the right thing to have done.",
+    "valid": true
+  }
+]

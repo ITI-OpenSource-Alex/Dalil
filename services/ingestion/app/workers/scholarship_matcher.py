@@ -51,8 +51,8 @@ def _load_ingestion_runtime_secrets() -> None:
 
 _load_ingestion_runtime_secrets()
 
-from client import get_headers
-from config import settings
+from client import get_headers  # noqa: E402
+from config import settings  # noqa: E402
 
 logger = structlog.get_logger("ingestion_worker.scholarship_matcher")
 COLD_START = True

@@ -7,34 +7,50 @@ import { GraduationCap, MapPin, Calendar } from "lucide-react";
 import TypingIndicator from "./typing-indicator";
 import MessageBubble from "./message-bubble";
 import SourcesFootnote from "./sources-footnote";
-import EvaluationBreakdown from "@/components/speaking/evaluation-breakdown";
+import { cn } from "@/lib/cn";
 
 interface MessageListProps {
   messages: Message[];
   isTyping: boolean;
+  /** Initials for the user avatar, from the signed-in account. */
+  userInitials?: string;
+  compact?: boolean;
 }
 
-export default function MessageList({ messages, isTyping }: MessageListProps) {
+export default function MessageList({
+  messages,
+  isTyping,
+  userInitials,
+  compact = false,
+}: MessageListProps) {
   const endRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
+  // The typing indicator and the streaming placeholder's blinking cursor both
+  // signal "assistant is working". Showing both at once looks like two
+  // separate assistants responding. The indicator is suppressed whenever the
+  // message list already contains a streaming placeholder — its cursor is the
+  // visual indicator.
+  const hasStreamingMessage = messages.some(
+    (m) => m.role === "assistant" && m.isStreaming,
+  );
+  const showTypingIndicator = isTyping && !hasStreamingMessage;
+
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className={cn("mx-auto max-w-4xl", compact ? "space-y-4" : "space-y-6")}>
       <AnimatePresence initial={false}>
         {messages.map((msg) => {
           const isUser = msg.role === "user";
-          // Sources/opportunities/evaluation are only ever set on assistant
-          // messages (see the "match_results"/"sources" cases in
-          // handleChatEvent and the speaking onEvaluation handler in
+          // Sources/opportunities are only ever set on assistant messages
+          // (see the "match_results"/"sources" cases in handleChatEvent in
           // chat-shell.tsx) -- guarded here too so a user message can never
           // render a left-aligned attachment block underneath it.
           const hasAttachments =
             !isUser &&
             ((msg.sources?.length ?? 0) > 0 ||
-              (msg.opportunities?.length ?? 0) > 0 ||
-              !!msg.evaluation);
+              (msg.opportunities?.length ?? 0) > 0);
 
           return (
             <motion.div
@@ -49,8 +65,8 @@ export default function MessageList({ messages, isTyping }: MessageListProps) {
                 <MessageBubble
                   role={msg.role}
                   content={msg.content}
-                  intent={msg.intent}
                   isStreaming={msg.isStreaming}
+                  userInitials={userInitials}
                 />
               </div>
 
@@ -60,35 +76,17 @@ export default function MessageList({ messages, isTyping }: MessageListProps) {
                 // the avatar. max-w-3xl is deliberately wider than the
                 // bubble's max-w-[75%] -- the two-column opportunity card
                 // grid needs more room than that constraint allows.
-                <div className="ml-12 max-w-3xl space-y-2">
+                <div className={cn("max-w-3xl space-y-2", !compact && "ml-12")}>
                   {msg.sources && msg.sources.length > 0 && (
                     <SourcesFootnote sources={msg.sources} />
                   )}
 
                   {msg.opportunities && msg.opportunities.length > 0 && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className={cn("grid grid-cols-1 gap-3", !compact && "md:grid-cols-2")}>
                       {msg.opportunities.map((opp, idx) => (
                         <OpportunityCard key={idx} opp={opp} index={idx} />
                       ))}
                     </div>
-                  )}
-
-                  {msg.evaluation && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 12 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{
-                        duration: 0.4,
-                        delay: 0.1,
-                        ease: "easeOut",
-                      }}
-                    >
-                      <EvaluationBreakdown
-                        overallBand={msg.evaluation.overallScore}
-                        criteria={msg.evaluation.criteria}
-                        feedback={msg.evaluation.feedback}
-                      />
-                    </motion.div>
                   )}
                 </div>
               )}
@@ -97,8 +95,8 @@ export default function MessageList({ messages, isTyping }: MessageListProps) {
         })}
       </AnimatePresence>
 
-      {/* Typing Indicator */}
-      <AnimatePresence>{isTyping && <TypingIndicator />}</AnimatePresence>
+      {/* Typing Indicator — suppressed when a streaming placeholder is already visible */}
+      <AnimatePresence>{showTypingIndicator && <TypingIndicator />}</AnimatePresence>
 
       <div ref={endRef} />
     </div>
@@ -122,35 +120,41 @@ function OpportunityCard({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: index * 0.06, ease: "easeOut" }}
-      className="bg-white border border-[#E4EAE4] rounded-xl p-4 shadow-sm flex flex-col justify-between"
+      className="bg-surface border border-border rounded-xl p-4 shadow-sm flex flex-col justify-between"
     >
       <div>
         <div className="flex justify-between items-start gap-2">
-          <h4 className="font-semibold text-sm text-[#0D3820] line-clamp-1">
+          <h4 className="font-semibold text-sm text-brand-fg line-clamp-1">
             {opp.programName}
           </h4>
-          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md shrink-0">
+          <span className="text-[10px] font-bold text-success-fg bg-success-subtle px-2 py-0.5 rounded-md shrink-0">
             {confidencePercent}% Match
           </span>
         </div>
-        <div className="space-y-1.5 mt-3 text-xs text-[#526053]">
+        <div className="space-y-1.5 mt-3 text-xs text-fg-muted">
           <p className="flex items-center gap-1.5">
-            <GraduationCap size={13} className="text-[#899C8B]" />
+            <GraduationCap size={13} className="text-fg-subtle" aria-hidden="true" />
             <span className="line-clamp-1">{opp.university}</span>
           </p>
           <p className="flex items-center gap-1.5">
-            <MapPin size={13} className="text-[#899C8B]" />
+            <MapPin size={13} className="text-fg-subtle" aria-hidden="true" />
             <span>{opp.country}</span>
           </p>
           <p className="flex items-center gap-1.5">
-            <Calendar size={13} className="text-[#899C8B]" />
-            <span>Deadline: {opp.deadline}</span>
+            <Calendar size={13} className="text-fg-subtle" aria-hidden="true" />
+            {/* RAG returns null for a programme with no published deadline
+                (scoring.py), which rendered here as "Deadline: null". */}
+            <span>
+              {opp.deadline
+                ? `Deadline: ${opp.deadline}`
+                : "No published deadline"}
+            </span>
           </p>
         </div>
       </div>
       {/* Confidence Indicator Bar */}
       <div className="mt-4">
-        <div className="w-full bg-[#F0F3EF] h-1.5 rounded-full overflow-hidden">
+        <div className="w-full bg-canvas-inset h-1.5 rounded-full overflow-hidden">
           <motion.div
             initial={{ width: 0 }}
             animate={{ width: `${confidencePercent}%` }}
@@ -159,14 +163,14 @@ function OpportunityCard({
               delay: 0.2 + index * 0.06,
               ease: "easeOut",
             }}
-            className="bg-emerald-600 h-full rounded-full"
+            className="bg-success h-full rounded-full"
           />
         </div>
       </div>
       {/* GOA-035 entry point: generates/opens this program's application checklist. */}
       <Link
-        href={`/checklist/${opp.programId}`}
-        className="mt-3 inline-block text-center rounded-full bg-[#0D3820] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[#0a2c19]"
+        href={`/checklist/${encodeURIComponent(opp.programId)}`}
+        className="mt-3 inline-block text-center rounded-full bg-brand px-3 py-1.5 text-[11px] font-semibold text-fg-on-brand transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted"
       >
         Get Checklist
       </Link>

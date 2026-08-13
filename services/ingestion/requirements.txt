@@ -25,3 +25,7 @@ redis>=5.0.1
 # Missing here, the canonical `docker compose run --rm ingestion` died at import —
 # it only appeared to work when run from a host that had psycopg2 installed globally.
 psycopg2-binary>=2.9.9
+
+# Visa source discovery (SPEAK/visa): keyless web search used only to relocate
+# an authority whose stored URL has died. Low volume by design.
+ddgs>=9.0.0

@@ -14,6 +14,11 @@ import type {
   ReadingAnswers,
   ReadingSubmitResponse,
 } from "@/app/types/reading";
+import {
+  formatReadingProgress,
+  getReadingProgress,
+} from "@/lib/reading-progress";
+import { useReadingSplit } from "@/app/hooks/useReadingSplit";
 import PassagePanel from "./PassagePanel";
 import SectionTabs from "./SectionTabs";
 import QuestionNavSidebar from "./QuestionNavSidebar";
@@ -130,6 +135,14 @@ export default function ReadingExam({
 }: ReadingExamProps) {
   const [state, dispatch] = useReducer(reducer, session, buildInitialState);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const {
+    containerRef,
+    passagePercent,
+    onSeparatorPointerDown,
+    onSeparatorKeyDown,
+    min: splitMin,
+    max: splitMax,
+  } = useReadingSplit();
 
   const activeQuestions = state.questions.filter(
     (q) => q.section === state.activeSection,
@@ -139,6 +152,11 @@ export default function ReadingExam({
   const unansweredCount = state.questions.filter(
     (q) => !state.answers[String(q.number)]?.trim(),
   ).length;
+  const progress = getReadingProgress({
+    questions: state.questions,
+    answers: state.answers,
+    activeSection: state.activeSection,
+  });
 
   const handleJump = (questionNumber: number) => {
     const target = state.questions.find((q) => q.number === questionNumber);
@@ -198,11 +216,14 @@ export default function ReadingExam({
         }
       />
 
-      <div className="flex min-h-0 flex-1">
+      <div ref={containerRef} className="flex min-h-0 flex-1">
         {/* Left: passage, independently scrollable. Keyed on section so a
             new passage never inherits highlights that belong to a
-            different passage's text. */}
-        <div className="min-h-0 w-1/2">
+            different passage's text. Width is user-resizable (persisted). */}
+        <div
+          className="min-h-0 min-w-0 shrink-0"
+          style={{ width: `${passagePercent}%` }}
+        >
           <PassagePanel
             key={state.activeSection}
             passageText={activePassage}
@@ -210,8 +231,28 @@ export default function ReadingExam({
           />
         </div>
 
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize reading passage"
+          aria-valuenow={passagePercent}
+          aria-valuemin={splitMin}
+          aria-valuemax={splitMax}
+          tabIndex={0}
+          data-testid="reading-split-handle"
+          onPointerDown={onSeparatorPointerDown}
+          onKeyDown={onSeparatorKeyDown}
+          className="group relative z-10 w-1.5 shrink-0 cursor-col-resize bg-transparent transition-colors hover:bg-brand focus-visible:bg-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted"
+        >
+          {/* Wider invisible hit target */}
+          <span
+            aria-hidden="true"
+            className="absolute inset-y-0 -left-1.5 -right-1.5"
+          />
+        </div>
+
         {/* Right: questions, independently scrollable, plus the nav sidebar. */}
-        <div className="flex min-h-0 w-1/2">
+        <div className="flex min-h-0 min-w-0 flex-1">
           <div className="min-h-0 flex-1 space-y-8 overflow-y-auto p-8">
             {activeQuestions.map((question) => (
               <QuestionRenderer
@@ -229,7 +270,7 @@ export default function ReadingExam({
             ))}
           </div>
 
-          <div className="min-h-0 w-44 shrink-0 overflow-y-auto border-l border-gray-200 bg-gray-50/50">
+          <div className="min-h-0 w-44 shrink-0 overflow-y-auto border-l border-border bg-canvas-subtle">
             <QuestionNavSidebar
               questions={state.questions}
               answers={state.answers}
@@ -240,20 +281,22 @@ export default function ReadingExam({
         </div>
       </div>
 
-      <div className="flex items-center justify-between border-t border-gray-200 bg-white px-6 py-3">
+      <div className="flex items-center justify-between border-t border-border bg-surface px-6 py-3">
         {state.submitError ? (
-          <p className="text-xs text-red-600">{state.submitError}</p>
+          <p className="text-xs text-danger" role="alert">{state.submitError}</p>
         ) : (
-          <span className="text-xs text-gray-400">
-            {state.questions.length - unansweredCount} of{" "}
-            {state.questions.length} answered
+          <span
+            data-testid="reading-progress"
+            className="text-xs text-fg-subtle"
+          >
+            {formatReadingProgress(progress)}
           </span>
         )}
         <button
           type="button"
           data-testid="reading-submit-button"
           onClick={() => setShowSubmitModal(true)}
-          className="rounded-full bg-[#0d4d3a] px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-[#09382a]"
+          className="rounded-full bg-brand px-4 py-1.5 text-xs font-semibold text-fg-on-brand transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted"
         >
           Submit Exam
         </button>

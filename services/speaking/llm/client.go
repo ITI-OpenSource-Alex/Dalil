@@ -65,12 +65,49 @@ func NewClient(model, apiKey, baseURL string) *Client {
 	}
 }
 
+// Model returns the effective model id this client calls with.
+//
+// SPEAK-EVAL-003: the Langfuse generation span used to carry a hardcoded
+// "claude-3-5-haiku-20241022" while main() constructs two clients from
+// configuration -- one for practice, one for exam -- and neither was Haiku. Every
+// model-to-model comparison in the telemetry was therefore comparing one label
+// against itself. Provenance has to be read from the thing that made the call.
+func (c *Client) Model() string { return c.model }
+
 func (c *Client) StreamCompletion(ctx context.Context, systemPrompt, userPrompt string) (CompletionResult, error) {
+	return c.streamCompletion(ctx, systemPrompt, userPrompt, 8192)
+}
+
+// StreamShortCompletion is the low-latency path for the live interviewer. It
+// deliberately cannot spend the scoring client's 8192-token budget on a
+// one-sentence question.
+func (c *Client) StreamShortCompletion(ctx context.Context, systemPrompt, userPrompt string) (CompletionResult, error) {
+	return c.streamCompletion(ctx, systemPrompt, userPrompt, 64)
+}
+
+func (c *Client) streamCompletion(ctx context.Context, systemPrompt, userPrompt string, maxTokens int64) (CompletionResult, error) {
 	start := time.Now()
 	var firstTokenTime time.Time
 	params := anthropic.MessageNewParams{
-		Model:     anthropic.Model(c.model),
-		MaxTokens: 1024,
+		Model: anthropic.Model(c.model),
+		// 1024 was chosen when a response was a small JSON object and nothing
+		// else. It predates the model emitting an extended-thinking block first.
+		//
+		// On a full-length transcript the thinking alone reaches the cap, the
+		// response stops before any text is produced, and the agent receives
+		// stop_reason="max_tokens" with content_blocks=[thinking] and no JSON to
+		// parse. Every criterion then fails. SPEAK-EVAL-007's first benchmark run
+		// hit this on all 28 agent calls -- four dead agents on every item -- and
+		// the exam path, which concatenates all three parts into one transcript,
+		// is the production path with the same shape.
+		//
+		// dev reached the same conclusion independently while stabilising the
+		// holistic swarm, and set 8000. The exact figure does not matter -- both
+		// clear the thinking block comfortably -- so this keeps 8192 for the round
+		// number and records that two investigations converged on it. What dev's
+		// fix did NOT include is the stop_reason guard below, which is what turns
+		// the next occurrence into a named error instead of a parse failure.
+		MaxTokens: maxTokens,
 		System: []anthropic.TextBlockParam{
 			{
 				Text: systemPrompt,
@@ -143,6 +180,24 @@ func (c *Client) StreamCompletion(ctx context.Context, systemPrompt, userPrompt 
 		return CompletionResult{}, fmt.Errorf(
 			"model returned no text (stop_reason=%q, content_blocks=%v, output_tokens=%d)",
 			msg.StopReason, blockTypes, msg.Usage.OutputTokens,
+		)
+	}
+
+	// Text that stopped at the ceiling is truncated, and truncated JSON parses
+	// as "unexpected end of JSON input" -- a message describing the symptom while
+	// hiding the cause, which is how this cost a whole benchmark run twice.
+	//
+	// services/writing/app/agents.go has carried this exact check for some time,
+	// with the same advice: raise the ceiling rather than retry, because a retry
+	// reproduces the same truncation at the same cost. The lesson had not crossed
+	// into this service. Saying so here is cheaper than rediscovering it a third
+	// time.
+	if msg.StopReason == "max_tokens" {
+		return CompletionResult{}, fmt.Errorf(
+			"model hit the max_tokens ceiling (%d output tokens); its response is "+
+				"truncated and will not parse. Raise MaxTokens rather than retrying -- "+
+				"a retry produces the same truncation",
+			msg.Usage.OutputTokens,
 		)
 	}
 

@@ -421,7 +421,12 @@ class MastersPortalAdapter(BasePlaywrightAdapter):
         }
 
     async def scrape_cards(self, per_run_cap_per_discipline: int = 500) -> list[dict]:
-        """Tier 1 sweep: whole catalog from the search API, no browser, no page fetch."""
+        """Tier 1 sweep: whole catalog from the search API, no browser, no page fetch.
+
+        Cursor advancement is returned as telemetry and committed by the handler only
+        after both documents and structured rows persist. This lets one invocation
+        cover many search pages without making a failed downstream write lose pages.
+        """
         documents: list[dict] = []
         telemetry: dict[str, dict] = {}
 
@@ -439,8 +444,9 @@ class MastersPortalAdapter(BasePlaywrightAdapter):
                 continue
 
             offset = cursor["scroll_offset"]
-            hits_total = None
+            hits_total = cursor.get("total_items")
             produced = 0
+            exhausted = False
 
             while produced < per_run_cap_per_discipline:
                 if self.budget and self.budget.exhausted:
@@ -457,20 +463,13 @@ class MastersPortalAdapter(BasePlaywrightAdapter):
                     )
                     break
                 if not cards:
-                    self.crawl_state.update_cursor(
-                        self.source_name,
-                        discipline,
-                        offset // PAGE_SIZE + 1,
-                        scroll_offset=offset,
-                        exhausted=True,
-                        total_items=hits_total,
-                    )
+                    exhausted = True
                     break
 
-                page_produced = 0
-                page_failed = False
+                page_complete = True
                 for card in cards:
                     if self.budget and self.budget.exhausted:
+                        page_complete = False
                         break
                     url = self.card_to_url(card)
                     if not url:
@@ -487,7 +486,6 @@ class MastersPortalAdapter(BasePlaywrightAdapter):
                     doc = self._card_to_document(card, url, discipline)
                     if doc is None:
                         counts["failed"] += 1
-                        page_failed = True
                         self.crawl_state.mark_url_status(
                             self.source_name,
                             discipline,
@@ -498,45 +496,35 @@ class MastersPortalAdapter(BasePlaywrightAdapter):
                         continue
                     documents.append(doc)
                     produced += 1
-                    page_produced += 1
                     counts["extracted"] += 1
                     self.crawl_state.mark_url_status(
                         self.source_name, discipline, url, "extracted"
                     )
                     if produced >= per_run_cap_per_discipline:
+                        page_complete = False
                         break
 
-                # Do not advance past work that has only been extracted. The handler
-                # promotes those URLs to scraped after the RAG HTTP write succeeds.
-                # A killed task therefore revisits this page, skips acknowledged rows,
-                # and retries the unacknowledged ones instead of losing them.
-                if page_produced or page_failed:
-                    self.crawl_state.update_cursor(
-                        self.source_name,
-                        discipline,
-                        offset // PAGE_SIZE + 1,
-                        scroll_offset=offset,
-                        exhausted=False,
-                        total_items=hits_total,
-                    )
+                # If the cap landed mid-page, retain this page as the resume point;
+                # rows committed by the handler will be skipped on the next run and
+                # unprocessed rows remain reachable.
+                if not page_complete:
                     break
 
                 offset += len(cards)
                 exhausted = hits_total is not None and offset >= hits_total
-                self.crawl_state.update_cursor(
-                    self.source_name,
-                    discipline,
-                    offset // PAGE_SIZE + 1,
-                    scroll_offset=offset,
-                    exhausted=exhausted,
-                    total_items=hits_total,
-                )
                 if exhausted:
                     break
 
-            counts["remaining"] = self.crawl_state.count_remaining(
-                self.source_name, tier=1, discipline=discipline
+            counts["remaining"] = (
+                max(int(hits_total) - offset, 0)
+                if hits_total is not None
+                else self.crawl_state.count_remaining(
+                    self.source_name, tier=1, discipline=discipline
+                )
             )
+            counts["next_offset"] = offset
+            counts["total_items"] = hits_total
+            counts["cursor_exhausted"] = exhausted
             telemetry[discipline] = counts
             logger.info("masters_portal_tier1_batch", discipline=discipline, **counts)
 

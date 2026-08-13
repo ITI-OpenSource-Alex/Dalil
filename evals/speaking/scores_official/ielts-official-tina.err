@@ -1,0 +1,4 @@
+{"level":"error","error":"insufficient evidence","criterion":"Pronunciation","failed_after":0.5629,"time":"2026-08-09T03:21:56+02:00","message":"Evaluation agent failed"}
+{"level":"error","error":"context deadline exceeded","time":"2026-08-09T03:22:24+02:00","message":"Failed to record LLM cost telemetry"}
+{"level":"error","error":"context deadline exceeded","time":"2026-08-09T03:22:30+02:00","message":"Failed to record LLM cost telemetry"}
+{"level":"error","error":"context deadline exceeded","time":"2026-08-09T03:22:30+02:00","message":"Failed to record LLM cost telemetry"}

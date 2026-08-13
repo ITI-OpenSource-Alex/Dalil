@@ -13,7 +13,7 @@ class ChecklistItem(BaseModel):
 class ChecklistResponse(BaseModel):
     checklistId: str
     programId: str
-    generatedBy: Literal["llm", "fallback"]
+    generatedBy: Literal["llm", "fallback", "requirements"]
     items: list[ChecklistItem]
 
 

@@ -4,3 +4,11 @@ python-multipart==0.0.9
 faster-whisper==1.2.1
 piper-tts==1.5.0
 numpy
+
+# GOA-133. Test dependencies, pinned because the image previously had neither.
+# starlette's TestClient calls httpx.Client(app=...), which httpx removed in
+# 0.28 -- so tests/test_speech.py could not even be COLLECTED inside the image
+# and the sidecar's suite had only ever run on a host that happened to hold an
+# older httpx. Pinning here makes `docker compose run speech pytest` work.
+httpx<0.28
+pytest==8.1.1

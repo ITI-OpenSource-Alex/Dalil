@@ -1,0 +1,1777 @@
+{
+  "manifest_version": "speaking-dataset-manifest/v1",
+  "description": "SPEAK-EVAL-004. Source governance for speaking evaluation items. An item may only contribute to a gating metric if this manifest says it may.",
+  "splits": {
+    "quarantine": {
+      "gating": false,
+      "purpose": "Items that exist but must not influence any published number. Nothing here can gate, by construction."
+    },
+    "smoke": {
+      "gating": true,
+      "purpose": "The small authorised set the speaking lanes run against in CI."
+    },
+    "dev": {
+      "gating": false,
+      "purpose": "Items used while iterating on prompts and thresholds. Non-gating so that tuning against them cannot become tuning against the gate."
+    },
+    "test": {
+      "gating": true,
+      "purpose": "Held out. Read for a release decision, never for iteration."
+    }
+  },
+  "items": [
+    {
+      "item_id": "s-01",
+      "candidate_id": "synthetic-01",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Band 5.0 overall; slow speech rate, simple sentences, basic vocabulary.",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 5.0,
+        "criteria": {
+          "fluency_coherence": 5.0,
+          "lexical_resource": 5.0,
+          "grammatical_range": 5.0,
+          "pronunciation": 5.0
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
+      }
+    },
+    {
+      "item_id": "s-02",
+      "candidate_id": "synthetic-02",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Band 5.5 overall; willing to speak at length, minor grammatical errors.",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 5.5,
+        "criteria": {
+          "fluency_coherence": 6.0,
+          "lexical_resource": 5.5,
+          "grammatical_range": 5.0,
+          "pronunciation": 5.5
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
+      }
+    },
+    {
+      "item_id": "s-03",
+      "candidate_id": "synthetic-03",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Band 5.5 overall; adequate vocabulary for familiar topics, simple grammar structures.",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 5.5,
+        "criteria": {
+          "fluency_coherence": 5.5,
+          "lexical_resource": 5.5,
+          "grammatical_range": 5.5,
+          "pronunciation": 5.5
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
+      }
+    },
+    {
+      "item_id": "s-04",
+      "candidate_id": "synthetic-04",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Band 5.5 overall; clear communication of main ideas, frequent small structural slips.",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 5.5,
+        "criteria": {
+          "fluency_coherence": 5.5,
+          "lexical_resource": 5.5,
+          "grammatical_range": 5.5,
+          "pronunciation": 5.5
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
+      }
+    },
+    {
+      "item_id": "s-05",
+      "candidate_id": "synthetic-05",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Band 6.0 overall; speaks at length, coherent discourse, clear pronunciation.",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 6.0,
+        "criteria": {
+          "fluency_coherence": 6.0,
+          "lexical_resource": 6.0,
+          "grammatical_range": 6.0,
+          "pronunciation": 6.0
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
+      }
+    },
+    {
+      "item_id": "s-06",
+      "candidate_id": "synthetic-06",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Band 6.0 overall; good range of environmental vocabulary, clear logical markers.",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 6.0,
+        "criteria": {
+          "fluency_coherence": 6.0,
+          "lexical_resource": 6.5,
+          "grammatical_range": 6.0,
+          "pronunciation": 5.5
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
+      }
+    },
+    {
+      "item_id": "s-07",
+      "candidate_id": "synthetic-07",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Band 6.0 overall; fluent delivery, contrast markers used effectively.",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 6.0,
+        "criteria": {
+          "fluency_coherence": 6.5,
+          "lexical_resource": 6.0,
+          "grammatical_range": 5.5,
+          "pronunciation": 6.0
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
+      }
+    },
+    {
+      "item_id": "s-08",
+      "candidate_id": "synthetic-08",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Band 6.0 overall; clear expression of career goals, appropriate technical terms.",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 6.0,
+        "criteria": {
+          "fluency_coherence": 6.0,
+          "lexical_resource": 6.0,
+          "grammatical_range": 6.0,
+          "pronunciation": 6.0
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
+      }
+    },
+    {
+      "item_id": "s-09",
+      "candidate_id": "synthetic-09",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Band 6.5 overall; fluent narrative, good range of vocabulary, natural intonation.",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 6.5,
+        "criteria": {
+          "fluency_coherence": 6.5,
+          "lexical_resource": 6.5,
+          "grammatical_range": 6.5,
+          "pronunciation": 6.5
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
+      }
+    },
+    {
+      "item_id": "s-10",
+      "candidate_id": "synthetic-10",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Band 6.5 overall; strong vocabulary range (democratized, curated, nuance), good discourse control.",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 6.5,
+        "criteria": {
+          "fluency_coherence": 6.5,
+          "lexical_resource": 7.0,
+          "grammatical_range": 6.5,
+          "pronunciation": 6.0
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
+      }
+    },
+    {
+      "item_id": "s-11",
+      "candidate_id": "synthetic-11",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Band 6.5 overall; sophisticated topic collocations (contemplative space, sensory experience).",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 6.5,
+        "criteria": {
+          "fluency_coherence": 6.5,
+          "lexical_resource": 6.5,
+          "grammatical_range": 6.5,
+          "pronunciation": 6.5
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
+      }
+    },
+    {
+      "item_id": "s-12",
+      "candidate_id": "synthetic-12",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Band 6.5 overall; fluent delivery without hesitation, good grammatical range.",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 6.5,
+        "criteria": {
+          "fluency_coherence": 7.0,
+          "lexical_resource": 6.5,
+          "grammatical_range": 6.5,
+          "pronunciation": 6.0
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
+      }
+    },
+    {
+      "item_id": "s-13",
+      "candidate_id": "synthetic-13",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Band 7.0 overall; fluent, flexible discourse, precise vocabulary, clear pronunciation.",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 7.0,
+        "criteria": {
+          "fluency_coherence": 7.0,
+          "lexical_resource": 7.0,
+          "grammatical_range": 7.0,
+          "pronunciation": 7.0
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
+      }
+    },
+    {
+      "item_id": "s-14",
+      "candidate_id": "synthetic-14",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Band 7.0 overall; advanced vocabulary (dynamic adjustment, robust cybersecurity), coherent ideas.",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 7.0,
+        "criteria": {
+          "fluency_coherence": 7.0,
+          "lexical_resource": 7.5,
+          "grammatical_range": 7.0,
+          "pronunciation": 6.5
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
+      }
+    },
+    {
+      "item_id": "s-15",
+      "candidate_id": "synthetic-15",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Band 7.0 overall; balanced arguments, natural use of idiomatic expressions (double-edged sword).",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 7.0,
+        "criteria": {
+          "fluency_coherence": 7.0,
+          "lexical_resource": 7.0,
+          "grammatical_range": 7.0,
+          "pronunciation": 7.0
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
+      }
+    },
+    {
+      "item_id": "s-16",
+      "candidate_id": "synthetic-16",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Band 7.5 overall; highly sophisticated vocabulary, complex grammar, effortless fluency.",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 7.5,
+        "criteria": {
+          "fluency_coherence": 7.5,
+          "lexical_resource": 8.0,
+          "grammatical_range": 7.5,
+          "pronunciation": 7.0
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
+      }
+    },
+    {
+      "item_id": "s-17",
+      "candidate_id": "synthetic-17",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Band 7.5 overall; seamless flow, natural discourse markers, rich vocabulary.",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 7.5,
+        "criteria": {
+          "fluency_coherence": 8.0,
+          "lexical_resource": 7.5,
+          "grammatical_range": 7.5,
+          "pronunciation": 7.0
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
+      }
+    },
+    {
+      "item_id": "s-18",
+      "candidate_id": "synthetic-18",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Band 8.0 overall; authoritative tone, effortless fluency, precise academic vocabulary.",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 8.0,
+        "criteria": {
+          "fluency_coherence": 8.0,
+          "lexical_resource": 8.0,
+          "grammatical_range": 8.0,
+          "pronunciation": 8.0
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
+      }
+    },
+    {
+      "item_id": "s-19",
+      "candidate_id": "synthetic-19",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Hard case: Fluent speech with rapid flow and zero hesitation (FC 8.0), but frequent basic tense/grammatical errors (GRA 5.0) and mispronunciations (PR 5.0), resulting in an overall Band 6.0.",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 6.0,
+        "criteria": {
+          "fluency_coherence": 8.0,
+          "lexical_resource": 6.5,
+          "grammatical_range": 5.0,
+          "pronunciation": 5.0
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
+      }
+    },
+    {
+      "item_id": "s-20",
+      "candidate_id": "synthetic-20",
+      "series_id": "goa-028-synthetic",
+      "split": "quarantine",
+      "notes": "Hard case: Noticeable hesitation and slow speaking rate with pauses (FC 5.5), but exceptional vocabulary precision (LR 8.5), advanced grammatical structures (GRA 8.0), and pristine pronunciation (PR 8.5), averaging Band 7.0.",
+      "source": {
+        "kind": "synthetic",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Model-generated text authored for this project; no third-party rights involved.",
+        "governance_ref": "GOA-028 Task 1"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "model_generated",
+        "validated": false,
+        "overall_band": 7.0,
+        "criteria": {
+          "fluency_coherence": 5.5,
+          "lexical_resource": 8.5,
+          "grammatical_range": 8.0,
+          "pronunciation": 8.5
+        }
+      },
+      "retention": {
+        "policy": "indefinite"
+      },
+      "inputs": [
+        "transcript"
+      ],
+      "transcript": {
+        "storage": "repo",
+        "path": "evals/golden_dataset.json"
+      }
+    },
+    {
+      "item_id": "fixture-two-speaker-part1",
+      "candidate_id": "synthetic-voice-zira",
+      "series_id": "goa-speak-eval-005-fixture",
+      "split": "quarantine",
+      "notes": "Pipeline fixture, not a scoring item. Two Windows SAPI voices reading a scripted examiner/candidate exchange, so the turn boundaries are exact and diarization quality can be measured rather than eyeballed. Quarantined permanently: synthesised speech has no disfluency and unnaturally clean turn boundaries, so metrics measured on it are an upper bound on real performance, and it carries no human band at all.",
+      "source": {
+        "kind": "synthetic",
+        "publisher": "GOA project",
+        "retrieved_at": "2026-08-08T12:03:00+00:00",
+        "governance_ref": "SPEAK-EVAL-005"
+      },
+      "permission": {
+        "status": "not_required",
+        "basis": "Generated by this project from Windows SAPI voices reading a script written for the purpose. No third-party recording, performer or publisher rights are involved, which is why it can be committed where a real IELTS recording could not.",
+        "governance_ref": "SPEAK-EVAL-005"
+      },
+      "media": {
+        "storage": "repo",
+        "restricted": false,
+        "path": "evals/speaking/fixtures/two_speaker_part1.wav",
+        "sha256": "caf40d2a46c4820bef8698464ded7ecf79679e020a7c98de2b99241a1691bbc7",
+        "duration_s": 52.5137,
+        "format": "audio/wav"
+      },
+      "labels": {
+        "source": "none",
+        "validated": false,
+        "overall_band": null
+      },
+      "retention": {
+        "policy": "indefinite"
+      },
+      "inputs": [
+        "audio"
+      ]
+    },
+    {
+      "item_id": "ielts-official-tina",
+      "candidate_id": "ielts-official-tina",
+      "series_id": "ielts-org-scoring-resources",
+      "split": "quarantine",
+      "notes": "Official IELTS speaking sample, Vietnam, examiner-assigned overall band 5.0. Transcript with examiner commentary; NO audio is published, and no per-criterion bands are given -- the examiner comments on all four criteria in prose but assigns one number. Usable for the scorer-only lane against the overall band; cannot exercise the audio path.",
+      "inputs": [
+        "transcript"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores",
+        "publisher": "IELTS Partners (British Council / IDP / Cambridge)",
+        "retrieved_at": "2026-08-08T00:00:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "pending",
+        "basis": "Publicly published by the IELTS Partners as scoring guidance. The page carries a general copyright notice and states no reuse permission either way. Nobody has reviewed the terms, so this stays `pending` -- which under rule 1 means it cannot gate. Recording it as `granted` would be deciding a rights question by assumption, which is the failure this field exists to prevent.",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "transcript": {
+        "storage": "external"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 5.0,
+        "rating_ref": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores"
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "ielts-official-katsuharu",
+      "candidate_id": "ielts-official-katsuharu",
+      "series_id": "ielts-org-scoring-resources",
+      "split": "quarantine",
+      "notes": "Official IELTS speaking sample, Japan, examiner-assigned overall band 5.0. Transcript with examiner commentary; NO audio is published, and no per-criterion bands are given -- the examiner comments on all four criteria in prose but assigns one number. Usable for the scorer-only lane against the overall band; cannot exercise the audio path.",
+      "inputs": [
+        "transcript"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores",
+        "publisher": "IELTS Partners (British Council / IDP / Cambridge)",
+        "retrieved_at": "2026-08-08T00:00:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "pending",
+        "basis": "Publicly published by the IELTS Partners as scoring guidance. The page carries a general copyright notice and states no reuse permission either way. Nobody has reviewed the terms, so this stays `pending` -- which under rule 1 means it cannot gate. Recording it as `granted` would be deciding a rights question by assumption, which is the failure this field exists to prevent.",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "transcript": {
+        "storage": "external"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 5.0,
+        "rating_ref": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores"
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "ielts-official-stephen",
+      "candidate_id": "ielts-official-stephen",
+      "series_id": "ielts-org-scoring-resources",
+      "split": "quarantine",
+      "notes": "Official IELTS speaking sample, China, examiner-assigned overall band 6.0. Transcript with examiner commentary; NO audio is published, and no per-criterion bands are given -- the examiner comments on all four criteria in prose but assigns one number. Usable for the scorer-only lane against the overall band; cannot exercise the audio path.",
+      "inputs": [
+        "transcript"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores",
+        "publisher": "IELTS Partners (British Council / IDP / Cambridge)",
+        "retrieved_at": "2026-08-08T00:00:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "pending",
+        "basis": "Publicly published by the IELTS Partners as scoring guidance. The page carries a general copyright notice and states no reuse permission either way. Nobody has reviewed the terms, so this stays `pending` -- which under rule 1 means it cannot gate. Recording it as `granted` would be deciding a rights question by assumption, which is the failure this field exists to prevent.",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "transcript": {
+        "storage": "external"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 6.0,
+        "rating_ref": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores"
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "ielts-official-maxim",
+      "candidate_id": "ielts-official-maxim",
+      "series_id": "ielts-org-scoring-resources",
+      "split": "quarantine",
+      "notes": "Official IELTS speaking sample, Russia, examiner-assigned overall band 6.0. Transcript with examiner commentary; NO audio is published, and no per-criterion bands are given -- the examiner comments on all four criteria in prose but assigns one number. Usable for the scorer-only lane against the overall band; cannot exercise the audio path.",
+      "inputs": [
+        "transcript"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores",
+        "publisher": "IELTS Partners (British Council / IDP / Cambridge)",
+        "retrieved_at": "2026-08-08T00:00:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "pending",
+        "basis": "Publicly published by the IELTS Partners as scoring guidance. The page carries a general copyright notice and states no reuse permission either way. Nobody has reviewed the terms, so this stays `pending` -- which under rule 1 means it cannot gate. Recording it as `granted` would be deciding a rights question by assumption, which is the failure this field exists to prevent.",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "transcript": {
+        "storage": "external"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 6.0,
+        "rating_ref": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores"
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "ielts-official-michal",
+      "candidate_id": "ielts-official-michal",
+      "series_id": "ielts-org-scoring-resources",
+      "split": "quarantine",
+      "notes": "Official IELTS speaking sample, Poland, examiner-assigned overall band 6.5. Transcript with examiner commentary; NO audio is published, and no per-criterion bands are given -- the examiner comments on all four criteria in prose but assigns one number. Usable for the scorer-only lane against the overall band; cannot exercise the audio path.",
+      "inputs": [
+        "transcript"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores",
+        "publisher": "IELTS Partners (British Council / IDP / Cambridge)",
+        "retrieved_at": "2026-08-08T00:00:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "pending",
+        "basis": "Publicly published by the IELTS Partners as scoring guidance. The page carries a general copyright notice and states no reuse permission either way. Nobody has reviewed the terms, so this stays `pending` -- which under rule 1 means it cannot gate. Recording it as `granted` would be deciding a rights question by assumption, which is the failure this field exists to prevent.",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "transcript": {
+        "storage": "external"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 6.5,
+        "rating_ref": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores"
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "ielts-official-hendrik",
+      "candidate_id": "ielts-official-hendrik",
+      "series_id": "ielts-org-scoring-resources",
+      "split": "quarantine",
+      "notes": "Official IELTS speaking sample, Germany, examiner-assigned overall band 7.0. Transcript with examiner commentary; NO audio is published, and no per-criterion bands are given -- the examiner comments on all four criteria in prose but assigns one number. Usable for the scorer-only lane against the overall band; cannot exercise the audio path.",
+      "inputs": [
+        "transcript"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores",
+        "publisher": "IELTS Partners (British Council / IDP / Cambridge)",
+        "retrieved_at": "2026-08-08T00:00:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "pending",
+        "basis": "Publicly published by the IELTS Partners as scoring guidance. The page carries a general copyright notice and states no reuse permission either way. Nobody has reviewed the terms, so this stays `pending` -- which under rule 1 means it cannot gate. Recording it as `granted` would be deciding a rights question by assumption, which is the failure this field exists to prevent.",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "transcript": {
+        "storage": "external"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 7.0,
+        "rating_ref": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores"
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "ielts-official-alexandra",
+      "candidate_id": "ielts-official-alexandra",
+      "series_id": "ielts-org-scoring-resources",
+      "split": "quarantine",
+      "notes": "Official IELTS speaking sample, Colombia, examiner-assigned overall band 7.0. Transcript with examiner commentary; NO audio is published, and no per-criterion bands are given -- the examiner comments on all four criteria in prose but assigns one number. Usable for the scorer-only lane against the overall band; cannot exercise the audio path.",
+      "inputs": [
+        "transcript"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores",
+        "publisher": "IELTS Partners (British Council / IDP / Cambridge)",
+        "retrieved_at": "2026-08-08T00:00:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "pending",
+        "basis": "Publicly published by the IELTS Partners as scoring guidance. The page carries a general copyright notice and states no reuse permission either way. Nobody has reviewed the terms, so this stays `pending` -- which under rule 1 means it cannot gate. Recording it as `granted` would be deciding a rights question by assumption, which is the failure this field exists to prevent.",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "transcript": {
+        "storage": "external"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 7.0,
+        "rating_ref": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores"
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "ielts-official-aashish",
+      "candidate_id": "ielts-official-aashish",
+      "series_id": "ielts-org-scoring-resources",
+      "split": "quarantine",
+      "notes": "Official IELTS speaking sample, Nepal, examiner-assigned overall band 7.5. Transcript with examiner commentary; NO audio is published, and no per-criterion bands are given -- the examiner comments on all four criteria in prose but assigns one number. Usable for the scorer-only lane against the overall band; cannot exercise the audio path.",
+      "inputs": [
+        "transcript"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores",
+        "publisher": "IELTS Partners (British Council / IDP / Cambridge)",
+        "retrieved_at": "2026-08-08T00:00:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "pending",
+        "basis": "Publicly published by the IELTS Partners as scoring guidance. The page carries a general copyright notice and states no reuse permission either way. Nobody has reviewed the terms, so this stays `pending` -- which under rule 1 means it cannot gate. Recording it as `granted` would be deciding a rights question by assumption, which is the failure this field exists to prevent.",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "transcript": {
+        "storage": "external"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 7.5,
+        "rating_ref": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores"
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "ielts-official-monika",
+      "candidate_id": "ielts-official-monika",
+      "series_id": "ielts-org-scoring-resources",
+      "split": "quarantine",
+      "notes": "Official IELTS speaking sample, Germany, examiner-assigned overall band 8.0. Transcript with examiner commentary; NO audio is published, and no per-criterion bands are given -- the examiner comments on all four criteria in prose but assigns one number. Usable for the scorer-only lane against the overall band; cannot exercise the audio path.",
+      "inputs": [
+        "transcript"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores",
+        "publisher": "IELTS Partners (British Council / IDP / Cambridge)",
+        "retrieved_at": "2026-08-08T00:00:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "pending",
+        "basis": "Publicly published by the IELTS Partners as scoring guidance. The page carries a general copyright notice and states no reuse permission either way. Nobody has reviewed the terms, so this stays `pending` -- which under rule 1 means it cannot gate. Recording it as `granted` would be deciding a rights question by assumption, which is the failure this field exists to prevent.",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "transcript": {
+        "storage": "external"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 8.0,
+        "rating_ref": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores"
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "ielts-official-kopi",
+      "candidate_id": "ielts-official-kopi",
+      "series_id": "ielts-org-scoring-resources",
+      "split": "quarantine",
+      "notes": "Official IELTS speaking sample, Botswana, examiner-assigned overall band 8.0. Transcript with examiner commentary; NO audio is published, and no per-criterion bands are given -- the examiner comments on all four criteria in prose but assigns one number. Usable for the scorer-only lane against the overall band; cannot exercise the audio path.",
+      "inputs": [
+        "transcript"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores",
+        "publisher": "IELTS Partners (British Council / IDP / Cambridge)",
+        "retrieved_at": "2026-08-08T00:00:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "pending",
+        "basis": "Publicly published by the IELTS Partners as scoring guidance. The page carries a general copyright notice and states no reuse permission either way. Nobody has reviewed the terms, so this stays `pending` -- which under rule 1 means it cannot gate. Recording it as `granted` would be deciding a rights question by assumption, which is the failure this field exists to prevent.",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "transcript": {
+        "storage": "external"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 8.0,
+        "rating_ref": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores"
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "ielts-official-kenn",
+      "candidate_id": "ielts-official-kenn",
+      "series_id": "ielts-org-scoring-resources",
+      "split": "quarantine",
+      "notes": "Official IELTS speaking sample, Singapore, examiner-assigned overall band 8.5. Transcript with examiner commentary; NO audio is published, and no per-criterion bands are given -- the examiner comments on all four criteria in prose but assigns one number. Usable for the scorer-only lane against the overall band; cannot exercise the audio path.",
+      "inputs": [
+        "transcript"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores",
+        "publisher": "IELTS Partners (British Council / IDP / Cambridge)",
+        "retrieved_at": "2026-08-08T00:00:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "pending",
+        "basis": "Publicly published by the IELTS Partners as scoring guidance. The page carries a general copyright notice and states no reuse permission either way. Nobody has reviewed the terms, so this stays `pending` -- which under rule 1 means it cannot gate. Recording it as `granted` would be deciding a rights question by assumption, which is the failure this field exists to prevent.",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "transcript": {
+        "storage": "external"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 8.5,
+        "rating_ref": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores"
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "ielts-official-anuradha",
+      "candidate_id": "ielts-official-anuradha",
+      "series_id": "ielts-org-scoring-resources",
+      "split": "quarantine",
+      "notes": "Official IELTS speaking sample, Malaysia, examiner-assigned overall band 9.0. Transcript with examiner commentary; NO audio is published, and no per-criterion bands are given -- the examiner comments on all four criteria in prose but assigns one number. Usable for the scorer-only lane against the overall band; cannot exercise the audio path.",
+      "inputs": [
+        "transcript"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores",
+        "publisher": "IELTS Partners (British Council / IDP / Cambridge)",
+        "retrieved_at": "2026-08-08T00:00:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "pending",
+        "basis": "Publicly published by the IELTS Partners as scoring guidance. The page carries a general copyright notice and states no reuse permission either way. Nobody has reviewed the terms, so this stays `pending` -- which under rule 1 means it cannot gate. Recording it as `granted` would be deciding a rights question by assumption, which is the failure this field exists to prevent.",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "transcript": {
+        "storage": "external"
+      },
+      "media": {
+        "storage": "none",
+        "restricted": false
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 9.0,
+        "rating_ref": "https://ielts.org/organisations/ielts-for-organisations/understanding-ielts-scoring/resources-for-setting-your-ielts-scores"
+      },
+      "retention": {
+        "policy": "indefinite"
+      }
+    },
+    {
+      "item_id": "yt-BFS1z24aZaM",
+      "candidate_id": "yt-BFS1z24aZaM-candidate",
+      "series_id": "yt-ielts-examiner-playlist",
+      "split": "quarantine",
+      "notes": "IELTS Speaking Test- Band 6.5. Full two-speaker exam. Band claimed in the video title and asserted by the channel owner, a certified examiner. Per the source hierarchy a title is metadata to investigate, not a label -- the band below records the examiner's stated assessment, and no per-criterion scores are published. Second reviewer still required before gating.",
+      "inputs": [
+        "audio"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://www.youtube.com/watch?v=BFS1z24aZaM",
+        "publisher": "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)",
+        "retrieved_at": "2026-08-08T22:05:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "granted",
+        "basis": "The channel owner replied by email granting use of the playlist recordings for this project's evaluation. Keep that email as the permission evidence. Grant covers download and internal evaluation; it does NOT cover redistribution, which is why the audio is marked restricted and is never committed.",
+        "governance_ref": "SPEAK-EVAL-007",
+        "reviewed_by": "ahmed-mounir",
+        "reviewed_at": "2026-08-08T22:00:00+00:00"
+      },
+      "media": {
+        "storage": "external",
+        "restricted": true,
+        "path": "evals/speaking/sources/BFS1z24aZaM.wav",
+        "sha256": "c9c21b17800afcf85e57e30a21dd86973b4489495556f16965e7364b14855e83",
+        "format": "audio/wav"
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 6.5,
+        "raters": [
+          "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)"
+        ],
+        "rating_ref": "https://www.youtube.com/watch?v=BFS1z24aZaM"
+      },
+      "retention": {
+        "policy": "delete_on_request",
+        "deletion_ref": null
+      }
+    },
+    {
+      "item_id": "yt-S8Y5D3RMBes",
+      "candidate_id": "yt-S8Y5D3RMBes-candidate",
+      "series_id": "yt-ielts-examiner-playlist",
+      "split": "quarantine",
+      "notes": "Band 8.0 IELTS Practice Speaking Exam. Full two-speaker exam. Band claimed in the video title and asserted by the channel owner, a certified examiner. Per the source hierarchy a title is metadata to investigate, not a label -- the band below records the examiner's stated assessment, and no per-criterion scores are published. Second reviewer still required before gating.",
+      "inputs": [
+        "audio"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://www.youtube.com/watch?v=S8Y5D3RMBes",
+        "publisher": "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)",
+        "retrieved_at": "2026-08-08T22:05:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "granted",
+        "basis": "The channel owner replied by email granting use of the playlist recordings for this project's evaluation. Keep that email as the permission evidence. Grant covers download and internal evaluation; it does NOT cover redistribution, which is why the audio is marked restricted and is never committed.",
+        "governance_ref": "SPEAK-EVAL-007",
+        "reviewed_by": "ahmed-mounir",
+        "reviewed_at": "2026-08-08T22:00:00+00:00"
+      },
+      "media": {
+        "storage": "external",
+        "restricted": true,
+        "path": "evals/speaking/sources/S8Y5D3RMBes.wav",
+        "sha256": "2dcd428aa943ecdcc54c4677a8f9f5a6ba7628b66cc67db692479464a5c4b56b",
+        "format": "audio/wav"
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 8.0,
+        "raters": [
+          "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)"
+        ],
+        "rating_ref": "https://www.youtube.com/watch?v=S8Y5D3RMBes"
+      },
+      "retention": {
+        "policy": "delete_on_request",
+        "deletion_ref": null
+      }
+    },
+    {
+      "item_id": "yt-IevmdO16GuE",
+      "candidate_id": "yt-IevmdO16GuE-candidate",
+      "series_id": "yt-ielts-examiner-playlist",
+      "split": "quarantine",
+      "notes": "IELTS Speaking Test- Perfect Band 9. Full two-speaker exam. Band claimed in the video title and asserted by the channel owner, a certified examiner. Per the source hierarchy a title is metadata to investigate, not a label -- the band below records the examiner's stated assessment, and no per-criterion scores are published. Second reviewer still required before gating.",
+      "inputs": [
+        "audio"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://www.youtube.com/watch?v=IevmdO16GuE",
+        "publisher": "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)",
+        "retrieved_at": "2026-08-08T22:05:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "granted",
+        "basis": "The channel owner replied by email granting use of the playlist recordings for this project's evaluation. Keep that email as the permission evidence. Grant covers download and internal evaluation; it does NOT cover redistribution, which is why the audio is marked restricted and is never committed.",
+        "governance_ref": "SPEAK-EVAL-007",
+        "reviewed_by": "ahmed-mounir",
+        "reviewed_at": "2026-08-08T22:00:00+00:00"
+      },
+      "media": {
+        "storage": "external",
+        "restricted": true,
+        "path": "evals/speaking/sources/IevmdO16GuE.wav",
+        "sha256": "a91d792cf2288410a931535331e7ac09e11a963dd4fbe40455fd62f59930b4b1",
+        "format": "audio/wav"
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 9.0,
+        "raters": [
+          "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)"
+        ],
+        "rating_ref": "https://www.youtube.com/watch?v=IevmdO16GuE"
+      },
+      "retention": {
+        "policy": "delete_on_request",
+        "deletion_ref": null
+      }
+    },
+    {
+      "item_id": "yt-666eP6xBhzI",
+      "candidate_id": "yt-666eP6xBhzI-candidate",
+      "series_id": "yt-ielts-examiner-playlist",
+      "split": "quarantine",
+      "notes": "Full two-speaker exam, band 6.5 as stated by the channel owner (a certified examiner). Roles assigned by heuristic, single reviewer -- non-gating until a second review.",
+      "inputs": [
+        "audio"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://www.youtube.com/watch?v=666eP6xBhzI",
+        "publisher": "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)",
+        "retrieved_at": "2026-08-08T22:30:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "granted",
+        "basis": "The channel owner granted use of the playlist recordings for this project's evaluation by email. Covers download and internal evaluation, NOT redistribution -- hence restricted, and never committed.",
+        "governance_ref": "SPEAK-EVAL-007",
+        "reviewed_by": "ahmed-mounir",
+        "reviewed_at": "2026-08-08T22:00:00+00:00"
+      },
+      "media": {
+        "storage": "external",
+        "restricted": true,
+        "path": "evals/speaking/sources/666eP6xBhzI.wav",
+        "sha256": "0b5eb74fe289adcbb76ef04bf9d6c0974f3206c2de138a03bbfb15e5b5970dc0",
+        "format": "audio/wav"
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 6.5,
+        "raters": [
+          "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)"
+        ],
+        "rating_ref": "https://www.youtube.com/watch?v=666eP6xBhzI"
+      },
+      "retention": {
+        "policy": "delete_on_request",
+        "deletion_ref": null
+      }
+    },
+    {
+      "item_id": "yt-OicvdCp5wrM",
+      "candidate_id": "yt-OicvdCp5wrM-candidate",
+      "series_id": "yt-ielts-examiner-playlist",
+      "split": "quarantine",
+      "notes": "Full two-speaker exam, band 6.5 as stated by the channel owner (a certified examiner). Roles assigned by heuristic, single reviewer -- non-gating until a second review.",
+      "inputs": [
+        "audio"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://www.youtube.com/watch?v=OicvdCp5wrM",
+        "publisher": "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)",
+        "retrieved_at": "2026-08-08T22:30:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "granted",
+        "basis": "The channel owner granted use of the playlist recordings for this project's evaluation by email. Covers download and internal evaluation, NOT redistribution -- hence restricted, and never committed.",
+        "governance_ref": "SPEAK-EVAL-007",
+        "reviewed_by": "ahmed-mounir",
+        "reviewed_at": "2026-08-08T22:00:00+00:00"
+      },
+      "media": {
+        "storage": "external",
+        "restricted": true,
+        "path": "evals/speaking/sources/OicvdCp5wrM.wav",
+        "sha256": "6d5aa1d9c40731d55b520fd040dbdf0664f8c93e7450fcdea34c13fbe9e7df52",
+        "format": "audio/wav"
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 6.5,
+        "raters": [
+          "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)"
+        ],
+        "rating_ref": "https://www.youtube.com/watch?v=OicvdCp5wrM"
+      },
+      "retention": {
+        "policy": "delete_on_request",
+        "deletion_ref": null
+      }
+    },
+    {
+      "item_id": "yt-ZDv9njERj0s",
+      "candidate_id": "yt-ZDv9njERj0s-candidate",
+      "series_id": "yt-ielts-examiner-playlist",
+      "split": "quarantine",
+      "notes": "Full two-speaker exam, band 8.0 as stated by the channel owner (a certified examiner). Roles assigned by heuristic, single reviewer -- non-gating until a second review.",
+      "inputs": [
+        "audio"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://www.youtube.com/watch?v=ZDv9njERj0s",
+        "publisher": "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)",
+        "retrieved_at": "2026-08-08T22:30:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "granted",
+        "basis": "The channel owner granted use of the playlist recordings for this project's evaluation by email. Covers download and internal evaluation, NOT redistribution -- hence restricted, and never committed.",
+        "governance_ref": "SPEAK-EVAL-007",
+        "reviewed_by": "ahmed-mounir",
+        "reviewed_at": "2026-08-08T22:00:00+00:00"
+      },
+      "media": {
+        "storage": "external",
+        "restricted": true,
+        "path": "evals/speaking/sources/ZDv9njERj0s.wav",
+        "sha256": "3f42237bdaa929ad9f5b53706d00ca45fa47d59bb6f9dc63ccf29a212f066f12",
+        "format": "audio/wav"
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 8.0,
+        "raters": [
+          "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)"
+        ],
+        "rating_ref": "https://www.youtube.com/watch?v=ZDv9njERj0s"
+      },
+      "retention": {
+        "policy": "delete_on_request",
+        "deletion_ref": null
+      }
+    },
+    {
+      "item_id": "yt-lvF8q44170Q",
+      "candidate_id": "yt-lvF8q44170Q-candidate",
+      "series_id": "yt-ielts-examiner-playlist",
+      "split": "quarantine",
+      "notes": "Full two-speaker exam, band 8.5 as stated by the channel owner (a certified examiner). Roles assigned by heuristic, single reviewer -- non-gating until a second review.",
+      "inputs": [
+        "audio"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://www.youtube.com/watch?v=lvF8q44170Q",
+        "publisher": "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)",
+        "retrieved_at": "2026-08-08T22:30:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "granted",
+        "basis": "The channel owner granted use of the playlist recordings for this project's evaluation by email. Covers download and internal evaluation, NOT redistribution -- hence restricted, and never committed.",
+        "governance_ref": "SPEAK-EVAL-007",
+        "reviewed_by": "ahmed-mounir",
+        "reviewed_at": "2026-08-08T22:00:00+00:00"
+      },
+      "media": {
+        "storage": "external",
+        "restricted": true,
+        "path": "evals/speaking/sources/lvF8q44170Q.wav",
+        "sha256": "9f726a661d62a4cf757a9a15dc6318cedfdc3d9964f4d112b2f8a55aa8e736ec",
+        "format": "audio/wav"
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 8.5,
+        "raters": [
+          "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)"
+        ],
+        "rating_ref": "https://www.youtube.com/watch?v=lvF8q44170Q"
+      },
+      "retention": {
+        "policy": "delete_on_request",
+        "deletion_ref": null
+      }
+    },
+    {
+      "item_id": "yt-GKr5n9aa2Zw",
+      "candidate_id": "yt-GKr5n9aa2Zw-candidate",
+      "series_id": "yt-ielts-examiner-playlist",
+      "split": "quarantine",
+      "notes": "Full two-speaker exam, band 8.5 as stated by the channel owner (a certified examiner). Roles assigned by heuristic, single reviewer -- non-gating until a second review.",
+      "inputs": [
+        "audio"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://www.youtube.com/watch?v=GKr5n9aa2Zw",
+        "publisher": "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)",
+        "retrieved_at": "2026-08-08T22:30:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "granted",
+        "basis": "The channel owner granted use of the playlist recordings for this project's evaluation by email. Covers download and internal evaluation, NOT redistribution -- hence restricted, and never committed.",
+        "governance_ref": "SPEAK-EVAL-007",
+        "reviewed_by": "ahmed-mounir",
+        "reviewed_at": "2026-08-08T22:00:00+00:00"
+      },
+      "media": {
+        "storage": "external",
+        "restricted": true,
+        "path": "evals/speaking/sources/GKr5n9aa2Zw.wav",
+        "sha256": "7d82b061ee42a502ecc822cbdaeec602fef0738e73366847ee54d2b6f9437ee4",
+        "format": "audio/wav"
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 8.5,
+        "raters": [
+          "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)"
+        ],
+        "rating_ref": "https://www.youtube.com/watch?v=GKr5n9aa2Zw"
+      },
+      "retention": {
+        "policy": "delete_on_request",
+        "deletion_ref": null
+      }
+    },
+    {
+      "item_id": "yt-gfKS-p7thDU",
+      "candidate_id": "yt-gfKS-p7thDU-candidate",
+      "series_id": "yt-ielts-examiner-playlist",
+      "split": "quarantine",
+      "notes": "Full two-speaker exam, band 9.0 as stated by the channel owner (a certified examiner). Roles assigned by heuristic, single reviewer -- non-gating until a second review.",
+      "inputs": [
+        "audio"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://www.youtube.com/watch?v=gfKS-p7thDU",
+        "publisher": "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)",
+        "retrieved_at": "2026-08-08T22:30:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "granted",
+        "basis": "The channel owner granted use of the playlist recordings for this project's evaluation by email. Covers download and internal evaluation, NOT redistribution -- hence restricted, and never committed.",
+        "governance_ref": "SPEAK-EVAL-007",
+        "reviewed_by": "ahmed-mounir",
+        "reviewed_at": "2026-08-08T22:00:00+00:00"
+      },
+      "media": {
+        "storage": "external",
+        "restricted": true,
+        "path": "evals/speaking/sources/gfKS-p7thDU.wav",
+        "sha256": "ec0eafe511bc900f6b87e9daaa3a80579fe1e963b013dca5957a30cdd8d8ae2f",
+        "format": "audio/wav"
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 9.0,
+        "raters": [
+          "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)"
+        ],
+        "rating_ref": "https://www.youtube.com/watch?v=gfKS-p7thDU"
+      },
+      "retention": {
+        "policy": "delete_on_request",
+        "deletion_ref": null
+      }
+    },
+    {
+      "item_id": "yt-4nrG6SHM-rY",
+      "candidate_id": "yt-4nrG6SHM-rY-candidate",
+      "series_id": "yt-ielts-examiner-playlist",
+      "split": "quarantine",
+      "notes": "Full two-speaker exam, band 9.0 as stated by the channel owner (a certified examiner). Roles assigned by heuristic, single reviewer -- non-gating until a second review.",
+      "inputs": [
+        "audio"
+      ],
+      "source": {
+        "kind": "public_recording",
+        "origin_url": "https://www.youtube.com/watch?v=4nrG6SHM-rY",
+        "publisher": "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)",
+        "retrieved_at": "2026-08-08T22:30:00+00:00",
+        "governance_ref": "SPEAK-EVAL-007"
+      },
+      "permission": {
+        "status": "granted",
+        "basis": "The channel owner granted use of the playlist recordings for this project's evaluation by email. Covers download and internal evaluation, NOT redistribution -- hence restricted, and never committed.",
+        "governance_ref": "SPEAK-EVAL-007",
+        "reviewed_by": "ahmed-mounir",
+        "reviewed_at": "2026-08-08T22:00:00+00:00"
+      },
+      "media": {
+        "storage": "external",
+        "restricted": true,
+        "path": "evals/speaking/sources/4nrG6SHM-rY.wav",
+        "sha256": "58e8a32c525508c380723ee42c54717ab145ebf81d954e7755adfe4262e1cdf9",
+        "format": "audio/wav"
+      },
+      "labels": {
+        "source": "official",
+        "validated": true,
+        "overall_band": 9.0,
+        "raters": [
+          "IELTS examiner channel (playlist PLWWR_9t3vo3OtrmF3BV0CUDTBs83i4iAo)"
+        ],
+        "rating_ref": "https://www.youtube.com/watch?v=4nrG6SHM-rY"
+      },
+      "retention": {
+        "policy": "delete_on_request",
+        "deletion_ref": null
+      }
+    }
+  ]
+}

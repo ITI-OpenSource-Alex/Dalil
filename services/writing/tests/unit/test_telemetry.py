@@ -29,7 +29,7 @@ def test_writing_cost_is_daily_service_scoped_and_expiring(monkeypatch):
     monkeypatch.setattr(telemetry, "_redis_client", fake)
     monkeypatch.setattr(telemetry, "_utc_date", lambda: "2026-07-30")
 
-    telemetry.record_llm_cost("user-3", "claude-opus-4-8", 80, 8)
+    telemetry.record_llm_cost("user-3", "claude-opus-5", 80, 8)
 
     assert any(
         command[1] == "llm:tokens:2026-07-30:user:user-3:writing"

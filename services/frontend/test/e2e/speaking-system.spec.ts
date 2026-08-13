@@ -1,29 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
-
-// Real speaking_url SSE frame, in the exact envelope Orchestration emits
-// (see services/orchestration/app/services/client.py:133). Routing /api/chat
-// through this stub keeps these tests independent of intent-classification —
-// which needs a live Anthropic key this environment doesn't have — while
-// still exercising the real Speaking Service WebSocket, the real
-// AudioRecorder, and the real waveform-canvas/useAudioVisualizer code below
-// it. That's a deliberate boundary, not a shortcut: classification is a
-// separate LLM-routing concern from "does the speaking session actually
-// work once the frontend is told where to connect," which is what this file
-// tests.
-async function mockSpeakingUrl(page: Page) {
-  await page.route("**/api/chat", async (route) => {
-    const sse =
-      `event: metadata\n` +
-      `data: ${JSON.stringify({ type: "metadata", intent: "SPEAKING", confidence: 0.99 })}\n\n` +
-      `event: speaking_url\n` +
-      `data: ${JSON.stringify({ type: "speaking_url", wsUrl: "ws://localhost:8080/api/speaking/ws" })}\n\n`;
-    await route.fulfill({
-      status: 200,
-      contentType: "text/event-stream",
-      body: sse,
-    });
-  });
-}
+import { test, expect, signInThroughApi } from "./fixtures/auth";
 
 async function isSpeakingServiceReachable(
   request: import("@playwright/test").APIRequestContext,
@@ -36,37 +11,37 @@ async function isSpeakingServiceReachable(
     .catch(() => false);
 }
 
-test.describe("GOA Speaking Practice", () => {
+// Phase D (docs/IA-REDESIGN-PROPOSAL.md): Speaking Practice moved out of Chat
+// onto its own page, /practice/speaking. The panel there is always mounted
+// (no toolbar button needed to open it first, unlike the old chat-embedded
+// version) -- these tests go straight to the page and interact with the
+// panel directly. The mockSpeakingUrl helper these tests used to share
+// mocked /api/chat's speaking_url SSE event, but the button-driven flow this
+// file actually exercises (Start -> direct WebSocket) never went through
+// /api/chat even before this move, so nothing here depended on that mock in
+// the first place.
+test.describe("Dalil Speaking Practice", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/chat");
+    await page.goto("/practice/speaking");
   });
 
-  test("opens speaking practice panel", async ({ page }) => {
-    await page.getByTitle("Speaking Practice").click();
-
+  test("shows the speaking panel on load", async ({ page }) => {
     await expect(page.getByTestId("speaking-panel")).toBeVisible();
+  });
+
+  test("shows the start button on load", async ({ page }) => {
+    await expect(page.getByTestId("start-speaking-button")).toBeVisible();
   });
 
   test("starts microphone session", async ({ page }) => {
     await page.context().grantPermissions(["microphone"]);
-
-    await page.getByTitle("Speaking Practice").click();
 
     await page.getByTestId("start-speaking-button").click();
 
     await expect(page.getByTestId("live-transcript")).toBeVisible();
   });
 
-  test("shows the start button when the panel opens", async ({ page }) => {
-    await page.goto("/chat");
-
-    await page.getByTitle("Speaking Practice").click();
-
-    await expect(page.getByTestId("start-speaking-button")).toBeVisible();
-  });
-
-  // Requires the Speaking Service (not the full orchestration+LLM stack —
-  // see mockSpeakingUrl above) to be reachable, since it exercises a real
+  // Requires the Speaking Service to be reachable, since it exercises a real
   // WebSocket handshake. Skips rather than fails when it isn't, so the
   // default `npm run test:e2e` run stays green on a frontend-only checkout.
   test("does not claim 'Listening' until the WebSocket actually connects", async ({
@@ -78,10 +53,16 @@ test.describe("GOA Speaking Practice", () => {
       "Speaking service not reachable — this test needs a live WebSocket handshake.",
     );
 
-    await mockSpeakingUrl(page);
+    // A REAL session, not the placeholder cookie the fixture installs by
+    // default. GOA-132 put this socket behind the Gateway, so the upgrade now
+    // goes through middleware.JWT and a placeholder token is rejected -- the
+    // panel reports "Status: Error" and the assertions below describe nothing.
+    const account = await signInThroughApi(page, request);
+    test.skip(!account, "Gateway unreachable - cannot mint a real session for a live socket.");
+    await page.reload();
+
     await page.context().grantPermissions(["microphone"]);
 
-    await page.getByTitle("Speaking Practice").click();
     await page.getByTestId("start-speaking-button").click();
 
     // Immediately after the click — before any network round trip can
@@ -106,10 +87,16 @@ test.describe("GOA Speaking Practice", () => {
       "Speaking service not reachable — the waveform only appears once a live WebSocket delivers a MediaStream.",
     );
 
-    await mockSpeakingUrl(page);
+    // A REAL session, not the placeholder cookie the fixture installs by
+    // default. GOA-132 put this socket behind the Gateway, so the upgrade now
+    // goes through middleware.JWT and a placeholder token is rejected -- the
+    // panel reports "Status: Error" and the assertions below describe nothing.
+    const account = await signInThroughApi(page, request);
+    test.skip(!account, "Gateway unreachable - cannot mint a real session for a live socket.");
+    await page.reload();
+
     await page.context().grantPermissions(["microphone"]);
 
-    await page.getByTitle("Speaking Practice").click();
     await page.getByTestId("start-speaking-button").click();
 
     const canvas = page.getByTestId("waveform-canvas");
@@ -126,10 +113,16 @@ test.describe("GOA Speaking Practice", () => {
       "Speaking service not reachable — this test needs the real recording pipeline.",
     );
 
-    await mockSpeakingUrl(page);
+    // A REAL session, not the placeholder cookie the fixture installs by
+    // default. GOA-132 put this socket behind the Gateway, so the upgrade now
+    // goes through middleware.JWT and a placeholder token is rejected -- the
+    // panel reports "Status: Error" and the assertions below describe nothing.
+    const account = await signInThroughApi(page, request);
+    test.skip(!account, "Gateway unreachable - cannot mint a real session for a live socket.");
+    await page.reload();
+
     await page.context().grantPermissions(["microphone"]);
 
-    await page.getByTitle("Speaking Practice").click();
     await page.getByTestId("start-speaking-button").click();
 
     const canvas = page.getByTestId("waveform-canvas");

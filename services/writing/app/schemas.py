@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -14,7 +15,7 @@ class EssayCreate(BaseModel):
 
 class EssayCreateRequest(BaseModel):
     userId: str
-    essayText: str
+    essayText: str = Field(min_length=1, max_length=5000)
     submissionType: str
     examSessionId: Optional[str] = None
 
@@ -69,6 +70,23 @@ class EssayEvaluationResponse(BaseModel):
 class CVUploadResponse(BaseModel):
     cvId: int
     status: str
+    s3Key: str
+
+
+class CVLatestResponse(BaseModel):
+    """GET /cv/latest -- the signed-in user's most recent upload, if any.
+
+    Lets the browser show upload status and recover cvS3Key (needed by
+    POST /cv/review) across a page reload instead of holding it only in
+    client state.
+    """
+
+    cvId: int
+    s3Key: str
+    originalFilename: str
+    status: str
+    uploadedAt: datetime
+    errorMessage: Optional[str] = None
 
 
 class CVReviewRequest(BaseModel):
@@ -113,3 +131,17 @@ class ExamTaskEvaluationResponse(BaseModel):
     evaluations: list[CriterionEvaluation]
     overall_band: float = Field(ge=0.0, le=9.0)
     from_cache: bool
+
+
+class EssayHistoryItem(BaseModel):
+    """One row of GET /essays -- a summary, not the full essay text or
+    evaluation. A per-essay fetch (not built yet) would return the detail."""
+
+    id: int
+    submitted_at: datetime
+    status: str
+    submission_type: Optional[str]
+    exam_type: Optional[str]
+    task_number: Optional[int]
+    overall_band: Optional[float] = Field(default=None, ge=0.0, le=9.0)
+    excerpt: str

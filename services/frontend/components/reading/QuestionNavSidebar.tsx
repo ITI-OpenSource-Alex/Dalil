@@ -2,6 +2,12 @@
 
 import type { NormalizedReadingQuestion } from "@/app/types/reading";
 import type { ReadingAnswers } from "@/app/types/reading";
+import { isAnswered } from "@/lib/reading-progress";
+import {
+  navCircleAriaLabel,
+  navCircleClassName,
+  navLegendSwatchClassName,
+} from "@/lib/question-nav-state";
 
 interface Props {
   questions: NormalizedReadingQuestion[];
@@ -10,11 +16,17 @@ interface Props {
   onJump: (questionNumber: number) => void;
 }
 
+const LEGEND_ITEMS = [
+  { kind: "current" as const, label: "Current" },
+  { kind: "answered" as const, label: "Answered" },
+  { kind: "unanswered" as const, label: "Unanswered" },
+];
+
 /** Numbered-circle navigator: filled = answered, empty = unanswered,
- * clicking jumps directly to that question (across sections if needed —
- * ReadingExam's jump handler switches the active section as part of the
- * jump). Spans all 40 questions regardless of which section tab is
- * currently active, so overall progress is always visible. */
+ * ring = current (stacks with either). Clicking jumps directly to that
+ * question (across sections if needed — ReadingExam's jump handler
+ * switches the active section as part of the jump). Spans all questions
+ * regardless of which section tab is active. */
 export default function QuestionNavSidebar({
   questions,
   answers,
@@ -25,35 +37,53 @@ export default function QuestionNavSidebar({
     <nav
       data-testid="question-nav-sidebar"
       aria-label="Question navigation"
-      className="grid grid-cols-5 gap-2 p-4"
+      className="flex min-h-0 flex-col p-3"
     >
-      {questions.map((question) => {
-        const answered = Boolean(answers[String(question.number)]?.trim());
-        const active = question.number === activeQuestionNumber;
+      <div className="grid grid-cols-4 justify-items-center gap-1.5">
+        {questions.map((question) => {
+          const answered = isAnswered(answers, question.number);
+          const active = question.number === activeQuestionNumber;
 
-        return (
-          <button
-            key={question.number}
-            type="button"
-            data-testid={`nav-circle-${question.number}`}
-            data-answered={answered}
-            onClick={() => onJump(question.number)}
-            aria-label={`Question ${question.number}${answered ? ", answered" : ", unanswered"}`}
-            aria-current={active ? "true" : undefined}
-            className={`flex h-8 w-8 items-center justify-center rounded-full border text-xs font-semibold transition ${
-              active
-                ? "border-emerald-700 ring-2 ring-emerald-600/40"
-                : "border-gray-300"
-            } ${
-              answered
-                ? "bg-emerald-700 text-white"
-                : "bg-white text-gray-600 hover:bg-gray-50"
-            }`}
+          return (
+            <button
+              key={question.number}
+              type="button"
+              data-testid={`nav-circle-${question.number}`}
+              data-answered={answered}
+              data-current={active || undefined}
+              onClick={() => onJump(question.number)}
+              aria-label={navCircleAriaLabel({
+                questionNumber: question.number,
+                answered,
+                active,
+              })}
+              aria-current={active ? "true" : undefined}
+              className={navCircleClassName({ answered, active })}
+            >
+              {question.number}
+            </button>
+          );
+        })}
+      </div>
+
+      <ul
+        data-testid="question-nav-legend"
+        className="mt-3 space-y-1.5 border-t border-border pt-3"
+        aria-label="Question status legend"
+      >
+        {LEGEND_ITEMS.map(({ kind, label }) => (
+          <li
+            key={kind}
+            className="flex items-center gap-2 text-[10px] leading-none text-fg-subtle"
           >
-            {question.number}
-          </button>
-        );
-      })}
+            <span
+              className={navLegendSwatchClassName(kind)}
+              aria-hidden="true"
+            />
+            {label}
+          </li>
+        ))}
+      </ul>
     </nav>
   );
 }

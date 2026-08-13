@@ -1,0 +1,139 @@
+{
+  "evaluation": {
+    "schema_version": "speaking-evaluation/v1",
+    "evaluation_id": "ielts-official-stephen",
+    "mode": "benchmark",
+    "status": "partial",
+    "score_semantics": "estimated_ielts_practice_band",
+    "criteria": [
+      {
+        "criterion_id": "fluency_coherence",
+        "status": "scored",
+        "band": 6,
+        "summary": "Note: No measured speech features (words per minute, articulation rate, pause data) were supplied, so I cannot assess your rate of speech, flow, or pausing directly; this evaluation is based on the coherence and cohesion evident in the transcript, plus visible repetition and self-correction. You are clearly willing to speak at length and develop several ideas well, for example your reasoning that cutting working hours creates more job opportunities and that golden holidays boost GDP shows relevant, logical sequencing. You use a range of connectives such as 'first of all', 'because', 'but now', 'so', and 'once'. However, coherence breaks down at times, most notably when you abandon the hobby question ('Sorry I really don't know about this answer'), and there is frequent repetition and self-correction that interrupts your development of ideas. To move toward band 7 you would need to sustain topics without these noticeable losses of coherence and reduce the repeated restarts, using discourse markers more flexibly rather than leaning heavily on 'because'.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "fc.6",
+            "descriptor_band": 6,
+            "polarity": "supports",
+            "application": "The candidate is willing to speak at length and uses a range of connectives, but loses coherence at times due to repetition and self-correction."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "fc.7",
+            "descriptor_band": 7,
+            "polarity": "caps_below",
+            "application": "There is a clear loss of coherence (abandoning the hobby question) and heavy repetition, so the speech is not sustained without noticeable effort or loss of coherence."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "fc.5",
+            "descriptor_band": 5,
+            "polarity": "reaches_toward",
+            "application": "Frequent repetition and restarts ('if you are... if you are...') are used to keep the speech going, though ideas are more developed than simple speech."
+          }
+        ]
+      },
+      {
+        "criterion_id": "lexical_resource",
+        "status": "scored",
+        "band": 6,
+        "summary": "You have a wide enough vocabulary to discuss a range of topics at length (hobbies, socialising, working hours, holidays, economics) and you generally make your meaning clear, with some successful paraphrasing—for example, explaining the relationship between working hours and job availability. However, your vocabulary shows limited flexibility and relies heavily on informal, high-frequency words and fillers ('guys', 'dunno', 'kill the time', ''cause'). There are frequent collocation and word-choice errors such as 'broaden your friendship', 'kill a spare time', 'make trouble for the society', and 'get more socialised', which prevent you from reaching the next band. To improve, work on precise collocations and introduce more less-common vocabulary used accurately.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "lr.6",
+            "descriptor_band": 6,
+            "polarity": "supports",
+            "application": "The candidate discusses each topic at length and conveys clear meaning, using paraphrase successfully to explain shifts, work opportunities and holidays."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "lr.7",
+            "descriptor_band": 7,
+            "polarity": "caps_below",
+            "application": "Awareness of collocation is inconsistent ('broaden your friendship', 'make trouble for the society') and less common vocabulary is rarely used accurately, so the band-7 flexibility is not achieved."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "lr.5",
+            "descriptor_band": 5,
+            "polarity": "reaches_toward",
+            "application": "Heavy reliance on informal high-frequency words and repeated fillers reflects the limited flexibility characteristic of band 5."
+          }
+        ]
+      },
+      {
+        "criterion_id": "grammatical_range",
+        "status": "scored",
+        "band": 6,
+        "summary": "You use a good mix of simple and complex structures, including conditionals ('if you like doing activities...'), relative clauses ('who also has the same hobby'), and subordinate clauses with 'once' and 'because'. However, errors in complex structures are frequent: subject-verb agreement ('someone have to get', 'who also has'), articles ('a one shift', 'more easy'), prepositions ('trouble for to the society'), and plurality ('more national public holiday'). You do produce some error-free sentences, but not frequently enough, and complex attempts often break down, which keeps you at band 6 rather than 7.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.6",
+            "descriptor_band": 6,
+            "polarity": "supports",
+            "application": "You combine simple and complex forms (conditionals, relative and subordinate clauses) but with limited flexibility and frequent mistakes in the complex ones."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.7",
+            "descriptor_band": 7,
+            "polarity": "caps_below",
+            "application": "To reach band 7 you would need to produce error-free sentences frequently and handle complex structures with more consistent accuracy in agreement, articles, and prepositions."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.5",
+            "descriptor_band": 5,
+            "polarity": "supports",
+            "application": "You clearly exceed the basic-forms-only profile of band 5 by regularly attempting a range of complex structures rather than staying with simple sentences."
+          }
+        ]
+      },
+      {
+        "criterion_id": "pronunciation",
+        "status": "unavailable",
+        "unavailable_reason": "insufficient_evidence",
+        "summary": "Evaluation unavailable due to an internal error."
+      }
+    ],
+    "overall": {
+      "band": 6,
+      "unrounded_mean": 6,
+      "included_criteria": [
+        "fluency_coherence",
+        "lexical_resource",
+        "grammatical_range"
+      ],
+      "excluded_criteria": [
+        "pronunciation"
+      ],
+      "rounding_rule": "ielts_half_band_v1",
+      "min_criteria_required": 3
+    },
+    "provenance": {
+      "created_at": "2026-08-09T01:20:28.8574039Z",
+      "scorer_version": "speaking@dev",
+      "rubric_id": "ielts-speaking-public",
+      "rubric_version": "2023-06",
+      "rubric_sha256": "40820db22ab572944baa4ecc399d6ff2597291e076dd5c990bd7bc578974f9cb",
+      "llm_provider": "agentrouter",
+      "llm_model": "claude-opus-4-8"
+    }
+  },
+  "lane": "scorer_only",
+  "latency_ms": 40406,
+  "swarm_error": ""
+}

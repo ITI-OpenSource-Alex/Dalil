@@ -33,14 +33,39 @@ export default defineConfig({
     },
   ],
 
-  /* Automatically start Next.js dev server before running tests if not running */
+  /* Start Next before the suite, unless a server is already supplied.
+   *
+   * `npm run dev` compiles a route the first time it is requested. Under
+   * parallel workers the first hit on an uncompiled route returns a 404 while
+   * Next is still building it, and the run reports dozens of "missing" routes
+   * that a production build proves are present -- the 2026-08-09 audit saw 56
+   * failures this way against a build where all 30 routes compiled.
+   *
+   * So the suite builds and serves by default: `next start` has every route
+   * ready before the first request, which is also closer to what ships.
+   *
+   * E2E_DEV_SERVER=true opts back into the dev server for local iteration,
+   * where hot reload is worth more than parallel stability. Use one worker
+   * with it.
+   */
   webServer: useExternalBaseURL
     ? undefined
     : {
-        command: "npm run dev",
+        command: process.env.E2E_DEV_SERVER === "true"
+          ? "npm run dev"
+          : "npm run build && npm run start",
         url: baseURL,
         reuseExistingServer: !process.env.CI,
-        timeout: 120 * 1000,
+        // A production build is slower to start than a dev server and this
+        // budget covers the build itself, not just the boot.
+        timeout: (process.env.E2E_DEV_SERVER === "true" ? 120 : 600) * 1000,
+        env: {
+          // GOA-039. The billing flag is off by default because the Gateway
+          // does not serve /api/billing/* yet; the upgrade specs mock those
+          // routes with page.route, so the UI has to offer the action for
+          // them to have anything to intercept.
+          NEXT_PUBLIC_BILLING_ENABLED: "true",
+        },
       },
 });
 

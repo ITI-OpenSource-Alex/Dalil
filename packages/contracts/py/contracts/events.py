@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Literal, Dict, Union
+from typing import Literal, Dict, Union, Optional, List
 from pydantic import BaseModel
 
 
@@ -12,7 +12,21 @@ class BaseEvent(BaseModel):
 class UserUpdatedPayload(BaseModel):
     userId: str
     email: str
-    subscribtionTier: Literal['free', 'paid']
+    subscriptionTier: Literal['free', 'paid']
+    ects: float
+    gpa: float
+    gpaScale: Literal['4.0', '100']
+    ieltsScore: float
+    ieltsListening: Optional[float] = None
+    ieltsReading: Optional[float] = None
+    ieltsWriting: Optional[float] = None
+    ieltsSpeaking: Optional[float] = None
+    degreeLevel: str
+    workExperienceYears: float
+    extracurricularsScore: float
+    targetCountries: List[str]
+    fieldOfStudy: Optional[str] = None
+    targetFieldOfStudy: Optional[str] = None
 
 
 class UserUpdated(BaseEvent):

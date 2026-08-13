@@ -9,9 +9,9 @@
 -- returns 404 and the Reading exam -- the strongest asset in the demo --
 -- cannot be started at all.
 --
--- Route A (running the ingestion pipeline against the repo-root
--- "gBzYDiLL - the-last-dance (1).json") was attempted first per the
--- implementation plan and abandoned immediately: that file is a Trello board
+-- Route A (running the ingestion pipeline against a former repo-root export)
+-- was attempted first per the implementation plan and abandoned immediately:
+-- that file was a Trello board
 -- export (top-level keys: id, name, desc, cards, checklists, customFields,
 -- labels, lists, members, actions), not Cambridge OCR text, and is not a
 -- valid input to ReadingParser.parse_text under any reading of its shape.

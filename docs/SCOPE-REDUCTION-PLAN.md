@@ -60,7 +60,7 @@ These cost you *maintenance and integration risk*, not build time. Removing them
 | **Speaking share links** (`/speaking/share/[token]`) | `services/frontend/app/speaking/share/` | Keep only if already working end-to-end. Public token-based sharing is a security surface (unauthenticated route) that adds nothing to the demo. If it needs any further work, delete the route. |
 | **Academic Task 1 stimulus images** | Already deliberately removed per `StimulusPanel.tsx` header comment | **Confirm the removal is permanent** and update GOA-058's AC + the docs so it's a documented decision, not an open gap. Do not rebuild it — the writing pipeline no longer does image evaluation. |
 | **Duplicated Section 12 in the master doc** | `GOA_complete_documentation.md` lines 825–960 duplicate lines 606–820 | Delete the duplicate. Examiners read the doc. |
-| **`gBzYDiLL - the-last-dance (1).json`** (1.7 MB Trello export at repo root) | repo root | Move to `docs/` or delete. Repo-root junk reads as sloppiness. |
+| **Raw Trello board export** (formerly 1.7 MB at repo root) | Removed | Resolved during repository cleanup; the export was historical project-management data, not a runtime or test dependency. |
 | **15 visa adapter implementation-plan files** | `docs/dorgham-context/implementation-plans/GOA-086/` | Move under an `archive/` or `deferred/` folder so the docs tree reflects actual scope. |
 
 ---

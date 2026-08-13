@@ -210,6 +210,44 @@ variable "ecs_image_tag" {
   }
 }
 
+# GOA-030 — RAG's embedding endpoint.
+#
+# This was missing entirely, and its absence is not cosmetic: it is the reason a
+# deployed environment could not answer a single question.
+#
+# services/rag/app/core/config.py defaults embedding_base_url to
+# "http://host.docker.internal:11434/v1" -- an Ollama server on the DEVELOPER'S
+# HOST, deliberately not a compose service and certainly not reachable from a
+# Fargate task in a private subnet. Terraform set no override, so a deployed RAG
+# falls back to that address and every /query and /match fails at the embedding
+# call.
+#
+# It fails quietly, too. The repo README already documents the local version of
+# this trap: Ollama answers 404 only when the first query arrives, POST /query
+# turns that into a 500, orchestration falls back, and the chat shows a generic
+# error with the real cause visible only in the RAG container's logs.
+#
+# There is deliberately no working default. Choosing one would mean choosing an
+# embedding provider on the project's behalf, and the choice is load-bearing:
+# the dimension must match the pgvector column or every insert and query fails.
+variable "rag_embedding_base_url" {
+  description = "OpenAI-compatible embeddings endpoint for the RAG service. Must be set before RAG can serve traffic."
+  type        = string
+  default     = ""
+}
+
+variable "rag_embedding_model" {
+  description = "Embedding model name. Must produce vectors of rag_embedding_dimensions."
+  type        = string
+  default     = "nomic-embed-text"
+}
+
+variable "rag_embedding_dimensions" {
+  description = "Embedding width. MUST match the pgvector column (currently vector(768)); a mismatch fails at insert/query time, not at startup."
+  type        = number
+  default     = 768
+}
+
 variable "ecs_desired_counts" {
   description = "Desired task count overrides keyed by ECS service. Each deployed service defaults to one."
   type        = map(number)
@@ -339,3 +377,36 @@ variable "manage_github_oidc_provider" {
 #   default     = ""
 # }
 
+
+# GOA-046 cost monitoring. Defaults to off: the AWS Budgets and Cost Explorer
+# resources in cost_monitoring.tf cannot be applied from this account, which
+# carries an explicit deny on billing:* and ce:*. See that file's header.
+variable "enable_cost_monitoring" {
+  description = "Create the AWS Budgets alert and weekly Cost Explorer report Lambda."
+  type        = bool
+  default     = false
+}
+
+variable "monthly_budget_usd" {
+  description = "Monthly AWS budget in USD, alerted at 80% and 100% of actual spend."
+  type        = number
+  default     = 150
+}
+
+variable "cost_report_sender_address" {
+  description = "SES-verified sender address for the weekly cost report."
+  type        = string
+  default     = ""
+}
+
+variable "cost_report_recipients" {
+  description = "Recipients of the budget alerts and the weekly cost report."
+  type        = list(string)
+  default     = []
+}
+
+variable "manage_session_manager_preferences" {
+  description = "Whether this workspace creates the account-global SSM-SessionManagerRunShell document. See the resource comment in modules/iam/main.tf."
+  type        = bool
+  default     = true
+}

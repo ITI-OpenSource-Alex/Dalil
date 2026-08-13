@@ -14,9 +14,9 @@ table — 15 questions across all 5 Cambridge question-type renderers (5 per
 Section 1/2/3), with a matching, fully server-gradable `answer_key`.
 
 **Route taken:** Route B (hand-authored SQL seed), per the implementation
-plan. Route A (running the existing OCR ingestion pipeline against the
-repo-root `gBzYDiLL - the-last-dance (1).json`) was attempted first and
-abandoned immediately — that file is a **Trello board export** (top-level
+plan. Route A (running the existing OCR ingestion pipeline against the former
+repo-root Trello export, since removed during repository cleanup) was attempted
+first and abandoned immediately — that file was a **Trello board export** (top-level
 keys: `id, name, desc, cards, checklists, customFields, labels, lists,
 members, actions`), not Cambridge OCR text, and is not a valid input to
 `ReadingParser.parse_text`. No CLI ingestion script was written, per the

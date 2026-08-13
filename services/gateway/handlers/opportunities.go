@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/url"
 
 	"github.com/ITI-OpenSource-Alex/GOA/services/gateway/downstream"
 	"github.com/ITI-OpenSource-Alex/GOA/services/gateway/middleware"
@@ -19,6 +20,36 @@ type OpportunitiesHandler struct {
 	httpClient     *http.Client
 	ragServiceURL  string
 	internalAPIKey string
+}
+
+// Detail returns one source-backed programme with the signed-in user's fit.
+func (h *OpportunitiesHandler) Detail(c *fiber.Ctx) error {
+	userID, err := authenticatedUserID(c)
+	if err != nil {
+		return err
+	}
+	target, err := url.JoinPath(h.ragServiceURL, "programs", c.Params("programId"))
+	if err != nil {
+		return err
+	}
+	target += "?userId=" + url.QueryEscape(userID)
+	req, err := downstream.NewRequest(c, http.MethodGet, target, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("X-Internal-API-Key", h.internalAPIKey)
+	c.Locals(middleware.ContextKeyUpstream, "rag")
+	resp, err := h.httpClient.Do(req)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadGateway, "failed to contact programme details")
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadGateway, "failed to read programme details")
+	}
+	c.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+	return c.Status(resp.StatusCode).Send(body)
 }
 
 func NewOpportunitiesHandler(httpClient *http.Client, ragServiceURL, internalAPIKey string) *OpportunitiesHandler {

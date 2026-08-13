@@ -1,4 +1,3 @@
-import pytest
 from app.services.supervisor import classify_intent, IntentResult
 
 from unittest.mock import MagicMock

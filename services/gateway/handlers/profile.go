@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"io"
 	"net/http"
 
@@ -43,6 +44,42 @@ func (h *ProfileHandler) GetProfile(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "internal request error")
 	}
 	req.Header.Set("X-Internal-Api-Key", h.internalAPIKey)
+
+	resp, err := h.httpClient.Do(req)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadGateway, "failed to contact user service")
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	c.Status(resp.StatusCode)
+	c.Set(fiber.HeaderContentType, resp.Header.Get(fiber.HeaderContentType))
+	return c.Send(body)
+}
+
+// UpdateProfile proxies PUT /api/profile -> PUT {userServiceURL}/users/:id/profile
+// (profiles.controller.ts), where :id is always the authenticated caller's own id,
+// never a client-supplied value. Added for the onboarding wizard (GOA frontend
+// Phase 3): the User service already implements this route and its validation;
+// this handler only exposes it through the Gateway, the same proxy shape as
+// GetProfile above. No User-service code changes.
+func (h *ProfileHandler) UpdateProfile(c *fiber.Ctx) error {
+	userID, err := authenticatedUserID(c)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequestWithContext(
+		c.UserContext(), http.MethodPut, h.userServiceURL+"/users/"+userID+"/profile", bytes.NewReader(c.Body()),
+	)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "internal request error")
+	}
+	req.Header.Set("X-Internal-Api-Key", h.internalAPIKey)
+	req.Header.Set(fiber.HeaderContentType, "application/json")
 
 	resp, err := h.httpClient.Do(req)
 	if err != nil {

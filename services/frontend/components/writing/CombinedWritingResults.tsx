@@ -8,9 +8,12 @@ import {
   TASK_WEIGHT_PERCENT,
 } from "@/lib/writing-exam";
 import type { WritingResultResponse, WritingTaskResult } from "@/lib/exam-api";
+import { ExplainWithDalilButton } from "@/components/chat/explain-with-dalil-button";
+import { compactFacts, fact } from "@/lib/explanation-context";
 
 interface CombinedWritingResultsProps {
   result: WritingResultResponse;
+  subjectId?: string;
 }
 
 function taskBand(task: WritingTaskResult | undefined): number {
@@ -30,6 +33,7 @@ function taskBand(task: WritingTaskResult | undefined): number {
  */
 export default function CombinedWritingResults({
   result,
+  subjectId,
 }: CombinedWritingResultsProps) {
   const task1 = result.tasks?.["1"];
   const task2 = result.tasks?.["2"];
@@ -39,56 +43,76 @@ export default function CombinedWritingResults({
 
   return (
     <div data-testid="writing-combined-results" className="space-y-8">
-      <div className="flex flex-col gap-4 rounded-3xl border border-gray-200/80 bg-white p-8 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 rounded-3xl border border-border bg-surface p-8 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
-          <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#0d4d3a]">
+          <span className="rounded-full border border-brand-border bg-brand-subtle px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-brand-fg">
             Official Simulation Result
           </span>
-          <h2 className="mt-2 font-serif text-2xl text-gray-900 md:text-3xl">
+          <h2 className="mt-2 font-serif text-2xl text-fg md:text-3xl">
             Writing Analytics
           </h2>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-fg-subtle">
             Task 2 carries twice the weight of Task 1.
           </p>
         </div>
 
-        <div className="shrink-0 rounded-2xl border border-gray-200/80 bg-[#fbfbfa] px-8 py-4 text-center">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+        <div className="relative shrink-0 rounded-2xl border border-border bg-canvas-subtle px-8 py-4 text-center">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-fg-subtle">
             Overall Band
           </p>
           <p
             data-testid="writing-overall-band"
-            className="font-serif text-5xl font-bold text-[#0d4d3a]"
+            className="font-serif text-5xl font-bold text-brand-fg"
           >
             {formatBand(result.overall_band)}
           </p>
+          <ExplainWithDalilButton
+            context={{
+              kind: "exam_score",
+              title: `your Writing simulation band ${formatBand(result.overall_band)}`,
+              subjectId,
+              facts: compactFacts([
+                fact("Overall writing band", formatBand(result.overall_band)),
+                fact("Task 1 band", formatBand(band1)),
+                fact("Task 1 weight", `${TASK_WEIGHT_PERCENT[1]}%`),
+                fact("Task 2 band", formatBand(band2)),
+                fact("Task 2 weight", `${TASK_WEIGHT_PERCENT[2]}%`),
+                fact("Calculation", formatWeightedFormula(band1, band2, result.overall_band)),
+              ]),
+              limitations: [
+                "This is an official-simulation result, not an official IELTS score.",
+              ],
+            }}
+            prompt={`Explain how Task 1 band ${formatBand(band1)} and Task 2 band ${formatBand(band2)} produced my overall Writing band ${formatBand(result.overall_band)}. Why does Task 2 matter more?`}
+            className="absolute -right-3 -top-3"
+          />
         </div>
       </div>
 
-      <section className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-2xs">
-        <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-gray-400">
+      <section className="rounded-2xl border border-border bg-surface p-6 shadow-2xs">
+        <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-fg-subtle">
           How this band was calculated
         </h3>
 
         <p
           data-testid="writing-weighting-formula"
-          className="font-mono text-sm leading-relaxed text-gray-800"
+          className="font-mono text-sm leading-relaxed text-fg-muted"
         >
           {formatWeightedFormula(band1, band2, result.overall_band)}
         </p>
 
         <div className="mt-4 flex gap-2 text-[11px] font-semibold">
-          <span className="rounded-full bg-gray-100 px-2.5 py-1 text-gray-600">
+          <span className="rounded-full bg-canvas-subtle px-2.5 py-1 text-fg-muted">
             Task 1 · {TASK_WEIGHT_PERCENT[1]}%
           </span>
-          <span className="rounded-full bg-gray-100 px-2.5 py-1 text-gray-600">
+          <span className="rounded-full bg-canvas-subtle px-2.5 py-1 text-fg-muted">
             Task 2 · {TASK_WEIGHT_PERCENT[2]}%
           </span>
         </div>
       </section>
 
       <section>
-        <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-gray-400">
+        <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-fg-subtle">
           Per-task breakdown
         </h3>
 
@@ -107,7 +131,7 @@ export default function CombinedWritingResults({
                 <div
                   key={taskNumber}
                   data-testid={`writing-result-task-${taskNumber}-missing`}
-                  className="rounded-2xl border border-dashed border-gray-200 bg-white p-6 text-center text-xs text-gray-500"
+                  className="rounded-2xl border border-dashed border-border bg-surface p-6 text-center text-xs text-fg-subtle"
                 >
                   No Task {taskNumber} response was recorded.
                 </div>
@@ -124,16 +148,17 @@ export default function CombinedWritingResults({
                 evaluations={task.evaluation?.evaluations ?? []}
                 essayText={task.response_text}
                 defaultExpanded
+                subjectId={subjectId ? `${subjectId}:task-${taskNumber}` : undefined}
               />
             );
           })}
         </div>
       </section>
 
-      <div className="border-t border-gray-100 pt-6">
+      <div className="border-t border-border pt-6">
         <Link
           href="/exam"
-          className="inline-block rounded-full bg-[#0d4d3a] px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-[#09382a]"
+          className="inline-block rounded-full bg-brand px-5 py-2.5 text-xs font-semibold text-fg-on-brand transition hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted"
         >
           Return to Skills Workspace
         </Link>

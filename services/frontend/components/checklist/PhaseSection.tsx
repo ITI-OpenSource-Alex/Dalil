@@ -5,10 +5,14 @@ export default function PhaseSection({
   phase,
   items,
   onToggle,
+  programId,
+  programName,
 }: {
   phase: Phase;
   items: ChecklistItem[];
   onToggle: (itemId: string, checked: boolean) => void;
+  programId: string;
+  programName?: string;
 }) {
   if (items.length === 0) {
     return null;
@@ -19,8 +23,8 @@ export default function PhaseSection({
   return (
     <section data-testid="checklist-phase" data-phase={phase} className="print-avoid-break">
       <div className="flex items-baseline justify-between mb-2">
-        <h3 className="text-sm font-semibold text-[#0D3820]">{phase}</h3>
-        <span className="text-xs text-[#899C8B]">
+        <h3 className="text-sm font-semibold text-brand-fg">{phase}</h3>
+        <span className="text-xs text-fg-subtle">
           {doneCount}/{items.length} complete
         </span>
       </div>
@@ -29,6 +33,9 @@ export default function PhaseSection({
           <ChecklistItemRow
             key={item.itemId}
             item={item}
+            programId={programId}
+            programName={programName}
+            phase={phase}
             onToggle={(checked) => onToggle(item.itemId, checked)}
           />
         ))}

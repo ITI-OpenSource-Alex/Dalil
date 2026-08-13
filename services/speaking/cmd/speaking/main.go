@@ -79,11 +79,11 @@ func main() {
 
 	practiceModel := os.Getenv("SPEAKING_PRACTICE_MODEL")
 	if practiceModel == "" {
-		practiceModel = "claude-opus-4-8"
+		practiceModel = "claude-opus-5"
 	}
 	examModel := os.Getenv("SPEAKING_EXAM_MODEL")
 	if examModel == "" {
-		examModel = "claude-opus-4-8"
+		examModel = "claude-opus-5"
 	}
 
 	// Log the EFFECTIVE provider, not the intended one.
@@ -108,6 +108,12 @@ func main() {
 
 	practiceLLMClient := llm.NewClient(practiceModel, anthropicAPIKey, baseURL)
 	examLLMClient := llm.NewClient(examModel, anthropicAPIKey, baseURL)
+	interviewerModel := os.Getenv("SPEAKING_INTERVIEWER_MODEL")
+	if interviewerModel == "" {
+		interviewerModel = practiceModel
+	}
+	log.Info().Str("interviewer_model", interviewerModel).Msg("Speaking interviewer model resolved")
+	interviewerLLMClient := llm.NewClient(interviewerModel, anthropicAPIKey, baseURL)
 	ttsClient := tts.NewClient(cfg.SpeechServiceURL)
 	langfuseClient := langfuse.NewClient(cfg.LangfusePublicKey, cfg.LangfuseSecretKey, cfg.LangfuseHost)
 
@@ -122,12 +128,14 @@ func main() {
 	// Every route lives in speaking.NewRouter so the exact production routing
 	// table can be built (and asserted on) by tests without binding a port.
 	router := speaking.NewRouter(speaking.RouterDeps{
-		Config:      cfg,
-		Repo:        dbRepo,
-		PracticeLLM: practiceLLMClient,
-		ExamLLM:     examLLMClient,
-		TTS:         ttsClient,
-		Langfuse:    langfuseClient,
+		Config:       cfg,
+		Repo:         dbRepo,
+		PracticeLLM:  practiceLLMClient,
+		ExamLLM:      examLLMClient,
+		TTS:          ttsClient,
+		Langfuse:     langfuseClient,
+		Interviewer:  speaking.NewInterviewerAgent(interviewerLLMClient),
+		ExamSessions: speaking.NewExamSessionClient(cfg.ExamServiceURL, cfg.InternalAPIKey),
 	})
 
 	server := &http.Server{

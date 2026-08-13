@@ -1,0 +1,63 @@
+{
+  "description": "Synthetic two-speaker IELTS Part 1 exchange, generated from Windows SAPI voices. Owned by this project; no third-party rights. Turn boundaries are exact because the timeline was constructed, not annotated.",
+  "sample_rate": 16000,
+  "channels": 1,
+  "total_duration_s": 52.5137,
+  "inter_turn_gap_s": 0.4,
+  "voices": {
+    "examiner": "Microsoft David Desktop",
+    "candidate": "Microsoft Zira Desktop"
+  },
+  "turns": [
+    {
+      "turn_index": 0,
+      "role": "examiner",
+      "text": "Good morning. Can you tell me about your hometown?",
+      "start_s": 0.0,
+      "end_s": 4.2289,
+      "duration_s": 4.2289
+    },
+    {
+      "turn_index": 1,
+      "role": "candidate",
+      "text": "Yes, of course. I grew up in a small city in the Nile Delta. It is a fairly quiet place, and most of the families there have known each other for generations. I still live there with my parents.",
+      "start_s": 4.6289,
+      "end_s": 18.7761,
+      "duration_s": 14.1472
+    },
+    {
+      "turn_index": 2,
+      "role": "examiner",
+      "text": "And what do you do in your free time?",
+      "start_s": 19.1761,
+      "end_s": 21.8302,
+      "duration_s": 2.6541
+    },
+    {
+      "turn_index": 3,
+      "role": "candidate",
+      "text": "Well, I spend quite a lot of my free time reading, mostly history books. I also meet friends at a coffee shop near my house on Fridays, although recently I have been rather busy with work.",
+      "start_s": 22.2302,
+      "end_s": 35.2775,
+      "duration_s": 13.0473
+    },
+    {
+      "turn_index": 4,
+      "role": "examiner",
+      "text": "Do you think you will stay there in the future?",
+      "start_s": 35.6775,
+      "end_s": 38.6616,
+      "duration_s": 2.9841
+    },
+    {
+      "turn_index": 5,
+      "role": "candidate",
+      "text": "That is a difficult question. Honestly, I am not sure. I would like to stay close to my family, but the opportunities in my field are mostly in the capital, so I may have to move eventually.",
+      "start_s": 39.0616,
+      "end_s": 52.5137,
+      "duration_s": 13.4521
+    }
+  ],
+  "candidate_duration_s": 40.6466,
+  "examiner_duration_s": 9.8671
+}

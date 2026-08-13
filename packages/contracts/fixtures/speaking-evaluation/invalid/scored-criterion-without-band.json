@@ -1,0 +1,11 @@
+{
+  "_why_invalid": "The mirror image: status 'scored' with no band. A consumer would render an empty score as if it were a result.",
+  "schema_version": "speaking-evaluation/v1",
+  "evaluation_id": "eval-invalid-2",
+  "mode": "practice",
+  "status": "complete",
+  "score_semantics": "estimated_ielts_practice_band",
+  "criteria": [{ "criterion_id": "fluency_coherence", "status": "scored" }],
+  "overall": { "included_criteria": ["fluency_coherence"], "rounding_rule": "ielts_half_band_v1", "min_criteria_required": 3 },
+  "provenance": { "created_at": "2026-08-08T10:00:00Z", "scorer_version": "s", "rubric_id": "r", "rubric_version": "v" }
+}

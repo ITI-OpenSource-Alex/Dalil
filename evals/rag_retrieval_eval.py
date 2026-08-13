@@ -1,14 +1,11 @@
-"""
-evals/rag_retrieval_eval.py
-Retrieval Quality Evaluation Harness for GOA RAG Service.
-Measures Mean Reciprocal Rank (MRR), relevant@1, and recall@15 over golden dataset questions.
-"""
+"""Shared, deterministic retrieval metrics for the GOA RAG evaluations."""
 
 
 import json
+import math
 import sys
 import httpx
-from typing import List, Set, Dict, Any
+from typing import List, Set
 RAG_QUERY_URL = "http://localhost:8084/query"
 INTERNAL_API_KEY = "supersecret_internal_key_123"
 
@@ -26,6 +23,29 @@ def recall_at_15(results: List[str], relevant_ids: Set[str]) -> float:
         return 0.0
     found = set(results[:15]) & set(relevant_ids)
     return len(found) / float(len(relevant_ids))
+
+
+def recall_at_k(results: List[str], relevant_ids: Set[str], k: int) -> float:
+    """Fraction of labelled relevant documents present in the first ``k`` results."""
+
+    if not results or not relevant_ids:
+        return 0.0
+    return len(set(results[:k]) & relevant_ids) / float(len(relevant_ids))
+
+
+def ndcg_at_k(results: List[str], relevant_ids: Set[str], k: int) -> float:
+    """Binary-relevance nDCG at ``k`` for a hand-labelled document set."""
+
+    if not results or not relevant_ids:
+        return 0.0
+    dcg = sum(
+        1.0 / math.log2(rank + 1)
+        for rank, document_id in enumerate(results[:k], 1)
+        if document_id in relevant_ids
+    )
+    ideal_hits = min(len(relevant_ids), k)
+    ideal = sum(1.0 / math.log2(rank + 1) for rank in range(1, ideal_hits + 1))
+    return dcg / ideal
 
 
 def reciprocal_rank(results: List[str], relevant_ids: Set[str]) -> float:
@@ -59,9 +79,9 @@ def run_retrieval_eval(dataset_path: str = "evals/golden_dataset.json"):
     r1_scores: List[float] = []
     rec15_scores: List[float] = []
     mrr_scores: List[float] = []
-    print(f"\n========================================================")
+    print("\n========================================================")
     print(f"       RAG RETRIEVAL EVALUATION ({len(eval_items)} items)")
-    print(f"========================================================\n")
+    print("========================================================\n")
     with httpx.Client(timeout=15.0) as client:
         for idx, item in enumerate(eval_items, 1):
             question = item["question"]
@@ -89,12 +109,12 @@ def run_retrieval_eval(dataset_path: str = "evals/golden_dataset.json"):
     avg_mrr = sum(mrr_scores) / len(mrr_scores) if mrr_scores else 0.0
     avg_r1 = sum(r1_scores) / len(r1_scores) if r1_scores else 0.0
     avg_rec15 = sum(rec15_scores) / len(rec15_scores) if rec15_scores else 0.0
-    print(f"\n========================================================")
-    print(f" SUMMARY METRICS")
+    print("\n========================================================")
+    print(" SUMMARY METRICS")
     print(f"   Mean Reciprocal Rank (MRR): {avg_mrr:.4f}")
     print(f"   Mean relevant@1:           {avg_r1 * 100:.2f}% ({sum(r1_scores)}/{len(r1_scores)})")
     print(f"   Mean recall@15:            {avg_rec15 * 100:.2f}%")
-    print(f"========================================================\n")
+    print("========================================================\n")
     return {"mrr": avg_mrr, "relevant_at_1": avg_r1, "recall_at_15": avg_rec15}
 if __name__ == "__main__":
     dataset_file = sys.argv[1] if len(sys.argv) > 1 else "evals/golden_dataset.json"

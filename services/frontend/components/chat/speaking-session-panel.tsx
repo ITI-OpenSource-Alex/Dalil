@@ -13,6 +13,7 @@ import {
   speakingHint,
   type SpeakingState,
 } from "@/components/speaking/speaking-status";
+import type { SpeakingCueCard } from "@/lib/speaking-websocket";
 
 // Re-exported so existing importers (chat-shell.tsx) keep working unchanged.
 export type { SpeakingState };
@@ -36,9 +37,17 @@ interface SpeakingSessionPanelProps {
    * reason as both a tooltip and inline helper text.
    */
   disabledReason?: string;
+  part?: 1 | 2 | 3;
+  partLabel?: string;
+  examinerText?: string;
+  cueCard?: SpeakingCueCard | null;
+  remainingSeconds?: number | null;
   onStart: () => void;
   onStop: () => void;
   onClose: () => void;
+  canBargeIn?: boolean;
+  onBargeIn?: () => void;
+  title?: string;
 }
 
 /** Static bars shown when the visualiser is idle, so the stage never collapses. */
@@ -54,9 +63,17 @@ export default function SpeakingSessionPanel({
   audioStream = null,
   sessionKey,
   disabledReason,
+  part = 1,
+  partLabel = "Introduction and interview",
+  examinerText,
+  cueCard,
+  remainingSeconds,
   onStart,
   onStop,
   onClose,
+  canBargeIn = false,
+  onBargeIn,
+  title = "Speaking Practice",
 }: SpeakingSessionPanelProps) {
   const reduceMotion = useReducedMotion();
 
@@ -73,14 +90,14 @@ export default function SpeakingSessionPanel({
       initial={reduceMotion ? false : { opacity: 0, y: 12, scale: 0.99 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-      className="mb-6 overflow-hidden rounded-2xl border border-[#E3E8E1] bg-white shadow-[0_1px_2px_rgba(13,56,32,0.04),0_8px_24px_-12px_rgba(13,56,32,0.15)]"
+      className="mb-6 overflow-hidden rounded-2xl border border-border bg-surface shadow-[0_1px_2px_rgba(13,56,32,0.04),0_8px_24px_-12px_rgba(13,56,32,0.15)]"
     >
       {/* ── Header ─────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between gap-4 border-b border-[#EDF1EE] px-4 py-4 sm:px-6">
+      <div className="flex items-center justify-between gap-4 border-b border-border px-4 py-4 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <span
             aria-hidden="true"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-muted text-brand-fg"
           >
             <AudioLines size={18} />
           </span>
@@ -88,8 +105,8 @@ export default function SpeakingSessionPanel({
           <div className="min-w-0">
             {/* Deliberately not truncated: the chat column can get very narrow,
                 and wrapping to two lines reads far better than "Spe…". */}
-            <h3 className="text-sm leading-snug font-semibold text-balance text-[#0D3820]">
-              Speaking Practice
+            <h3 className="text-sm leading-snug font-semibold text-balance text-brand-fg">
+              {title}
             </h3>
 
             {/*
@@ -102,8 +119,8 @@ export default function SpeakingSessionPanel({
             </span>
 
             {/* Secondary detail is the first thing to go when space is tight. */}
-            <p className="hidden truncate text-xs text-[#7C8A7E] sm:block">
-              IELTS long-turn response
+            <p className="hidden truncate text-xs text-fg-subtle sm:block">
+              Full IELTS Speaking interview
             </p>
           </div>
         </div>
@@ -116,10 +133,10 @@ export default function SpeakingSessionPanel({
           <button
             data-testid="close-speaking-button"
             onClick={onClose}
-            aria-label="Close speaking practice"
-            className="rounded-lg p-2 text-[#7C8A7E] outline-none transition-colors hover:bg-[#F4F6F3] hover:text-[#0D3820] focus-visible:ring-2 focus-visible:ring-emerald-600/40"
+            aria-label={`Close ${title.toLowerCase()}`}
+            className="rounded-lg p-2 text-fg-subtle outline-none transition-colors hover:bg-canvas-subtle hover:text-brand-fg focus-visible:ring-2 focus-visible:ring-brand-muted"
           >
-            <X size={18} />
+            <X size={18} aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -131,12 +148,77 @@ export default function SpeakingSessionPanel({
           <StatusChip state={state} />
         </div>
 
+        <section aria-label="Interview progress" className="space-y-3">
+          <div
+            className="flex items-center gap-2"
+            data-testid="speaking-part-indicator"
+          >
+            {[1, 2, 3].map((number) => (
+              <span
+                key={number}
+                className={`flex h-7 min-w-7 items-center justify-center rounded-full border px-2 text-xs font-semibold ${
+                  number === part
+                    ? "border-emerald-700 bg-emerald-700 text-white"
+                    : number < part
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                      : "border-border bg-canvas-subtle text-fg-subtle"
+                }`}
+              >
+                {number}
+              </span>
+            ))}
+            <span className="ml-1 text-sm font-medium text-brand-fg">
+              {partLabel}
+            </span>
+            {remainingSeconds !== null && remainingSeconds !== undefined && (
+              <span
+                data-testid="speaking-countdown"
+                className="ml-auto rounded-full bg-amber-50 px-3 py-1 text-sm font-semibold tabular-nums text-amber-800"
+              >
+                {Math.max(0, remainingSeconds)}s
+              </span>
+            )}
+          </div>
+
+          {examinerText && (
+            <div
+              data-testid="examiner-turn"
+              className="rounded-xl border border-violet-100 bg-violet-50/70 p-4"
+            >
+              <p className="mb-1 text-[11px] font-semibold tracking-wide text-violet-700 uppercase">
+                Examiner
+              </p>
+              <p className="text-sm leading-relaxed text-violet-950">
+                {examinerText}
+              </p>
+            </div>
+          )}
+
+          {cueCard && (
+            <div
+              data-testid="speaking-cue-card"
+              className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-950"
+            >
+              <p className="text-base font-semibold">{cueCard.topic}</p>
+              <p className="mt-3 text-xs font-semibold tracking-wide uppercase">
+                You should say
+              </p>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
+                {cueCard.prompts.map((prompt) => (
+                  <li key={prompt}>{prompt}</li>
+                ))}
+              </ul>
+              <p className="mt-3 text-sm">{cueCard.closing_prompt}</p>
+            </div>
+          )}
+        </section>
+
         {/* Waveform stage — the visual anchor of the whole panel. */}
-        <div className="relative h-28 overflow-hidden rounded-2xl bg-linear-to-b from-[#F7FAF7] to-[#EEF4EF] ring-1 ring-inset ring-[#E3E8E1] sm:h-36">
+        <div className="relative h-28 overflow-hidden rounded-2xl bg-linear-to-b from-canvas-subtle to-canvas-inset ring-1 ring-inset ring-border sm:h-36">
           {/* Soft vignette so bars fade at the edges rather than being clipped. */}
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-0 z-10 bg-[linear-gradient(to_right,#F7FAF7_0%,transparent_8%,transparent_92%,#EEF4EF_100%)]"
+            className="pointer-events-none absolute inset-0 z-10 bg-[linear-gradient(to_right,var(--color-canvas-subtle)_0%,transparent_8%,transparent_92%,var(--color-canvas-inset)_100%)]"
           />
 
           <RecordingTimer state={state} sessionKey={sessionKey} />
@@ -166,12 +248,10 @@ export default function SpeakingSessionPanel({
                 {RESTING_BAR_HEIGHTS.map((h, i) => (
                   <motion.span
                     key={i}
-                    className="w-1 rounded-full bg-[#C6D3C8]"
+                    className="w-1 rounded-full bg-border-strong"
                     style={{ height: h }}
                     animate={
-                      reduceMotion
-                        ? undefined
-                        : { opacity: [0.45, 0.85, 0.45] }
+                      reduceMotion ? undefined : { opacity: [0.45, 0.85, 0.45] }
                     }
                     transition={{
                       duration: 2.4,
@@ -199,21 +279,21 @@ export default function SpeakingSessionPanel({
         </AnimatePresence>
 
         {/* Transcript */}
-        <div className="rounded-2xl border border-[#EDF1EE] bg-[#FAFBF9] p-4">
+        <div className="rounded-2xl border border-border bg-canvas-subtle p-4">
           <div className="mb-2 flex items-center gap-2">
             <MessageSquareText
               size={14}
-              className="text-[#9AA79B]"
+              className="text-fg-subtle"
               aria-hidden="true"
             />
-            <span className="text-[11px] font-medium tracking-wide text-[#7C8A7E] uppercase">
+            <span className="text-[11px] font-medium tracking-wide text-fg-subtle uppercase">
               Transcript
             </span>
           </div>
 
           <div
             data-testid="live-transcript"
-            className="max-h-32 overflow-y-auto text-sm leading-relaxed whitespace-pre-wrap text-[#1D291E]"
+            className="max-h-32 overflow-y-auto text-sm leading-relaxed whitespace-pre-wrap text-fg"
           >
             {transcript ? (
               // Keyed so each update fades in rather than snapping.
@@ -227,7 +307,7 @@ export default function SpeakingSessionPanel({
                 {transcript}
               </motion.span>
             ) : (
-              <span className="text-[#9AA79B] italic">
+              <span className="text-fg-subtle italic">
                 Your words will appear here as you speak.
               </span>
             )}
@@ -241,6 +321,8 @@ export default function SpeakingSessionPanel({
             onStart={onStart}
             onStop={onStop}
             disabledReason={disabledReason}
+            canBargeIn={canBargeIn}
+            onBargeIn={onBargeIn}
           />
 
           <AnimatePresence mode="wait" initial={false}>
@@ -250,7 +332,7 @@ export default function SpeakingSessionPanel({
               animate={{ opacity: 1, y: 0 }}
               exit={reduceMotion ? undefined : { opacity: 0, y: -4 }}
               transition={{ duration: 0.18, ease: "easeOut" }}
-              className={`text-xs ${isLocked ? "text-amber-700" : "text-[#7C8A7E]"}`}
+              className={`text-xs ${isLocked ? "text-warning-fg" : "text-fg-subtle"}`}
             >
               {isLocked ? disabledReason : speakingHint(state)}
             </motion.p>

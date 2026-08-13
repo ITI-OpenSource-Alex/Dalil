@@ -205,6 +205,56 @@ async def test_free_tier_rag_intent_proceeds(mocker):
         mock_downstream_client.post.assert_called_once()
 
 
+async def test_explanation_turn_skips_classifier_and_remains_free_tier(mocker):
+    classifier = mocker.patch("app.api.chat.classify_intent", new=mocker.AsyncMock())
+    explanation = mocker.patch(
+        "app.services.client._build_explanation_response",
+        new=mocker.AsyncMock(
+            return_value="The displayed 82% fit combines the attached profile and requirement factors."
+        ),
+    )
+    mocker.patch("app.api.chat.fetch_user_facts", new=mocker.AsyncMock(return_value=[]))
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://testserver",
+    ) as client:
+        downstream = mocker.MagicMock()
+        downstream.post = mocker.AsyncMock()
+        app.state.http_client = downstream
+        app.state.langfuse = None
+
+        response = await client.post(
+            "/chat",
+            headers={"X-Subscription-Tier": "free"},
+            json={
+                "userId": "user_explain",
+                "sessionId": "session_explain",
+                "message": "Why is this programme an 82% fit?",
+                "explanationContext": {
+                    "kind": "programme_match",
+                    "title": "MSc Computer Science 82% fit",
+                    "facts": [
+                        {"label": "Fit score", "value": "82%"},
+                        {"label": "GPA requirement", "value": "3.0"},
+                    ],
+                    "limitations": ["A fit score is not an admission decision."],
+                },
+            },
+        )
+
+    assert response.status_code == 200
+    events = parse_sse_events(response.text)
+    assert events[0][0] == "metadata"
+    assert events[0][1]["intent"] == "GENERAL"
+    assert "82% fit" in "".join(
+        event[1].get("content") or "" for event in events if event[0] == "token"
+    )
+    classifier.assert_not_awaited()
+    explanation.assert_awaited_once()
+    downstream.post.assert_not_called()
+
+
 async def test_langfuse_failure_does_not_block_chat(mocker):
     mock_sequence = mocker.MagicMock()
     raw_mock = mocker.MagicMock()

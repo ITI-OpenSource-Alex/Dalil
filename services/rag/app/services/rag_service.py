@@ -1,13 +1,19 @@
+import asyncio
 import hashlib
 import json
+import random
 import time
 import logging
-from typing import List, Tuple, Dict, Any
+from typing import List, Tuple, Dict, Any, Optional
+
+import anthropic
+import httpx
+from anthropic import AsyncAnthropic
 from openai import AsyncOpenAI
 
-from langchain_anthropic import ChatAnthropic
 from langfuse import Langfuse
 
+from goa_pricing import cost_usd as price_call
 from goa_security import wrap_untrusted
 
 from app.core.config import settings
@@ -16,6 +22,10 @@ from app.core.metrics import (
     FAQ_BYPASS_TOTAL,
     FAQ_HITS_TOTAL,
     FAQ_STALE_SUPPRESSED_TOTAL,
+    HYBRID_ENABLED,
+    LLM_RETRIES_TOTAL,
+    RETRIEVAL_ARM_HITS,
+    UNPRICED_MODEL_TOTAL,
 )
 from app.services.faq_policy import classify_question
 
@@ -37,17 +47,74 @@ embedding_client = AsyncOpenAI(
     base_url=settings.embedding_base_url
 )
 
-llm = ChatAnthropic(
-    model=settings.llm_model,
-    anthropic_api_key=settings.anthropic_auth_token or settings.anthropic_api_key,
-    **({"anthropic_api_url": settings.anthropic_base_url} if settings.anthropic_base_url else {}),
-    model_kwargs={"extra_headers": {"User-Agent": settings.anthropic_user_agent}},
-    # langchain_anthropic 0.1.13 has no `timeout` or `max_retries` field on
-    # ChatAnthropic; unrecognized kwargs are forwarded to AsyncMessages.create(),
-    # which rejects max_retries — that made every /query return 500. The supported
-    # field is default_request_timeout, and the retry now lives at the call site.
-    default_request_timeout=25.0,
-)
+# One client for the process, created on startup and closed on shutdown.
+#
+# It used to be constructed inline at the call site, so every /query that reached
+# the LLM opened a new TCP connection and negotiated a fresh TLS session to the
+# router, and the underlying httpx client was never closed. Measured against
+# AgentRouter over 20 sequential calls (perf/reports/GOA-135-pre-*.json):
+#
+#     fresh client per call : p50  917.6 ms, 20 TCP connections
+#     one reused client     : p50  296.7 ms,  1 TCP connection
+#
+# The handshake was costing ~620 ms per query -- three times the request itself.
+# The Go side reached the same conclusion in services/speaking/internal/httpx/pool.go;
+# this is that reasoning applied to the Python services.
+#
+# NOTE for anyone tuning the timeout: langchain's ChatAnthropic used to be built
+# here too, with a long comment about `default_request_timeout` -- and nothing
+# called it, because _invoke_via_sdk had already replaced it. It has been deleted.
+# The timeout that matters is the one on this client. (`langchain_anthropic` is
+# still a real dependency: checklist_generator.py and llm_boost.py use it for
+# with_structured_output.)
+_LLM_TIMEOUT_SECONDS = 25.0
+
+_llm_client: Optional[AsyncAnthropic] = None
+
+
+def _build_llm_client() -> AsyncAnthropic:
+    kwargs: Dict[str, Any] = {
+        "api_key": settings.anthropic_auth_token or settings.anthropic_api_key,
+        "default_headers": {"User-Agent": settings.anthropic_user_agent},
+        "timeout": _LLM_TIMEOUT_SECONDS,
+        # max_keepalive_connections is the binding constraint, not max_connections:
+        # RAG issues one LLM call per request, so what matters is that the idle
+        # connection survives between requests rather than how many can be open
+        # at once.
+        "http_client": httpx.AsyncClient(
+            limits=httpx.Limits(max_keepalive_connections=20, max_connections=50),
+            timeout=_LLM_TIMEOUT_SECONDS,
+        ),
+    }
+    if settings.anthropic_base_url:
+        kwargs["base_url"] = settings.anthropic_base_url
+    return AsyncAnthropic(**kwargs)
+
+
+def get_llm_client() -> AsyncAnthropic:
+    """The process-wide client, built lazily.
+
+    `init_llm_client()` from the lifespan is the normal path; the lazy build is
+    what keeps unit tests and scripts that import this module working without a
+    FastAPI app around them.
+    """
+    global _llm_client
+    if _llm_client is None:
+        _llm_client = _build_llm_client()
+    return _llm_client
+
+
+async def init_llm_client() -> None:
+    get_llm_client()
+
+
+async def close_llm_client() -> None:
+    global _llm_client
+    if _llm_client is not None:
+        try:
+            await _llm_client.close()
+        finally:
+            _llm_client = None
 
 
 class _LLMResponse:
@@ -71,18 +138,8 @@ async def _invoke_via_sdk(prompt) -> _LLMResponse:
     a monkeypatch for this exact version), so the fix is to bypass the wrapper for this
     one call rather than upgrade it.
     """
-    from anthropic import AsyncAnthropic
-
-    client_kwargs = {
-        "api_key": settings.anthropic_auth_token or settings.anthropic_api_key,
-        "default_headers": {"User-Agent": settings.anthropic_user_agent},
-        "timeout": 25.0,
-    }
-    if settings.anthropic_base_url:
-        client_kwargs["base_url"] = settings.anthropic_base_url
-
     text = prompt if isinstance(prompt, str) else str(prompt)
-    response = await AsyncAnthropic(**client_kwargs).messages.create(
+    response = await get_llm_client().messages.create(
         model=settings.llm_model,
         max_tokens=1024,
         messages=[{"role": "user", "content": text}],
@@ -96,21 +153,59 @@ async def _invoke_via_sdk(prompt) -> _LLMResponse:
     return _LLMResponse(answer, getattr(response, "usage", None))
 
 
+# Failures worth trying again: the call might succeed next time because the
+# condition is transient. Everything else -- 400, 401, 403, 404, 422 -- will fail
+# identically no matter how often it is re-sent, and retrying only doubles the
+# latency before the caller finds out. Measured pre-fix against a bad token:
+# 2 requests and 1,239 ms to surface an AuthenticationError that was decided by
+# the first response.
+_RETRYABLE_EXCEPTIONS = (
+    anthropic.APITimeoutError,
+    anthropic.APIConnectionError,
+    anthropic.InternalServerError,   # 5xx
+    anthropic.RateLimitError,        # 429
+    httpx.TimeoutException,
+    httpx.TransportError,
+)
+
+_RETRY_BASE_DELAY_SECONDS = 0.5
+
+
 async def _invoke_llm_with_retry(prompt, attempts: int = 2):
-    """Gateway tail latency is erratic (measured 2.5s–110s for identical calls),
-    so a timed-out or failed call is retried once before surfacing the error."""
+    """Retry transient failures only.
+
+    Gateway tail latency is erratic (measured 2.5s-110s for identical calls), so a
+    timed-out call is worth re-sending. A permanent 4xx is not, and the previous
+    bare `except Exception` treated the two the same -- including a 404 on a
+    deprecated model id, which is exactly the condition GOA-120's D4 describes.
+
+    Backoff is exponential with jitter: a 429 re-sent immediately is a 429 again,
+    and four RAG workers retrying in lockstep would synchronise into a burst.
+    """
     last_error = None
     for attempt in range(attempts):
         try:
             return await _invoke_via_sdk(prompt)
-        except Exception as e:  # noqa: BLE001 — retry any transport/timeout failure
+        except _RETRYABLE_EXCEPTIONS as e:
             last_error = e
+            reason = type(e).__name__
+            LLM_RETRIES_TOTAL.labels(reason=reason).inc()
             # NOTE: this module's logger is a stdlib logger, not structlog —
             # keyword fields raise "Logger._log() got an unexpected keyword
             # argument", which would mask the real failure behind a logging error.
             logger.warning(
-                "LLM invoke failed (attempt %d/%d): %s", attempt + 1, attempts, e
+                "LLM invoke failed, retrying (attempt %d/%d, %s): %s",
+                attempt + 1, attempts, reason, e,
             )
+            if attempt + 1 < attempts:
+                delay = _RETRY_BASE_DELAY_SECONDS * (2 ** attempt)
+                await asyncio.sleep(delay * (0.5 + random.random() / 2))
+        except Exception as e:  # noqa: BLE001 — permanent; surface immediately
+            logger.error(
+                "LLM invoke failed permanently (%s), not retrying: %s",
+                type(e).__name__, e,
+            )
+            raise
     raise last_error
 
 
@@ -285,8 +380,112 @@ async def _record_faq_hit(faq_id) -> None:
         )
 
 
+def reciprocal_rank_fusion(
+    dense_candidates: List[Dict[str, Any]],
+    lexical_candidates: List[Dict[str, Any]],
+    *,
+    rank_constant: int = 60,
+) -> List[Dict[str, Any]]:
+    """Fuse dense and lexical ranks without mixing incomparable score scales."""
+
+    if rank_constant <= 0:
+        raise ValueError("rank_constant must be positive")
+
+    fused: Dict[str, Dict[str, Any]] = {}
+
+    def add(candidate: Dict[str, Any], arm: str, rank: int) -> None:
+        document_id = str(candidate["id"])
+        if document_id not in fused:
+            dense_similarity = candidate.get("similarity") if arm == "dense" else None
+            fused[document_id] = {
+                "id": document_id,
+                "title": candidate.get("title"),
+                "content": candidate["content"],
+                "source_url": candidate.get("source_url"),
+                # A lexical-only hit has no cosine score. Null is evidence of that;
+                # 0.0 would falsely claim the dense arm measured a zero similarity.
+                "similarity": dense_similarity,
+                "relevance_score": dense_similarity,
+                "dense_similarity": dense_similarity,
+                "lexical_score": None,
+                "rrf_score": 0.0,
+                "retrieval_arms": [],
+            }
+        item = fused[document_id]
+        item["rrf_score"] += 1.0 / (rank_constant + rank)
+        if arm not in item["retrieval_arms"]:
+            item["retrieval_arms"].append(arm)
+        if arm == "dense":
+            dense_similarity = candidate.get("similarity")
+            item["similarity"] = dense_similarity
+            item["relevance_score"] = dense_similarity
+            item["dense_similarity"] = dense_similarity
+        else:
+            item["lexical_score"] = candidate.get("lexical_score")
+
+    for rank, candidate in enumerate(dense_candidates, 1):
+        add(candidate, "dense", rank)
+    for rank, candidate in enumerate(lexical_candidates, 1):
+        add(candidate, "lexical", rank)
+
+    for item in fused.values():
+        item["retrieval_arms"].sort()
+    return sorted(fused.values(), key=lambda item: (-item["rrf_score"], item["id"]))
+
+
+def _retrieval_sql(category: str | None) -> tuple[str, str]:
+    """Build the two parameterised candidate queries for one transaction."""
+
+    category_predicate = "WHERE category = $3" if category else ""
+    dense_sql = f"""
+        SELECT id, title, content, source_url,
+               1 - (embedding <=> $1::vector) AS similarity
+        FROM documents
+        {category_predicate}
+        ORDER BY embedding <=> $1::vector
+        LIMIT $2
+    """
+
+    lexical_predicates = [
+        "content_tsv @@ websearch_to_tsquery('english', $1)"
+    ]
+    if category:
+        lexical_predicates.append("category = $3")
+    lexical_sql = f"""
+        SELECT id, title, content, source_url,
+               ts_rank(
+                   content_tsv,
+                   websearch_to_tsquery('english', $1)
+               ) AS lexical_score
+        FROM documents
+        WHERE {' AND '.join(lexical_predicates)}
+        ORDER BY lexical_score DESC, id
+        LIMIT $2
+    """
+    return dense_sql, lexical_sql
+
+
+def _record_retrieval_arm_hits(sources: List[Dict[str, Any]]) -> None:
+    for source in sources:
+        arms = set(source.get("retrieval_arms") or [])
+        if arms == {"dense", "lexical"}:
+            label = "both"
+        elif arms == {"lexical"}:
+            label = "lexical_only"
+        elif arms == {"dense"}:
+            label = "dense_only"
+        else:
+            continue
+        RETRIEVAL_ARM_HITS.labels(arm=label).inc()
+
+
 async def query_rag(
-    question: str, user_id: str, top_k: int = 5, trace: Any = None, flag_overrides: Dict[str, Any] | None = None
+    question: str,
+    user_id: str,
+    top_k: int = 5,
+    category: str | None = None,
+    trace: Any = None,
+    flag_overrides: Dict[str, Any] | None = None,
 ) -> Tuple[str, List[Dict[str, Any]], Dict[str, Any]]:
     """
     Checks for a hand-curated FAQ match first (zero-token, skips the LLM entirely on
@@ -387,7 +586,19 @@ async def query_rag(
 
     # 3. Retrieve matching documents from pgvector database using Cosine Similarity
     retrieval_limit = flags.get("retrieval_width", getattr(settings, "rag_retrieval_width", 15))
-    probes_val = flags.get("ivfflat_probes", getattr(settings, "rag_ivfflat_probes", 1))
+    # The getattr fallback matches the settings default (GOA-030). It used to be
+    # 1, so a settings object missing the attribute silently reverted to the
+    # 1%-of-index scan the default was raised to escape.
+    probes_val = flags.get("ivfflat_probes", getattr(settings, "rag_ivfflat_probes", 10))
+    hybrid_enabled = flags.get(
+        "hybrid_enabled", getattr(settings, "rag_hybrid_enabled", False)
+    )
+    HYBRID_ENABLED.set(1 if hybrid_enabled else 0)
+    normalized_category = category.strip().lower() if category and category.strip() else None
+    dense_sql, lexical_sql = _retrieval_sql(normalized_category)
+    query_args = [query_vector, retrieval_limit]
+    if normalized_category:
+        query_args.append(normalized_category)
 
     async with db.pool.acquire() as conn:
         # SET LOCAL is transaction-scoped. Outside a transaction Postgres discards it
@@ -400,18 +611,15 @@ async def query_rag(
         async with conn.transaction():
             if probes_val > 1:
                 await conn.execute(f"SET LOCAL ivfflat.probes = {int(probes_val)};")
-            rows = await conn.fetch(
-                """
-                SELECT id, title, content, source_url,
-                       1 - (embedding <=> $1::vector) AS similarity
-                FROM documents
-                ORDER BY embedding <=> $1::vector
-                LIMIT $2
-            """,
-                query_vector,
-                retrieval_limit,
-            )
-    sources = [
+            dense_rows = await conn.fetch(dense_sql, *query_args)
+            lexical_rows = []
+            if hybrid_enabled:
+                lexical_args = [question, retrieval_limit]
+                if normalized_category:
+                    lexical_args.append(normalized_category)
+                lexical_rows = await conn.fetch(lexical_sql, *lexical_args)
+
+    dense_sources = [
         {
             "id": str(row["id"]),
             "title": row.get("title"),
@@ -420,15 +628,36 @@ async def query_rag(
             "similarity": float(row["similarity"]),
             "relevance_score": float(row["similarity"]),
         }
-        for row in rows
+        for row in dense_rows
     ]
-    top_similarity = max([s["similarity"] for s in sources], default=0.0)
+    top_similarity = max(
+        (source["similarity"] for source in dense_sources), default=None
+    )
+    if hybrid_enabled:
+        lexical_sources = [
+            {
+                "id": str(row["id"]),
+                "title": row.get("title"),
+                "content": row["content"],
+                "source_url": row["source_url"],
+                "lexical_score": float(row["lexical_score"]),
+            }
+            for row in lexical_rows
+        ]
+        sources = reciprocal_rank_fusion(dense_sources, lexical_sources)
+    else:
+        # Preserve GOA-033's dense path byte-for-byte when the feature is off.
+        sources = dense_sources
 
     # Confidence Threshold Check BEFORE LLM invocation (gated by flag)
     threshold_enabled = flags.get("threshold_enabled", getattr(settings, "rag_threshold_enabled", True))
     CONFIDENCE_THRESHOLD = getattr(settings, "confidence_threshold", 0.60)
 
-    if threshold_enabled and top_similarity < CONFIDENCE_THRESHOLD:
+    # RRF is a rank-fusion score, not a calibrated cosine. The confidence gate
+    # deliberately remains on the best DENSE cosine so 0.60 keeps its meaning.
+    if threshold_enabled and (
+        top_similarity is None or top_similarity < CONFIDENCE_THRESHOLD
+    ):
         from app.core.metrics import LOW_CONFIDENCE_TOTAL
         LOW_CONFIDENCE_TOTAL.inc()
         total_latency_ms = (time.time() - start_time) * 1000
@@ -442,7 +671,10 @@ async def query_rag(
             "refusal_reason": "insufficient_data",
             "refusal_suggestion": "Please rephrase your question with specific details regarding universities, programs, or visa requirements.",
         }
-        return None, sources[:top_k], metrics_summary
+        final_sources = sources[:top_k]
+        if hybrid_enabled:
+            _record_retrieval_arm_hits(final_sources)
+        return None, final_sources, metrics_summary
 
     # Step 6: Cross-Encoder Re-Ranking (gated by flag)
     rerank_enabled = flags.get("rerank_enabled", getattr(settings, "rag_rerank_enabled", True))
@@ -452,6 +684,9 @@ async def query_rag(
         sources = reranker.rank(question, sources, top_n=top_k)
     else:
         sources = sources[:top_k]
+
+    if hybrid_enabled:
+        _record_retrieval_arm_hits(sources)
 
     # Eval affordance (see api/query.py). Retrieval is complete and re-ranked at this
     # point, so the retrieval metrics are fully determined; stopping here lets the
@@ -551,8 +786,18 @@ Answer:"""
         input_tokens = token_usage.get("input_tokens", 0) if isinstance(token_usage, dict) else 0
         output_tokens = token_usage.get("output_tokens", 0) if isinstance(token_usage, dict) else 0
 
-    # Estimated cost calculation for claude-haiku-4-5-20251001 ($0.25/M input, $1.25/M output tokens)
-    cost_usd = (input_tokens * 0.25 + output_tokens * 1.25) / 1_000_000
+    # Priced from the shared table (goa_pricing), which reads the same
+    # LLM_PRICING_JSON the Gateway does. This line used to hardcode
+    # $0.25/$1.25 -- Haiku's prices, named in a comment that outlived the model
+    # it described. Against the $2/$10 table current when GOA-135 was measured,
+    # every cost written to Langfuse was understated 8x. Four other services had
+    # drifted in different directions; current rates live only in the shared table.
+    #
+    # None means "not priced", never 0.0: a zero here would be indistinguishable
+    # from a free call, which is how the drift went unnoticed in the first place.
+    cost_usd = price_call(settings.llm_model, input_tokens, output_tokens)
+    if cost_usd is None:
+        UNPRICED_MODEL_TOTAL.labels(model=settings.llm_model).inc()
 
     if generation is not None:
         try:

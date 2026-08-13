@@ -31,7 +31,8 @@ async def test_ws_client_handles_connection_failure():
     client = SpeakingWsClient(ws_url="ws://invalid-server:8002/ws/exam")
     with patch("websockets.connect", side_effect=OSError("Connection refused")):
         res = await client.evaluate_transcript("Sample transcript text")
-        assert res["overall_band"] == 0.0
+        assert res["overall_band"] is None
+        assert res["overall_band"] != 0.0
         assert "WebSocket swarm unavailable" in res["error"]
 
 def test_speaking_absent_is_reported_not_zero():

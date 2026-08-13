@@ -1,0 +1,179 @@
+# HELP python_gc_objects_collected_total Objects collected during gc
+# TYPE python_gc_objects_collected_total counter
+python_gc_objects_collected_total{generation="0"} 72721.0
+python_gc_objects_collected_total{generation="1"} 36926.0
+python_gc_objects_collected_total{generation="2"} 7333.0
+# HELP python_gc_objects_uncollectable_total Uncollectable objects found during GC
+# TYPE python_gc_objects_uncollectable_total counter
+python_gc_objects_uncollectable_total{generation="0"} 0.0
+python_gc_objects_uncollectable_total{generation="1"} 0.0
+python_gc_objects_uncollectable_total{generation="2"} 0.0
+# HELP python_gc_collections_total Number of times this generation was collected
+# TYPE python_gc_collections_total counter
+python_gc_collections_total{generation="0"} 729.0
+python_gc_collections_total{generation="1"} 66.0
+python_gc_collections_total{generation="2"} 4.0
+# HELP python_info Python platform information
+# TYPE python_info gauge
+python_info{implementation="CPython",major="3",minor="12",patchlevel="13",version="3.12.13"} 1.0
+# HELP process_virtual_memory_bytes Virtual memory size in bytes.
+# TYPE process_virtual_memory_bytes gauge
+process_virtual_memory_bytes 1.456513024e+09
+# HELP process_resident_memory_bytes Resident memory size in bytes.
+# TYPE process_resident_memory_bytes gauge
+process_resident_memory_bytes 1.55820032e+08
+# HELP process_start_time_seconds Start time of the process since unix epoch in seconds.
+# TYPE process_start_time_seconds gauge
+process_start_time_seconds 1.78641152367e+09
+# HELP process_cpu_seconds_total Total user and system CPU time spent in seconds.
+# TYPE process_cpu_seconds_total counter
+process_cpu_seconds_total 44.61
+# HELP process_open_fds Number of open file descriptors.
+# TYPE process_open_fds gauge
+process_open_fds 19.0
+# HELP process_max_fds Maximum number of open file descriptors.
+# TYPE process_max_fds gauge
+process_max_fds 1.048576e+06
+# HELP goa_writing_agent_band_score IELTS band scores returned by writing evaluation agents
+# TYPE goa_writing_agent_band_score histogram
+goa_writing_agent_band_score_bucket{criterion="grammar",le="0.0"} 0.0
+goa_writing_agent_band_score_bucket{criterion="grammar",le="0.5"} 0.0
+goa_writing_agent_band_score_bucket{criterion="grammar",le="1.0"} 0.0
+goa_writing_agent_band_score_bucket{criterion="grammar",le="1.5"} 0.0
+goa_writing_agent_band_score_bucket{criterion="grammar",le="2.0"} 0.0
+goa_writing_agent_band_score_bucket{criterion="grammar",le="2.5"} 0.0
+goa_writing_agent_band_score_bucket{criterion="grammar",le="3.0"} 0.0
+goa_writing_agent_band_score_bucket{criterion="grammar",le="3.5"} 0.0
+goa_writing_agent_band_score_bucket{criterion="grammar",le="4.0"} 0.0
+goa_writing_agent_band_score_bucket{criterion="grammar",le="4.5"} 0.0
+goa_writing_agent_band_score_bucket{criterion="grammar",le="5.0"} 0.0
+goa_writing_agent_band_score_bucket{criterion="grammar",le="5.5"} 0.0
+goa_writing_agent_band_score_bucket{criterion="grammar",le="6.0"} 0.0
+goa_writing_agent_band_score_bucket{criterion="grammar",le="6.5"} 0.0
+goa_writing_agent_band_score_bucket{criterion="grammar",le="7.0"} 0.0
+goa_writing_agent_band_score_bucket{criterion="grammar",le="7.5"} 0.0
+goa_writing_agent_band_score_bucket{criterion="grammar",le="8.0"} 2.0
+goa_writing_agent_band_score_bucket{criterion="grammar",le="8.5"} 5.0
+goa_writing_agent_band_score_bucket{criterion="grammar",le="9.0"} 5.0
+goa_writing_agent_band_score_bucket{criterion="grammar",le="+Inf"} 5.0
+goa_writing_agent_band_score_count{criterion="grammar"} 5.0
+goa_writing_agent_band_score_sum{criterion="grammar"} 41.5
+goa_writing_agent_band_score_bucket{criterion="cohesion",le="0.0"} 0.0
+goa_writing_agent_band_score_bucket{criterion="cohesion",le="0.5"} 0.0
+goa_writing_agent_band_score_bucket{criterion="cohesion",le="1.0"} 0.0
+goa_writing_agent_band_score_bucket{criterion="cohesion",le="1.5"} 0.0
+goa_writing_agent_band_score_bucket{criterion="cohesion",le="2.0"} 0.0
+goa_writing_agent_band_score_bucket{criterion="cohesion",le="2.5"} 0.0
+goa_writing_agent_band_score_bucket{criterion="cohesion",le="3.0"} 0.0
+goa_writing_agent_band_score_bucket{criterion="cohesion",le="3.5"} 0.0
+goa_writing_agent_band_score_bucket{criterion="cohesion",le="4.0"} 0.0
+goa_writing_agent_band_score_bucket{criterion="cohesion",le="4.5"} 0.0
+goa_writing_agent_band_score_bucket{criterion="cohesion",le="5.0"} 0.0
+goa_writing_agent_band_score_bucket{criterion="cohesion",le="5.5"} 0.0
+goa_writing_agent_band_score_bucket{criterion="cohesion",le="6.0"} 0.0
+goa_writing_agent_band_score_bucket{criterion="cohesion",le="6.5"} 0.0
+goa_writing_agent_band_score_bucket{criterion="cohesion",le="7.0"} 0.0
+goa_writing_agent_band_score_bucket{criterion="cohesion",le="7.5"} 3.0
+goa_writing_agent_band_score_bucket{criterion="cohesion",le="8.0"} 5.0
+goa_writing_agent_band_score_bucket{criterion="cohesion",le="8.5"} 5.0
+goa_writing_agent_band_score_bucket{criterion="cohesion",le="9.0"} 5.0
+goa_writing_agent_band_score_bucket{criterion="cohesion",le="+Inf"} 5.0
+goa_writing_agent_band_score_count{criterion="cohesion"} 5.0
+goa_writing_agent_band_score_sum{criterion="cohesion"} 38.5
+goa_writing_agent_band_score_bucket{criterion="task_response",le="0.0"} 0.0
+goa_writing_agent_band_score_bucket{criterion="task_response",le="0.5"} 0.0
+goa_writing_agent_band_score_bucket{criterion="task_response",le="1.0"} 0.0
+goa_writing_agent_band_score_bucket{criterion="task_response",le="1.5"} 0.0
+goa_writing_agent_band_score_bucket{criterion="task_response",le="2.0"} 0.0
+goa_writing_agent_band_score_bucket{criterion="task_response",le="2.5"} 0.0
+goa_writing_agent_band_score_bucket{criterion="task_response",le="3.0"} 0.0
+goa_writing_agent_band_score_bucket{criterion="task_response",le="3.5"} 0.0
+goa_writing_agent_band_score_bucket{criterion="task_response",le="4.0"} 0.0
+goa_writing_agent_band_score_bucket{criterion="task_response",le="4.5"} 0.0
+goa_writing_agent_band_score_bucket{criterion="task_response",le="5.0"} 0.0
+goa_writing_agent_band_score_bucket{criterion="task_response",le="5.5"} 0.0
+goa_writing_agent_band_score_bucket{criterion="task_response",le="6.0"} 1.0
+goa_writing_agent_band_score_bucket{criterion="task_response",le="6.5"} 2.0
+goa_writing_agent_band_score_bucket{criterion="task_response",le="7.0"} 5.0
+goa_writing_agent_band_score_bucket{criterion="task_response",le="7.5"} 5.0
+goa_writing_agent_band_score_bucket{criterion="task_response",le="8.0"} 5.0
+goa_writing_agent_band_score_bucket{criterion="task_response",le="8.5"} 5.0
+goa_writing_agent_band_score_bucket{criterion="task_response",le="9.0"} 5.0
+goa_writing_agent_band_score_bucket{criterion="task_response",le="+Inf"} 5.0
+goa_writing_agent_band_score_count{criterion="task_response"} 5.0
+goa_writing_agent_band_score_sum{criterion="task_response"} 33.5
+goa_writing_agent_band_score_bucket{criterion="vocabulary",le="0.0"} 0.0
+goa_writing_agent_band_score_bucket{criterion="vocabulary",le="0.5"} 0.0
+goa_writing_agent_band_score_bucket{criterion="vocabulary",le="1.0"} 0.0
+goa_writing_agent_band_score_bucket{criterion="vocabulary",le="1.5"} 0.0
+goa_writing_agent_band_score_bucket{criterion="vocabulary",le="2.0"} 0.0
+goa_writing_agent_band_score_bucket{criterion="vocabulary",le="2.5"} 0.0
+goa_writing_agent_band_score_bucket{criterion="vocabulary",le="3.0"} 0.0
+goa_writing_agent_band_score_bucket{criterion="vocabulary",le="3.5"} 0.0
+goa_writing_agent_band_score_bucket{criterion="vocabulary",le="4.0"} 0.0
+goa_writing_agent_band_score_bucket{criterion="vocabulary",le="4.5"} 0.0
+goa_writing_agent_band_score_bucket{criterion="vocabulary",le="5.0"} 0.0
+goa_writing_agent_band_score_bucket{criterion="vocabulary",le="5.5"} 0.0
+goa_writing_agent_band_score_bucket{criterion="vocabulary",le="6.0"} 0.0
+goa_writing_agent_band_score_bucket{criterion="vocabulary",le="6.5"} 0.0
+goa_writing_agent_band_score_bucket{criterion="vocabulary",le="7.0"} 0.0
+goa_writing_agent_band_score_bucket{criterion="vocabulary",le="7.5"} 0.0
+goa_writing_agent_band_score_bucket{criterion="vocabulary",le="8.0"} 4.0
+goa_writing_agent_band_score_bucket{criterion="vocabulary",le="8.5"} 5.0
+goa_writing_agent_band_score_bucket{criterion="vocabulary",le="9.0"} 5.0
+goa_writing_agent_band_score_bucket{criterion="vocabulary",le="+Inf"} 5.0
+goa_writing_agent_band_score_count{criterion="vocabulary"} 5.0
+goa_writing_agent_band_score_sum{criterion="vocabulary"} 40.5
+# HELP goa_writing_agent_band_score_created IELTS band scores returned by writing evaluation agents
+# TYPE goa_writing_agent_band_score_created gauge
+goa_writing_agent_band_score_created{criterion="grammar"} 1.786412512573845e+09
+goa_writing_agent_band_score_created{criterion="cohesion"} 1.7864125176208608e+09
+goa_writing_agent_band_score_created{criterion="task_response"} 1.7864125223817987e+09
+goa_writing_agent_band_score_created{criterion="vocabulary"} 1.7864125265405605e+09
+# HELP goa_writing_evaluation_latency_ms Wall-clock latency for a four-agent writing evaluation in milliseconds
+# TYPE goa_writing_evaluation_latency_ms histogram
+goa_writing_evaluation_latency_ms_bucket{le="100.0"} 0.0
+goa_writing_evaluation_latency_ms_bucket{le="250.0"} 0.0
+goa_writing_evaluation_latency_ms_bucket{le="500.0"} 0.0
+goa_writing_evaluation_latency_ms_bucket{le="1000.0"} 0.0
+goa_writing_evaluation_latency_ms_bucket{le="2500.0"} 0.0
+goa_writing_evaluation_latency_ms_bucket{le="5000.0"} 0.0
+goa_writing_evaluation_latency_ms_bucket{le="10000.0"} 0.0
+goa_writing_evaluation_latency_ms_bucket{le="15000.0"} 0.0
+goa_writing_evaluation_latency_ms_bucket{le="20000.0"} 0.0
+goa_writing_evaluation_latency_ms_bucket{le="30000.0"} 1.0
+goa_writing_evaluation_latency_ms_bucket{le="60000.0"} 5.0
+goa_writing_evaluation_latency_ms_bucket{le="+Inf"} 5.0
+goa_writing_evaluation_latency_ms_count 5.0
+goa_writing_evaluation_latency_ms_sum 176755.94571500004
+# HELP goa_writing_evaluation_latency_ms_created Wall-clock latency for a four-agent writing evaluation in milliseconds
+# TYPE goa_writing_evaluation_latency_ms_created gauge
+goa_writing_evaluation_latency_ms_created 1.7864115267302587e+09
+# HELP goa_writing_exam_evaluation_ms Wall-clock latency for an exam-task writing evaluation in milliseconds
+# TYPE goa_writing_exam_evaluation_ms histogram
+# HELP goa_cv_extraction_duration_ms Wall-clock CV extraction duration in milliseconds
+# TYPE goa_cv_extraction_duration_ms histogram
+goa_cv_extraction_duration_ms_bucket{le="25.0"} 0.0
+goa_cv_extraction_duration_ms_bucket{le="50.0"} 0.0
+goa_cv_extraction_duration_ms_bucket{le="100.0"} 0.0
+goa_cv_extraction_duration_ms_bucket{le="250.0"} 0.0
+goa_cv_extraction_duration_ms_bucket{le="500.0"} 0.0
+goa_cv_extraction_duration_ms_bucket{le="1000.0"} 0.0
+goa_cv_extraction_duration_ms_bucket{le="2500.0"} 0.0
+goa_cv_extraction_duration_ms_bucket{le="5000.0"} 0.0
+goa_cv_extraction_duration_ms_bucket{le="10000.0"} 0.0
+goa_cv_extraction_duration_ms_bucket{le="30000.0"} 0.0
+goa_cv_extraction_duration_ms_bucket{le="60000.0"} 0.0
+goa_cv_extraction_duration_ms_bucket{le="+Inf"} 0.0
+goa_cv_extraction_duration_ms_count 0.0
+goa_cv_extraction_duration_ms_sum 0.0
+# HELP goa_cv_extraction_duration_ms_created Wall-clock CV extraction duration in milliseconds
+# TYPE goa_cv_extraction_duration_ms_created gauge
+goa_cv_extraction_duration_ms_created 1.7864115267303708e+09
+# HELP goa_cv_extraction_total CV extraction invocations by outcome
+# TYPE goa_cv_extraction_total counter
+# HELP goa_writing_cache_hit_rate Ratio of cached writing evaluations to all writing evaluation requests
+# TYPE goa_writing_cache_hit_rate gauge
+goa_writing_cache_hit_rate 0.0
+# HELP goa_writing_unpriced_model_total LLM calls whose model is missing from the shared price table
+# TYPE goa_writing_unpriced_model_total counter

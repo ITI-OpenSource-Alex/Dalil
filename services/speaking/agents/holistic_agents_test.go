@@ -20,7 +20,7 @@ func TestHolisticCriterion_Success(t *testing.T) {
 		},
 	}
 
-	res, err := evaluateHolisticCriterion(context.Background(), mockClient, "Lexical Resource", HolisticLexicalSystemPrompt, "Part 1: Hello...")
+	res, err := evaluateHolisticCriterion(context.Background(), mockClient, "Lexical Resource", HolisticLexicalSystemPrompt, "Part 1: Hello...", nil)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -50,7 +50,7 @@ func TestHolisticCriterion_MarkdownWrapper(t *testing.T) {
 		},
 	}
 
-	res, err := evaluateHolisticCriterion(context.Background(), mockClient, "Fluency", HolisticFluencySystemPrompt, "Part 1: Hello...")
+	res, err := evaluateHolisticCriterion(context.Background(), mockClient, "Fluency", HolisticFluencySystemPrompt, "Part 1: Hello...", nil)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -66,7 +66,7 @@ func TestHolisticCriterion_BoundsSafety(t *testing.T) {
 			Text: `{"band": 10.5, "overall_feedback": "Perfect.", "part_notes": {}, "examples": [], "improvement_tip": ""}`,
 		},
 	}
-	resHigh, err := evaluateHolisticCriterion(context.Background(), mockClientHigh, "Grammar", HolisticGrammarSystemPrompt, "Transcript")
+	resHigh, err := evaluateHolisticCriterion(context.Background(), mockClientHigh, "Grammar", HolisticGrammarSystemPrompt, "Transcript", nil)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -79,7 +79,7 @@ func TestHolisticCriterion_BoundsSafety(t *testing.T) {
 			Text: `{"band": -2.0, "overall_feedback": "Off topic.", "part_notes": {}, "examples": [], "improvement_tip": ""}`,
 		},
 	}
-	resLow, err := evaluateHolisticCriterion(context.Background(), mockClientLow, "Grammar", HolisticGrammarSystemPrompt, "Transcript")
+	resLow, err := evaluateHolisticCriterion(context.Background(), mockClientLow, "Grammar", HolisticGrammarSystemPrompt, "Transcript", nil)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -95,7 +95,7 @@ func TestHolisticCriterion_InvalidJSON(t *testing.T) {
 		},
 	}
 
-	_, err := evaluateHolisticCriterion(context.Background(), mockClient, "Pronunciation", HolisticPronunciationSystemPrompt, "Transcript")
+	_, err := evaluateHolisticCriterion(context.Background(), mockClient, "Pronunciation", HolisticPronunciationSystemPrompt, "Transcript", nil)
 	if err == nil {
 		t.Fatal("expected error on parsing invalid JSON, got nil")
 	}
@@ -106,7 +106,7 @@ func TestHolisticCriterion_APIError(t *testing.T) {
 		Err: errors.New("API Rate Limit Exceeded"),
 	}
 
-	_, err := evaluateHolisticCriterion(context.Background(), mockClient, "Fluency", HolisticFluencySystemPrompt, "Transcript")
+	_, err := evaluateHolisticCriterion(context.Background(), mockClient, "Fluency", HolisticFluencySystemPrompt, "Transcript", nil)
 	if err == nil {
 		t.Fatal("expected error on stream API failure, got nil")
 	}

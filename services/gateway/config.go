@@ -48,7 +48,13 @@ type Config struct {
 	AWSRegion               string        `envconfig:"AWS_REGION" default:"us-east-1"`
 	AWSEndpointURL          string        `envconfig:"AWS_ENDPOINT_URL"`
 	IngestionQueueURL       string        `envconfig:"INGESTION_QUEUE_URL"`
-	SubscriptionUpgradeURL  string        `envconfig:"SUBSCRIPTION_UPGRADE_URL" default:"/upgrade"`
+	// GOA-039: was "/upgrade", a route that has never existed in the frontend.
+	// Every paid-tier 403 carries this as `upgradeUrl`, and the browser's
+	// upgrade dialog navigates to it -- so the product's primary upgrade CTA
+	// pointed at a 404. /pricing is the real route. Keep it relative: the
+	// dialog treats an absolute value as an external billing host and opens it
+	// in a new tab (see components/subscription/upgrade-dialog.tsx).
+	SubscriptionUpgradeURL  string        `envconfig:"SUBSCRIPTION_UPGRADE_URL" default:"/pricing"`
 	SubscriptionCacheTTL    time.Duration `envconfig:"SUBSCRIPTION_CACHE_TTL" default:"5m"`
 	// Exam sessions a single candidate may open per hour. Sitting a full exam
 	// takes far longer than 20 minutes, so a legitimate candidate never reaches
@@ -71,9 +77,16 @@ type Config struct {
 	EssayEvalsPerHour    int `envconfig:"ESSAY_EVALS_PER_HOUR" default:"5"`
 	CVReviewsPerHour     int `envconfig:"CV_REVIEWS_PER_HOUR" default:"5"`
 	BudgetUSD           float64 `envconfig:"BUDGET_USD" default:"150.0"`
-	CostPromptPer1M     float64 `envconfig:"COST_PROMPT_PER_1M" default:"2.0"`
-	CostCompletionPer1M float64 `envconfig:"COST_COMPLETION_PER_1M" default:"10.0"`
-	LLMPricingJSON      string  `envconfig:"LLM_PRICING_JSON" default:"{\"claude-opus-4-8\":{\"prompt_per_1m\":2,\"completion_per_1m\":10},\"glm-5.2\":{\"prompt_per_1m\":6,\"completion_per_1m\":9},\"gpt-5.5\":{\"prompt_per_1m\":7,\"completion_per_1m\":14},\"claude-opus-4-6\":{\"prompt_per_1m\":8,\"completion_per_1m\":40},\"claude-opus-4-7\":{\"prompt_per_1m\":8,\"completion_per_1m\":40}}"`
+	CostPromptPer1M     float64 `envconfig:"COST_PROMPT_PER_1M" default:"6.0"`
+	CostCompletionPer1M float64 `envconfig:"COST_COMPLETION_PER_1M" default:"30.0"`
+	LLMPricingJSON      string  `envconfig:"LLM_PRICING_JSON" default:"{\"claude-opus-4-8\":{\"prompt_per_1m\":6,\"completion_per_1m\":30},\"claude-opus-5\":{\"prompt_per_1m\":2,\"completion_per_1m\":10},\"gpt-5.6-sol\":{\"prompt_per_1m\":6,\"completion_per_1m\":36}}"`
+
+	// GOA-046 budget guardrail. The threshold is per user per UTC day; the
+	// interval is how often the roll-up is swept. Five minutes is chosen against
+	// the shape of the spend: a single swarm evaluation costs roughly $0.084, so
+	// no realistic burst crosses $1 inside one interval unattended.
+	UserDailyCostAlertUSD float64       `envconfig:"USER_DAILY_COST_ALERT_USD" default:"1.0"`
+	CostMonitorInterval   time.Duration `envconfig:"COST_MONITOR_INTERVAL" default:"5m"`
 }
 
 func LoadConfig() (Config, error) {

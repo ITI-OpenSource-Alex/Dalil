@@ -3,6 +3,7 @@ import {
   SpeakingSessionDetail,
   SpeakingSessionSummary,
 } from "@/app/types/speaking";
+import { dedupe } from "@/lib/request-dedupe";
 
 // GOA-132: every browser-facing call now goes through the Gateway, which owns
 // JWT validation, rate limiting, correlation IDs, and keeps INTERNAL_API_KEY
@@ -36,11 +37,13 @@ async function parseJSONOrThrow<T>(response: Response): Promise<T> {
  * and the Gateway is :8080, so without it every call 401s.
  */
 export async function listSpeakingSessions(): Promise<SpeakingSessionSummary[]> {
-  const response = await fetch(`${API_BASE}/sessions`, {
-    cache: "no-store",
-    credentials: "include",
+  return dedupe(`GET ${API_BASE}/sessions`, async () => {
+    const response = await fetch(`${API_BASE}/sessions`, {
+      cache: "no-store",
+      credentials: "include",
+    });
+    return parseJSONOrThrow<SpeakingSessionSummary[]>(response);
   });
-  return parseJSONOrThrow<SpeakingSessionSummary[]>(response);
 }
 
 /** GET /api/speaking/sessions/{id} — full breakdown, scoped to the token's user. */

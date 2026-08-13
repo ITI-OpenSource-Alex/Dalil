@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     anthropic_base_url: str = ""
     anthropic_auth_token: str = ""
     anthropic_user_agent: str = "Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14"
-    llm_model: str = "claude-opus-4-8"
+    llm_model: str = "claude-opus-5"
 
     # Long-term conversation memory (GOA-038).
     #

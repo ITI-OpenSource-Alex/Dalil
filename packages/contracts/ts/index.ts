@@ -6,12 +6,26 @@ export interface BaseEvent {
 }
 
 export interface UserUpdated extends BaseEvent {
-    type: 'user.updated';
-    payload: {
-        userId: string;
-        email: string;
-        subscriptionTier: 'free' | 'paid';
-    }
+  type: "user.updated";
+  payload: {
+    userId: string;
+    email: string;
+    subscriptionTier: "free" | "paid";
+    ects: number;
+    gpa: number;
+    gpaScale: "4.0" | "100";
+    ieltsScore: number;
+    ieltsListening: number | null;
+    ieltsReading: number | null;
+    ieltsWriting: number | null;
+    ieltsSpeaking: number | null;
+    degreeLevel: string;
+    workExperienceYears: number;
+    extracurricularsScore: number;
+    targetCountries: string[];
+    fieldOfStudy: string | null;
+    targetFieldOfStudy: string | null;
+  };
 }
 
 export interface CVUploaded extends BaseEvent {

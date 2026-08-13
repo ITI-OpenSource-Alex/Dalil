@@ -13,6 +13,9 @@ import { EmailVerification } from './entities/email-verification.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { SqsService } from '@ssut/nestjs-sqs';
 import { ConfigService } from '@nestjs/config';
+import { SubscriptionCacheService } from '../common/redis/subscription-cache.service';
+
+const mockSubscriptionCache = { invalidate: jest.fn() };
 
 const mockSnsSend = jest.fn();
 
@@ -98,6 +101,12 @@ describe('UsersService', () => {
         },
         { provide: SqsService, useValue: mockSqsService },
         { provide: ConfigService, useValue: mockConfigService },
+        // GOA-039: every tier write drops the Gateway's cached tier. Mocked so
+        // the suite never opens a Redis connection.
+        {
+          provide: SubscriptionCacheService,
+          useValue: mockSubscriptionCache,
+        },
       ],
     }).compile();
 
@@ -419,6 +428,66 @@ describe('UsersService', () => {
     });
   });
 
+  // GOA-039. The only write path for subscriptionTier -- demo billing and
+  // PATCH /users/:id/subscription both land here.
+  describe('updateSubscription', () => {
+    it('persists the new tier and drops the Gateway cache', async () => {
+      const user = { id: 'user-123', subscriptionTier: 'free' };
+      mockUserRepository.findOne.mockResolvedValue(user);
+      mockUserRepository.save.mockImplementation((value) =>
+        Promise.resolve(value),
+      );
+
+      await expect(
+        service.updateSubscription('user-123', 'paid'),
+      ).resolves.toEqual({ subscriptionTier: 'paid' });
+
+      expect(mockUserRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ subscriptionTier: 'paid' }),
+      );
+      // Without this the user keeps getting 403 for up to
+      // SUBSCRIPTION_CACHE_TTL after paying.
+      expect(mockSubscriptionCache.invalidate).toHaveBeenCalledWith('user-123');
+    });
+
+    it('downgrades as well as upgrades, and still drops the cache', async () => {
+      // Cancellation goes through the same writer, so the gate closes again
+      // immediately rather than after the TTL.
+      const user = { id: 'user-123', subscriptionTier: 'paid' };
+      mockUserRepository.findOne.mockResolvedValue(user);
+      mockUserRepository.save.mockImplementation((value) =>
+        Promise.resolve(value),
+      );
+
+      await expect(
+        service.updateSubscription('user-123', 'free'),
+      ).resolves.toEqual({ subscriptionTier: 'free' });
+      expect(mockSubscriptionCache.invalidate).toHaveBeenCalledWith('user-123');
+    });
+
+    it('is a no-op on the tier when applied twice, so a double submit is safe', async () => {
+      const user = { id: 'user-123', subscriptionTier: 'paid' };
+      mockUserRepository.findOne.mockResolvedValue(user);
+      mockUserRepository.save.mockImplementation((value) =>
+        Promise.resolve(value),
+      );
+
+      await expect(
+        service.updateSubscription('user-123', 'paid'),
+      ).resolves.toEqual({ subscriptionTier: 'paid' });
+      expect(user.subscriptionTier).toBe('paid');
+    });
+
+    it('throws NotFoundException for an unknown user', async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.updateSubscription('missing-user', 'paid'),
+      ).rejects.toThrow(NotFoundException);
+      expect(mockSubscriptionCache.invalidate).not.toHaveBeenCalled();
+    });
+  });
+
   describe('resetPassword (DoD Constraints)', () => {
     it('should throw a 400 BadRequestException if the reset token has expired', async () => {
       const anHourAgo = new Date();
@@ -491,12 +560,41 @@ describe('UsersService', () => {
 
   describe('updateProfile (GOA-016)', () => {
     const userId = 'user-uuid-123';
-    const dto = { degreeLevel: 'MSc' };
-    const mockProfile = { userId, degreeLevel: 'BSc' };
+    // GOA-029: Stage-2 scoring already had work/extracurriculars; IELTS
+    // sub-scores must persist and ride UserUpdated so RAG's local snapshot
+    // (and the profile form after refresh) can round-trip them. Matching still
+    // gates on overall ieltsScore only.
+    const dto = {
+      degreeLevel: 'MSc',
+      ieltsScore: 7.0,
+      ieltsListening: 7.5,
+      ieltsReading: 7.0,
+      ieltsWriting: 6.5,
+      ieltsSpeaking: 7.0,
+      targetFieldOfStudy: 'Software Engineering',
+    };
+    const mockProfile = {
+      userId,
+      degreeLevel: 'BSc',
+      ieltsScore: null as number | null,
+      ieltsListening: null as number | null,
+      ieltsReading: null as number | null,
+      ieltsWriting: null as number | null,
+      ieltsSpeaking: null as number | null,
+    };
     const mockUser = {
       id: userId,
       email: 'user@example.com',
       subscriptionTier: 'free' as const,
+      // publishUserUpdatedEvent re-reads the user with its profile relation and
+      // builds the event payload from it, so the academic fields it forwards to
+      // RAG only appear here. Include the post-save sub-scores so the SNS
+      // assertion exercises the real publisher path.
+      profile: {
+        ...mockProfile,
+        ...dto,
+        fieldOfStudy: 'Computer Science',
+      },
     };
 
     it('should save the profile and return it successfully', async () => {
@@ -508,8 +606,25 @@ describe('UsersService', () => {
 
       const result = await service.updateProfile(userId, dto);
 
-      expect(result).toMatchObject({ userId, degreeLevel: 'MSc' });
+      expect(result).toMatchObject({
+        userId,
+        degreeLevel: 'MSc',
+        ieltsScore: 7.0,
+        ieltsListening: 7.5,
+        ieltsReading: 7.0,
+        ieltsWriting: 6.5,
+        ieltsSpeaking: 7.0,
+      });
       expect(mockProfileRepository.save).toHaveBeenCalledTimes(1);
+      expect(mockProfileRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ieltsScore: 7.0,
+          ieltsListening: 7.5,
+          ieltsReading: 7.0,
+          ieltsWriting: 6.5,
+          ieltsSpeaking: 7.0,
+        }),
+      );
     });
 
     it('should publish UserUpdated to SNS after a successful profile save', async () => {
@@ -545,6 +660,16 @@ describe('UsersService', () => {
           userId,
           email: mockUser.email,
           subscriptionTier: mockUser.subscriptionTier,
+          // RAG's discipline pre-filter reads this and nothing else supplies it;
+          // when it was missing from the payload the filter was dead for every
+          // replicated user.
+          fieldOfStudy: 'Computer Science',
+          targetFieldOfStudy: 'Software Engineering',
+          ieltsScore: 7.0,
+          ieltsListening: 7.5,
+          ieltsReading: 7.0,
+          ieltsWriting: 6.5,
+          ieltsSpeaking: 7.0,
         },
       });
       // correlationId must be a valid UUID v4

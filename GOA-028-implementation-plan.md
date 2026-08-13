@@ -1,6 +1,6 @@
 # GOA-028 — Implementation Plan: LLM-as-a-Judge evaluation pipeline
 
-**Ticket:** [GOA-028](GOA_Sprint_3_Tickets.md#goa-028--llm-as-a-judge-evaluation-pipeline--writing-and-speaking-accuracy-scoring) · P1 · 3 pts · QA · **Pattern: NEW**
+**Ticket:** GOA-028 · P1 · 3 pts · QA · **Pattern: NEW**
 **Depends on:** GOA-013 (speaking swarm) · GOA-014 (writing swarm) · GOA-020 (eval suite skeleton — *exists*) · GOA-130 (budget telemetry)
 
 > **This is the Gold Tier requirement.** It is the ticket that turns "our agents grade essays" into "our agents grade essays and here is the measured accuracy against IELTS descriptors." Treat the number it produces as something you will defend in a viva.
@@ -253,4 +253,33 @@ python evals/runner.py --domains writing --compare-with evals/reports/<previous>
 
 Then open the HTML report and read three per-item rows against the essays. **If a reason does not quote descriptor language, the judge prompt is not doing its job** — no accuracy percentage compensates for that.
 
-> The number this pipeline produces is the one you will put in GOA-040 and defend in a viva. Two honest questions to answer in writing before you publish it: the judge and the evaluated agent are currently **the same model** (`claude-opus-4-8`) — judging with `gpt-5.5` instead costs little and removes the self-referential caveat; and 20 items per domain is a **small** sample, so state the figure with its n and avoid implying a precision it cannot carry.
+> The number this pipeline produces is the one you will put in GOA-040 and defend in a viva. GOA-136 now defaults the independent judge to `gpt-5.6-sol` and publishes both judge-family arms. The validated writing set is still only n=3, so every headline must retain its n and caveat.
+
+---
+
+# GOA-136 measured-state update — 2026-08-08
+
+GOA-136 re-read the production protocols and ran the real providers rather than
+assuming the original plan still described the services.
+
+- Writing has **3 examiner-validated rows**, not 20. The real PRE run scored 15
+  uncached grader calls (3 essays × 5 repeats): independent-judge accuracy 66.67%,
+  overall MAE 0.5 band, mean per-item population standard deviation 0.2299,
+  maximum spread 0.5, and unanimous rate 0%. The 80% accuracy floor is missed and
+  remains unchanged.
+- The 20 `writing_synthetic_unvalidated` rows are retained as synthetic mechanism
+  data and structurally excluded from headline accuracy.
+- The independent judge is `gpt-5.6-sol`; the graders remain
+  `claude-opus-4-8`. Both judge-family arms are published. PRE verdict delta was
+  zero, while the two judges' assessed bands differed by 0.5 on two of three rows.
+- Speaking accuracy is **not measured**. The production Gateway socket requires a
+  `session_init` message followed by binary PCM audio. The dataset contains only
+  synthetic transcripts, so replaying text would not exercise acoustic Fluency or
+  Pronunciation evidence. The report carries a null accuracy and explicit reason.
+- GOA-138 owns expansion from 3 to 20 examiner-validated writing rows. Until it
+  lands, the HTML and JSON reports force the adjacent caveat
+  `n=3 — not a validation; see band_source`.
+- The completed production report flow ran all 15 consistency calls with no
+  errors: stddev 0.215, max spread 0.5, unanimous rate 0%, and corrected Redis
+  telemetry cost **$7.599402** (64,347 input + 240,444 output tokens). The 5×
+  mode is opt-in because that measured cost is material.

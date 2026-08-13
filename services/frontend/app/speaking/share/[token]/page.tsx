@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { usePublicSession } from "@/app/hooks/usePublicSession";
 import EvaluationBreakdown from "@/components/speaking/evaluation-breakdown";
+import { Wordmark } from "@/components/marketing/wordmark";
 import { extractCriteriaScores, formatSessionDate } from "@/lib/speaking-format";
 
 // Deliberately standalone — no <Sidebar>: this page is public and
@@ -16,14 +17,12 @@ export default function PublicSpeakingSessionPage() {
 
   return (
     <div className="min-h-screen bg-[#fbfbfa] text-gray-900 font-sans">
-      <header className="border-b border-gray-200/80 bg-white px-6 py-4">
-        <Link href="/" className="flex items-center gap-2.5 w-fit">
-          <div className="w-7 h-7 rounded-full bg-[#0d4d3a] flex items-center justify-center text-white font-serif font-bold text-sm">
-            G
-          </div>
-          <span className="font-serif text-lg font-bold tracking-tight text-[#0d4d3a]">
-            goa
-          </span>
+      <header className="border-b border-nav-border bg-nav-surface px-6 py-4">
+        {/* Was a hand-rolled copy of the lockup (a #0d4d3a roundel plus a
+            serif "goa"), which is exactly how branding drifts. It renders the
+            shared component now, at the 28px height this header already used. */}
+        <Link href="/" className="flex items-center gap-2.5 w-fit rounded-chip focus-visible:outline-sand-300">
+          <Wordmark tone="inverse" className="h-7" />
         </Link>
       </header>
 

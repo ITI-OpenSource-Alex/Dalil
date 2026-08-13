@@ -9,6 +9,7 @@ import { ResetToken } from './entities/reset-tokens.entity';
 import { EmailVerification } from './entities/email-verification.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { InternalAuthController } from './internal-auth.controller';
+import { SubscriptionCacheService } from '../common/redis/subscription-cache.service';
 @Module({
   imports: [
     // Register both repositories so they can be injected into the service
@@ -21,7 +22,9 @@ import { InternalAuthController } from './internal-auth.controller';
     ]),
   ],
   controllers: [UsersController, InternalAuthController, AuthController],
-  providers: [UsersService],
-  exports: [UsersService], // Export if other modules need to find users
+  providers: [UsersService, SubscriptionCacheService],
+  // BillingModule consumes UsersService so that subscriptionTier keeps a
+  // single writer (GOA-039).
+  exports: [UsersService],
 })
 export class UsersModule {}

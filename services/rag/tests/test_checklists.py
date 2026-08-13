@@ -10,6 +10,7 @@ from app.schemas.scoring import ProgramRequirements
 from app.services import checklist_repo, checklist_service
 from app.services.checklist_generator import (
     _normalize_items,
+    build_requirement_checklist,
     fallback_checklist,
     generate_checklist,
 )
@@ -120,34 +121,31 @@ def _wire_existing_checklist(monkeypatch, checklist_id="33333333-3333-3333-3333-
         ),
     )
     monkeypatch.setattr(
-        checklist_repo, "get_item_states", AsyncMock(return_value={"ielts_retake": True})
+        checklist_repo, "get_item_states", AsyncMock(return_value={"valid_passport": True})
     )
-    generate_mock = AsyncMock()
-    monkeypatch.setattr(checklist_service, "generate_checklist", generate_mock)
+    monkeypatch.setattr(checklist_service, "get_local_user_profile", AsyncMock(return_value=None))
+    monkeypatch.setattr(checklist_service, "get_visa_requirements_for_country", AsyncMock(return_value=[]))
+    replace_mock = AsyncMock(side_effect=lambda checklist_id, items, generated_by: {
+        "id": checklist_id, "program_id": PROGRAM_ID, "items": items, "generated_by": generated_by
+    })
+    monkeypatch.setattr(checklist_repo, "replace_checklist_items", replace_mock)
     create_mock = AsyncMock()
     monkeypatch.setattr(checklist_repo, "create_checklist", create_mock)
-    return generate_mock, create_mock
+    return replace_mock, create_mock
 
 
-def test_get_checklist_existing_does_not_regenerate(monkeypatch):
-    generate_mock, create_mock = _wire_existing_checklist(monkeypatch)
+def test_get_checklist_existing_refreshes_facts_and_preserves_stable_state(monkeypatch):
+    replace_mock, create_mock = _wire_existing_checklist(monkeypatch)
 
     response = client.get(f"/checklists/{PROGRAM_ID}", headers={"X-User-ID": USER_ID})
 
     assert response.status_code == 200
     data = response.json()
     assert data["checklistId"] == "33333333-3333-3333-3333-333333333333"
-    assert data["generatedBy"] == "llm"
-    assert data["items"] == [
-        {
-            "itemId": "ielts_retake",
-            "title": "Retake IELTS",
-            "description": "Score is below the program minimum.",
-            "category": "language",
-            "checked": True,
-        }
-    ]
-    generate_mock.assert_not_awaited()
+    assert data["generatedBy"] == "requirements"
+    assert data["items"][0]["itemId"] == "valid_passport"
+    assert data["items"][0]["checked"] is True
+    replace_mock.assert_awaited_once()
     create_mock.assert_not_awaited()
 
 
@@ -159,16 +157,11 @@ def test_get_checklist_generates_and_persists_when_absent(monkeypatch):
     monkeypatch.setattr(
         checklist_service, "get_local_user_profile", AsyncMock(return_value=None)
     )
-    generate_mock = AsyncMock(return_value=([_stub_item()], "llm"))
-    monkeypatch.setattr(checklist_service, "generate_checklist", generate_mock)
-    create_mock = AsyncMock(
-        return_value={
-            "id": "44444444-4444-4444-4444-444444444444",
-            "program_id": PROGRAM_ID,
-            "items": [_stub_item()],
-            "generated_by": "llm",
-        }
-    )
+    monkeypatch.setattr(checklist_service, "get_visa_requirements_for_country", AsyncMock(return_value=[]))
+    create_mock = AsyncMock(side_effect=lambda **kwargs: {
+        "id": "44444444-4444-4444-4444-444444444444", "program_id": PROGRAM_ID,
+        "items": kwargs["items"], "generated_by": kwargs["generated_by"]
+    })
     monkeypatch.setattr(checklist_repo, "create_checklist", create_mock)
     monkeypatch.setattr(checklist_repo, "get_item_states", AsyncMock(return_value={}))
 
@@ -178,12 +171,12 @@ def test_get_checklist_generates_and_persists_when_absent(monkeypatch):
     data = response.json()
     assert data["checklistId"] == "44444444-4444-4444-4444-444444444444"
     assert data["items"][0]["checked"] is False
-    generate_mock.assert_awaited_once()
     create_mock.assert_awaited_once()
-    assert create_mock.call_args.kwargs["generated_by"] == "llm"
+    assert create_mock.call_args.kwargs["generated_by"] == "requirements"
+    assert data["items"][0]["itemId"] == "valid_passport"
 
 
-def test_get_checklist_uses_fallback_when_no_profile(monkeypatch):
+def test_get_checklist_without_profile_still_uses_program_requirements(monkeypatch):
     """No local_user_profiles row must not block generation -- it's a valid state
     for a user who hasn't synced a profile yet, not an error."""
     monkeypatch.setattr(
@@ -193,8 +186,7 @@ def test_get_checklist_uses_fallback_when_no_profile(monkeypatch):
     monkeypatch.setattr(
         checklist_service, "get_local_user_profile", AsyncMock(return_value=None)
     )
-    generate_mock = AsyncMock(return_value=([_stub_item()], "fallback"))
-    monkeypatch.setattr(checklist_service, "generate_checklist", generate_mock)
+    monkeypatch.setattr(checklist_service, "get_visa_requirements_for_country", AsyncMock(return_value=[]))
     monkeypatch.setattr(
         checklist_repo,
         "create_checklist",
@@ -202,8 +194,8 @@ def test_get_checklist_uses_fallback_when_no_profile(monkeypatch):
             return_value={
                 "id": "55555555-5555-5555-5555-555555555555",
                 "program_id": PROGRAM_ID,
-                "items": [_stub_item()],
-                "generated_by": "fallback",
+                "items": [{"item_id": "valid_passport", "title": "Valid passport", "description": None, "category": "documents"}],
+                "generated_by": "requirements",
             }
         ),
     )
@@ -212,9 +204,7 @@ def test_get_checklist_uses_fallback_when_no_profile(monkeypatch):
     response = client.get(f"/checklists/{PROGRAM_ID}", headers={"X-User-ID": USER_ID})
 
     assert response.status_code == 200
-    # Called with an empty gap report (profile absent) rather than raising.
-    generate_mock.assert_awaited_once()
-    assert generate_mock.call_args.args[-1] == {} or generate_mock.call_args.kwargs.get("gap_report") == {}
+    assert response.json()["generatedBy"] == "requirements"
 
 
 # ---------------------------------------------------------------------------
@@ -314,6 +304,16 @@ def test_fallback_checklist_is_non_empty_and_normalized():
     assert len(items) >= 5
     ids = [i["item_id"] for i in items]
     assert len(ids) == len(set(ids))
+
+
+def test_requirement_checklist_contains_program_papers_profile_gaps_and_visa():
+    items = build_requirement_checklist(
+        PROGRAM,
+        {"ielts": {"message": "IELTS 6.0 is below required 6.5."}},
+        [{"visa_type": "Student visa", "issuing_body": "Embassy", "requirements": {"photo": True}, "source_url": "https://example.test/visa"}],
+    )
+    ids = {item["item_id"] for item in items}
+    assert {"academic_transcripts", "degree_certificate", "ielts_certificate", "gap_ielts", "visa_documents_1"} <= ids
 
 
 def _mock_chat_anthropic(monkeypatch, ainvoke_result=None, ainvoke_side_effect=None):

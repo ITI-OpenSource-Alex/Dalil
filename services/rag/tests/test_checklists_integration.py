@@ -175,7 +175,8 @@ def test_get_checklist_persists_and_is_reused_across_requests(live_client, mock_
         assert first.status_code == 200
         assert second.status_code == 200
         assert first.json()["checklistId"] == second.json()["checklistId"]
-        assert mock_llm.call_count == 1  # the second GET must not regenerate
+        assert mock_llm.call_count == 0  # structured requirements, never model memory
+        assert first.json()["generatedBy"] == "requirements"
 
         rows = _run(_fetch_checklists(user_id))
         assert len(rows) == 1
@@ -230,7 +231,7 @@ def test_put_toggles_checked_state_and_persists(live_client, mock_llm):
         get_resp = live_client.get(f"/checklists/{SEED_PROGRAM_ID}", headers={"X-User-ID": user_id})
         items = {item["itemId"]: item["checked"] for item in get_resp.json()["items"]}
         assert items["valid_passport"] is True
-        assert items["ielts_retake"] is False
+        assert items["ielts_certificate"] is False
 
         unchecked_resp = live_client.put(
             f"/checklists/{SEED_PROGRAM_ID}/items/valid_passport",

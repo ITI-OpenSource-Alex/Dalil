@@ -23,6 +23,8 @@ type GatewayServer struct {
 	App             *fiber.App
 	redisClient     *redis.Client
 	shutdownTimeout time.Duration
+	costMonitor     *handlers.CostMonitor
+	stopCostMonitor context.CancelFunc
 }
 
 func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error) {
@@ -61,6 +63,15 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	notificationHandler := handlers.NewNotificationHandler(httpClient, cfg.NotificationServiceURL, cfg.InternalApiKey)
 	checklistHandler := handlers.NewChecklistHandler(httpClient, cfg.RAGServiceURL)
 	profileHandler := handlers.NewProfileHandler(httpClient, cfg.UserServiceURL, cfg.InternalApiKey)
+	// GOA-039. The CORS allow-list doubles as the allow-list for billing return
+	// URLs -- both answer the same question ("is this one of our front ends?"),
+	// and a second list would drift from the first.
+	billingHandler := handlers.NewBillingHandler(
+		httpClient,
+		cfg.UserServiceURL,
+		cfg.InternalApiKey,
+		cfg.CORSAllowedOrigins,
+	)
 	examOwnership := middleware.NewExamSessionOwnership(
 		redisClient,
 		httpClient,
@@ -130,6 +141,8 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	app.Use(middleware.RequestLogger(logger, metrics))
 	app.Get("/health", handlers.Health(startTime, cfg.Version))
 	app.Get("/metrics", handlers.Metrics())
+	internalDemo := app.Group("/internal/demo", middleware.InternalKey(cfg.InternalApiKey))
+	internalDemo.Post("/users/:userId/quotas/reset", handlers.DemoResetAIQuotas(redisClient))
 
 	// Public auth endpoints
 	app.Post("/users", authHandler.Register)
@@ -139,8 +152,12 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	app.Post("/auth/reset-password", authHandler.ResetPassword)
 	app.Get("/auth/verify-email/:token", authHandler.VerifyEmail)
 
+	// Logout takes OptionalJWT deliberately -- see that middleware's doc comment.
+	// Behind the mandatory JWT check, an expired or already-blacklisted token
+	// meant the handler never ran and the auth cookies were never cleared, so
+	// the Log out button left the user logged in.
+	app.Post("/auth/logout", middleware.OptionalJWT(cfg.JWTSecret), authHandler.Logout)
 	// Protected auth endpoints (gated by JWT middleware containing the Redis blacklist check)
-	app.Post("/auth/logout", middleware.JWT(cfg.JWTSecret, redisClient, metrics), authHandler.Logout)
 	app.Post("/auth/logout-all", middleware.JWT(cfg.JWTSecret, redisClient, metrics), authHandler.LogoutAll)
 
 	app.Delete("/users/:id/account", middleware.JWT(cfg.JWTSecret, redisClient, metrics), authHandler.DeleteAccount)
@@ -160,6 +177,15 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 		return c.JSON(fiber.Map{"status": "ok"})
 	})
 
+	// GOA-039 demo billing. Deliberately NOT behind RequirePaid: a paywall on
+	// the routes that sell and manage the paid tier would be a closed loop.
+	// They inherit the /api chain above -- JWT, the 60/min limiter and
+	// subscription resolution -- so every one of them is authenticated, and
+	// the identity always comes from the token rather than the payload.
+	api.Post("/billing/create-checkout", billingHandler.CreateCheckout)
+	api.Post("/billing/demo/confirm", billingHandler.ConfirmPayment)
+	api.Post("/billing/cancel", billingHandler.CancelSubscription)
+
 	admin := app.Group("/admin", middleware.AdminKey(cfg.AdminAPIKey))
 	admin.Get("/costs", handlers.AdminCosts(
 		redisClient,
@@ -168,13 +194,36 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 		cfg.CostPromptPer1M,
 		cfg.CostCompletionPer1M,
 	))
+
+	// GOA-046. Same pricing configuration as the endpoint above, evaluated on a
+	// timer so a runaway user is noticed without anyone asking.
+	costMonitor, err := handlers.NewCostMonitor(
+		redisClient,
+		logger,
+		metrics,
+		cfg.LLMPricingJSON,
+		cfg.CostPromptPer1M,
+		cfg.CostCompletionPer1M,
+		cfg.UserDailyCostAlertUSD,
+		cfg.CostMonitorInterval,
+		cfg.BudgetUSD,
+	)
+	if err != nil {
+		return nil, err
+	}
 	// Subscription policy is default-allow: only the Writing, CV and exam prep
 	// routes named as paid features attach RequirePaid. Chat, chat history,
 	// notifications and any future unnamed route remain free unless explicitly
 	// changed. Exam prep moved to the paid side in GOA-059, where the whole
 	// /api/exam group carries the gate rather than each route repeating it.
 	api.Post("/writing/essays/upload", subscriptionMiddleware.RequirePaid, middleware.ValidateEssayTextLength(5000), writingHandler.UploadEssay)
-	api.Post("/writing/cv/upload", subscriptionMiddleware.RequirePaid, writingHandler.UploadCV)
+	// Phase E (docs/IA-REDESIGN-PROPOSAL.md): CV upload moved to the free side of
+	// the gate on purpose, matching the CV Review page's agreed product policy --
+	// a Free user can upload and hold a CV, they just cannot ask for an AI review
+	// of it. Review is the paid step and keeps RequirePaid below. This narrows the
+	// default-allow exception list above, so calling it out explicitly here too.
+	api.Post("/writing/cv/upload", writingHandler.UploadCV)
+	api.Get("/writing/cv/latest", writingHandler.LatestCV)
 	api.Post("/writing/cv/review",
 		subscriptionMiddleware.RequirePaid,
 		middleware.AIRateLimiter(redisClient, "cv_review", cfg.CVReviewsPerHour, time.Hour, logger, metrics),
@@ -233,6 +282,21 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	// same path inside the group. Ownership validation does not apply -- the route
 	// takes no session id and the Exam service scopes the summary to X-User-Id.
 	exam.Get("/progress", examHandler.GetProgress)
+	// The Exam service has exposed GET /users/{id}/exam-history and
+	// GET /users/{id}/weak-areas since the history/progress work landed, but
+	// neither had a gateway route -- finished backend work with no way to
+	// reach it from the browser. Registered alongside /progress (same paid
+	// gate, same "no session id, scoped by X-User-Id" shape) rather than
+	// carved out as free reads: /progress already sits behind RequirePaid for
+	// the same reason, and changing that gating policy for exam history is a
+	// product decision to make deliberately, not a side effect of wiring the
+	// route up.
+	exam.Get("/history", examHandler.GetHistory)
+	exam.Get("/weak-areas", examHandler.GetWeakAreas)
+	// Paid speaking exams have their own socket. The ownership middleware runs
+	// before the upgrade, then the relay injects the validated session id into a
+	// server-only upstream header. Practice /api/speaking/ws remains separate.
+	exam.Get("/speaking/ws", examOwnership.ValidateQuery("exam_session_id"), speakingWSHandler.UpgradeExam, websocket.New(speakingWSHandler.Proxy))
 
 	// TODO(GOA-059): GET /api/exam/audio/:sessionId/:section is not implemented.
 	// It would validate ownership (examOwnership.Validate) and then hand back the
@@ -243,6 +307,11 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	// own -- it holds no S3 credentials, bucket name or audio_s3_key. Blocked on
 	// an Exam service endpoint (owned by the exam team) along the lines of
 	// GET /internal/sessions/{id}/audio/{section}; wire it here once that lands.
+
+	// Reading your own already-submitted essays back is not one of the paid
+	// features named in the policy comment above -- free tier, like chat and
+	// notifications, consistent with that default-allow rule.
+	api.Get("/writing/essays", writingHandler.ListEssays)
 
 	api.Post("/writing/essays/:essayId/evaluate",
 		subscriptionMiddleware.RequirePaid,
@@ -275,6 +344,7 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	api.Post("/opportunities/query",
 		middleware.AIRateLimiter(redisClient, "opportunity_search", cfg.OpportunitySearchesPerHour, time.Hour, logger, metrics),
 		opportunitiesHandler.Query)
+	api.Get("/opportunities/:programId", opportunitiesHandler.Detail)
 
 	// GOA-084: checklist persistence (RAG service). Free-tier, like notifications
 	// above -- not one of the paid features named in the comment above this group.
@@ -286,19 +356,17 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	// GOA-035/BUG-047: the authenticated user's own profile, proxied to the User
 	// service's existing GET /users/:id (no new User-service endpoint needed).
 	api.Get("/profile", profileHandler.GetProfile)
-	app.Post(
-		"/cv/upload",
-		middleware.JWT(cfg.JWTSecret, redisClient, metrics),
-		middleware.RateLimiter(redisClient, 60, metrics),
-		subscriptionMiddleware.ResolveSubscription,
-		subscriptionMiddleware.RequirePaid,
-		writingHandler.UploadCV,
-	)
+	// GOA frontend Phase 3: exposes profiles.controller.ts's existing PUT
+	// :id/profile so the onboarding wizard can persist academic/language/target
+	// data instead of discarding it (BUG onboarding-handleFinish). Routing only --
+	// same proxy shape as GetProfile above, no User-service change.
+	api.Put("/profile", profileHandler.UpdateProfile)
 
 	return &GatewayServer{
 		App:             app,
 		redisClient:     redisClient,
 		shutdownTimeout: cfg.ShutdownTimeout,
+		costMonitor:     costMonitor,
 	}, nil
 }
 func NewServer(cfg Config, logger zerolog.Logger) (*fiber.App, error) {
@@ -309,9 +377,23 @@ func NewServer(cfg Config, logger zerolog.Logger) (*fiber.App, error) {
 	return server.App, nil
 }
 func (s *GatewayServer) Listen(addr string) error {
+	// The monitor is started here rather than in the constructor so that tests
+	// and tooling can build a server without spawning a goroutine that outlives
+	// them. Anything that actually serves traffic also wants the budget watched.
+	if s.costMonitor != nil && s.stopCostMonitor == nil {
+		ctx, cancel := context.WithCancel(context.Background())
+		s.stopCostMonitor = cancel
+		go s.costMonitor.Run(ctx)
+	}
+
 	return s.App.Listen(addr)
 }
 func (s *GatewayServer) Shutdown() error {
+	if s.stopCostMonitor != nil {
+		s.stopCostMonitor()
+		s.stopCostMonitor = nil
+	}
+
 	var shutdownErr error
 	if err := s.App.ShutdownWithTimeout(s.shutdownTimeout); err != nil {
 		shutdownErr = err
@@ -323,4 +405,3 @@ func (s *GatewayServer) Shutdown() error {
 	}
 	return shutdownErr
 }
-

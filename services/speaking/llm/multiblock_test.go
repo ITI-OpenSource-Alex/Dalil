@@ -31,7 +31,7 @@ func sseServer(t *testing.T, blocks []map[string]any, stopReason string) *httpte
 			"type": "message_start",
 			"message": map[string]any{
 				"id": "msg_test", "type": "message", "role": "assistant",
-				"model": "claude-opus-4-8", "content": []any{},
+				"model": "claude-opus-5", "content": []any{},
 				"stop_reason": nil, "stop_sequence": nil,
 				// Zero usage on purpose: telemetry.RecordLLMCost short-circuits
 				// when both counts are zero, so these tests never touch Redis.
@@ -121,7 +121,7 @@ func TestStreamCompletion_RecoversTextAfterNonTextBlock(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			srv := sseServer(t, tt.blocks, "end_turn")
-			client := NewClient("claude-opus-4-8", "test-key", srv.URL)
+			client := NewClient("claude-opus-5", "test-key", srv.URL)
 
 			res, err := client.StreamCompletion(context.Background(), "system", "user")
 			if err != nil {
@@ -156,7 +156,7 @@ func TestStreamCompletion_EmptyBodyIsAnErrorNotACompletion(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			srv := sseServer(t, tt.blocks, tt.stop)
-			client := NewClient("claude-opus-4-8", "test-key", srv.URL)
+			client := NewClient("claude-opus-5", "test-key", srv.URL)
 
 			res, err := client.StreamCompletion(context.Background(), "system", "user")
 			if err == nil {

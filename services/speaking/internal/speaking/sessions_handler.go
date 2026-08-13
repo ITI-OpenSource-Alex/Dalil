@@ -14,9 +14,9 @@ import (
 
 // sessionSummaryResponse is the JSON shape returned by GET /sessions.
 type sessionSummaryResponse struct {
-	ID             string    `json:"id"`
-	QuestionPrompt string    `json:"question_prompt"`
-	QuestionType   string    `json:"question_type"`
+	ID             string `json:"id"`
+	QuestionPrompt string `json:"question_prompt"`
+	QuestionType   string `json:"question_type"`
 	// Null when fewer than 3 criteria completed, so a client can render "not
 	// scored" rather than a fabricated 0.0 (GOA-032, BUG-040).
 	OverallBand *float64  `json:"overall_band"`
@@ -35,6 +35,13 @@ type sessionDetailResponse struct {
 	Evaluation     json.RawMessage `json:"evaluation"`
 	OverallBand    *float64        `json:"overall_band"`
 	CreatedAt      time.Time       `json:"created_at"`
+
+	// Explanation is the stored renderable projection, omitted entirely for a
+	// session that predates SPEAK-EVAL-008. Absent rather than an empty object,
+	// so a client can distinguish "no explanation was recorded" from "the
+	// explanation was empty".
+	Explanation     json.RawMessage  `json:"explanation,omitempty"`
+	ExplanationMeta *explanationMeta `json:"explanation_meta,omitempty"`
 }
 
 func toSummaryResponses(sessions []*db.SpeakingSessionSummary) []sessionSummaryResponse {
@@ -51,8 +58,8 @@ func toSummaryResponses(sessions []*db.SpeakingSessionSummary) []sessionSummaryR
 	return out
 }
 
-func toDetailResponse(s *db.SpeakingSession) sessionDetailResponse {
-	return sessionDetailResponse{
+func toDetailResponse(s *db.SpeakingSession, e *db.SpeakingExplanation) sessionDetailResponse {
+	out := sessionDetailResponse{
 		ID:             s.ID,
 		QuestionPrompt: s.QuestionPrompt,
 		QuestionType:   s.QuestionType,
@@ -61,6 +68,38 @@ func toDetailResponse(s *db.SpeakingSession) sessionDetailResponse {
 		OverallBand:    s.OverallBand,
 		CreatedAt:      s.CreatedAt,
 	}
+
+	// SPEAK-EVAL-008: the stored explanation, served verbatim.
+	//
+	// Read, never rebuilt. A session predating the table has no explanation and
+	// the field is simply absent -- history renders the score alone rather than
+	// generating a justification after the fact for a band the student was given
+	// months ago.
+	if e != nil {
+		out.Explanation = e.Renderable
+		out.ExplanationMeta = &explanationMeta{
+			RubricID:      e.RubricID,
+			RubricVersion: e.RubricVersion,
+			ScorerVersion: e.ScorerVersion,
+			LLMModel:      e.LLMModel,
+			ClaimCount:    e.ClaimCount,
+			// Surfaced so a client can say "2 observations could not be
+			// verified" rather than silently showing fewer.
+			WithheldCount: e.WithheldCount,
+		}
+	}
+	return out
+}
+
+// explanationMeta is the provenance of the explanation, not of the score. Two
+// explanations for the same band are only comparable if these match.
+type explanationMeta struct {
+	RubricID      string `json:"rubric_id"`
+	RubricVersion string `json:"rubric_version"`
+	ScorerVersion string `json:"scorer_version"`
+	LLMModel      string `json:"llm_model,omitempty"`
+	ClaimCount    int    `json:"claim_count"`
+	WithheldCount int    `json:"withheld_count"`
 }
 
 // validSessionID reports whether a path-supplied session id is a well-formed
@@ -144,7 +183,16 @@ func HandleGetSession(w http.ResponseWriter, r *http.Request, dbRepo db.Reposito
 		return
 	}
 
-	writeJSON(w, http.StatusOK, toDetailResponse(session))
+	// A failed explanation lookup must not fail the session. The score and
+	// transcript are still worth showing; the explanation is additional.
+	explanation, expErr := dbRepo.GetExplanation(r.Context(), id)
+	if expErr != nil {
+		log.Error().Err(expErr).Str("session_id", id).
+			Msg("Could not load explanation; serving the session without it")
+		explanation = nil
+	}
+
+	writeJSON(w, http.StatusOK, toDetailResponse(session, explanation))
 }
 
 // HandleCreateShareLink handles POST /sessions/{id}/share — mints (or, if
@@ -194,5 +242,16 @@ func HandleGetPublicSession(w http.ResponseWriter, r *http.Request, dbRepo db.Re
 		return
 	}
 
-	writeJSON(w, http.StatusOK, toDetailResponse(session))
+	// A shared link carries the explanation too. The person following it sees
+	// exactly what the owner saw, including the count of anything withheld --
+	// a share that quietly showed more or less than the original would make the
+	// two disagree about the same session.
+	explanation, expErr := dbRepo.GetExplanation(r.Context(), session.ID)
+	if expErr != nil {
+		log.Error().Err(expErr).Str("session_id", session.ID).
+			Msg("Could not load explanation for shared session; serving without it")
+		explanation = nil
+	}
+
+	writeJSON(w, http.StatusOK, toDetailResponse(session, explanation))
 }

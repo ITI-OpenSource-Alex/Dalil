@@ -4,20 +4,30 @@ import structlog
 from fastapi import HTTPException
 from langfuse import get_client, observe
 from app.core.database import db
+from app.core.config import settings
 from app.core.redis import redis_client
 from app.schemas.scoring import UserProfile, ProgramRequirements
 from app.clients.writing_client import get_user_cv
 from app.services.gates import check_hard_gates
-from app.services.soft_score import compute_soft_score
+from app.services.soft_score import (
+    compute_score_breakdown,
+    discipline_for_field_of_study,
+    requirement_summary,
+    subject_relevance,
+)
 from app.services.llm_boost import get_llm_boost
 from app.services.gap_report import generate_gap_report
 from app.services.visa_finance import get_student_visa_finance
+from app.services.visa_service import get_visa_requirements_for_country
 from app.core.metrics import SCORING_PIPELINE_LATENCY, LLM_BOOST_VALUE
 
 
 logger = structlog.get_logger("rag_service.scoring")
 # 1 Hour Cache TTL
 CACHE_TTL = 3600
+# Bump when response semantics change so deployments never serve an hour of
+# pre-change percentages or omit newly added programme detail fields.
+CACHE_SCHEMA_VERSION = "fit-v10-subject-dominant-calibration"
 
 # Safety cap on how many programs one /match request will score after filtering.
 # The catalog is ~20,000 in-scope European Engineering/CS programs; country and
@@ -25,28 +35,9 @@ CACHE_TTL = 3600
 # countries, no field of study) would otherwise score the whole table.
 MATCH_CANDIDATE_CAP = 500
 
-# How many ranked results /match returns. E2E RAG-05 specifies a top-10 list; before
-# this there was no LIMIT at all and /match returned every program in the table.
-MATCH_RESULT_LIMIT = 10
-
-# Free-text field_of_study -> canonical discipline slug (migration 022). Substring
-# match, first hit wins; an unrecognised field of study disables discipline filtering
-# rather than silently matching nothing.
-_FIELD_OF_STUDY_TO_DISCIPLINE = (
-    ("computer_science", ("computer", "software", "informat", " it", "data scien", "artificial intelligence", "cyber")),
-    ("engineering", ("engineer", "mechatron", "robotic")),
-)
-
-
-def discipline_for_field_of_study(field_of_study: str | None) -> str | None:
-    """Map a profile's free-text field of study onto a discipline slug, or None."""
-    if not field_of_study or not field_of_study.strip():
-        return None
-    text = f" {field_of_study.strip().lower()} "
-    for slug, needles in _FIELD_OF_STUDY_TO_DISCIPLINE:
-        if any(n in text for n in needles):
-            return slug
-    return None
+# How many ranked results /match returns. The scraped catalogue is large enough to
+# support exploration; the previous top-10 cap made hundreds of records invisible.
+MATCH_RESULT_LIMIT = 50
 
 
 def score_profile_against_program(
@@ -61,9 +52,14 @@ def score_profile_against_program(
     candidate set in memory instead of issuing two queries per program.
     """
     gate_result = check_hard_gates(profile, program)
+    score_breakdown = compute_score_breakdown(profile, program)
+    requirements_evaluated, requirements_met = requirement_summary(profile, program)
     if not gate_result.passed:
         return {
-            "score": 0.0,
+            "score": score_breakdown["total"],
+            "requirements_evaluated": requirements_evaluated,
+            "requirements_met": requirements_met,
+            "score_breakdown": score_breakdown,
             "blocked_by": gate_result.gateType,
             "gap_report": {gate_result.gateType: gate_result.reason},
         }
@@ -73,7 +69,10 @@ def score_profile_against_program(
         gap_report["financial"] = finance_items
 
     return {
-        "score": compute_soft_score(profile, program),
+        "score": score_breakdown["total"],
+        "requirements_evaluated": requirements_evaluated,
+        "requirements_met": requirements_met,
+        "score_breakdown": score_breakdown,
         "blocked_by": None,
         "gap_report": gap_report,
     }
@@ -84,7 +83,8 @@ async def get_local_user_profile(user_id: str) -> dict | None:
         row = await conn.fetchrow(
             """
             SELECT user_id, ects, gpa, gpa_scale, ielts_score, degree_level, 
-                   work_exp, extracurriculars, target_countries, field_of_study
+                   work_exp, extracurriculars, target_countries, field_of_study,
+                   target_field_of_study
             FROM local_user_profiles
             WHERE user_id = $1
         """,
@@ -111,6 +111,8 @@ async def get_local_user_profile(user_id: str) -> dict | None:
             # Drives /match discipline pre-filtering. Was hardcoded None, so the
             # filter could never activate no matter what the user had set.
             "fieldOfStudy": row["field_of_study"],
+            "targetFieldOfStudy": row.get("target_field_of_study")
+            or row["field_of_study"],
         }
 
 
@@ -119,7 +121,8 @@ async def get_program_requirements(program_id: str) -> ProgramRequirements | Non
     async with db.pool.acquire() as conn:
         row = await conn.fetchrow(
             """
-            SELECT id, country, min_ects, degree_level, required_citizenship, min_ielts, min_gpa, min_work_experience
+            SELECT id, program_name, country, discipline, min_ects, degree_level,
+                   required_citizenship, min_ielts, min_gpa, min_work_experience
             FROM program_requirements
             WHERE id = $1
         """,
@@ -131,7 +134,9 @@ async def get_program_requirements(program_id: str) -> ProgramRequirements | Non
 
         return ProgramRequirements(
             id=str(row["id"]),
+            name=row["program_name"],
             country=row["country"],
+            discipline=row["discipline"],
             min_ects=row["min_ects"],
             degree_level=row["degree_level"],
             required_citizenship=row["required_citizenship"],
@@ -142,11 +147,15 @@ async def get_program_requirements(program_id: str) -> ProgramRequirements | Non
 
 
 @observe(as_type="span", name="GOA-012-scoring-pipeline")
-async def calculate_score(user_id: str, program_id: str, apply_llm_boost: bool = True) -> dict:
+async def calculate_score(
+    user_id: str, program_id: str, apply_llm_boost: bool = True
+) -> dict:
     start_time = time.time()
 
     # CACHE-FIRST PRECEDENCE
-    cache_key = f"score:{user_id}:{program_id}:boost_{apply_llm_boost}"
+    cache_key = (
+        f"score:{user_id}:{program_id}:boost_{apply_llm_boost}:{CACHE_SCHEMA_VERSION}"
+    )
     if redis_client.redis:
         cached_result = await redis_client.redis.get(cache_key)
         if cached_result:
@@ -169,10 +178,15 @@ async def calculate_score(user_id: str, program_id: str, apply_llm_boost: bool =
 
     # STAGE 1: HARD GATES
     gate_result = check_hard_gates(profile, program)
+    score_breakdown = compute_score_breakdown(profile, program)
+    requirements_evaluated, requirements_met = requirement_summary(profile, program)
 
     if not gate_result.passed:
         final_result = {
-            "score": 0.0,
+            "score": score_breakdown["total"],
+            "requirements_evaluated": requirements_evaluated,
+            "requirements_met": requirements_met,
+            "score_breakdown": score_breakdown,
             "blocked_by": gate_result.gateType,
             "gap_report": {gate_result.gateType: gate_result.reason},
         }
@@ -180,7 +194,7 @@ async def calculate_score(user_id: str, program_id: str, apply_llm_boost: bool =
         boost_value = 0
     else:
         # STAGE 2: SOFT SCORE
-        soft_score = compute_soft_score(profile, program)
+        soft_score = score_breakdown["total"]
 
         # STAGE 3: LLM BOOST
         if apply_llm_boost:
@@ -194,8 +208,9 @@ async def calculate_score(user_id: str, program_id: str, apply_llm_boost: bool =
             boost_value = 0
             llm_feedback = None
 
-        # Calculate Final Score (Clamped strictly to 0-100)
-        final_score = max(0.0, min(100.0, soft_score + boost_value))
+        # CV feedback is explanatory only. It must not rewrite deterministic
+        # admission evidence or preference alignment.
+        final_score = soft_score
 
         # 6. GAP REPORT
         gap_report = generate_gap_report(profile, program)
@@ -204,12 +219,16 @@ async def calculate_score(user_id: str, program_id: str, apply_llm_boost: bool =
 
         if getattr(program, "country", None):
             from app.services.visa_finance import get_student_visa_finance
+
             finance_items = await get_student_visa_finance(program.country)
             if finance_items:
                 gap_report["financial"] = finance_items
 
         final_result = {
             "score": final_score,
+            "requirements_evaluated": requirements_evaluated,
+            "requirements_met": requirements_met,
+            "score_breakdown": score_breakdown,
             "blocked_by": None,
             "gap_report": gap_report,
         }
@@ -264,7 +283,7 @@ async def match_programs(user_id: str) -> list[dict]:
     recognised field of study must still get results, so an absent preference widens
     the search instead of emptying it.
     """
-    cache_key = f"match:{user_id}"
+    cache_key = f"match:{user_id}:{CACHE_SCHEMA_VERSION}"
     if redis_client.redis:
         cached = await redis_client.redis.get(cache_key)
         if cached:
@@ -273,39 +292,53 @@ async def match_programs(user_id: str) -> list[dict]:
 
     user_data = await get_local_user_profile(user_id)
     if not user_data:
-        raise HTTPException(status_code=425, detail="Profile not yet replicated. Please retry.")
+        raise HTTPException(
+            status_code=425, detail="Profile not yet replicated. Please retry."
+        )
     profile = UserProfile(**user_data)
 
     countries = profile.targetCountries or None
-    discipline = discipline_for_field_of_study(profile.fieldOfStudy)
+    target_field = profile.targetFieldOfStudy or profile.fieldOfStudy
+    discipline = discipline_for_field_of_study(target_field)
 
     async with db.pool.acquire() as conn:
         rows = await conn.fetch(
             """
-            SELECT id, program_name, university, country, deadline, discipline,
+            SELECT id, program_name, university, country, deadline, discipline, source_url, last_scraped_at,
                    degree_level, min_ects, min_gpa, min_ielts,
                    required_citizenship, min_work_experience
             FROM program_requirements
             WHERE ($1::text[] IS NULL OR country = ANY($1::text[]))
               AND ($2::text IS NULL OR discipline IS NULL OR discipline = $2::text)
+              AND ($4::boolean OR source_url NOT LIKE 'https://goa.internal/seed/%')
+              AND (deadline IS NULL OR deadline >= CURRENT_DATE)
             ORDER BY (deadline IS NULL), deadline, id
             LIMIT $3
             """,
             countries,
             discipline,
             MATCH_CANDIDATE_CAP,
+            settings.include_demo_programs,
         )
 
         # One finance lookup per distinct country, not per program (GOA-108).
         finance_by_country: dict[str, list[dict]] = {}
+        visa_by_country: dict[str, list[dict]] = {}
         for country in {r["country"] for r in rows if r["country"]}:
-            finance_by_country[country] = await get_student_visa_finance(country, conn=conn)
+            finance_by_country[country] = await get_student_visa_finance(
+                country, conn=conn
+            )
+            visa_by_country[country] = await get_visa_requirements_for_country(
+                country, conn=conn
+            )
 
     results = []
     for r in rows:
         program = ProgramRequirements(
             id=str(r["id"]),
+            name=r["program_name"],
             country=r["country"],
+            discipline=r["discipline"],
             degree_level=r["degree_level"],
             min_ects=r["min_ects"],
             min_gpa=float(r["min_gpa"]) if r["min_gpa"] is not None else None,
@@ -313,21 +346,59 @@ async def match_programs(user_id: str) -> list[dict]:
             required_citizenship=r["required_citizenship"],
             min_work_experience=r["min_work_experience"],
         )
+        relevance = subject_relevance(target_field, program.name)
+        # When the intended subject is classifiable, a zero means the title is
+        # genuinely unrelated. Do not let academic surplus resurrect it as a
+        # 98% "fit" merely because ingestion found it in a broad search bucket.
+        if relevance == 0.0:
+            continue
         result = score_profile_against_program(
             profile, program, finance_by_country.get(r["country"])
         )
         results.append(
             {
                 "programId": str(r["id"]),
-                "programName": r["program_name"] or f"{r['university']} — {r['degree_level']}",
+                "programName": r["program_name"]
+                or f"{r['university']} — {r['degree_level']}",
                 "university": r["university"],
                 "country": r["country"],
                 "deadline": str(r["deadline"]) if r["deadline"] else None,
+                "sourceUrl": r.get("source_url"),
+                "dataSource": "demo"
+                if str(r.get("source_url") or "").startswith(
+                    "https://goa.internal/seed/"
+                )
+                else "scraped",
+                "lastScrapedAt": r.get("last_scraped_at").isoformat()
+                if r.get("last_scraped_at")
+                else None,
+                "discipline": r["discipline"],
+                "visaRequirements": visa_by_country.get(r["country"], []),
+                "requirements": {
+                    "minEcts": r["min_ects"],
+                    "minGpa": float(r["min_gpa"]) if r["min_gpa"] is not None else None,
+                    "minIelts": float(r["min_ielts"])
+                    if r["min_ielts"] is not None
+                    else None,
+                    "degreeLevel": r["degree_level"],
+                    "minWorkExperience": r["min_work_experience"],
+                    "requiredCitizenship": r["required_citizenship"],
+                },
                 "result": result,
             }
         )
 
-    results.sort(key=lambda x: x["result"]["score"], reverse=True)
+    results.sort(
+        key=lambda x: (
+            x["result"].get("blocked_by") is not None,
+            -(x["result"].get("score_breakdown", {}).get("subject_relevance") or 0.0),
+            -x["result"]["score"],
+            -x["result"].get("requirements_evaluated", 0),
+            x["deadline"] is None,
+            x["deadline"] or "9999-12-31",
+            x["programName"].lower(),
+        )
+    )
     ranked = results[:MATCH_RESULT_LIMIT]
 
     logger.info(
@@ -342,3 +413,77 @@ async def match_programs(user_id: str) -> list[dict]:
     if redis_client.redis:
         await redis_client.redis.set(cache_key, json.dumps(ranked), ex=CACHE_TTL)
     return ranked
+
+
+async def get_program_detail(user_id: str, program_id: str) -> dict:
+    """Return one programme's complete structured record and personalised fit."""
+    user_data = await get_local_user_profile(user_id)
+    if not user_data:
+        raise HTTPException(
+            status_code=425, detail="Profile not yet replicated. Please retry."
+        )
+    profile = UserProfile(**user_data)
+
+    async with db.pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            SELECT id, program_name, university, country, deadline, discipline,
+                   source_url, degree_level, min_ects, min_gpa, min_ielts,
+                   required_citizenship, min_work_experience, last_scraped_at,
+                   updated_at
+            FROM program_requirements
+            WHERE id = $1
+            """,
+            program_id,
+        )
+        if not row:
+            raise HTTPException(status_code=404, detail="Program not found")
+        visa = (
+            await get_visa_requirements_for_country(row["country"], conn=conn)
+            if row["country"]
+            else []
+        )
+        finance = (
+            await get_student_visa_finance(row["country"], conn=conn)
+            if row["country"]
+            else []
+        )
+
+    program = ProgramRequirements(
+        id=str(row["id"]),
+        name=row["program_name"],
+        country=row["country"],
+        discipline=row["discipline"],
+        degree_level=row["degree_level"],
+        min_ects=row["min_ects"],
+        min_gpa=float(row["min_gpa"]) if row["min_gpa"] is not None else None,
+        min_ielts=float(row["min_ielts"]) if row["min_ielts"] is not None else None,
+        required_citizenship=row["required_citizenship"],
+        min_work_experience=row["min_work_experience"],
+    )
+    return {
+        "programId": str(row["id"]),
+        "programName": row["program_name"]
+        or f"{row['university']} — {row['degree_level']}",
+        "university": row["university"],
+        "country": row["country"],
+        "deadline": str(row["deadline"]) if row["deadline"] else None,
+        "sourceUrl": row["source_url"],
+        "discipline": row["discipline"],
+        "lastScrapedAt": row["last_scraped_at"].isoformat()
+        if row["last_scraped_at"]
+        else None,
+        "updatedAt": row["updated_at"].isoformat() if row["updated_at"] else None,
+        "visaRequirements": visa,
+        "requirements": {
+            "minEcts": row["min_ects"],
+            "minGpa": float(row["min_gpa"]) if row["min_gpa"] is not None else None,
+            "minIelts": float(row["min_ielts"])
+            if row["min_ielts"] is not None
+            else None,
+            "degreeLevel": row["degree_level"],
+            "minWorkExperience": row["min_work_experience"],
+            "requiredCitizenship": row["required_citizenship"],
+        },
+        "result": score_profile_against_program(profile, program, finance),
+    }

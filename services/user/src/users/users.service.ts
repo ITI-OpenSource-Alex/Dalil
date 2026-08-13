@@ -29,6 +29,7 @@ import * as crypto from 'crypto';
 import { PublishCommand, SNSClient } from '@aws-sdk/client-sns';
 import { SqsService } from '@ssut/nestjs-sqs';
 import { ConfigService } from '@nestjs/config';
+import { SubscriptionCacheService } from '../common/redis/subscription-cache.service';
 
 @Injectable()
 export class UsersService {
@@ -46,6 +47,7 @@ export class UsersService {
     private readonly refreshTokenRepository: Repository<RefreshToken>,
     private readonly sqsService: SqsService,
     private readonly configService: ConfigService,
+    private readonly subscriptionCache: SubscriptionCacheService,
   ) {}
 
   // FIX 1: Async methods must return a Promise wrapper, and we type it cleanly using structural mapping
@@ -161,6 +163,48 @@ export class UsersService {
     }
 
     return { subscriptionTier: user.subscriptionTier };
+  }
+
+  /**
+   * The only write path for a user's subscription tier (GOA-039).
+   *
+   * Called by billing when a payment settles or a subscription is cancelled,
+   * and available to operators through PATCH /users/:id/subscription for a
+   * manual grant. Both go through here so the Gateway's cache is invalidated
+   * in one place — a tier written without that invalidation is a tier the
+   * product does not honour for up to SUBSCRIPTION_CACHE_TTL.
+   *
+   * Idempotent by construction: setting an already-paid user to paid is a
+   * no-op on the row, so a retried or double-submitted upgrade cannot corrupt
+   * the state. The cache is still dropped on a repeat, which costs one Redis
+   * DEL and removes a class of "the write landed but the cache didn't" bug.
+   */
+  async updateSubscription(
+    id: string,
+    tier: 'free' | 'paid',
+  ): Promise<{ subscriptionTier: 'free' | 'paid' }> {
+    const user = await this.userRepository.findOne({ where: { id } });
+
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+
+    user.subscriptionTier = tier;
+    await this.userRepository.save(user);
+
+    await this.subscriptionCache.invalidate(id);
+
+    this.logger.log(`Subscription tier for user ${id} set to ${tier}`);
+    return { subscriptionTier: user.subscriptionTier };
+  }
+
+  /** The whole user row, for callers that need more than the tier. */
+  async findById(id: string): Promise<User> {
+    const user = await this.userRepository.findOne({ where: { id } });
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+    return user;
   }
 
   async updateProfile(id: string, dto: UpdateProfileDto): Promise<UserProfile> {
@@ -324,10 +368,30 @@ export class UsersService {
           gpa: user.profile?.gpa || 0,
           gpaScale: user.profile?.gpaScale || '4.0',
           ieltsScore: user.profile?.ieltsScore || 0,
+          // Null (not 0): 0.0 is a real band, and missing subscores must not
+          // look like the candidate scored zero on every section.
+          ieltsListening: user.profile?.ieltsListening ?? null,
+          ieltsReading: user.profile?.ieltsReading ?? null,
+          ieltsWriting: user.profile?.ieltsWriting ?? null,
+          ieltsSpeaking: user.profile?.ieltsSpeaking ?? null,
           degreeLevel: user.profile?.degreeLevel || 'Bachelor',
           workExperienceYears: user.profile?.workExperienceYears || 0,
           extracurricularsScore: user.profile?.extracurricularsScore || 0,
           targetCountries: user.profile?.targetCountries || [],
+          // RAG pre-filters candidate programmes by discipline, which it derives
+          // from this field (discipline_for_field_of_study in
+          // services/rag/app/services/scoring.py). Omitting it here left
+          // local_user_profiles.field_of_study NULL for every replicated user,
+          // so the filter could never activate outside the seeded demo rows --
+          // matching silently ranked Mechanical Engineering programmes for a
+          // Computer Science applicant. Null, not '', because RAG treats an
+          // absent field of study as "do not filter" and an empty string the
+          // same way only by accident.
+          fieldOfStudy: user.profile?.fieldOfStudy || null,
+          targetFieldOfStudy:
+            user.profile?.targetFieldOfStudy ||
+            user.profile?.fieldOfStudy ||
+            null,
         },
       };
 
@@ -815,10 +879,21 @@ export class UsersService {
       gpa: u.profile?.gpa || 0,
       gpaScale: u.profile?.gpaScale || '4.0',
       ieltsScore: u.profile?.ieltsScore || 0,
+      ieltsListening: u.profile?.ieltsListening ?? null,
+      ieltsReading: u.profile?.ieltsReading ?? null,
+      ieltsWriting: u.profile?.ieltsWriting ?? null,
+      ieltsSpeaking: u.profile?.ieltsSpeaking ?? null,
       degreeLevel: u.profile?.degreeLevel || 'Bachelor',
       workExperienceYears: u.profile?.workExperienceYears || 0,
       extracurricularsScore: u.profile?.extracurricularsScore || 0,
       targetCountries: u.profile?.targetCountries || [],
+      // RAG's backfill funnels this straight into the same upsert the SQS
+      // consumer uses, so leaving it out here reintroduced the NULL
+      // field_of_study that disables discipline pre-filtering -- see
+      // publishUserUpdatedEvent.
+      fieldOfStudy: u.profile?.fieldOfStudy || null,
+      targetFieldOfStudy:
+        u.profile?.targetFieldOfStudy || u.profile?.fieldOfStudy || null,
     }));
     return {
       users: mappedUsers,

@@ -20,6 +20,7 @@ class IntentResult(BaseModel):
     intent: Literal[
         "SPEAKING", "WRITING", "RAG",
         "OPPORTUNITY_SEARCH", "CV_REVIEW", "EXAM_PREP",
+        "GENERAL",
     ]
     confidence: float
     is_fallback: bool = False
@@ -69,6 +70,12 @@ SUPERVISOR_PROMPT = """You are a routing agent. Classify the user message into e
                         OPPORTUNITY_SEARCH - searching for study opportunities, scholarships, admissions (e.g. "Find me a scholarship in Germany")
                         CV_REVIEW - CV upload or improvement request (e.g. "Can you review my CV?")
                         EXAM_PREP - user wants to improve a skill, practice a section, or prepare for IELTS exam (e.g. "improve my reading score", "I want to practice listening", "help me with IELTS preparation")
+                        GENERAL   - greetings, thanks, farewells, small talk, "what can you do?", or anything that does NOT request specific IELTS info, visa/scholarship data, essay scoring, speaking practice, CV review, or exam prep (e.g. "Hi", "Hello", "Thanks", "How are you?", "What can you help me with?", "?")
+
+IMPORTANT: Use GENERAL for any message that is conversational, social, or
+ambiguous. Only use RAG when the user is clearly asking for factual information
+about universities, programmes, IELTS requirements, visa rules, or scholarships.
+When in doubt between GENERAL and RAG, prefer GENERAL.
 
 You are also given the conversation so far. Use it for two things.
 

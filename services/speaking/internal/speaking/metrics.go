@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/agents"
 	"github.com/ITI-OpenSource-Alex/GOA/services/speaking/internal/httpx"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -138,3 +139,65 @@ func StartBackgroundTasks() {
 		}
 	}()
 }
+
+// GOA-133 — population-level sanity checks on the measured speech features.
+//
+// These are the signal that the extraction is sane. A band cannot tell you that
+// words-per-minute is being computed wrong; a p50 WPM of 400 can, immediately.
+var (
+	prosodyWordsPerMinute = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "goa_speaking_words_per_minute",
+		Help:    "Measured speech rate. Natural English speech sits roughly 90-190; a p50 far outside that means the extraction is wrong, not the candidate.",
+		Buckets: []float64{40, 60, 80, 100, 120, 140, 160, 180, 220, 300},
+	})
+
+	prosodyPauseRatio = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "goa_speaking_pause_ratio",
+		Help:    "Fraction of speech duration spent in pauses >=0.3s",
+		Buckets: []float64{0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.7},
+	})
+
+	prosodyMeanWordConfidence = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "goa_speaking_mean_word_confidence",
+		Help:    "Mean per-word recognition confidence, the intelligibility proxy Pronunciation now scores against",
+		Buckets: []float64{0.3, 0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.95, 0.99},
+	})
+
+	// Without this, "no prosody" is indistinguishable from "no sessions": both
+	// leave the histograms above empty.
+	prosodyUnavailableTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "goa_speaking_prosody_unavailable_total",
+		Help: "Sessions where the sidecar returned no usable word timings, so Fluency and Pronunciation were scored without measured features",
+	})
+)
+
+func recordProsodyMetrics(f agents.ProsodyFeatures) {
+	prosodyWordsPerMinute.Observe(f.WordsPerMinute)
+	prosodyPauseRatio.Observe(f.PauseRatio)
+	prosodyMeanWordConfidence.Observe(f.MeanWordConfidence)
+}
+
+// SPEAK-EVAL-002 — audio contract observability.
+var (
+	// Labelled by reason, never by the declared format itself: that string is
+	// client-controlled and would be unbounded Prometheus cardinality.
+	audioFormatRejectedTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "goa_speaking_audio_format_rejected_total",
+		Help: "Sessions refused because the declared audio format was missing, malformed or unsupported",
+	}, []string{"reason"}) // missing | unsupported | malformed | unknown
+
+	// A v1 client sends no audioFormat, so a sustained non-zero rate on the
+	// "missing" label after deploy means stale browser tabs are still connecting.
+	audioEndTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "goa_speaking_audio_end_total",
+		Help: "Explicit end-of-audio frames received, i.e. utterances completed without waiting out the VAD fallback",
+	})
+
+	// The transcription_ratio SLO is skipped rather than recorded as zero when
+	// the duration is unknown. Without this counter that skip is invisible, and
+	// a silent budget is indistinguishable from a passing one.
+	transcriptionDurationUnknownTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "goa_speaking_transcription_duration_unknown_total",
+		Help: "Transcriptions where no audio duration was available, so transcription_ratio could not be computed",
+	})
+)

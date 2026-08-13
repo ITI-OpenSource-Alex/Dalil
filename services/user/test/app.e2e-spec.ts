@@ -444,6 +444,29 @@ describe('User Flow Integration (e2e)', () => {
       );
     }, 20_000);
 
+    it('/users/:id/profile (PUT) - stores a percentage-scale GPA accepted by the DTO', async () => {
+      // Create this test's own user so `jest -t` remains a valid focused
+      // regression command and does not depend on the registration test order.
+      const user = await request(app.getHttpServer())
+        .post('/users')
+        .send({
+          email: `percentage-gpa-${Date.now()}@example.com`,
+          password: 'securePassword123',
+        })
+        .expect(HttpStatus.CREATED);
+      const response = await request(app.getHttpServer())
+        .put(`/users/${user.body.id}/profile`)
+        .set('x-internal-api-key', internalApiKey)
+        .send({ gpa: 75, gpaScale: '100' })
+        .expect(HttpStatus.OK);
+
+      expect(response.body).toMatchObject({
+        userId: user.body.id,
+        gpa: 75,
+        gpaScale: '100',
+      });
+    });
+
     it('/users/:id/profile (PUT) - GOA-016: should return HTTP 200 even when SQS is unreachable (fire-and-forget)', async () => {
       // This test is meaningful regardless of LocalStack availability.
       // The application's SqsModule is already wired; if LocalStack is down

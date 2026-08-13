@@ -23,12 +23,23 @@ class Settings:
     anthropic_base_url: str = ""
     internal_api_key: str = ""
     rag_service_url: str = "http://rag:8084"
-    writing_model: str = "claude-opus-4-8"
-    cv_review_model: str = "claude-opus-4-8"
-    cv_extraction_model: str = "claude-opus-4-8"
+    writing_model: str = "claude-opus-5"
+    cv_review_model: str = "claude-opus-5"
+    cv_extraction_model: str = "claude-opus-5"
+    vision_model: str = "claude-opus-5"
     anthropic_user_agent: str = "Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14"
-    anthropic_timeout_seconds: float = 25.0
-    openai_api_key: str = ""
+    # GOA-030. Was 25.0, which .env.example has warned against since GOA-014:
+    # "Claude Opus via AgentRouter can return extended-thinking blocks; a single
+    # criterion agent regularly needs 40-90s. At 25s every evaluation lost agents
+    # to APITimeoutError." The documented value was 120; the code default never
+    # followed, so any deployment that did not set the variable explicitly ran
+    # with the value the comment exists to prevent.
+    #
+    # Measured on this stack 2026-08-11: a 180-word Task 2 essay evaluated
+    # through the Gateway at 25s returned "1 of 4 writing agents failed:
+    # Request timed out". The essay was fine; the ceiling was not.
+    anthropic_timeout_seconds: float = 120.0
+    writing_agent_max_tokens: int = 16000
     langfuse_public_key: str = ""
     langfuse_secret_key: str = ""
     langfuse_host: str = "https://cloud.langfuse.com"
@@ -51,15 +62,20 @@ def get_settings() -> Settings:
         anthropic_base_url=os.getenv("ANTHROPIC_BASE_URL", ""),
         internal_api_key=os.getenv("INTERNAL_API_KEY", ""),
         rag_service_url=os.getenv("RAG_SERVICE_URL", "http://rag:8084"),
-        writing_model=os.getenv("WRITING_MODEL", "claude-opus-4-8"),
-        cv_review_model=os.getenv("CV_REVIEW_MODEL", "claude-opus-4-8"),
+        writing_model=os.getenv("WRITING_MODEL", "claude-opus-5"),
+        cv_review_model=os.getenv("CV_REVIEW_MODEL", "claude-opus-5"),
         cv_extraction_model=os.getenv(
-            "CV_EXTRACTION_MODEL", "claude-opus-4-8"
+            "CV_EXTRACTION_MODEL", "claude-opus-5"
         ),
+        vision_model=os.getenv("VISION_MODEL", "claude-opus-5"),
+        # Kept in step with the Settings default above -- two defaults for one
+        # value is how the documented 120 and the effective 25 diverged.
         anthropic_timeout_seconds=float(
-            os.getenv("ANTHROPIC_TIMEOUT_SECONDS", "25")
+            os.getenv("ANTHROPIC_TIMEOUT_SECONDS", "120")
         ),
-        openai_api_key=os.getenv("OPENAI_API_KEY", ""),
+        writing_agent_max_tokens=int(
+            os.getenv("WRITING_AGENT_MAX_TOKENS", "16000")
+        ),
         langfuse_public_key=os.getenv("LANGFUSE_PUBLIC_KEY", ""),
         langfuse_secret_key=os.getenv("LANGFUSE_SECRET_KEY", ""),
         langfuse_host=os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com"),

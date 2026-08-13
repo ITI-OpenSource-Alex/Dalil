@@ -89,6 +89,35 @@ func TestAdminCostsRejectsInvalidPricingConfiguration(t *testing.T) {
 	}
 }
 
+func TestAdminCostsUsesConfiguredFallbackForUnknownModel(t *testing.T) {
+	server := miniredis.RunT(t)
+	client := redis.NewClient(&redis.Options{Addr: server.Addr()})
+	t.Cleanup(func() {
+		_ = client.Close()
+	})
+	date := time.Now().UTC().Format(time.DateOnly)
+
+	writeCostFixture(t, server, date, "fallback-user", "rag", "unrecognized-model-id", 2000, 300)
+
+	app := fiber.New()
+	app.Get("/admin/costs", AdminCosts(client, 150, testPricing, 6, 30))
+	response, err := app.Test(httptest.NewRequest("GET", "/admin/costs", nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var body adminCostsResponse
+	if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	if len(body.Users) != 1 {
+		t.Fatalf("expected one fallback-priced user, got %+v", body.Users)
+	}
+	if body.Users[0].TotalCostUSD != 0.021 {
+		t.Fatalf("expected $6/$30 fallback cost 0.021, got %.8f", body.Users[0].TotalCostUSD)
+	}
+}
+
 func writeCostFixture(
 	t *testing.T,
 	server *miniredis.Miniredis,

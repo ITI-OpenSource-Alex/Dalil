@@ -1,0 +1,29 @@
+# SPEAK-EVAL-004. Audio is opt-in, never opt-out.
+#
+# The failure this prevents is an accidental `git add` of a downloaded
+# recording: once restricted audio is in the history, removing it means
+# rewriting the history, and the licence problem has already happened.
+#
+# So every audio extension is ignored by default. An item that is genuinely
+# cleared to live in the repo must be force-added AND declared in
+# manifest.json -- validate.py sweeps this tree and fails on any audio file it
+# does not recognise, which is the half of the guard that catches a file
+# somebody force-added and then forgot to declare.
+*.wav
+*.mp3
+*.m4a
+*.mp4
+*.webm
+*.ogg
+*.flac
+*.opus
+*.aac
+artifacts/
+official/
+sources/
+candidate_text/
+scores/
+variance/
+anchors/
+scores_audio/
+official_candidate/

@@ -1,6 +1,9 @@
 from typing import Any
 from uuid import UUID
+from fastapi import Header
 
+import boto3
+from botocore.config import Config
 from fastapi import APIRouter, Depends
 
 from app.core.database import db
@@ -11,6 +14,7 @@ from app.repositories.result_repository import ResultRepository
 from app.repositories.session_repository import SessionRepository
 from app.schemas import CreateSessionRequest, SubmitAnswersRequest
 from app.services.session_service import SessionService
+from app.services.writing_image_delivery_service import S3WritingImageDeliveryService
 from app.repositories.writing_response_repository import WritingResponseRepository
 from app.services.writing_client import WritingClient
 from app.core.config import settings
@@ -22,13 +26,37 @@ router = APIRouter(
 )
 
 
-def get_session_service() -> SessionService:
+def get_image_delivery_service() -> S3WritingImageDeliveryService:
+    # Sign against the PUBLIC endpoint, not the internal one. SigV4 signs the
+    # Host header, so a URL signed against http://localstack:4566 is invalid the
+    # moment a browser (which cannot resolve that host) requests it -- the
+    # BUG-016 failure. s3_public_endpoint_url is the browser-reachable host;
+    # falls back to the internal endpoint when unset so tests are unaffected.
+    presign_endpoint = settings.s3_public_endpoint_url or settings.aws_endpoint_url
+    s3_client = boto3.client(
+        "s3",
+        region_name=settings.s3_region or settings.aws_region,
+        endpoint_url=presign_endpoint,
+        config=Config(signature_version="s3v4"),
+    )
+    return S3WritingImageDeliveryService(
+        s3_client=s3_client,
+        bucket=settings.writing_image_bucket,
+    )
+
+
+def get_session_service(
+    image_delivery_service: S3WritingImageDeliveryService = Depends(
+        get_image_delivery_service
+    ),
+) -> SessionService:
     return SessionService(
         session_repository=SessionRepository(db.pool),
         question_repository=QuestionRepository(db.pool),
         result_repository=ResultRepository(db.pool),
         writing_response_repository=WritingResponseRepository(db.pool),
         writing_client=WritingClient(base_url=settings.writing_service_url),
+        image_delivery_service=image_delivery_service,
     )
 
 
@@ -69,6 +97,7 @@ async def submit_session(
 @router.get("/{session_id}/result")
 async def get_result(
     session_id: UUID,
+    x_user_id: UUID = Header(),
     service: SessionService = Depends(get_session_service),
 ) -> dict[str, Any]:
-    return await service.get_result(session_id)
+    return await service.get_result(session_id, requester_id=x_user_id)

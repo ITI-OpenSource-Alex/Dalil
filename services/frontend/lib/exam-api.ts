@@ -1,4 +1,6 @@
 import { ExamType, SkillArea } from "@/app/types/exam";
+import { throwForResponse } from "@/lib/subscription";
+import { dedupe } from "@/lib/request-dedupe";
 
 // Exam is reached through the Gateway, not directly on :8085.
 //
@@ -9,6 +11,15 @@ import { ExamType, SkillArea } from "@/app/types/exam";
 // rate limiting and correlation IDs on the way through.
 //
 // credentials: "include" is required: auth rides on HttpOnly cookies.
+//
+// Every non-OK response goes through throwForResponse rather than
+// `throw new Error(await response.text())`. The whole /api/exam group carries
+// the Gateway's paid-tier gate (GOA-059), which answers a free-tier caller
+// with 403 {"error":"subscription_required"} -- so the old line put that raw
+// JSON body on screen when a Free user clicked "Take Exam" on the Reading
+// card. throwForResponse turns it into a SubscriptionRequiredError the UI can
+// answer with the upgrade dialog, and leaves every other failure behaving
+// exactly as before.
 const API_BASE = `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080"}/api/exam`;
 
 const headers = {
@@ -44,6 +55,14 @@ export interface ExamQuestion {
   skill_area: string;
   passage_text?: string | null;
   audio_s3_key?: string | null;
+  // Academic Writing Task 1 stimulus (the chart the candidate describes).
+  // `image_s3_key` is the raw object key; `image_url` is the pre-signed,
+  // browser-reachable URL the exam service mints at session start
+  // (services/exam/app/schemas/question.py, QuestionResponse). Both are null
+  // for every non-visual task — General Training Task 1, Task 2 and every
+  // Reading/Listening/Speaking payload — so this is purely additive.
+  image_s3_key?: string | null;
+  image_url?: string | null;
   questions: Record<string, unknown>[];
 }
 
@@ -71,16 +90,33 @@ export interface ExamResultResponse {
   user_id: string;
   skill_area: string;
   raw_score: number;
-  band_score: number;
+  // GOA-134: nullable. A speaking session where fewer than 3 of 4 criteria
+  // completed carries no band, and the exam service now sends null rather than
+  // a fabricated 0. Rendering must handle it -- `.toFixed()` on null throws.
+  band_score: number | null;
   section_scores: Record<string, unknown>;
   graded_at: string;
   answer_key: Record<string, unknown>;
 }
 
-export type ExamProgress = Partial<Record<
-  "reading" | "listening" | "speaking" | "writing",
-  { date: string; band: number }[]
->>;
+export type ExamHistoryItem = {
+  sessionId: string;
+  skill: string;
+  examType: string;
+  bandScore: number;
+  date: string;
+  duration?: number | null;
+  feedbackSummary?: string | null;
+};
+
+export type WeakAreas = Partial<Record<SkillArea, string>>;
+
+export type ExamProgress = Partial<
+  Record<
+    "reading" | "listening" | "speaking" | "writing",
+    { date: string; band: number }[]
+  >
+>;
 
 // ---------------------------------------------------------------------------
 // Writing exam (GOA-053 backend, surfaced by GOA-058)
@@ -173,25 +209,61 @@ export async function createSession(
   });
 
   if (!response.ok) {
-    throw new Error(await response.text());
+    await throwForResponse(response, "exam");
   }
 
   return response.json();
 }
 
-/** The Gateway derives the user identity from the HttpOnly-cookie JWT. */
+/**
+ * The Gateway derives the user identity from the HttpOnly-cookie JWT.
+ *
+ * Deduped: the Dashboard's IELTS summary and Recommendations widgets both
+ * call this independently and mount at the same time -- see
+ * lib/request-dedupe.ts.
+ */
 export async function getExamProgress(): Promise<ExamProgress> {
-  const response = await fetch(`${API_BASE}/progress`, {
-    ...fetchOptions,
-    headers,
-    cache: "no-store",
+  return dedupe(`GET ${API_BASE}/progress`, async () => {
+    const response = await fetch(`${API_BASE}/progress`, {
+      ...fetchOptions,
+      headers,
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      await throwForResponse(response, "exam");
+    }
+
+    return response.json();
   });
+}
 
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
+export async function getExamHistory(page = 1): Promise<ExamHistoryItem[]> {
+  return dedupe(`GET ${API_BASE}/history?page=${page}`, async () => {
+    const response = await fetch(`${API_BASE}/history?page=${page}`, {
+      ...fetchOptions,
+      headers,
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      await throwForResponse(response, "exam");
+    }
+    return response.json();
+  });
+}
 
-  return response.json();
+export async function getWeakAreas(): Promise<WeakAreas> {
+  return dedupe(`GET ${API_BASE}/weak-areas`, async () => {
+    const response = await fetch(`${API_BASE}/weak-areas`, {
+      ...fetchOptions,
+      headers,
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      await throwForResponse(response, "exam");
+    }
+    return response.json();
+  });
 }
 
 export async function getSession(
@@ -204,7 +276,7 @@ export async function getSession(
   });
 
   if (!response.ok) {
-    throw new Error(await response.text());
+    await throwForResponse(response, "exam");
   }
 
   return response.json();
@@ -224,7 +296,7 @@ export async function submitSession(
   });
 
   if (!response.ok) {
-    throw new Error(await response.text());
+    await throwForResponse(response, "exam");
   }
 
   return response.json();
@@ -264,7 +336,7 @@ export async function submitWritingTask(
   });
 
   if (!response.ok) {
-    throw new Error(await response.text());
+    await throwForResponse(response, "exam");
   }
 
   return response.json();
@@ -287,7 +359,7 @@ export async function getWritingResult(
   });
 
   if (!response.ok) {
-    throw new Error(await response.text());
+    await throwForResponse(response, "exam");
   }
 
   return response.json();
@@ -327,7 +399,7 @@ export async function getResult(
   });
 
   if (!response.ok) {
-    throw new Error(await response.text());
+    await throwForResponse(response, "exam");
   }
 
   return response.json();

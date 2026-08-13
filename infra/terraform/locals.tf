@@ -11,8 +11,36 @@ locals {
     "exam",
     "ingestion",
     "notification",
+    # GOA-030. The IAM, observability and log-group maps are all built from this
+    # list, so a service missing here has no execution role and no log group and
+    # fails at plan time rather than at deploy.
+    "speech",
+    "embeddings",
   ]
 
+  # GOA-030: `speech` and `embeddings` were missing, and their absence is why a
+  # deployed environment could not serve its two most important flows.
+  #
+  # Both exist locally and neither was ever deployed:
+  #
+  #   speech      Speaking calls it for STT and defaults to "http://speech:8086"
+  #               (internal/speaking/config.go). Nothing answered that name in
+  #               AWS, so every transcription failed and the speaking flow
+  #               produced nothing.
+  #   embeddings  RAG embeds every query through an OpenAI-compatible endpoint
+  #               and defaults to the developer's own Ollama on
+  #               host.docker.internal. Unreachable from Fargate, so every
+  #               /query and /match failed at the embedding call.
+  #
+  # `embeddings` runs Ollama serving nomic-embed-text deliberately, rather than
+  # a hosted embedding API. The 3,979 chunks already in the catalogue were
+  # embedded with that exact model at 768 dimensions; a different model produces
+  # vectors that are not comparable to them, so switching providers would
+  # silently turn every similarity score into noise unless the whole corpus were
+  # re-embedded first.
+  #
+  # Neither is behind the ALB. They are internal sidecars reached over Service
+  # Connect by their client alias, exactly like every other in-VPC hop.
   ecs_deployed_service_names = [
     "gateway",
     "user",
@@ -22,6 +50,8 @@ locals {
     "rag",
     "exam",
     "ingestion",
+    "speech",
+    "embeddings",
   ]
 
   lambda_worker_names = [
@@ -41,6 +71,8 @@ locals {
     rag           = 8084
     exam          = 8085
     ingestion     = 0
+    speech        = 8086
+    embeddings    = 11434
   }
 
   service_task_sizes = {
@@ -52,7 +84,25 @@ locals {
     rag           = { cpu = 512, memory = 1024 }
     exam          = { cpu = 256, memory = 512 }
     ingestion     = { cpu = 1024, memory = 2048 }
+    # faster-whisper is CPU-bound and the load test's speaking scenario is
+    # entirely gated on it: slo.go records a transcription ratio of 0.34-0.48 of
+    # audio duration on 2 vCPU locally, worst on SHORT utterances because the
+    # per-call overhead is amortised over less audio.
+    speech = { cpu = 2048, memory = 4096 }
+    # Ollama holds the model in memory. nomic-embed-text is small (274MB of
+    # weights) but the runtime needs headroom, and an OOM here presents as
+    # every RAG query failing rather than as a memory problem.
+    embeddings = { cpu = 1024, memory = 3072 }
   }
+
+  # An explicit override wins; otherwise the in-VPC Ollama sidecar. Ollama
+  # exposes an OpenAI-compatible API under /v1, which is what the RAG and
+  # ingestion clients speak.
+  effective_embedding_base_url = (
+    var.rag_embedding_base_url != ""
+    ? var.rag_embedding_base_url
+    : "http://${local.name_prefix}-embeddings:11434/v1"
+  )
 
   ecs_services = {
     for service in local.ecs_deployed_service_names : service => {
@@ -75,12 +125,33 @@ locals {
         EXAM_SERVICE_URL          = "http://${local.name_prefix}-exam:8085"
         USER_SERVICE_URL          = "http://${local.name_prefix}-user:8081"
         ORCHESTRATION_SERVICE_URL = "http://${local.name_prefix}-orchestration:8083"
-        INGESTION_QUEUE_URL       = module.sqs.queue_urls["ingestion"]
-        SECURE_COOKIES            = "true"
+        # GOA-030. Missing entirely, so the Gateway fell back to its compose
+        # default of http://rag:8084, which resolves to nothing in the VPC.
+        # Every /api/opportunities/* and /api/checklists/* call answered 502
+        # "failed to contact opportunity search" -- with the real cause invisible,
+        # because the handler reports a friendly message and not the dial error.
+        RAG_SERVICE_URL      = "http://${local.name_prefix}-rag:8084"
+        SPEAKING_SERVICE_URL = "http://${local.name_prefix}-speaking:8082"
+        SECURE_COOKIES       = "true"
+        INGESTION_QUEUE_URL  = module.sqs.queue_urls["ingestion"]
         } : service == "user" ? {
         REDIS_HOST            = module.elasticache.primary_endpoint_address
         REDIS_PORT            = tostring(module.elasticache.port)
         USER_EVENTS_TOPIC_ARN = aws_sns_topic.user_events.arn
+        # GOA-030. RDS is signed by an Amazon CA that is not in Node's bundled
+        # trust store, so the service crash-looped on SELF_SIGNED_CERT_IN_CHAIN
+        # and the Gateway answered "no healthy upstream" for every auth route.
+        #
+        # NODE_EXTRA_CA_CERTS rather than the driver's own ssl option, because
+        # DATABASE_URL carries an sslmode parameter: pg-connection-string builds
+        # its TLS config from the URL and OVERRIDES anything passed
+        # programmatically, so data-source.ts's `ssl: { ca }` never applied.
+        # This augments Node's default trust store instead, which every code
+        # path inherits.
+        #
+        # The bundle is baked into the image at this path by the user
+        # Dockerfile; see the comment there.
+        NODE_EXTRA_CA_CERTS = "/etc/ssl/certs/rds-global-bundle.pem"
         } : service == "orchestration" ? {
         REDIS_URL            = "redis://${module.elasticache.primary_endpoint_address}:${module.elasticache.port}/1"
         RAG_SERVICE_URL      = "http://${local.name_prefix}-rag:8084"
@@ -94,6 +165,13 @@ locals {
         } : service == "rag" ? {
         REDIS_URL      = "redis://${module.elasticache.primary_endpoint_address}:${module.elasticache.port}/1"
         SQS_QUEUE_NAME = module.sqs.queue_names["user_events_rag"]
+        # GOA-030. Without these, RAG falls back to its code default of
+        # host.docker.internal:11434 -- the developer's own Ollama -- and every
+        # /query and /match fails at the embedding call inside a Fargate task.
+        # See the comment on rag_embedding_base_url in variables.tf.
+        EMBEDDING_BASE_URL   = local.effective_embedding_base_url
+        EMBEDDING_MODEL      = var.rag_embedding_model
+        EMBEDDING_DIMENSIONS = tostring(var.rag_embedding_dimensions)
         } : service == "exam" ? {
         SPEAKING_SERVICE_URL = "http://${local.name_prefix}-speaking:8082"
         WRITING_SERVICE_URL  = "http://${local.name_prefix}-writing:8000"
@@ -101,6 +179,10 @@ locals {
         SQS_QUEUE_NAME       = module.sqs.queue_names["user_events_exam"]
         } : service == "speaking" ? {
         SQS_QUEUE_NAME = module.sqs.queue_names["user_events_speaking"]
+        # GOA-030. Without this Speaking uses its code default
+        # "http://speech:8086", which resolves to nothing in the VPC, and every
+        # transcription fails -- the swarm then grades an empty transcript.
+        SPEECH_SERVICE_URL = "http://${local.name_prefix}-speech:8086"
         } : service == "ingestion" ? {
         RAG_SERVICE_URL                     = "http://${local.name_prefix}-rag:8084"
         INGESTION_QUEUE_URL                 = module.sqs.queue_urls["ingestion"]
@@ -108,6 +190,9 @@ locals {
         INGESTION_WALL_CLOCK_BUDGET_SECONDS = "3600"
         INGESTION_SAFETY_MARGIN_SECONDS     = "120"
         INGESTION_VISIBILITY_TIMEOUT        = "4320"
+        EMBEDDING_BASE_URL                  = local.effective_embedding_base_url
+        EMBEDDING_MODEL                     = var.rag_embedding_model
+        EMBEDDING_DIMENSIONS                = tostring(var.rag_embedding_dimensions)
       } : {})
       secrets = module.secrets.service_secret_value_from_refs[service]
     }
@@ -122,6 +207,11 @@ locals {
     rag           = ["python", "-m", "app.migrate"]
     exam          = ["python", "-m", "app.migrate"]
     ingestion     = ["python", "-m", "app.migrate"]
+    # Neither sidecar owns a database. They still need an entry: the migration
+    # task map is built from ecs_deployed_service_names, and a missing key is a
+    # plan-time lookup error rather than a skipped migration.
+    speech     = ["sh", "-c", "echo 'speech owns no database migrations'"]
+    embeddings = ["sh", "-c", "echo 'embeddings owns no database migrations'"]
   }
 
   postgres_databases = {
@@ -227,13 +317,15 @@ locals {
       "INTERNAL_API_KEY",
     ]
 
+    # No OPENAI_API_KEY: GOA-093 consolidated Academic Task 1 vision onto Claude,
+    # leaving the Writing service with no OpenAI call of any kind. OpenAI remains
+    # only where embeddings are needed (RAG/Ingestion) or speech (Speaking).
     writing = [
       "DATABASE_URL",
       "ANTHROPIC_API_KEY",
       "LANGFUSE_PUBLIC_KEY",
       "LANGFUSE_SECRET_KEY",
       "LANGFUSE_HOST",
-      "OPENAI_API_KEY",
       "INTERNAL_API_KEY",
     ]
 
@@ -258,6 +350,12 @@ locals {
       "ANTHROPIC_API_KEY",
       "INTERNAL_API_KEY",
     ]
+
+    # Neither sidecar holds a credential: speech transcribes bytes it is handed
+    # and embeddings serves a local model. Empty lists rather than omitted keys,
+    # because the secrets module iterates this map by service.
+    speech     = []
+    embeddings = []
   }
 
   rds_instance_classes = {
@@ -283,6 +381,9 @@ locals {
     gateway = [
       "ingestion",
     ]
+
+    speech     = []
+    embeddings = []
 
     user = []
 
@@ -342,6 +443,8 @@ locals {
     rag           = []
     exam          = ["${module.exam_audio_bucket.bucket_arn}/exam-audio/*"]
     notification  = []
+    speech        = []
+    embeddings    = []
     ingestion = [
       "${module.ingestion_reports_bucket.bucket_arn}/*",
       "${module.eval_reports_bucket.bucket_arn}/*",
@@ -410,6 +513,26 @@ locals {
         period              = 60
         statistic           = "Maximum"
         treat_missing_data  = "notBreaching"
+      }
+    },
+    {
+      # GOA-066: Reading/Listening grading is pure code + DB (no LLM), so a P95
+      # above 500ms points at a DB or code regression. One alarm per skill_area
+      # because each is a distinct dimension value on goa_exam_grading_latency_ms.
+      for skill in ["reading", "listening"] :
+      "exam_grading_p95_${skill}" => {
+        alarm_name          = "${local.name_prefix}-exam-${skill}-grading-p95-latency"
+        description         = "Exam ${skill} grading latency P95 is above the GOA-066 500ms threshold — indicates a DB or code issue."
+        namespace           = "GOA/Services"
+        metric_name         = "goa_exam_grading_latency_ms"
+        dimensions          = { Service = "exam", skill_area = skill }
+        comparison_operator = "GreaterThanThreshold"
+        threshold           = var.reading_listening_grading_p95_threshold_ms
+        evaluation_periods  = 5
+        datapoints_to_alarm = 5
+        period              = 60
+        extended_statistic  = "p95"
+        treat_missing_data  = "missing"
       }
     },
     {
@@ -526,12 +649,18 @@ locals {
     }
   )
 
+  # Cost attribution (GOA-046). Every resource carries a Service tag so Cost
+  # Explorer can split spend per service. Resources with no single owning
+  # service — VPC, NAT, ALB, RDS, Redis — are deliberately tagged "shared"
+  # rather than left untagged, so an unattributed line in the cost report is a
+  # real tagging gap rather than shared infrastructure that nobody labelled.
   common_tags = merge(
     var.tags,
     {
       Project     = var.project_name
       Environment = var.environment
       ManagedBy   = "terraform"
+      Service     = "shared"
     }
   )
 }

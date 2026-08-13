@@ -239,6 +239,7 @@ module "iam" {
   ecs_exec_operator_resource_arns    = var.ecs_exec_operator_resource_arns
   session_manager_log_retention_days = var.session_manager_log_retention_days
   session_manager_kms_key_id         = var.session_manager_kms_key_id
+  manage_session_manager_preferences = var.manage_session_manager_preferences
   lambda_secret_arns                 = concat(var.lambda_secret_arns, values(module.secrets.service_secret_arns))
   lambda_sqs_queue_arns              = concat(var.sqs_notification_queue_arn != null ? [var.sqs_notification_queue_arn] : [], values(module.sqs.queue_arns), [aws_sqs_queue.cv_processed.arn, aws_sqs_queue.cv_processor_failures.arn])
   lambda_s3_bucket_arns              = [module.writing_files_bucket.bucket_arn]
@@ -266,27 +267,35 @@ module "ecs_service" {
   for_each = local.ecs_services
   source   = "./modules/ecs-service"
 
-  environment                       = var.environment
-  name_prefix                       = local.name_prefix
-  cluster_id                        = module.ecs_cluster.cluster_id
-  cluster_name                      = module.ecs_cluster.cluster_name
-  service_connect_namespace_arn     = module.ecs_cluster.service_connect_namespace_arn
-  service_name                      = each.key
-  image_uri                         = each.value.image
-  cpu                               = each.value.cpu
-  memory                            = each.value.memory
-  desired_count                     = each.value.desired_count
-  container_port                    = each.value.container_port
-  environment_variables             = each.value.environment
-  secrets                           = each.value.secrets
-  private_subnet_ids                = module.vpc.private_app_subnet_ids
-  security_group_ids                = [each.key == "gateway" ? module.security_groups.gateway_security_group_id : module.security_groups.ecs_services_security_group_id]
-  task_execution_role_arn           = module.iam.ecs_task_execution_role_arns[each.key]
-  task_role_arn                     = module.iam.ecs_task_role_arns[each.key]
-  target_group_arn                  = try(module.alb.target_group_arns[each.key], null)
-  enable_load_balancer              = each.key != "ingestion"
-  enable_service_connect            = true
-  advertise_service                 = each.key != "ingestion"
+  environment                   = var.environment
+  name_prefix                   = local.name_prefix
+  cluster_id                    = module.ecs_cluster.cluster_id
+  cluster_name                  = module.ecs_cluster.cluster_name
+  service_connect_namespace_arn = module.ecs_cluster.service_connect_namespace_arn
+  service_name                  = each.key
+  image_uri                     = each.value.image
+  cpu                           = each.value.cpu
+  memory                        = each.value.memory
+  desired_count                 = each.value.desired_count
+  container_port                = each.value.container_port
+  environment_variables         = each.value.environment
+  secrets                       = each.value.secrets
+  private_subnet_ids            = module.vpc.private_app_subnet_ids
+  security_group_ids            = [each.key == "gateway" ? module.security_groups.gateway_security_group_id : module.security_groups.ecs_services_security_group_id]
+  task_execution_role_arn       = module.iam.ecs_task_execution_role_arns[each.key]
+  task_role_arn                 = module.iam.ecs_task_role_arns[each.key]
+  target_group_arn              = try(module.alb.target_group_arns[each.key], null)
+  # GOA-030: derived from the target-group map rather than by naming the one
+  # service that opts out. `each.key != "ingestion"` was correct while ingestion
+  # was the only service without a target group; the speech and embeddings
+  # sidecars are also internal-only, and the old form would have attached them
+  # to a load balancer with a null target group ARN.
+  enable_load_balancer   = contains(keys(var.alb_target_groups), each.key)
+  enable_service_connect = true
+  # Still advertised over Service Connect even without an ALB -- that is exactly
+  # how RAG reaches embeddings and Speaking reaches speech. Only ingestion, which
+  # listens on no port at all, stays unadvertised.
+  advertise_service                 = local.service_ports[each.key] > 0
   health_check_grace_period_seconds = each.key == "ingestion" ? 0 : each.value.health_check_grace_period_seconds
   log_group_name                    = module.observability.log_group_names[each.key]
   autoscaling_min_capacity          = each.key == "ingestion" ? 0 : 1
@@ -392,12 +401,19 @@ module "cv_processor_lambda" {
   lambda_insights_layer_arn      = local.lambda_insights_layer_arn
 
   environment_variables = {
-    ENVIRONMENT               = var.environment
-    WORKER                    = "cv-processor"
-    S3_BUCKET                 = module.writing_files_bucket.bucket_id
-    CV_PROCESSED_QUEUE_URL    = aws_sqs_queue.cv_processed.url
-    CV_EXTRACTION_MODEL       = "claude-opus-4-8"
-    ANTHROPIC_TIMEOUT_SECONDS = "25"
+    ENVIRONMENT            = var.environment
+    WORKER                 = "cv-processor"
+    S3_BUCKET              = module.writing_files_bucket.bucket_id
+    CV_PROCESSED_QUEUE_URL = aws_sqs_queue.cv_processed.url
+    CV_EXTRACTION_MODEL    = "claude-opus-5"
+    # GOA-030: was "25". .env.example has warned since GOA-014 that a single
+    # criterion agent regularly needs 40-90s and that 25s loses agents to
+    # APITimeoutError. The same value was corrected in
+    # services/writing/app/config.py after a 180-word essay returned
+    # "1 of 4 writing agents failed: Request timed out". This copy is the one
+    # that ships to every deployed environment, so leaving it at 25 would
+    # reintroduce the defect the code fix just removed.
+    ANTHROPIC_TIMEOUT_SECONDS = "120"
     WRITING_SECRET_ARN        = module.secrets.service_secret_arns["writing"]
   }
 
@@ -827,3 +843,49 @@ resource "aws_cloudwatch_metric_alarm" "cv_processor_duration" {
 
 
 
+
+# GOA-030: the Gateway had no network path to the cache, and that alone made
+# every authenticated request fail.
+#
+# The environment looked healthy from outside -- /health returned 200 because it
+# touches no dependency -- while every /api call answered 503 "rate limiter
+# unavailable". Redis is not incidental to the Gateway: it holds the rate-limit
+# counters, the JWT blacklist and the subscription cache, so auth, chat,
+# matching and billing were all blocked by one missing rule.
+#
+# The rule lives here rather than in modules/security-groups because there are
+# two cache security groups. That module defines an `elasticache` group that
+# nothing is attached to, while the real cluster sits in the group created by
+# modules/elasticache. Adding the egress inside the security-groups module
+# pointed it at the unused one and changed nothing -- the fix has to be made
+# where both module outputs are in scope.
+#
+# The matching ingress already exists: modules/elasticache grants it from every
+# id in allowed_security_group_ids, which includes the Gateway.
+resource "aws_vpc_security_group_egress_rule" "gateway_to_elasticache" {
+  security_group_id            = module.security_groups.gateway_security_group_id
+  description                  = "Allow the Gateway to reach ElastiCache for rate limits, the JWT blacklist and the subscription cache."
+  referenced_security_group_id = module.elasticache.security_group_id
+  from_port                    = 6379
+  ip_protocol                  = "tcp"
+  to_port                      = 6379
+}
+
+# GOA-030: the same missing path for every other service.
+#
+# modules/security-groups has an `ecs_services_to_elasticache` egress rule, but
+# it references that module's own unused `elasticache` group rather than the one
+# the cluster is actually in -- so RAG died at startup with
+# "redis.exceptions.TimeoutError: Timeout connecting to server" and every
+# opportunity search answered 502 "failed to contact opportunity search".
+#
+# The module rule is left in place: it is harmless, and removing it belongs with
+# deleting the orphan security group, which is a wider cleanup than this ticket.
+resource "aws_vpc_security_group_egress_rule" "ecs_services_to_elasticache_real" {
+  security_group_id            = module.security_groups.ecs_services_security_group_id
+  description                  = "Allow ECS services to reach the ElastiCache cluster they are actually configured with."
+  referenced_security_group_id = module.elasticache.security_group_id
+  from_port                    = 6379
+  ip_protocol                  = "tcp"
+  to_port                      = 6379
+}

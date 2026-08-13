@@ -1,47 +1,52 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures/auth";
 
-test.describe("GOA Writing Practice", () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto("/chat");
+// Phase D (docs/IA-REDESIGN-PROPOSAL.md): Writing Practice moved out of Chat
+// onto its own page, /practice/writing. It creates the essay directly via
+// POST /api/writing/essays/upload and evaluates it via
+// POST /api/writing/essays/:id/evaluate -- the real Gateway routes -- rather
+// than going through /api/chat's LLM intent-classification pipeline the way
+// the chat-embedded version did. These tests mock those two real routes
+// instead of /api/chat + a placeholder sseUrl.
+async function mockEssayCreateAndEvaluate(
+  page: import("@playwright/test").Page,
+  evaluateBody: string,
+) {
+  await page.route("**/api/writing/essays/upload", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ id: 1, status: "ready" }),
+    });
   });
 
-  test("opens writing mode", async ({ page }) => {
-    await page.getByTitle("Writing Practice").click();
+  await page.route("**/api/writing/essays/1/evaluate", async (route) => {
+    await route.fulfill({
+      status: 200,
+      headers: { "Content-Type": "text/event-stream" },
+      body: evaluateBody,
+    });
+  });
+}
 
+test.describe("Dalil Writing Practice", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/practice/writing");
+  });
+
+  test("shows the essay composer on load", async ({ page }) => {
     await expect(page.getByTestId("essay-input")).toBeVisible();
   });
 
   test("submits essay for evaluation", async ({ page }) => {
-    await page.route("**/api/chat", async (route) => {
-      await route.fulfill({
-        status: 200,
-        headers: {
-          "Content-Type": "text/event-stream",
-        },
-        body: [
-          'data: {"type":"writing_url","essayId":"1","sseUrl":"/api/writing/test"}',
-          "",
-          "",
-        ].join("\n"),
-      });
-    });
-
-    await page.route("**/api/writing/test", async (route) => {
-      await route.fulfill({
-        status: 200,
-        headers: {
-          "Content-Type": "text/event-stream",
-        },
-        body: [
-          'data: {"type":"criterion","criterion":"grammar","band":7,"feedback":"Good grammar"}',
-          "",
-          'data: {"type":"complete","essay_id":"1","overall_band":7,"evaluations":{"grammar":{"band":7,"feedback":"Good grammar"}}}',
-          "",
-        ].join("\n"),
-      });
-    });
-
-    await page.getByTitle("Writing Practice").click();
+    await mockEssayCreateAndEvaluate(
+      page,
+      [
+        'data: {"type":"criterion","criterion":"grammar","band":7,"feedback":"Good grammar"}',
+        "",
+        'data: {"type":"complete","essay_id":"1","overall_band":7,"evaluations":{"grammar":{"band":7,"feedback":"Good grammar"}}}',
+        "",
+      ].join("\n"),
+    );
 
     await page
       .getByTestId("essay-input")
@@ -50,7 +55,7 @@ test.describe("GOA Writing Practice", () => {
     await page.getByTestId("submit-essay-button").click();
 
     await expect(page.getByText("Estimated Overall Band")).toBeVisible();
-    await expect(page.getByText("7.0")).toBeVisible();
+    await expect(page.getByText("7.0", { exact: true })).toBeVisible();
     await expect(page.getByText("Good grammar")).toBeVisible();
     await expect(page.getByText("Band 7.0")).toBeVisible();
   });
@@ -58,34 +63,15 @@ test.describe("GOA Writing Practice", () => {
   test("hover highlight → tooltip appears with correct content", async ({
     page,
   }) => {
-    await page.route("**/api/chat", async (route) => {
-      await route.fulfill({
-        status: 200,
-        headers: {
-          "Content-Type": "text/event-stream",
-        },
-        body: [
-          'data: {"type":"writing_url","essayId":"1","sseUrl":"/api/writing/test"}',
-          "",
-          "",
-        ].join("\n"),
-      });
-    });
-
-    await page.route("**/api/writing/test", async (route) => {
-      await route.fulfill({
-        status: 200,
-        headers: {
-          "Content-Type": "text/event-stream",
-        },
-        body: [
-          'data: {"type":"complete","essay_id":"1","overall_band":7,"evaluations":{"grammar":{"band":7,"feedback":"Good grammar"}},"evaluations_full":[{"criterion":"grammar","text":"changed education","feedback":"Consider using a more precise grammatical structure."}]}',
-          "",
-        ].join("\n"),
-      });
-    });
-
-    await page.getByTitle("Writing Practice").click();
+    // start/end are character offsets into the submitted essay text --
+    // "changed education" begins at index 15 in the string below.
+    await mockEssayCreateAndEvaluate(
+      page,
+      [
+        'data: {"type":"complete","essay_id":"1","overall_band":7,"evaluations":{"grammar":{"band":7,"feedback":"Good grammar"}},"evaluations_full":[{"criterion":"grammar","band_score":7,"feedback":"Good grammar","highlighted_issues":[{"text":"changed education","issue":"Consider using a more precise grammatical structure.","suggestion":"Try \'transformed\' or \'reshaped\'.","start":15,"end":32}]}]}',
+        "",
+      ].join("\n"),
+    );
 
     await page
       .getByTestId("essay-input")
@@ -107,34 +93,13 @@ test.describe("GOA Writing Practice", () => {
   test("submit essay → at least one highlight span visible with correct criterion colour", async ({
     page,
   }) => {
-    await page.route("**/api/chat", async (route) => {
-      await route.fulfill({
-        status: 200,
-        headers: {
-          "Content-Type": "text/event-stream",
-        },
-        body: [
-          'data: {"type":"writing_url","essayId":"1","sseUrl":"/api/writing/test"}',
-          "",
-          "",
-        ].join("\n"),
-      });
-    });
-
-    await page.route("**/api/writing/test", async (route) => {
-      await route.fulfill({
-        status: 200,
-        headers: {
-          "Content-Type": "text/event-stream",
-        },
-        body: [
-          'data: {"type":"complete","essay_id":"1","overall_band":7,"evaluations":{"grammar":{"band":7,"feedback":"Good grammar"}},"evaluations_full":[{"criterion":"grammar","text":"changed education","feedback":"Grammar suggestion"}]}',
-          "",
-        ].join("\n"),
-      });
-    });
-
-    await page.getByTitle("Writing Practice").click();
+    await mockEssayCreateAndEvaluate(
+      page,
+      [
+        'data: {"type":"complete","essay_id":"1","overall_band":7,"evaluations":{"grammar":{"band":7,"feedback":"Good grammar"}},"evaluations_full":[{"criterion":"grammar","band_score":7,"feedback":"Good grammar","highlighted_issues":[{"text":"changed education","issue":"Grammar suggestion","suggestion":"Grammar suggestion","start":15,"end":32}]}]}',
+        "",
+      ].join("\n"),
+    );
 
     await page
       .getByTestId("essay-input")
@@ -150,34 +115,13 @@ test.describe("GOA Writing Practice", () => {
   });
 
   test("download pdf button is present", async ({ page }) => {
-    await page.route("**/api/chat", async (route) => {
-      await route.fulfill({
-        status: 200,
-        headers: {
-          "Content-Type": "text/event-stream",
-        },
-        body: [
-          'data: {"type":"writing_url","essayId":"1","sseUrl":"/api/writing/test"}',
-          "",
-          "",
-        ].join("\n"),
-      });
-    });
-
-    await page.route("**/api/writing/test", async (route) => {
-      await route.fulfill({
-        status: 200,
-        headers: {
-          "Content-Type": "text/event-stream",
-        },
-        body: [
-          'data: {"type":"complete","essay_id":"1","overall_band":7,"evaluations":{"grammar":{"band":7,"feedback":"Good grammar"}}}',
-          "",
-        ].join("\n"),
-      });
-    });
-
-    await page.getByTitle("Writing Practice").click();
+    await mockEssayCreateAndEvaluate(
+      page,
+      [
+        'data: {"type":"complete","essay_id":"1","overall_band":7,"evaluations":{"grammar":{"band":7,"feedback":"Good grammar"}}}',
+        "",
+      ].join("\n"),
+    );
 
     await page
       .getByTestId("essay-input")

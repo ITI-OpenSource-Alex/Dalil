@@ -160,20 +160,37 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                 if facts_redis is not None:
                     await facts_redis.aclose()
 
-            # 3. Classify intent via structured LLM call
-            intent_result = await classify_intent(
-                message=request.message,
-                trace_id=trace_id,
-                parent_span_id=parent_span_id,
-                user_id=request.userId,
-                history=history,
-                exam_context=exam_context,
-                user_facts=user_facts,
-            )
-            intent = intent_result.intent
-            downstream_service = intent.lower()
-
-            resolved_message = intent_result.standalone_question or request.message
+            # 3. Explainability entry points already declare their intent and
+            # carry the exact evidence visible on the page. Sending them through
+            # the ordinary classifier adds latency and can misroute "why is my
+            # writing band 6?" into a new essay submission. The context remains
+            # turn-scoped and is never written into long-term facts.
+            if request.explanationContext:
+                intent = "GENERAL"
+                downstream_service = "explanation"
+                resolved_message = request.message
+                intent_confidence = 1.0
+                supervisor_output = {
+                    "intent": "EXPLANATION",
+                    "confidence": 1.0,
+                    "context_kind": request.explanationContext.kind,
+                    "facts_count": len(request.explanationContext.facts),
+                }
+            else:
+                intent_result = await classify_intent(
+                    message=request.message,
+                    trace_id=trace_id,
+                    parent_span_id=parent_span_id,
+                    user_id=request.userId,
+                    history=history,
+                    exam_context=exam_context,
+                    user_facts=user_facts,
+                )
+                intent = intent_result.intent
+                downstream_service = intent.lower()
+                resolved_message = intent_result.standalone_question or request.message
+                intent_confidence = intent_result.confidence
+                supervisor_output = intent_result.model_dump()
             if resolved_message != request.message:
                 logger.info(
                     "Resolved message against history",
@@ -199,7 +216,7 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                 
             if supervisor_span:
                 try:
-                    supervisor_span.update(output=intent_result.model_dump())
+                    supervisor_span.update(output=supervisor_output)
                     supervisor_span.end()
                 except Exception as e:
                     logger.warning("Failed to end Langfuse supervisor span", error=str(e))
@@ -228,7 +245,7 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                 data=ChatStreamEvent(
                     type="metadata",
                     intent=intent,
-                    confidence=intent_result.confidence
+                    confidence=intent_confidence
                 ).model_dump_json()
             )
             
@@ -259,6 +276,11 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                 attachments=request.attachments,
                 exam_context=exam_context,
                 traceparent=downstream_traceparent,
+                explanation_context=(
+                    request.explanationContext.model_dump(mode="json")
+                    if request.explanationContext
+                    else None
+                ),
             )
             
             async for event in response_stream:
@@ -309,12 +331,33 @@ async def chat_endpoint(request: ChatRequest, req: Request):
             
         except Exception as e:
             status = "error"
-            logger.error("Error in chat event generator", error=str(e))
+            # The exception is logged in full, with the correlation id that ties
+            # it to this request -- and is NOT put on the wire.
+            #
+            # This used to yield f"Internal supervisor error: {str(e)}", and the
+            # frontend rendered whatever arrived straight into the chat bubble.
+            # str(e) on an httpx error carries the internal service URL; on an
+            # asyncpg error, the query; on a Pydantic ValidationError, the whole
+            # model schema. All of it went to the user, in a chat window, as
+            # though it were an answer. Anyone debugging has the log and the
+            # correlation id; the reader has neither the context to interpret it
+            # nor anything to do about it.
+            logger.error(
+                "Error in chat event generator",
+                error=str(e),
+                error_type=type(e).__name__,
+                correlation_id=correlation_id,
+                user_id=request.userId,
+                exc_info=True,
+            )
             yield ServerSentEvent(
                 event="error",
                 data=ChatStreamEvent(
                     type="error",
-                    error=f"Internal supervisor error: {str(e)}"
+                    error=(
+                        "Something went wrong while generating that response. "
+                        "Please try again."
+                    ),
                 ).model_dump_json()
             )
         finally:
@@ -356,8 +399,17 @@ async def session_history_endpoint(sessionId: str):
             
         return formatted
     except Exception as e:
-        logger.error("Failed to load session history", session_id=sessionId, error=str(e))
+        # Same reasoning as the stream's error path above: the detail reaches
+        # the browser, so it says what happened and not which internal call
+        # raised what.
+        logger.error(
+            "Failed to load session history",
+            session_id=sessionId,
+            error=str(e),
+            error_type=type(e).__name__,
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to load session history: {str(e)}"
+            detail="Failed to load session history."
         )

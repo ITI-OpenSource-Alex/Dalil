@@ -97,6 +97,17 @@ func newFakeSpeakingUpstream(t *testing.T, handler func(*websocket.Conn)) *fakeS
 		}
 		return c.Next()
 	}, websocket.New(handler))
+	app.Get("/ws/exam", func(c *fiber.Ctx) error {
+		captured := http.Header{}
+		c.Request().Header.VisitAll(func(k, v []byte) {
+			captured.Set(string(k), string(v))
+		})
+		select {
+		case up.headers <- captured:
+		default:
+		}
+		return c.Next()
+	}, websocket.New(handler))
 	up.addr = listenApp(t, app)
 	return up
 }
@@ -419,5 +430,73 @@ func TestSpeakingWS_NoGoroutineLeak(t *testing.T) {
 	if !settled {
 		t.Errorf("goroutines leaked across %d sessions: baseline %d, now %d",
 			sessions, baseline, runtime.NumGoroutine())
+	}
+}
+
+// TestSpeakingWS_AuthenticatedUserIDForwarded is a security guard, not a
+// plumbing check.
+//
+// The relay is byte-for-byte, so the `userId` a client puts in its session_init
+// frame used to reach Speaking unexamined -- and Speaking both persists sessions
+// under that id and keys the daily practice quota on it. An authenticated caller
+// could therefore attribute sessions to another user and, by sending a fresh id
+// per connection, spend STT and LLM budget without ever hitting a quota.
+//
+// GOA-132 closed exactly this on the REST session routes by sourcing userId from
+// the validated JWT. This asserts the socket half now does the same.
+func TestSpeakingWS_AuthenticatedUserIDForwarded(t *testing.T) {
+	upstream := newFakeSpeakingUpstream(t, func(c *websocket.Conn) {
+		_, _, _ = c.ReadMessage()
+	})
+	addr := newProxyApp(t, upstream.addr, true)
+
+	conn, _, err := dialProxy(t, addr)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	// A client claiming to be somebody else, which is the whole point.
+	_ = conn.WriteMessage(websocket.TextMessage,
+		[]byte(`{"type":"session_init","protocolVersion":3,"userId":"someone-elses-id"}`))
+
+	select {
+	case headers := <-upstream.headers:
+		if got := headers.Get("X-User-Id"); got != "user-1" {
+			t.Errorf("upstream X-User-Id = %q, want %q (the JWT subject, not the frame's claim)", got, "user-1")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("upstream handshake headers were never captured")
+	}
+}
+
+func TestSpeakingWS_ExamRouteUsesExamUpstreamAndTrustedSessionHeader(t *testing.T) {
+	upstream := newFakeSpeakingUpstream(t, func(c *websocket.Conn) {
+		_, _, _ = c.ReadMessage()
+	})
+	h, err := NewSpeakingWSHandler("http://"+upstream.addr, zerolog.Nop())
+	if err != nil {
+		t.Fatal(err)
+	}
+	app := fiber.New()
+	app.Use(func(c *fiber.Ctx) error {
+		c.Locals(middleware.ContextKeyUserID, "user-1")
+		return c.Next()
+	})
+	app.Get("/api/exam/speaking/ws", h.UpgradeExam, websocket.New(h.Proxy))
+	addr := listenApp(t, app)
+	conn, _, err := fastws.DefaultDialer.Dial(
+		"ws://"+addr+"/api/exam/speaking/ws?exam_session_id=session-123", nil,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	_ = conn.WriteMessage(websocket.TextMessage, []byte(`{"type":"session_init"}`))
+	select {
+	case headers := <-upstream.headers:
+		if got := headers.Get("X-Exam-Session-Id"); got != "session-123" {
+			t.Fatalf("X-Exam-Session-Id = %q", got)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("upstream exam handshake was not captured")
 	}
 }

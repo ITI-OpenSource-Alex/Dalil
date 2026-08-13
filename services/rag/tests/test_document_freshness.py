@@ -128,3 +128,16 @@ def test_document_upsert_reports_insert_then_update():
         }
     finally:
         _run(cleanup())
+
+
+def test_document_stats_reports_real_corpus_shape():
+    with TestClient(app) as client:
+        response = client.get(
+            "/internal/documents/stats",
+            headers={"X-Internal-Api-Key": settings.internal_api_key},
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] >= 0
+    assert isinstance(payload["by_category"], dict)

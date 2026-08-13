@@ -3,7 +3,7 @@ import json
 import time
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from app.schemas import EssayCreateRequest, EssayCreateResponse
@@ -36,14 +36,66 @@ from app.services.evaluation_store import (
 )
 
 from app.schemas import (
-    EssayEvaluationRequest,
-    EssayEvaluationResponse,
+    EssayHistoryItem,
     ExamTaskEvaluationRequest,
     ExamTaskEvaluationResponse,
 )
 
 
 router = APIRouter(prefix="/essays", tags=["essays"])
+
+PAGE_SIZE = 20
+EXCERPT_LENGTH = 140
+
+
+@router.get("", response_model=list[EssayHistoryItem])
+def list_essays(
+    user_id: str = Query(..., min_length=1, max_length=128),
+    page: int = Query(1, ge=1),
+    submission_type: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+) -> list[EssayHistoryItem]:
+    """Paginated summary list of a user's own essays -- both chat practice
+    submissions and exam task submissions, discriminated by submission_type,
+    most recent first. 20 rows per page, matching the Exam service's
+    GET /users/{id}/exam-history pagination.
+
+    overall_band is read out of evaluation_result in Python rather than off
+    the generated `overall_band` column migrations/005 adds -- that column
+    isn't mapped on the Essay model yet (see the comment in app/models.py),
+    so this stays correct under both Postgres and the SQLite test database.
+    """
+    query = db.query(Essay).filter(Essay.user_id == user_id)
+    if submission_type:
+        query = query.filter(Essay.submission_type == submission_type)
+    essays = (
+        query.order_by(Essay.uploaded_at.desc())
+        .offset((page - 1) * PAGE_SIZE)
+        .limit(PAGE_SIZE)
+        .all()
+    )
+
+    items: list[EssayHistoryItem] = []
+    for essay in essays:
+        overall_band = None
+        if essay.evaluation_result:
+            overall_band = essay.evaluation_result.get("overall_band")
+        text = essay.extracted_text or ""
+        excerpt = text[:EXCERPT_LENGTH] + ("…" if len(text) > EXCERPT_LENGTH else "")
+        items.append(
+            EssayHistoryItem(
+                id=essay.id,
+                submitted_at=essay.uploaded_at,
+                status=essay.status,
+                submission_type=essay.submission_type,
+                exam_type=essay.exam_type,
+                task_number=essay.task_number,
+                overall_band=overall_band,
+                excerpt=excerpt,
+            )
+        )
+    return items
+
 
 @router.post('', response_model=EssayCreateResponse, status_code=201)
 async def create_essay(
@@ -180,7 +232,7 @@ async def evaluate_submitted_text(
         payload.examType,
         settings,
     )
-    cached_payload = find_cached_evaluation(db, cache_key)
+    cached_payload = find_cached_evaluation(db, cache_key, payload.userId)
     essay = Essay(
         user_id=payload.userId,
         extracted_text=payload.essayText,
@@ -248,7 +300,7 @@ async def stream_essay_evaluation(
             settings,
         )
     cached_payload = essay.evaluation_result or find_cached_evaluation(
-        db, essay.evaluation_cache_key
+        db, essay.evaluation_cache_key, essay.user_id
     )
     from_cache = cached_payload is not None
     trace = start_evaluation_trace(
@@ -342,7 +394,7 @@ async def evaluate_exam_task(
         payload.examType,
         settings,
     )
-    cached_payload = find_cached_evaluation(db, cache_key)
+    cached_payload = find_cached_evaluation(db, cache_key, payload.userId)
     essay = Essay(
         user_id=payload.userId,
         extracted_text=payload.essayText,

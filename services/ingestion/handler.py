@@ -11,7 +11,7 @@ from typing import Any
 from app.adapters.chevening import CheveningAdapter
 from app.adapters.daad import DAADAdapter
 from app.adapters.ielts_org import IELTSOrgAdapter
-from app.adapters.masters_portal import MastersPortalAdapter
+from app.adapters.masters_portal import PAGE_SIZE, MastersPortalAdapter
 from app.adapters.stipendium_hungaricum import StipendiumHungaricumAdapter
 from app.adapters.study_in_poland import StudyInPolandAdapter
 from app.adapters.visa_adapter import VisaSourceAdapter
@@ -648,6 +648,23 @@ def handle_ingestion(
             state.mark_url_status(
                 "masters_portal", discipline, source_url, "scraped"
             )
+        if tier == 1 and program_failed == 0:
+            # MastersPortal returns a pending cursor in telemetry. Commit it only
+            # after every document and program row is durable; otherwise the next
+            # invocation starts at the old cursor and retries instead of losing data.
+            masters_telemetry = source_telemetry.get("masters_portal", {})
+            for discipline, values in masters_telemetry.items():
+                if not isinstance(values, dict) or "next_offset" not in values:
+                    continue
+                next_offset = int(values["next_offset"])
+                state.update_cursor(
+                    "masters_portal",
+                    discipline,
+                    next_offset // PAGE_SIZE + 1,
+                    scroll_offset=next_offset,
+                    exhausted=bool(values.get("cursor_exhausted", False)),
+                    total_items=values.get("total_items"),
+                )
         if tier == 2:
             for source_url in source_urls:
                 state.mark_page_status(source_url, "fetched")
@@ -657,8 +674,16 @@ def handle_ingestion(
     status = "degraded" if failed or failure_ratio > 0.10 else "success"
     completed = remaining == 0 and failed == 0
     finished_at = datetime.datetime.now(datetime.timezone.utc)
-    input_cost = float(os.getenv("EXTRACTION_INPUT_COST_PER_1M", "8"))
-    output_cost = float(os.getenv("EXTRACTION_OUTPUT_COST_PER_1M", "40"))
+    # GOA-135: EXTRACTION_INPUT_COST_PER_1M / EXTRACTION_OUTPUT_COST_PER_1M
+    # defaulted to $8/$40 -- claude-opus-4-6's prices -- while the shared table
+    # listed claude-opus-4-8 at $2/$10, so GOA-135 measured each ingestion run at
+    # 4x its then-current cost. The per-service override was deleted: a service
+    # that can be priced independently is a service that will drift
+    # independently, which is how five sites ended up disagreeing about one model.
+    from goa_pricing import cost_usd as price_call
+    from app.adapters.visa_adapter import EXTRACTION_MODEL
+
+    estimated_cost_usd = price_call(EXTRACTION_MODEL, llm_input_tokens, llm_output_tokens)
     summary = {
         "run_id": run_id,
         "started_at": started_wall.isoformat(),
@@ -679,10 +704,10 @@ def handle_ingestion(
             "calls": llm_calls,
             "input_tokens": llm_input_tokens,
             "output_tokens": llm_output_tokens,
-            "estimated_cost_usd": round(
-                llm_input_tokens * input_cost / 1_000_000
-                + llm_output_tokens * output_cost / 1_000_000,
-                6,
+            # None (not 0.0) when the model is unpriced, so a pricing gap in a
+            # run summary reads as "unknown" rather than "free".
+            "estimated_cost_usd": (
+                round(estimated_cost_usd, 6) if estimated_cost_usd is not None else None
             ),
         },
         "sources": _source_reports(

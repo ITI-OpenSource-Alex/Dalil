@@ -15,6 +15,7 @@ def _no_visa_finance_lookup(monkeypatch):
     became populated the live visa lookup started running against a non-awaitable
     MagicMock. Stub it to empty here so each test keeps asserting one thing."""
     import app.services.visa_finance as vf
+
     monkeypatch.setattr(vf, "get_student_visa_finance", AsyncMock(return_value=[]))
 
 
@@ -41,7 +42,10 @@ def make_mock_db_pool(monkeypatch, return_user=True):
 
     mock_program_row = {
         "id": "prog-1",
-        "country": "Germany", "min_ects": 120,
+        "program_name": "Test Prog",
+        "country": "Germany",
+        "discipline": "computer_science",
+        "min_ects": 120,
         "degree_level": "Bachelor",
         "required_citizenship": None,
         "min_ielts": 6.5,
@@ -54,12 +58,24 @@ def make_mock_db_pool(monkeypatch, return_user=True):
     # For /match:
     # /match now fetches its whole candidate set (with requirements) in ONE query
     # instead of a per-program fan-out, so the mocked row carries every column.
-    mock_conn.fetch = AsyncMock(return_value=[{
-        "id": "prog-1", "program_name": "Test Prog", "university": "Uni",
-        "country": "Germany", "deadline": None, "degree_level": "Master",
-        "discipline": "computer_science", "min_ects": 120, "min_gpa": None,
-        "min_ielts": 6.0, "required_citizenship": None, "min_work_experience": None,
-    }])
+    mock_conn.fetch = AsyncMock(
+        return_value=[
+            {
+                "id": "prog-1",
+                "program_name": "Test Prog",
+                "university": "Uni",
+                "country": "Germany",
+                "deadline": None,
+                "degree_level": "Master",
+                "discipline": "computer_science",
+                "min_ects": 120,
+                "min_gpa": None,
+                "min_ielts": 6.0,
+                "required_citizenship": None,
+                "min_work_experience": None,
+            }
+        ]
+    )
 
     mock_ctx = MagicMock()
     mock_ctx.__aenter__ = AsyncMock(return_value=mock_conn)
@@ -87,9 +103,7 @@ def mock_external(monkeypatch):
 def test_scoring_returns_425_if_no_local_profile(monkeypatch):
     make_mock_db_pool(monkeypatch, return_user=False)
 
-    response = client.post(
-        "/score", json={"userId": "user-123", "programId": "prog-1"}
-    )
+    response = client.post("/score", json={"userId": "user-123", "programId": "prog-1"})
     assert response.status_code == 425
     assert "Profile not yet replicated" in response.json()["detail"]
 
@@ -97,36 +111,54 @@ def test_scoring_returns_425_if_no_local_profile(monkeypatch):
 def test_scoring_success(monkeypatch):
     make_mock_db_pool(monkeypatch, return_user=True)
 
-    response = client.post(
-        "/score", json={"userId": "user-123", "programId": "prog-1"}
-    )
+    response = client.post("/score", json={"userId": "user-123", "programId": "prog-1"})
     assert response.status_code == 200
     assert "score" in response.json()
 
 
 def test_score_path_unchanged(monkeypatch):
     make_mock_db_pool(monkeypatch, return_user=True)
-    response = client.post(
-        "/score", json={"userId": "user-123", "programId": "prog-1"}
-    )
+    response = client.post("/score", json={"userId": "user-123", "programId": "prog-1"})
     assert response.status_code == 200
 
 
 USER_ROW = {
-    "user_id": "user-123", "ects": 180, "gpa": 3.8, "gpa_scale": "4.0",
-    "ielts_score": 7.5, "degree_level": "Master", "work_exp": 2,
-    "extracurriculars": 85, "target_countries": ["Germany"], "field_of_study": None,
+    "user_id": "user-123",
+    "ects": 180,
+    "gpa": 3.8,
+    "gpa_scale": "4.0",
+    "ielts_score": 7.5,
+    "degree_level": "Master",
+    "work_exp": 2,
+    "extracurriculars": 85,
+    "target_countries": ["Germany"],
+    "field_of_study": None,
 }
 
 
-def _candidate(pid, name="Prog", ielts=6.0, university="Uni", country="Germany",
-               deadline=None, degree_level="Master"):
+def _candidate(
+    pid,
+    name="Prog",
+    ielts=6.0,
+    university="Uni",
+    country="Germany",
+    deadline=None,
+    degree_level="Master",
+):
     """A row as /match's single candidate query returns it (requirements included)."""
     return {
-        "id": pid, "program_name": name, "university": university, "country": country,
-        "deadline": deadline, "discipline": "computer_science", "degree_level": degree_level,
-        "min_ects": 120, "min_gpa": None, "min_ielts": ielts,
-        "required_citizenship": None, "min_work_experience": None,
+        "id": pid,
+        "program_name": name,
+        "university": university,
+        "country": country,
+        "deadline": deadline,
+        "discipline": "computer_science",
+        "degree_level": degree_level,
+        "min_ects": 120,
+        "min_gpa": None,
+        "min_ielts": ielts,
+        "required_citizenship": None,
+        "min_work_experience": None,
     }
 
 
@@ -151,10 +183,13 @@ def test_match_reachable_at_bare_path(monkeypatch):
 
 
 def test_match_response_key_is_programs_and_sorted(monkeypatch):
-    _wire_match(monkeypatch, [
-        _candidate("prog-1", ielts=7.5),   # only just met -> lower fit
-        _candidate("prog-2", ielts=5.5),   # comfortably cleared -> higher fit
-    ])
+    _wire_match(
+        monkeypatch,
+        [
+            _candidate("prog-1", ielts=7.5),  # only just met -> lower fit
+            _candidate("prog-2", ielts=5.5),  # comfortably cleared -> higher fit
+        ],
+    )
     data = client.post("/match", json={"userId": "user-123"}).json()
     assert "programs" in data and "matches" not in data
     scores = [p["result"]["score"] for p in data["programs"]]
@@ -162,10 +197,17 @@ def test_match_response_key_is_programs_and_sorted(monkeypatch):
 
 
 def test_match_entries_carry_display_fields(monkeypatch):
-    _wire_match(monkeypatch, [_candidate(
-        "prog-1", name="MSc Computer Science", university="TU Munich",
-        deadline="2024-05-31",
-    )])
+    _wire_match(
+        monkeypatch,
+        [
+            _candidate(
+                "prog-1",
+                name="MSc Computer Science",
+                university="TU Munich",
+                deadline="2024-05-31",
+            )
+        ],
+    )
     programs = client.post("/match", json={"userId": "user-123"}).json()["programs"]
     assert len(programs) == 1
     assert programs[0]["programName"] == "MSc Computer Science"
@@ -182,8 +224,14 @@ def test_match_null_name_falls_back(monkeypatch):
 
 def test_match_returns_at_most_the_result_limit(monkeypatch):
     from app.services.scoring import MATCH_RESULT_LIMIT
-    _wire_match(monkeypatch, [_candidate(f"prog-{i}", ielts=5.0 + (i % 5) * 0.5)
-                              for i in range(25)])
+
+    _wire_match(
+        monkeypatch,
+        [
+            _candidate(f"prog-{i}", ielts=5.0 + (i % 5) * 0.5)
+            for i in range(MATCH_RESULT_LIMIT + 10)
+        ],
+    )
     programs = client.post("/match", json={"userId": "user-123"}).json()["programs"]
     assert len(programs) == MATCH_RESULT_LIMIT
 
@@ -196,10 +244,10 @@ def test_match_uses_one_candidate_query_no_fan_out(monkeypatch):
     mock_conn = _wire_match(monkeypatch, [_candidate(f"prog-{i}") for i in range(10)])
     assert client.post("/match", json={"userId": "user-123"}).status_code == 200
     # Exactly one profile fetchrow, and no per-program fan-out: the candidate set and
-    # the per-country finance lookups are the only fetch() calls, and both are bounded
+    # the per-country finance and visa lookups are the only fetch() calls, and both are bounded
     # by distinct countries rather than by program count.
     assert mock_conn.fetchrow.call_count == 1
-    assert mock_conn.fetch.call_count <= 2
+    assert mock_conn.fetch.call_count <= 3
 
 
 def test_match_issues_zero_llm_calls(monkeypatch):
@@ -225,18 +273,20 @@ async def test_local_user_profile_coerces_uuid_user_id(monkeypatch):
 
     mock_pool = MagicMock()
     mock_conn = AsyncMock()
-    mock_conn.fetchrow = AsyncMock(return_value={
-        "user_id": real_uuid,          # a UUID object, exactly as asyncpg returns it
-        "ects": 130,
-        "gpa": 3.5,
-        "gpa_scale": "4.0",
-        "ielts_score": 7.0,
-        "degree_level": "Master",
-        "work_exp": 3,
-        "extracurriculars": 80,
-        "target_countries": [],
-        "field_of_study": None,
-    })
+    mock_conn.fetchrow = AsyncMock(
+        return_value={
+            "user_id": real_uuid,  # a UUID object, exactly as asyncpg returns it
+            "ects": 130,
+            "gpa": 3.5,
+            "gpa_scale": "4.0",
+            "ielts_score": 7.0,
+            "degree_level": "Master",
+            "work_exp": 3,
+            "extracurriculars": 80,
+            "target_countries": [],
+            "field_of_study": None,
+        }
+    )
     mock_ctx = MagicMock()
     mock_ctx.__aenter__ = AsyncMock(return_value=mock_conn)
     mock_ctx.__aexit__ = AsyncMock(return_value=None)
@@ -250,23 +300,29 @@ async def test_local_user_profile_coerces_uuid_user_id(monkeypatch):
 
     # And it must satisfy the Pydantic model that consumes it — the actual failure point.
     from app.schemas.scoring import UserProfile
+
     assert UserProfile(**profile).userId == "00000000-0000-0000-0000-000000000002"
+
 
 def test_score_still_applies_boost(monkeypatch):
     make_mock_db_pool(monkeypatch, return_user=True)
-    mock_llm = AsyncMock(return_value={"boost_value": 10.0, "justification_tokens": ["Great CV"]})
+    mock_llm = AsyncMock(
+        return_value={"boost_value": 10.0, "justification_tokens": ["Great CV"]}
+    )
     monkeypatch.setattr("app.services.scoring.get_llm_boost", mock_llm)
-    
+
     response = client.post("/score", json={"userId": "user-123", "programId": "prog-1"})
     assert response.status_code == 200
     assert mock_llm.call_count == 1
 
+
 def test_match_ranking_order_unchanged(monkeypatch):
-    _wire_match(monkeypatch, [_candidate("prog-1", ielts=5.5), _candidate("prog-2", ielts=7.5)])
+    _wire_match(
+        monkeypatch, [_candidate("prog-1", ielts=5.5), _candidate("prog-2", ielts=7.5)]
+    )
     response = client.post("/match", json={"userId": "user-123"})
     assert response.status_code == 200
     programs = response.json()["programs"]
     assert len(programs) > 0
     scores = [p["result"]["score"] for p in programs]
     assert scores == sorted(scores, reverse=True)
-

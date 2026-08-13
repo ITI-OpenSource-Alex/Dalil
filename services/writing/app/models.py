@@ -27,6 +27,16 @@ class Essay(Base):
     task_number = Column(Integer, nullable=True)
     evaluation_cache_key = Column(String(64), nullable=True, index=True)
     evaluation_result = Column(JSON().with_variant(JSONB, "postgresql"), nullable=True)
+    # `overall_band` is NOT mapped here on purpose. migrations/005 adds it to
+    # Postgres as a GENERATED ALWAYS ... STORED column, which is schema owned
+    # by the hand-written migration files (app/init_db.py), not by
+    # Base.metadata.create_all(). Mapping it as a SQLAlchemy Computed() column
+    # would make that intent portable in production but breaks the test
+    # suite's Base.metadata.create_all(sqlite://) -- SQLite has no ->>/::
+    # operators, so table creation fails outright. Until the model layer
+    # either drops the SQLite create_all path or gets a dialect-conditional
+    # DDL story, GET /essays extracts overall_band from evaluation_result in
+    # Python (see routers/essays.py) rather than reading this column.
 
 
 class CVReview(Base):

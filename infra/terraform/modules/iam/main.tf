@@ -266,7 +266,13 @@ resource "aws_cloudwatch_log_group" "session_manager" {
 }
 
 resource "aws_ssm_document" "session_manager_preferences" {
-  count           = var.environment == "staging" ? 1 : 0
+  # GOA-030: was hardcoded to `var.environment == "staging"`. The document name
+  # SSM-SessionManagerRunShell is ACCOUNT-GLOBAL, so exactly one workspace may
+  # own it -- and once an earlier staging apply has created it, every later
+  # apply fails with DocumentAlreadyExists. Made a variable so a workspace can
+  # be told the account already has one, rather than the choice being implied
+  # by the environment name.
+  count           = var.manage_session_manager_preferences ? 1 : 0
   name            = "SSM-SessionManagerRunShell"
   document_type   = "Session"
   document_format = "JSON"

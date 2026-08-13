@@ -26,10 +26,9 @@ Investigation found:
   (`services/exam/app/ingestion/`), which has no CLI entry point and no HTTP
   route wired to it in normal operation — `QuestionIngestionService` /
   `IngestionService` is only instantiated from `tests/test_ingestion.py`.
-- A 1.6 MB file at the repo root, `gBzYDiLL - the-last-dance (1).json`, looks
-  like OCR output of a Cambridge book and is a plausible input to that
-  pipeline, but its shape against `ReadingParser.parse_text` has not been
-  verified.
+- A former 1.6 MB file at the repo root initially looked like plausible OCR
+  input, but inspection proved it was a Trello export. It was later removed
+  during repository cleanup and was never a valid Exam data dependency.
 - Session creation (`get_random_unseen_question` in
   `app/services/session_service.py`) will find nothing and fail outright if
   the `questions` table is empty for `skill_area = 'reading'`.
@@ -82,7 +81,7 @@ the more reliable fallback.
 Write a small one-off script that instantiates `QuestionRepository(db.pool)`
 and `QuestionIngestionService`, then calls
 `ingest(content, skill_area="reading")` against the contents of
-`gBzYDiLL - the-last-dance (1).json`, run inside the `goa-exam-1` container
+the former repo-root export, run inside the `goa-exam-1` container
 (so it shares the container's DB connection config).
 
 The existing parsers are already unit-tested and known to produce correct
@@ -223,8 +222,8 @@ required.
 
 ## Status
 
-Completed. Route A was attempted and abandoned (the repo-root
-`gBzYDiLL - the-last-dance (1).json` is a Trello board export, not
+Completed. Route A was attempted and abandoned (the former repo-root file was
+a Trello board export, not
 Cambridge OCR text). Route B implemented:
 `services/exam/app/migrations/008_seed_demo_reading_test.sql` seeds one
 complete, gradable Reading test (15 questions across all 5 renderer types,

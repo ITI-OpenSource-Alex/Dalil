@@ -1,6 +1,6 @@
 # GOA-028 — Implementation Plan: LLM-as-a-Judge evaluation pipeline
 
-**Ticket:** [GOA-028](GOA_Sprint_3_Tickets.md#goa-028--llm-as-a-judge-evaluation-pipeline--writing-and-speaking-accuracy-scoring) · P1 · 3 pts · QA · **Pattern: NEW**
+**Ticket:** GOA-028 · P1 · 3 pts · QA · **Pattern: NEW**
 **Depends on:** GOA-013 (speaking swarm) · GOA-014 (writing swarm) · GOA-020 (eval suite skeleton — *exists*) · GOA-130 (budget telemetry)
 
 > **This is the Gold Tier requirement.** It is the ticket that turns "our agents grade essays" into "our agents grade essays and here is the measured accuracy against IELTS descriptors." Treat the number it produces as something you will defend in a viva.

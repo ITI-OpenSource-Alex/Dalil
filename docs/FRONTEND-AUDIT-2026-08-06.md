@@ -384,7 +384,7 @@ Uniform pattern: **loading/empty/error are consistently good; pagination/filter/
 | 🟡 Type duplication | `Opportunity` × 3 (see Phase 4) |
 | 🟡 `console.error` × ~15 | Fine for dev; no error-reporting sink for production |
 | 🟡 Large files | `chat-shell.tsx` 645, `design-system/page.tsx` 600, `cv-review/page.tsx` 521 |
-| 🟢 Repo hygiene | 1.7 MB `gBzYDiLL - the-last-dance (1).json` at `GOA/` root; `tsconfig.tsbuildinfo` (254 KB) and `tsconfig.check.tsbuildinfo` (173 KB) appear tracked. |
+| 🟢 Repo hygiene | The 1.7 MB Trello export and tracked TypeScript build-info artifacts were identified for removal. The Trello export was removed during the repository cleanup. |
 
 ---
 
@@ -495,7 +495,7 @@ Effort: **XS** <30 min · **S** 1–2 h · **M** half day · **L** 1 day · **XL
 | 7.3 | Error-reporting sink (Sentry) wired into both `error.tsx` boundaries | **M** |
 | 7.4 | Gate `/design-system` behind a non-production check | **XS** |
 | 7.5 | Add `not-found.tsx` and per-route `loading.tsx` | **S** |
-| 7.6 | Repo hygiene: remove the 1.7 MB Trello export and tracked `.tsbuildinfo` | **XS** |
+| 7.6 | Repo hygiene: remove the 1.7 MB Trello export and tracked `.tsbuildinfo` | **XS — Trello export resolved** |
 | 7.7 | Consolidate the 3 `Opportunity` type declarations | **S** |
 | 7.8 | Split `chat-shell.tsx` state machine out of the view | **M** |
 

@@ -14,6 +14,8 @@ bin/
 .coverage
 coverage.xml
 coverage/
+.pytest_cache/
+.ruff_cache/
 
 # Env files (never commit secrets)
 .env
@@ -36,26 +38,31 @@ infra/terraform/environments/shared.backend.hcl
 *.log
 .DS_Store
 Thumbs.db
+Desktop.ini
 
 # IDE
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
 # AI assistant local configuration
 .claude/
 .codex/
 .cursor/
 .agents/
+.gemini/
 
 *.exe
 tmp/
+perf;C/
 Sprint_1_Detailed_Plan.md
 sprint_1_review.md
 GOA_Sprint_1_Tickets.md
 GOA_Sprint_2_Tickets.md
 GOA_Sprint_3_Tickets.md
 GOA-021-implementation-plan.md
-.agents/
 scratch_generator.py
 evals/reports/
 GOA-112-116-implementation-plan.md
@@ -65,10 +72,9 @@ services/rag/.venv_check/
 
 # Local scratch/live-test scripts (not part of the build)
 services/ingestion/scratch/
-.gemini/
-*.wav
-*.png
-.gemini/
+
+# Large generated media is ignored by default. Explicitly tracked benchmark
+# fixtures and curated documentation assets remain versioned.
 *.wav
 *.png
 

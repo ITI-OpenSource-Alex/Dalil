@@ -71,7 +71,19 @@ class Settings(BaseSettings):
     # implementation, so the required +0.15/+0.10 gains are impossible on the
     # frozen corpus. Keep hybrid available for clean A/B requests but default off.
     rag_hybrid_enabled: bool = False
-    confidence_threshold: float = 0.60
+    # GOA-140 (2026-08-13): raised 0.60 -> 0.71 after sweeping the measured dense
+    # top-similarity distribution over the 45-item golden set on the live 8,001-doc
+    # corpus. At 0.60 only 2/17 unanswerable questions were refused (0.1176); at 0.71
+    # that becomes 11/17 (0.6471) with false refusal UNCHANGED at 1/28 (0.0357).
+    # 0.71 is the knee: every step above it buys correct refusals by trading away
+    # answerable ones (0.73 -> 0.7059 correct but 0.1071 false; 0.75 -> 0.2143 false).
+    # The distributions overlap (answerable min 0.5639, unanswerable max 0.7715), so
+    # no threshold separates them cleanly and >=0.70 correct refusal is not reachable
+    # on this corpus without harming false refusal.
+    # LIMITATION: tuned on the same 45 items used to evaluate it. A held-out set is
+    # required before this value is treated as validated. See
+    # Docs/gold-tier-evidence/rag-benchmark-live-2026-08-13.md.
+    confidence_threshold: float = 0.71
 
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"

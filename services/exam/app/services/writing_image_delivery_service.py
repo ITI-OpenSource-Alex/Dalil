@@ -33,9 +33,27 @@ class S3WritingImageDeliveryService:
 
     PRESIGNED_URL_EXPIRY_SECONDS = 7200
 
-    def __init__(self, s3_client: Any, bucket: str) -> None:
+    def __init__(
+        self,
+        s3_client: Any,
+        bucket: str,
+        head_client: Any | None = None,
+    ) -> None:
         self.s3_client = s3_client
         self.bucket = bucket
+        # The existence check and the signature are two different concerns with
+        # two different audiences. The presign (``s3_client``) is signed for the
+        # PUBLIC host the browser will request (BUG-016). The HEAD only has to
+        # reach S3 from the server side. In a split-horizon dev setup those are
+        # different endpoints -- LocalStack is ``localstack:4566`` on the docker
+        # network but published at ``localhost:4566`` for the browser, and a
+        # container cannot resolve its own ``localhost`` to the published port,
+        # so a single client signed for the public host cannot also HEAD from
+        # inside the container. ``head_client`` lets the caller point the check
+        # at the internal endpoint. It defaults to ``s3_client`` so production
+        # (where the two endpoints coincide) and the unit tests (one fake) are
+        # unchanged.
+        self.head_client = head_client or s3_client
 
     def generate_image_url(
         self,
@@ -78,7 +96,7 @@ class S3WritingImageDeliveryService:
 
     def _object_exists(self, key: str) -> bool:
         try:
-            self.s3_client.head_object(Bucket=self.bucket, Key=key)
+            self.head_client.head_object(Bucket=self.bucket, Key=key)
         except Exception:
             # botocore raises ClientError for 404/403 alike, and a stubbed client
             # in tests may raise something else entirely. Either way the object

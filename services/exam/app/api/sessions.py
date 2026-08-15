@@ -39,9 +39,23 @@ def get_image_delivery_service() -> S3WritingImageDeliveryService:
         endpoint_url=presign_endpoint,
         config=Config(signature_version="s3v4"),
     )
+    # The delivery service HEADs the object before signing (BUG-022). That check
+    # runs server-side and must reach S3 over the INTERNAL endpoint, which in a
+    # containerized dev setup differs from the public presign endpoint above:
+    # the exam container cannot resolve its own localhost:4566 to the published
+    # LocalStack port. Build a dedicated head client on the internal endpoint;
+    # when the two endpoints coincide (production) this is the same target.
+    head_endpoint = settings.aws_endpoint_url or presign_endpoint
+    head_client = boto3.client(
+        "s3",
+        region_name=settings.s3_region or settings.aws_region,
+        endpoint_url=head_endpoint,
+        config=Config(signature_version="s3v4"),
+    )
     return S3WritingImageDeliveryService(
         s3_client=s3_client,
         bucket=settings.writing_image_bucket,
+        head_client=head_client,
     )
 
 

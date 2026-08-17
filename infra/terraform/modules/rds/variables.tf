@@ -60,14 +60,20 @@ variable "multi_az" {
   type        = bool
 }
 
+variable "allow_single_az_production" {
+  description = "Allow temporary single-AZ production RDS in constrained accounts. Keep false for normal production."
+  type        = bool
+  default     = false
+}
+
 variable "backup_retention_days" {
   description = "Automated backup retention in days."
   type        = number
   default     = 7
 
   validation {
-    condition     = var.environment == "production" ? var.backup_retention_days == 7 : contains([1, 7], var.backup_retention_days)
-    error_message = "Production requires seven backup days; staging supports one or seven days."
+    condition     = contains([1, 7], var.backup_retention_days)
+    error_message = "RDS backup retention must be one day for free-tier accounts or seven days for normal production."
   }
 }
 

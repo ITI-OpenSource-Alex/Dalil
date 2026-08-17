@@ -62,7 +62,9 @@ resource "aws_lb_target_group" "this" {
   )
 }
 
-resource "aws_lb_listener" "http" {
+resource "aws_lb_listener" "http_redirect" {
+  count = var.enable_https_listener ? 1 : 0
+
   load_balancer_arn = aws_lb.this.arn
   port              = 80
   protocol          = "HTTP"
@@ -78,7 +80,22 @@ resource "aws_lb_listener" "http" {
   }
 }
 
+resource "aws_lb_listener" "http_forward" {
+  count = var.enable_https_listener ? 0 : 1
+
+  load_balancer_arn = aws_lb.this.arn
+  port              = 80
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.this[var.default_target_group_name].arn
+  }
+}
+
 resource "aws_lb_listener" "https" {
+  count = var.enable_https_listener ? 1 : 0
+
   load_balancer_arn = aws_lb.this.arn
   port              = 443
   protocol          = "HTTPS"
@@ -94,7 +111,7 @@ resource "aws_lb_listener" "https" {
 resource "aws_lb_listener_rule" "path_routes" {
   for_each = var.listener_rules
 
-  listener_arn = aws_lb_listener.https.arn
+  listener_arn = var.enable_https_listener ? aws_lb_listener.https[0].arn : aws_lb_listener.http_forward[0].arn
   priority     = each.value.priority
 
   action {

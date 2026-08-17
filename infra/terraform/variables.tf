@@ -139,6 +139,12 @@ variable "alb_enable_deletion_protection" {
   default     = false
 }
 
+variable "temporary_http_only_alb" {
+  description = "Temporary escape hatch for smoke testing through the ALB DNS name before production domain DNS and ACM are ready."
+  type        = bool
+  default     = false
+}
+
 variable "alb_default_target_group_name" {
   description = "Target group key used by the ALB HTTPS listener default action."
   type        = string

@@ -64,7 +64,7 @@ module "nonproduction_alb_certificate" {
 }
 
 module "production_dns_zone" {
-  count  = var.enable_public_dns ? 1 : 0
+  count  = var.enable_public_dns || var.temporary_http_only_alb ? 1 : 0
   source = "./modules/route53"
 
   enabled          = true
@@ -75,7 +75,7 @@ module "production_dns_zone" {
 }
 
 module "production_alb_certificate" {
-  count  = var.enable_public_dns ? 1 : 0
+  count  = var.enable_public_dns && !var.temporary_http_only_alb ? 1 : 0
   source = "./modules/acm"
 
   name_prefix               = local.name_prefix
@@ -87,7 +87,7 @@ module "production_alb_certificate" {
 }
 
 module "production_cloudfront_certificate" {
-  count  = var.enable_public_dns ? 1 : 0
+  count  = var.enable_public_dns && !var.temporary_http_only_alb ? 1 : 0
   source = "./modules/acm"
 
   providers = {
@@ -104,7 +104,9 @@ module "production_cloudfront_certificate" {
 
 locals {
   effective_alb_certificate_arn = (
-    var.create_self_signed_alb_certificate
+    var.temporary_http_only_alb
+    ? null
+    : var.create_self_signed_alb_certificate
     ? module.nonproduction_alb_certificate[0].certificate_arn
     : var.enable_public_dns
     ? module.production_alb_certificate[0].certificate_arn
@@ -120,6 +122,7 @@ module "alb" {
   public_subnet_ids          = module.vpc.public_subnet_ids
   alb_security_group_id      = module.security_groups.alb_security_group_id
   certificate_arn            = local.effective_alb_certificate_arn
+  enable_https_listener      = !var.temporary_http_only_alb
   enable_deletion_protection = var.alb_enable_deletion_protection
   default_target_group_name  = var.alb_default_target_group_name
   target_groups              = var.alb_target_groups
@@ -144,7 +147,7 @@ module "alb" {
 }
 
 module "production_api_dns" {
-  count  = var.enable_public_dns ? 1 : 0
+  count  = var.enable_public_dns && !var.temporary_http_only_alb ? 1 : 0
   source = "./modules/route53"
 
   enabled            = true
@@ -158,7 +161,7 @@ module "production_api_dns" {
 }
 
 module "alb_waf" {
-  count  = var.enable_public_dns ? 1 : 0
+  count  = var.enable_public_dns && !var.temporary_http_only_alb ? 1 : 0
   source = "./modules/waf"
 
   name_prefix              = local.name_prefix
@@ -171,7 +174,7 @@ module "alb_waf" {
 }
 
 module "frontend_assets" {
-  count  = var.enable_cloudfront ? 1 : 0
+  count  = var.enable_cloudfront || var.temporary_http_only_alb ? 1 : 0
   source = "./modules/s3"
 
   bucket_name = coalesce(
@@ -183,7 +186,7 @@ module "frontend_assets" {
 }
 
 module "cloudfront_waf" {
-  count  = var.enable_cloudfront ? 1 : 0
+  count  = var.enable_cloudfront && !var.temporary_http_only_alb ? 1 : 0
   source = "./modules/waf"
 
   providers = {
@@ -201,7 +204,7 @@ module "cloudfront_waf" {
 module "cloudfront" {
   source = "./modules/cloudfront"
 
-  enabled                 = var.enable_cloudfront
+  enabled                 = var.enable_cloudfront && !var.temporary_http_only_alb
   name_prefix             = local.name_prefix
   s3_bucket_name          = try(module.frontend_assets[0].bucket_name, null)
   s3_bucket_arn           = try(module.frontend_assets[0].bucket_arn, null)
@@ -218,7 +221,7 @@ module "cloudfront" {
 }
 
 module "production_frontend_dns" {
-  count  = var.enable_public_dns && var.enable_cloudfront ? 1 : 0
+  count  = var.enable_public_dns && var.enable_cloudfront && !var.temporary_http_only_alb ? 1 : 0
   source = "./modules/route53"
 
   enabled             = true
@@ -285,12 +288,9 @@ module "ecs_service" {
   task_execution_role_arn       = module.iam.ecs_task_execution_role_arns[each.key]
   task_role_arn                 = module.iam.ecs_task_role_arns[each.key]
   target_group_arn              = try(module.alb.target_group_arns[each.key], null)
-  # GOA-030: derived from the target-group map rather than by naming the one
-  # service that opts out. `each.key != "ingestion"` was correct while ingestion
-  # was the only service without a target group; the speech and embeddings
-  # sidecars are also internal-only, and the old form would have attached them
-  # to a load balancer with a null target group ARN.
-  enable_load_balancer   = contains(keys(var.alb_target_groups), each.key)
+  # Only target groups referenced by an ALB listener/rule can be attached to ECS
+  # services. The rest stay private and are reached through Service Connect.
+  enable_load_balancer   = contains(["gateway", "exam", "speaking"], each.key)
   enable_service_connect = true
   # Still advertised over Service Connect even without an ALB -- that is exactly
   # how RAG reaches embeddings and Speaking reaches speech. Only ingestion, which

@@ -14,13 +14,13 @@ output "alb_zone_id" {
 }
 
 output "http_listener_arn" {
-  description = "ARN of the HTTP listener that redirects to HTTPS."
-  value       = aws_lb_listener.http.arn
+  description = "ARN of the HTTP listener."
+  value       = one(concat(aws_lb_listener.http_redirect[*].arn, aws_lb_listener.http_forward[*].arn))
 }
 
 output "https_listener_arn" {
   description = "ARN of the HTTPS listener."
-  value       = aws_lb_listener.https.arn
+  value       = try(aws_lb_listener.https[0].arn, null)
 }
 
 output "target_group_arns" {

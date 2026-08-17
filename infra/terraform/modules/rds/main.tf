@@ -99,7 +99,7 @@ resource "aws_db_instance" "this" {
 
   lifecycle {
     precondition {
-      condition     = var.environment == "production" ? var.multi_az : !var.multi_az
+      condition     = var.environment == "production" ? (var.multi_az || var.allow_single_az_production) : !var.multi_az
       error_message = "GOA-070 requires Multi-AZ to be enabled in production only."
     }
 

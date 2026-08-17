@@ -26,6 +26,8 @@ variable "alb_security_group_id" {
 variable "certificate_arn" {
   description = "ACM certificate ARN used by the HTTPS listener."
   type        = string
+  default     = null
+  nullable    = true
 }
 
 variable "default_target_group_name" {
@@ -100,6 +102,12 @@ variable "ssl_policy" {
   description = "TLS security policy for the HTTPS listener."
   type        = string
   default     = "ELBSecurityPolicy-TLS13-1-2-2021-06"
+}
+
+variable "enable_https_listener" {
+  description = "Create the HTTPS listener and redirect HTTP to HTTPS. Disable only for temporary non-domain smoke access."
+  type        = bool
+  default     = true
 }
 
 variable "enable_deletion_protection" {

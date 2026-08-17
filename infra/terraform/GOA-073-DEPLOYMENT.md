@@ -2,7 +2,7 @@
 
 ## Preconditions
 
-- Confirm the organization owns the configured production domain and can change its registrar name
+-- Confirm the organization owns the configured production domain and can change its registrar name
   servers. As of implementation, public DNS is delegated to Cloudflare, not
   the Route 53 zone this configuration will create.
 - Complete the production container image publication required by GOA-071.

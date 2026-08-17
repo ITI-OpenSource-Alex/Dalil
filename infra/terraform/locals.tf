@@ -368,9 +368,9 @@ locals {
     production = "cache.t3.small"
   }
 
-  rds_instance_class = lookup(local.rds_instance_classes, var.environment, "db.t3.micro")
-  redis_node_type    = lookup(local.redis_node_types, var.environment, "cache.t3.micro")
-  rds_multi_az       = var.environment == "production"
+  rds_instance_class = var.temporary_http_only_alb ? "db.t3.micro" : lookup(local.rds_instance_classes, var.environment, "db.t3.micro")
+  redis_node_type    = var.temporary_http_only_alb ? "cache.t3.micro" : lookup(local.redis_node_types, var.environment, "cache.t3.micro")
+  rds_multi_az       = var.environment == "production" && !var.temporary_http_only_alb
 
   ecs_service_resource_names = {
     for service in local.ecs_deployed_service_names :

@@ -140,6 +140,7 @@ module "rds" {
   database_names               = local.postgres_databases
   instance_class               = local.rds_instance_class
   multi_az                     = local.rds_multi_az
+  allow_single_az_production   = var.temporary_http_only_alb
   allocated_storage_gb         = var.rds_allocated_storage_gb
   max_allocated_storage_gb     = var.rds_max_allocated_storage_gb
   engine_version               = var.rds_engine_version

@@ -84,7 +84,25 @@ CURATED_LISTENING_KEYS = (
 # criteria). Only Academic Task 1 shows a chart/graph/map — General Training
 # Task 1 is a letter with no stimulus image, so its crop is simply absent and
 # the upload below is skipped, leaving that test with no image key.
-CHARTS_DIR = Path(__file__).resolve().parent.parent / "data" / "charts"
+#
+# Two directories, searched in this order. assets/charts is where the crops
+# actually live; data/charts stays as a fallback because it is what this script
+# looked at originally and its README still documents it. Searching both means a
+# crop in either place is found instead of silently ignored.
+_SERVICE_ROOT = Path(__file__).resolve().parent.parent
+CHART_SEARCH_DIRS = (
+    _SERVICE_ROOT / "assets" / "charts",
+    _SERVICE_ROOT / "data" / "charts",
+)
+
+# Accepted crop extensions, in priority order, mapped to the Content-Type S3
+# must serve them under. Restricting this to .png meant a crop saved as .jpg was
+# skipped in silence — the same failure this whole path is being fixed for.
+CHART_CONTENT_TYPES = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+}
 
 # Writing stimulus images live in their own bucket, distinct from the Listening
 # audio bucket. Overridable so the same script targets LocalStack in dev and
@@ -165,32 +183,73 @@ def _get_s3_client():
     return _s3_client
 
 
+def _chart_name_candidates(slug: str, test_number: int, book_ref: str) -> list[str]:
+    """Filename stems this crop could plausibly be saved under, best first.
+
+    The crops on disk are named after the book_ref (``ielts-15-test-1-task1``),
+    while this script originally looked only for the slug form
+    (``IELTS15-test1-task1``). That single mismatch is why charts never reached
+    S3: ``chart_path.exists()`` returned False, ``None`` came back, and the
+    parsed JSON kept no image key — with no warning, because an absent crop is
+    also the legitimate General Training case. Accept both spellings rather than
+    make one of them the silent loser.
+    """
+    return [
+        f"{book_ref}-test-{test_number}-task1",
+        f"{slug}-test{test_number}-task1",
+    ]
+
+
+def _resolve_chart_path(slug: str, test_number: int, book_ref: str) -> Path | None:
+    """Locate the crop for one writing test, or None when there genuinely is none.
+
+    Matching is case-insensitive. The files are ``ielts-15-...`` but book_ref is
+    ``IELTS-15``, and the container filesystem is case-sensitive, so a literal
+    path comparison misses them.
+    """
+    stems = [stem.lower() for stem in _chart_name_candidates(slug, test_number, book_ref)]
+
+    for directory in CHART_SEARCH_DIRS:
+        if not directory.is_dir():
+            continue
+        # One lowercase index per directory, so case differences and extension
+        # differences both collapse into a single dict lookup.
+        by_name = {path.name.lower(): path for path in directory.iterdir() if path.is_file()}
+        for stem in stems:
+            for extension in CHART_CONTENT_TYPES:
+                match = by_name.get(f"{stem}{extension}")
+                if match is not None:
+                    return match
+    return None
+
+
 def _upload_writing_chart(slug: str, test_number: int, book_ref: str) -> str | None:
     """Upload the Task 1 chart crop for one writing test; return its S3 key.
 
-    The crop is expected at ``data/charts/<slug>-test<N>-task1.png`` (e.g.
-    ``data/charts/IELTS15-test1-task1.png``) — that is where manual crops land.
-    If it is absent (every General Training test, and any Academic test not yet
-    cropped) we return None so the parsed JSON keeps no image key, which is what
-    makes re-running safe. When present it is uploaded under the deterministic
-    key ``charts/<book_ref>-test-<N>-task1.png``; re-runs overwrite the same key,
-    so the step stays idempotent.
+    The crop is looked up across CHART_SEARCH_DIRS under any of the names
+    ``_chart_name_candidates`` accepts (e.g. ``assets/charts/ielts-15-test-1-task1.png``).
+    If none is found — every General Training test, and any Academic test not yet
+    cropped — we return None so the parsed JSON keeps no image key, which is what
+    makes re-running safe. When present it is uploaded under the deterministic key
+    ``charts/<book_ref>-test-<N>-task1<ext>``; re-runs overwrite the same key, so
+    the step stays idempotent.
 
-    An upload failure is non-fatal: we warn and return None rather than discard
-    a successfully parsed test over a transient S3 problem. A later re-run picks
-    the chart back up.
+    An upload failure is non-fatal: we warn and return None rather than discard a
+    successfully parsed test over a transient S3 problem. A later re-run picks the
+    chart back up.
     """
-    chart_path = CHARTS_DIR / f"{slug}-test{test_number}-task1.png"
-    if not chart_path.exists():
+    chart_path = _resolve_chart_path(slug, test_number, book_ref)
+    if chart_path is None:
         return None
 
-    image_key = f"charts/{book_ref}-test-{test_number}-task1.png"
+    extension = chart_path.suffix.lower()
+    image_key = f"charts/{book_ref}-test-{test_number}-task1{extension}"
     try:
         _get_s3_client().upload_file(
             str(chart_path),
             WRITING_IMAGE_BUCKET,
             image_key,
-            ExtraArgs={"ContentType": "image/png"},
+            ExtraArgs={"ContentType": CHART_CONTENT_TYPES[extension]},
         )
     except Exception as exc:  # noqa: BLE001 - ingestion CLI: keep parsing going
         print(
@@ -201,7 +260,7 @@ def _upload_writing_chart(slug: str, test_number: int, book_ref: str) -> str | N
 
     print(
         f"  [chart     ] Test {test_number}: uploaded "
-        f"s3://{WRITING_IMAGE_BUCKET}/{image_key}"
+        f"s3://{WRITING_IMAGE_BUCKET}/{image_key} (from {chart_path.name})"
     )
     return image_key
 

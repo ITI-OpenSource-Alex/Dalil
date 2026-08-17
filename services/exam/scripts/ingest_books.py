@@ -182,6 +182,32 @@ async def main() -> int:
                     ) or ex_answers != payload.get("answer_key", {}):
                         needs_update = True
 
+                    # A chart upload changes image_s3_key and nothing else, so
+                    # the two comparisons above cannot see it. That is how a row
+                    # got reported "already exists and identical — skipped" while
+                    # image_s3_key stayed NULL: the object sat in the bucket, the
+                    # DB never learned its key, and Writing refused to start the
+                    # session because the stimulus looked unreachable.
+                    existing_image_key = existing["image_s3_key"]
+                    parsed_image_key = payload.get("image_s3_key")
+                    if (
+                        parsed_image_key is not None
+                        and parsed_image_key != existing_image_key
+                    ):
+                        needs_update = True
+                        print(
+                            f"  [image] {label}: image_s3_key "
+                            f"{existing_image_key or '<null>'} -> {parsed_image_key}"
+                        )
+
+                    # Never let a run that found no crop clear a key that is
+                    # already good. upsert_question writes
+                    # `image_s3_key = EXCLUDED.image_s3_key` unconditionally, so
+                    # an unrelated question edit would otherwise NULL the key of
+                    # a chart still present in the bucket.
+                    if parsed_image_key is None and existing_image_key is not None:
+                        payload["image_s3_key"] = existing_image_key
+
                 if existing and not needs_update:
                     print(f"  [=] {label}: already exists and identical — skipped")
                     results.append(

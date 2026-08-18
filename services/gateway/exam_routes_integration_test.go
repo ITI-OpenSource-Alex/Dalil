@@ -67,6 +67,7 @@ func TestFreeTierIsBlockedFromExamRoutes(t *testing.T) {
 		{fiber.MethodGet, "/api/exam/listening/start"},
 		{fiber.MethodGet, "/api/exam/sessions/" + examOwnerSessionID + "/result"},
 		{fiber.MethodPut, "/api/exam/sessions/" + examOwnerSessionID + "/submit"},
+		{fiber.MethodDelete, "/api/exam/sessions/" + examOwnerSessionID},
 	} {
 		if status := fixture.request(t, route.method, route.path); status != fiber.StatusForbidden {
 			t.Fatalf("expected %s %s to be 403 for a free user, got %d", route.method, route.path, status)
@@ -245,6 +246,7 @@ func newExamRoutesFixture(t *testing.T, tier string) *examRoutesFixture {
 	exam.Get("/listening/start", examStartLimiter, examHandler.StartListening)
 	exam.Put("/sessions/:sessionId/submit", ownership.Validate, examHandler.SubmitSession)
 	exam.Get("/sessions/:sessionId/result", ownership.Validate, examHandler.GetSessionResult)
+	exam.Delete("/sessions/:sessionId", ownership.Validate, examHandler.AbandonSession)
 
 	tokenService := gatewayauth.NewTokenService(testIntegrationJWTSecret, time.Hour, 24*time.Hour)
 	accessToken, err := tokenService.NewAccessToken(gatewayauth.User{ID: userID, Email: "candidate@example.com"})

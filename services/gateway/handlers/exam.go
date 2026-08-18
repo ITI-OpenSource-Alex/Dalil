@@ -165,6 +165,23 @@ func (h *ExamHandler) GetSession(c *fiber.Ctx) error {
 	return h.forward(c, http.MethodGet, target, nil)
 }
 
+// AbandonSession discards an in-progress attempt. The route is protected by
+// ExamSessionOwnership, and the authenticated user is also forwarded for the
+// Exam service's own defence-in-depth ownership check.
+func (h *ExamHandler) AbandonSession(c *fiber.Ctx) error {
+	userID, err := authenticatedUserID(c)
+	if err != nil {
+		return err
+	}
+	target, err := h.sessionURL(c.Params("sessionId"), "")
+	if err != nil {
+		return err
+	}
+	return h.forwardWith(c, http.MethodDelete, target, nil, map[string]string{
+		"X-User-Id": userID,
+	})
+}
+
 func (h *ExamHandler) SubmitSession(c *fiber.Ctx) error {
 	if _, err := authenticatedUserID(c); err != nil {
 		return err

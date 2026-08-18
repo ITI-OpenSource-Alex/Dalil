@@ -19,6 +19,7 @@ class ResultRepository:
         band_score: float | None,
         section_scores: dict[str, Any],
         agent_responses: dict | list | None = None,
+        detail: dict[str, Any] | None = None,
     ) -> None:
         query = """
         INSERT INTO exam_results(
@@ -30,10 +31,11 @@ class ResultRepository:
             band_score,
             section_scores,
             graded_at,
-            agent_responses
+            agent_responses,
+            detail
         )
         VALUES(
-            $1,$2,$3,$4,$5,$6,$7::jsonb,NOW(),$8::jsonb
+            $1,$2,$3,$4,$5,$6,$7::jsonb,NOW(),$8::jsonb,$9::jsonb
         )
         """
         if agent_responses is not None:
@@ -50,6 +52,7 @@ class ResultRepository:
                 band_score,
                 json.dumps(section_scores) if section_scores else None,
                 agent_responses,
+                json.dumps(detail) if detail is not None else None,
             )
 
     async def get_by_session(

@@ -21,7 +21,7 @@ function toUiType(rawQuestionType: string | null | undefined): ReadingUiType {
 
   const t = rawQuestionType.toLowerCase();
 
-  if (t.includes("matching")) return "matching";
+  if (t.includes("matching") || t.includes("map labelling")) return "matching";
   if (
     t.includes("true") ||
     t.includes("false") ||
@@ -86,17 +86,21 @@ export function normalizeReadingQuestions(
     const uiType = toUiType(q.question_type);
     const needsOptions = uiType === "multiple_choice" || uiType === "matching";
     const parsed = needsOptions ? parseInlineOptions(q.prompt) : undefined;
+    const structuredOptions =
+      needsOptions && Array.isArray(q.options) && q.options.length >= 2
+        ? q.options.map((option) => option.trim()).filter(Boolean)
+        : undefined;
 
     return {
       number: q.number,
       prompt: q.prompt,
-      promptStem: parsed?.stem || q.prompt,
+      promptStem: structuredOptions ? q.prompt : parsed?.stem || q.prompt,
       rawQuestionType: q.question_type,
       uiType,
       instructions: q.instructions,
       passageNumber: q.passage_number,
       section: sectionForQuestionNumber(q.number),
-      options: parsed?.options,
+      options: structuredOptions ?? parsed?.options,
     };
   });
 }

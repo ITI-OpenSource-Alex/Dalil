@@ -20,8 +20,10 @@ export interface ListeningStartResponse {
   session_id: string;
   audio_urls: [string, string, string, string];
   questions: RawReadingQuestion[];
+  image_url?: string | null;
   time_limit_seconds: number;
   audio_url_expiry_seconds: number;
+  image_url_expiry_seconds?: number | null;
 }
 
 export interface NormalizedListeningQuestion extends Omit<

@@ -8,11 +8,20 @@ class ChecklistItem(BaseModel):
     description: Optional[str] = None
     category: Optional[str] = None
     checked: bool = False
+    # Set when an item can be actioned inside the product rather than only ticked.
+    # Derived in checklist_service from the stable item_id, NOT persisted: checklists
+    # generated before this field existed are already stored as JSON, so deriving it
+    # lights up every existing checklist instead of only newly generated ones.
+    actionType: Optional[str] = None
+    actionTarget: Optional[str] = None
 
 
 class ChecklistResponse(BaseModel):
     checklistId: str
     programId: str
+    programName: Optional[str] = None
+    country: Optional[str] = None
+    discipline: Optional[str] = None
     generatedBy: Literal["llm", "fallback", "requirements"]
     items: list[ChecklistItem]
 

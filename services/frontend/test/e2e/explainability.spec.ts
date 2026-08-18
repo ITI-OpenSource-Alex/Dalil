@@ -185,12 +185,30 @@ test.describe("Ask Dalil explainability entry points", () => {
         ].join("\n"),
       }),
     );
-    await page.goto("/cv-review");
-    await page.getByLabel("Target country").fill("Germany");
-    await page.getByLabel("Target field of study").fill("Computer Science");
-    await page.getByRole("button", { name: "Start CV Review" }).click();
-    await expect(page.getByText("Overall score 72/100")).toBeVisible();
-    await expectEditableExplanation(page, "cv_review", /CV receive 72\/100/i);
+    await page.route(`${GATEWAY}/api/checklists/cv-program/financial`, (route) =>
+      route.fulfill(cors({ programId: "cv-program", items: [] })),
+    );
+    await page.route(`${GATEWAY}/api/checklists/cv-program`, (route) =>
+      route.fulfill(
+        cors({
+          checklistId: "cv-checklist",
+          programId: "cv-program",
+          programName: "MSc Computer Science",
+          country: "Germany",
+          discipline: "computer_science",
+          generatedBy: "requirements",
+          items: [],
+        }),
+      ),
+    );
+    await page.goto("/checklist/cv-program");
+    await page.getByRole("button", { name: "Review for this programme" }).click();
+    await expect(page.getByText("Programme fit 72/100")).toBeVisible();
+    await expectEditableExplanation(
+      page,
+      "cv_review",
+      /CV recommendations for MSc Computer Science/i,
+    );
   });
 
   test("checklist and official visa questions remain visibly source-bound", async ({

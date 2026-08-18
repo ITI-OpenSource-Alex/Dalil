@@ -40,6 +40,48 @@ class FakeRedis:
 
 
 @pytest.mark.asyncio
+async def test_coordinator_uses_one_model_call_and_emits_all_sections():
+    partials = []
+
+    class AggregateRunner:
+        def __init__(self):
+            self.calls = 0
+
+        async def review_all_sections(self, **kwargs):
+            self.calls += 1
+            return cv_review.CVReviewExecution(
+                sections=[
+                    CVReviewSection(
+                        name=section_name,
+                        score=80,
+                        issues=[],
+                        suggestions=[f"Improve {section_name.lower()}"],
+                    )
+                    for section_name in cv_review.SECTION_NAMES
+                ],
+                prompt_tokens=10,
+                completion_tokens=5,
+                latency_ms=1,
+            )
+
+    runner = AggregateRunner()
+    summary = await cv_review.CVReviewCoordinator(runner).review(
+        extracted_text="Jane Doe CV text.",
+        structured_data=None,
+        target_country="Germany",
+        target_field="Software Engineering",
+        country_conventions="Use a concise CV.",
+        on_partial=lambda section: partials.append(section.name),
+    )
+
+    assert runner.calls == 1
+    assert len(summary.sections) == len(cv_review.SECTION_NAMES)
+    assert summary.overall_score == 80
+    assert partials == list(cv_review.SECTION_NAMES)
+    assert summary.total_tokens == 15
+
+
+@pytest.mark.asyncio
 async def test_generate_review_parses_structured_json():
     fake_client = FakeClient(
         json.dumps(

@@ -57,6 +57,7 @@ export default function LockedAudioPlayer({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
 // The largest jump a single `timeupdate` may legitimately report.
 //
@@ -121,6 +122,19 @@ const MAX_TIMEUPDATE_ADVANCE_SECONDS = 1.5;
     const audio = audioRef.current;
     if (!audio) return;
     setDuration(audio.duration);
+    setLoadError(false);
+  }, []);
+
+  const handleAudioError = useCallback(() => {
+    setIsPlaying(false);
+    setLoadError(true);
+  }, []);
+
+  const handleRetry = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    setLoadError(false);
+    audio.load();
   }, []);
 
   const handleEnded = useCallback(() => {
@@ -134,13 +148,18 @@ const MAX_TIMEUPDATE_ADVANCE_SECONDS = 1.5;
     if (!audio || isComplete) return;
 
     if (audio.paused) {
-      void audio.play();
-      setIsPlaying(true);
+      void audio
+        .play()
+        .then(() => {
+          setLoadError(false);
+          setIsPlaying(true);
+        })
+        .catch(handleAudioError);
     } else {
       audio.pause();
       setIsPlaying(false);
     }
-  }, [isComplete]);
+  }, [handleAudioError, isComplete]);
 
   // Attempt playback once on mount when asked to. Deliberately has no
   // dependency on `src`/`autoPlay` changing post-mount: this component is
@@ -208,32 +227,53 @@ const MAX_TIMEUPDATE_ADVANCE_SECONDS = 1.5;
         onTimeUpdate={handleTimeUpdate}
         onSeeking={handleSeeking}
         onLoadedMetadata={handleLoadedMetadata}
+        onError={handleAudioError}
         onEnded={handleEnded}
         tabIndex={-1}
         className="hidden"
       />
 
-      <p className="mb-4 text-sm font-medium text-gray-800">
-        {isComplete
-          ? "Section complete"
-          : isPlaying
-            ? "Playing"
-            : "Ready to play"}
-      </p>
-
-      <button
-        type="button"
-        data-testid="locked-audio-play-pause"
-        disabled={isComplete}
-        onClick={handlePlayPause}
-        className="rounded-full bg-[#0d4d3a] px-4 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+      <div
+        data-testid="locked-audio-controls"
+        className="mb-4 flex items-center justify-between gap-4"
       >
-        {isComplete
-          ? "Playback complete"
-          : isPlaying
-            ? "Pause"
-            : "Play / Pause"}
-      </button>
+        <p className="text-sm font-medium text-gray-800">
+          {isComplete
+            ? "Section complete"
+            : isPlaying
+              ? "Playing"
+              : "Ready to play"}
+        </p>
+
+        <button
+          type="button"
+          data-testid="locked-audio-play-pause"
+          disabled={isComplete || loadError}
+          onClick={handlePlayPause}
+          className="ml-auto shrink-0 rounded-full bg-[#0d4d3a] px-4 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {isComplete
+            ? "Playback complete"
+            : isPlaying
+              ? "Pause"
+              : "Play / Pause"}
+        </button>
+      </div>
+
+      {loadError && (
+        <div className="mb-4" role="alert">
+          <p className="text-sm text-red-700">
+            Unable to load this section&apos;s audio.
+          </p>
+          <button
+            type="button"
+            onClick={handleRetry}
+            className="mt-2 rounded-full border border-red-300 px-3 py-1 text-xs font-semibold text-red-700"
+          >
+            Retry audio
+          </button>
+        </div>
+      )}
 
       <div className="mt-5 flex flex-col gap-1.5">
         {/* Read-only progress indicator. pointer-events: none ensures

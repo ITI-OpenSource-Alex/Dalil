@@ -76,12 +76,14 @@ services/ingestion/scratch/
 # Large generated media is ignored by default. Explicitly tracked benchmark
 # fixtures and curated documentation assets remain versioned.
 *.wav
+*.mp3
 *.png
 
 # Judge response cache: local cost optimisation, not shared state.
 evals/.judge_cache.json
 
 # Local Go build cache used when the OS user cache is not writable.
+.cache/
 .go-build-cache/
 .go-mod-cache/
 infra/seeder/rag_seed.sql.gz

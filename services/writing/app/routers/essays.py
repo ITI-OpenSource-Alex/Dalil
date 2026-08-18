@@ -177,6 +177,7 @@ async def _run_evaluation(
     coordinator: EvaluationCoordinator,
     trace: Any,
     on_partial=None,
+    input_source: str = "typed",
 ) -> EvaluationSummary:
     if cached_payload is not None:
         return await coordinator.replay_cached(
@@ -190,6 +191,7 @@ async def _run_evaluation(
         user_id=essay.user_id,
         trace=trace,
         on_partial=on_partial,
+        input_source=input_source,
     )
 
 async def _run_exam_evaluation(
@@ -213,6 +215,7 @@ async def _run_exam_evaluation(
         stimulus_s3_key=payload.stimulusS3Key,
         task_prompt=payload.taskPrompt,
         trace=trace,
+        input_source=payload.inputSource,
     )
 
 
@@ -231,6 +234,7 @@ async def evaluate_submitted_text(
         payload.submissionType,
         payload.examType,
         settings,
+        payload.inputSource,
     )
     cached_payload = find_cached_evaluation(db, cache_key, payload.userId)
     essay = Essay(
@@ -259,6 +263,7 @@ async def evaluate_submitted_text(
             cached_payload=cached_payload,
             coordinator=coordinator,
             trace=trace,
+            input_source=payload.inputSource,
         )
     except EvaluationFailed as exc:
         end_evaluation_trace(trace, error=exc)
@@ -298,6 +303,7 @@ async def stream_essay_evaluation(
             essay.submission_type or "typed_text",
             essay.exam_type or essay.submission_type or "IELTS Writing",
             settings,
+            "typed",
         )
     cached_payload = essay.evaluation_result or find_cached_evaluation(
         db, essay.evaluation_cache_key, essay.user_id
@@ -393,6 +399,7 @@ async def evaluate_exam_task(
         "exam",
         payload.examType,
         settings,
+        payload.inputSource,
     )
     cached_payload = find_cached_evaluation(db, cache_key, payload.userId)
     essay = Essay(

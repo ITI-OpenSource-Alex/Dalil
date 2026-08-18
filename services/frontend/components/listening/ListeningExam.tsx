@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useReducer, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import QuestionRenderer from "@/components/reading/questions/QuestionRenderer";
 import LockedAudioPlayer from "@/components/listening/LockedAudioPlayer";
 import type { NormalizedReadingQuestion } from "@/app/types/reading";
@@ -21,10 +28,41 @@ interface ListeningExamProps {
   sessionId: string;
   audioUrls: [string, string, string, string];
   rawQuestions: RawReadingQuestion[];
+  stimulusImageUrl?: string | null;
   onSubmitted: (
     result: ListeningSubmitResponse,
     questions: NormalizedListeningQuestion[],
   ) => void;
+  /** Incremented by the outer exam clock when the overall limit expires. */
+  forceSubmitSignal?: number;
+}
+
+interface ListeningQuestionGroup {
+  instructions: string | null;
+  questions: NormalizedListeningQuestion[];
+}
+
+function groupQuestionsByInstructions(
+  questions: NormalizedListeningQuestion[],
+): ListeningQuestionGroup[] {
+  return questions.reduce<ListeningQuestionGroup[]>((groups, question) => {
+    const instructions = question.instructions?.trim() || null;
+    const previous = groups.at(-1);
+
+    if (previous?.instructions === instructions) {
+      previous.questions.push(question);
+      return groups;
+    }
+
+    groups.push({ instructions, questions: [question] });
+    return groups;
+  }, []);
+}
+
+function questionRangeLabel(questions: NormalizedListeningQuestion[]): string {
+  const first = questions[0].number;
+  const last = questions.at(-1)?.number ?? first;
+  return first === last ? `Question ${first}` : `Questions ${first}–${last}`;
 }
 
 function formatTime(totalSeconds: number | null): string {
@@ -39,7 +77,9 @@ export default function ListeningExam({
   sessionId,
   audioUrls,
   rawQuestions,
+  stimulusImageUrl = null,
   onSubmitted,
+  forceSubmitSignal = 0,
 }: ListeningExamProps) {
   const [state, dispatch] = useReducer(
     listeningReducer,
@@ -47,6 +87,7 @@ export default function ListeningExam({
     initialListeningState,
   );
   const [scratchPad, setScratchPad] = useState("");
+  const lastForcedSubmitSignal = useRef(0);
 
   const activeQuestions = useMemo(
     () =>
@@ -55,6 +96,15 @@ export default function ListeningExam({
       ),
     [state.activeSection, state.questions],
   );
+
+  const mapSection = useMemo(() => {
+    const mapQuestion = rawQuestions.find((question) =>
+      question.question_type.toLowerCase().includes("map labelling"),
+    );
+    if (!mapQuestion) return null;
+    return (mapQuestion.section_number ??
+      Math.ceil(mapQuestion.number / 10)) as ListeningSection;
+  }, [rawQuestions]);
 
   const visibleQuestions =
     state.phase === "answer_transfer" || state.phase === "submitting"
@@ -88,35 +138,69 @@ export default function ListeningExam({
     return () => window.clearInterval(interval);
   }, [state.phase, state.transferSecondsRemaining]);
 
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(
+    async (forced = false) => {
+      if ((!forced && state.phase !== "answer_transfer") || state.submitting) {
+        return;
+      }
+
+      dispatch({ type: "SUBMIT_STARTED" });
+
+      try {
+        // Scratch-pad content is intentionally not part of this call.
+        const result = await submitListeningSession(
+          sessionId,
+          state.answers as ListeningAnswers,
+        );
+
+        onSubmitted(result, state.questions);
+      } catch (error) {
+        dispatch({
+          type: "SUBMIT_FAILED",
+          error:
+            error instanceof Error
+              ? error.message
+              : "Unable to submit listening exam.",
+        });
+      }
+    },
+    [
+      onSubmitted,
+      sessionId,
+      state.answers,
+      state.phase,
+      state.questions,
+      state.submitting,
+    ],
+  );
+
+  // IELTS answer-transfer time is a hard deadline. Reaching zero must submit
+  // the answers already saved in reducer state; disabling the button alone
+  // would strand the attempt in an impossible-to-complete state.
+  useEffect(() => {
     if (
-      state.phase !== "answer_transfer" ||
-      state.submitting ||
-      state.transferSecondsRemaining === 0
+      state.phase === "answer_transfer" &&
+      state.transferSecondsRemaining === 0 &&
+      !state.submitting
     ) {
-      return;
+      void handleSubmit(false);
     }
+  }, [
+    handleSubmit,
+    state.phase,
+    state.submitting,
+    state.transferSecondsRemaining,
+  ]);
 
-    dispatch({ type: "SUBMIT_STARTED" });
-
-    try {
-      // Scratch-pad content is intentionally not part of this call.
-      const result = await submitListeningSession(
-        sessionId,
-        state.answers as ListeningAnswers,
-      );
-
-      onSubmitted(result, state.questions);
-    } catch (error) {
-      dispatch({
-        type: "SUBMIT_FAILED",
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unable to submit listening exam.",
-      });
+  useEffect(() => {
+    if (
+      forceSubmitSignal > lastForcedSubmitSignal.current &&
+      !state.submitting
+    ) {
+      lastForcedSubmitSignal.current = forceSubmitSignal;
+      void handleSubmit(true);
     }
-  };
+  }, [forceSubmitSignal, handleSubmit, state.submitting]);
 
   const handleQuestionChange = (questionNumber: number, value: string) => {
     dispatch({
@@ -129,6 +213,12 @@ export default function ListeningExam({
   const isListening = state.phase === "section_playing";
   const showAudio =
     state.phase !== "answer_transfer" && state.phase !== "submitting";
+  const showStimulus =
+    stimulusImageUrl !== null &&
+    mapSection !== null &&
+    (state.activeSection === mapSection ||
+      state.phase === "answer_transfer" ||
+      state.phase === "submitting");
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -174,6 +264,19 @@ export default function ListeningExam({
               autoPlay={isListening}
               onComplete={() => dispatch({ type: "AUDIO_ENDED" })}
             />
+          )}
+
+          {showStimulus && (
+            <figure className="mt-6 overflow-hidden rounded-2xl border border-gray-200 bg-white p-4">
+              <figcaption className="mb-3 text-sm font-bold text-gray-900">
+                Map for Section {mapSection}
+              </figcaption>
+              <img
+                src={stimulusImageUrl}
+                alt={`Map for Section ${mapSection} questions`}
+                className="h-auto w-full rounded-xl object-contain"
+              />
+            </figure>
           )}
 
           {state.phase === "section_complete" && (
@@ -239,6 +342,8 @@ export default function ListeningExam({
 
             if (!questions.length) return null;
 
+            const questionGroups = groupQuestionsByInstructions(questions);
+
             return (
               <div
                 key={section}
@@ -252,17 +357,46 @@ export default function ListeningExam({
                   </h3>
                 )}
 
-                {questions.map((question) => (
-                  <QuestionRenderer
-                    key={question.number}
-                    // Renderer does not depend on the 1–4 section value.
-                    question={question as NormalizedReadingQuestion}
-                    value={state.answers[String(question.number)] ?? ""}
-                    onChange={(value) =>
-                      handleQuestionChange(question.number, value)
-                    }
-                  />
-                ))}
+                {questionGroups.map((group) => {
+                  const firstNumber = group.questions[0].number;
+
+                  return (
+                    <div key={firstNumber} className="space-y-8">
+                      {group.instructions && (
+                        <div
+                          role="note"
+                          data-testid={`listening-instructions-${firstNumber}`}
+                          className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3"
+                        >
+                          <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">
+                            {questionRangeLabel(group.questions)}
+                          </p>
+                          <p className="mt-1 text-sm font-semibold text-gray-900">
+                            {group.instructions}
+                          </p>
+                        </div>
+                      )}
+
+                      {group.questions.map((question) => (
+                        <QuestionRenderer
+                          key={question.number}
+                          // The group heading renders shared instructions once,
+                          // rather than repeating them beneath every question.
+                          question={
+                            {
+                              ...question,
+                              instructions: null,
+                            } as NormalizedReadingQuestion
+                          }
+                          value={state.answers[String(question.number)] ?? ""}
+                          onChange={(value) =>
+                            handleQuestionChange(question.number, value)
+                          }
+                        />
+                      ))}
+                    </div>
+                  );
+                })}
               </div>
             );
           })}
@@ -287,7 +421,7 @@ export default function ListeningExam({
             type="button"
             data-testid="listening-submit-button"
             disabled={state.submitting || state.transferSecondsRemaining === 0}
-            onClick={handleSubmit}
+            onClick={() => void handleSubmit(false)}
             className="rounded-full bg-[#0d4d3a] px-5 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
             {state.submitting ? "Submitting…" : "Submit answers"}

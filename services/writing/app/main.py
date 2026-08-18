@@ -16,6 +16,7 @@ from app.dependencies import get_db
 from app.models import Essay
 from app.routers.cvs import router as cv_router
 from app.routers.essays import router as essay_router
+from app.routers.motivation_letters import router as motivation_router
 from app.services.account_deletion_consumer import consume_account_deleted_messages
 
 configure_logging()
@@ -202,4 +203,5 @@ def get_essay(
 app.include_router(internal.router)
 app.include_router(cv_router)
 app.include_router(essay_router)
+app.include_router(motivation_router)
 

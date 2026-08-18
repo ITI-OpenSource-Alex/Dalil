@@ -198,6 +198,48 @@ func TestGetSessionResultForwardsXUserIdFromJWT(t *testing.T) {
 	}
 }
 
+func TestAbandonSessionForwardsAuthenticatedUser(t *testing.T) {
+	const jwtUserID = "user-123"
+	const sessionID = "session-456"
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			t.Fatalf("unexpected method %q", r.Method)
+		}
+		if r.URL.Path != "/sessions/"+sessionID {
+			t.Fatalf("unexpected path %q", r.URL.Path)
+		}
+		if got := r.Header.Get("X-User-Id"); got != jwtUserID {
+			t.Fatalf("expected X-User-Id %q, got %q", jwtUserID, got)
+		}
+		if got := r.Header.Get("X-Internal-API-Key"); got != "test-key" {
+			t.Fatalf("expected internal API key, got %q", got)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"status":"abandoned"}`))
+	}))
+	defer upstream.Close()
+
+	handler := NewExamHandler(upstream.Client(), upstream.URL, "test-key")
+	app := fiber.New()
+	app.Use(func(c *fiber.Ctx) error {
+		c.Locals(middleware.ContextKeyUserID, jwtUserID)
+		return c.Next()
+	})
+	app.Delete("/sessions/:sessionId", handler.AbandonSession)
+
+	response, err := app.Test(
+		httptest.NewRequest(http.MethodDelete, "/sessions/"+sessionID, nil),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", response.StatusCode)
+	}
+}
+
 func sessionResultTestApp(handler *ExamHandler, userID string) *fiber.App {
 	app := fiber.New()
 	app.Use(func(c *fiber.Ctx) error {

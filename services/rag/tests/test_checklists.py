@@ -22,7 +22,9 @@ PROGRAM_ID = "22222222-2222-2222-2222-222222222222"
 
 PROGRAM = ProgramRequirements(
     id=PROGRAM_ID,
+    name="MSc Computer Science",
     country="Germany",
+    discipline="computer_science",
     degree_level="Master",
     min_ects=120,
     min_gpa=3.0,
@@ -142,6 +144,9 @@ def test_get_checklist_existing_refreshes_facts_and_preserves_stable_state(monke
     assert response.status_code == 200
     data = response.json()
     assert data["checklistId"] == "33333333-3333-3333-3333-333333333333"
+    assert data["programName"] == "MSc Computer Science"
+    assert data["country"] == "Germany"
+    assert data["discipline"] == "computer_science"
     assert data["generatedBy"] == "requirements"
     assert data["items"][0]["itemId"] == "valid_passport"
     assert data["items"][0]["checked"] is True

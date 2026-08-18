@@ -21,6 +21,7 @@ import { READING_UI_TYPE_LABELS } from "@/lib/reading-results";
 import { Badge, Button, Card, Heading, PageContainer, Text } from "@/components/ui";
 import { ExplainWithDalilButton } from "@/components/chat/explain-with-dalil-button";
 import { compactFacts, fact } from "@/lib/explanation-context";
+import { normalizeListeningQuestions } from "@/lib/listening-api";
 
 // useSearchParams() opts the page into client-side rendering during
 // prerendering, which Next.js requires to be wrapped in a Suspense boundary
@@ -93,21 +94,49 @@ function ResultsPageContent() {
       return;
     }
 
-    // Listening is stored and read back exactly like Reading, and for the same
-    // reason -- the exam service has no GET-result endpoint for it either, so
-    // the submit response captured client-side is the only copy of the
-    // per-question breakdown. See lib/listening-result-storage.ts.
     if (skill === "Listening") {
       const stored = loadListeningResult(sessionId);
-      setListeningResult(stored);
-      setLoading(false);
-
-      if (!stored) {
-        setError("No Listening result found for this session.");
+      if (stored) {
+        setListeningResult(stored);
+        setLoading(false);
+        sessionStorage.removeItem("active_exam_session");
         return;
       }
 
-      sessionStorage.removeItem("active_exam_session");
+      // sessionStorage is only a fast path. A refresh, a new tab, or browser
+      // cleanup must still be able to rebuild the detailed result from the
+      // durable exam-service record.
+      (async () => {
+        try {
+          setLoading(true);
+          const recovered = await getResult(sessionId);
+          if (
+            !recovered.per_question_result ||
+            !recovered.section_breakdown ||
+            !recovered.questions
+          ) {
+            throw new Error("Listening result details are unavailable.");
+          }
+          setListeningResult({
+            result: {
+              raw_score: recovered.raw_score,
+              band_score: recovered.band_score ?? 0,
+              per_question_result: recovered.per_question_result,
+              section_breakdown: recovered.section_breakdown,
+            },
+            questions: normalizeListeningQuestions(recovered.questions),
+          });
+          sessionStorage.removeItem("active_exam_session");
+        } catch (err) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Failed to load Listening result",
+          );
+        } finally {
+          setLoading(false);
+        }
+      })();
 
       return;
     }

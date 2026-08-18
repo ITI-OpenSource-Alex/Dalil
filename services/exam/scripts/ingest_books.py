@@ -51,19 +51,48 @@ MIGRATIONS_DIR = Path(
 
 
 async def run_migrations(pool) -> None:
-    """Run all SQL migrations in order."""
+    """Run pending non-empty SQL migrations in order.
+
+    The service startup path owns the same ``migrations_log`` table. Reusing
+    it here prevents an ingestion run from replaying every migration, and an
+    empty placeholder migration must be skipped before calling asyncpg (which
+    otherwise raises a misleading ``NoneType.decode`` error).
+    """
     migrations = sorted(MIGRATIONS_DIR.glob("*.sql"))
     async with pool.acquire() as conn:
+        await conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS migrations_log (
+                migration_file VARCHAR(255) PRIMARY KEY,
+                executed_at TIMESTAMP DEFAULT NOW(),
+                migration_batch_id VARCHAR(255)
+            )
+            """
+        )
         for mig in migrations:
+            already_executed = await conn.fetchval(
+                "SELECT 1 FROM migrations_log WHERE migration_file = $1",
+                mig.name,
+            )
+            if already_executed:
+                print(f"  [SKIP] {mig.name} (already applied)")
+                continue
+
             sql = mig.read_text(encoding="utf-8")
-            try:
+            if not sql.strip():
+                print(f"  [SKIP] {mig.name} (empty placeholder)")
+                continue
+
+            async with conn.transaction():
                 await conn.execute(sql)
-                print(f"  [OK] {mig.name}")
-            except Exception as e:
-                if "already exists" in str(e) or "duplicate" in str(e).lower():
-                    print(f"  [SKIP] {mig.name} (already applied)")
-                else:
-                    print(f"  [WARN] {mig.name}: {e}")
+                await conn.execute(
+                    """
+                    INSERT INTO migrations_log (migration_file)
+                    VALUES ($1)
+                    """,
+                    mig.name,
+                )
+            print(f"  [OK] {mig.name}")
 
 
 async def main() -> int:

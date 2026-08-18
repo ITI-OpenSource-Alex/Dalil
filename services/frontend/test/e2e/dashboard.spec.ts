@@ -134,13 +134,11 @@ test.describe("Dalil Dashboard", () => {
 
     await page.goto("/dashboard");
 
-    // Scoped to <main>: the sidebar (an <aside>, not <main>) has its own
-    // "CV Review" and "Speaking Practice" links, so an unscoped getByRole
-    // here would match two elements and fail Playwright's strict mode.
+    // The sidebar and dashboard can share action labels, so scope to main.
     const main = page.getByRole("main");
-    await expect(main.getByRole("link", { name: "CV Review" })).toHaveAttribute(
+    await expect(main.getByRole("link", { name: "Manage CV" })).toHaveAttribute(
       "href",
-      "/cv-review",
+      "/profile?tab=cv",
     );
     await expect(
       main.getByRole("link", { name: "Speaking Practice" }),

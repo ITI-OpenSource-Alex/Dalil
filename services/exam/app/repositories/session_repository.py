@@ -69,6 +69,19 @@ class SessionRepository:
         async with self.pool.acquire() as conn:
             await conn.execute(query, session_id, status)
 
+    async def try_abandon(self, session_id: UUID) -> bool:
+        """Atomically abandon an attempt only while it is still active."""
+        query = """
+        UPDATE exam_sessions
+        SET status='abandoned'
+        WHERE id=$1 AND status IN ('pending', 'in_progress')
+        RETURNING id
+        """
+
+        async with self.pool.acquire() as conn:
+            result = await conn.fetchval(query, session_id)
+            return result is not None
+
     async def submit(
         self,
         session_id: UUID,

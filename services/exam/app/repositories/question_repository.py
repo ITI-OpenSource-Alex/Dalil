@@ -33,7 +33,13 @@ def _decode_json(value: Any) -> Any:
 _SCORABLE_CLAUSE = """
           AND (
                 q.skill_area NOT IN ('reading', 'listening')
-             OR (SELECT count(*) FROM jsonb_object_keys(q.answer_key))
+             OR (SELECT count(*) FROM jsonb_object_keys(
+                    CASE
+                        WHEN jsonb_typeof(q.answer_key->'answers') = 'object'
+                        THEN q.answer_key->'answers'
+                        ELSE q.answer_key
+                    END
+                ))
                 = jsonb_array_length(q.questions)
           )
 """
@@ -56,7 +62,9 @@ class QuestionRepository:
         query = f"""
         SELECT q.*
         FROM questions q
-        LEFT JOIN exam_sessions s ON s.question_id = q.id AND s.user_id = $3
+        LEFT JOIN exam_sessions s ON s.question_id = q.id
+          AND s.user_id = $3
+          AND s.status <> 'abandoned'
         WHERE q.exam_type=$1
           AND q.skill_area=$2
           AND jsonb_array_length(q.questions) > 0
@@ -93,8 +101,12 @@ class QuestionRepository:
           AND q.skill_area=$2
           AND jsonb_array_length(q.questions) > 0
           {_SCORABLE_CLAUSE}
-          AND q.id NOT IN (
-              SELECT question_id FROM exam_sessions WHERE user_id=$3
+          AND NOT EXISTS (
+              SELECT 1
+              FROM exam_sessions s
+              WHERE s.user_id=$3
+                AND s.question_id=q.id
+                AND s.status <> 'abandoned'
           )
         ORDER BY RANDOM()
         LIMIT 1
@@ -105,7 +117,9 @@ class QuestionRepository:
                 await self._log_why_nothing_servable(conn, exam_type, skill_area)
         return row
 
-    async def _log_why_nothing_servable(self, conn, exam_type: str, skill_area: str) -> None:
+    async def _log_why_nothing_servable(
+        self, conn, exam_type: str, skill_area: str
+    ) -> None:
         """Explain an empty selection instead of letting it read as an empty bank.
 
         "No reading tests available" is the same message whether nothing was ever
@@ -119,7 +133,13 @@ class QuestionRepository:
                    count(*) FILTER (WHERE jsonb_array_length(questions) = 0) AS no_questions,
                    count(*) FILTER (
                        WHERE jsonb_array_length(questions) > 0
-                         AND (SELECT count(*) FROM jsonb_object_keys(answer_key))
+                         AND (SELECT count(*) FROM jsonb_object_keys(
+                                CASE
+                                    WHEN jsonb_typeof(answer_key->'answers') = 'object'
+                                    THEN answer_key->'answers'
+                                    ELSE answer_key
+                                END
+                             ))
                              <> jsonb_array_length(questions)
                    ) AS incomplete_keys
             FROM questions

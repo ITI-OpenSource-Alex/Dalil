@@ -205,6 +205,7 @@ function ProfileHub() {
             <TabsList variant="underline">
               <TabsTrigger value="matches">Matches</TabsTrigger>
               <TabsTrigger value="progress">Exam Progress</TabsTrigger>
+              <TabsTrigger value="cv">CV</TabsTrigger>
               <TabsTrigger value="edit">Edit profile</TabsTrigger>
             </TabsList>
 
@@ -223,6 +224,19 @@ function ProfileHub() {
               <ExamProgressTab />
             </TabsPanel>
 
+            <TabsPanel value="cv" className="space-y-4">
+              <div>
+                <Heading as="h2" size="sm">
+                  Your CV
+                </Heading>
+                <Text size="sm" tone="muted" className="mt-1">
+                  Upload it once here. Each programme checklist can then generate
+                  recommendations against that programme&apos;s actual requirements.
+                </Text>
+              </div>
+              <CvUploadPanel />
+            </TabsPanel>
+
             <TabsPanel value="edit" className="space-y-6">
               <Card>
                 <Heading as="h2" size="xs" className="mb-4 text-fg-muted">
@@ -236,17 +250,6 @@ function ProfileHub() {
                     void retry();
                   }}
                 />
-              </Card>
-
-              <Card>
-                <Heading as="h2" size="xs" id="profile-cv-heading">
-                  CV
-                </Heading>
-                <Text size="sm" tone="muted" className="mt-1 mb-4">
-                  Upload or replace your CV here. AI review stays on the CV
-                  Review page.
-                </Text>
-                <CvUploadPanel showReviewLink />
               </Card>
             </TabsPanel>
           </Tabs>

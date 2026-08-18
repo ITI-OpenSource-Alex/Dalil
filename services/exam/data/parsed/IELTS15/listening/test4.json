@@ -7,321 +7,459 @@
   "questions": [
     {
       "number": 1,
-      "prompt": "Complete the form below. Customer Satisfaction Survey Customer details Name: Sophie Bird Occupation: Reason for travel today: Journey information Name of station returning to: Type of ticket purchased: Cost of ticket: When ticket was purchased: Where ticket was bought: Satisfaction with journey Most satisfied with: the wifi Least satisfied with: the 7. Satisfaction with station facilities Most satisfied with: how much 8... provided Least satisfied with: lack of seats, particularly on the Neither satisfied nor dissatisfied with: 74 > (Op. 125 p. 113 .. available Write the correct letter, A-H, next to",
+      "prompt": "Occupation: ___",
       "question_type": "Form Completion",
-      "instructions": "Complete the form below.",
+      "instructions": "Complete the form below. Write ONE WORD AND/OR A NUMBER for each answer.",
       "passage_number": null,
       "section_number": 1
     },
     {
       "number": 2,
-      "prompt": "Complete the form below. Customer Satisfaction Survey Customer details Name: Sophie Bird Occupation: Reason for travel today: Journey information Name of station returning to: Type of ticket purchased: Cost of ticket: When ticket was purchased: Where ticket was bought: Satisfaction with journey Most satisfied with: the wifi Least satisfied with: the 7. Satisfaction with station facilities Most satisfied with: how much 8... provided Least satisfied with: lack of seats, particularly on the Neither satisfied nor dissatisfied with: 74 > (Op. 125 p. 113 .. available Write the correct letter, A-H, next to",
+      "prompt": "Reason for travel today: ___",
       "question_type": "Form Completion",
-      "instructions": "Complete the form below.",
+      "instructions": "Complete the form below. Write ONE WORD AND/OR A NUMBER for each answer.",
       "passage_number": null,
       "section_number": 1
     },
     {
       "number": 3,
-      "prompt": "Complete the form below. Customer Satisfaction Survey Customer details Name: Sophie Bird Occupation: Reason for travel today: Journey information Name of station returning to: Type of ticket purchased: Cost of ticket: When ticket was purchased: Where ticket was bought: Satisfaction with journey Most satisfied with: the wifi Least satisfied with: the 7. Satisfaction with station facilities Most satisfied with: how much 8... provided Least satisfied with: lack of seats, particularly on the Neither satisfied nor dissatisfied with: 74 > (Op. 125 p. 113 .. available Write the correct letter, A-H, next to",
+      "prompt": "Name of station returning to: ___",
       "question_type": "Form Completion",
-      "instructions": "Complete the form below.",
+      "instructions": "Complete the form below. Write ONE WORD AND/OR A NUMBER for each answer.",
       "passage_number": null,
       "section_number": 1
     },
     {
       "number": 4,
-      "prompt": "Complete the form below. Customer Satisfaction Survey Customer details Name: Sophie Bird Occupation: Reason for travel today: Journey information Name of station returning to: Type of ticket purchased: Cost of ticket: When ticket was purchased: Where ticket was bought: Satisfaction with journey Most satisfied with: the wifi Least satisfied with: the 7. Satisfaction with station facilities Most satisfied with: how much 8... provided Least satisfied with: lack of seats, particularly on the Neither satisfied nor dissatisfied with: 74 > (Op. 125 p. 113 .. available Write the correct letter, A-H, next to",
+      "prompt": "Type of ticket purchased: ___",
       "question_type": "Form Completion",
-      "instructions": "Complete the form below.",
+      "instructions": "Complete the form below. Write ONE WORD AND/OR A NUMBER for each answer.",
       "passage_number": null,
       "section_number": 1
     },
     {
       "number": 5,
-      "prompt": "Complete the form below. Customer Satisfaction Survey Customer details Name: Sophie Bird Occupation: Reason for travel today: Journey information Name of station returning to: Type of ticket purchased: Cost of ticket: When ticket was purchased: Where ticket was bought: Satisfaction with journey Most satisfied with: the wifi Least satisfied with: the 7. Satisfaction with station facilities Most satisfied with: how much 8... provided Least satisfied with: lack of seats, particularly on the Neither satisfied nor dissatisfied with: 74 > (Op. 125 p. 113 .. available Write the correct letter, A-H, next to",
+      "prompt": "Cost of ticket: £___",
       "question_type": "Form Completion",
-      "instructions": "Complete the form below.",
+      "instructions": "Complete the form below. Write ONE WORD AND/OR A NUMBER for each answer.",
       "passage_number": null,
       "section_number": 1
     },
     {
       "number": 6,
-      "prompt": "Complete the form below. Customer Satisfaction Survey Customer details Name: Sophie Bird Occupation: Reason for travel today: Journey information Name of station returning to: Type of ticket purchased: Cost of ticket: When ticket was purchased: Where ticket was bought: Satisfaction with journey Most satisfied with: the wifi Least satisfied with: the 7. Satisfaction with station facilities Most satisfied with: how much 8... provided Least satisfied with: lack of seats, particularly on the Neither satisfied nor dissatisfied with: 74 > (Op. 125 p. 113 .. available Write the correct letter, A-H, next to",
+      "prompt": "Where ticket was bought: ___",
       "question_type": "Form Completion",
-      "instructions": "Complete the form below.",
+      "instructions": "Complete the form below. Write ONE WORD AND/OR A NUMBER for each answer.",
       "passage_number": null,
       "section_number": 1
     },
     {
       "number": 7,
-      "prompt": "Most satisfied with: the wifi Least satisfied with: the 7. Satisfaction with station facilities",
+      "prompt": "Least satisfied with the ___",
       "question_type": "Form Completion",
-      "instructions": "Complete the form below.",
+      "instructions": "Complete the form below. Write ONE WORD AND/OR A NUMBER for each answer.",
       "passage_number": null,
       "section_number": 1
     },
     {
       "number": 8,
-      "prompt": "Satisfaction with station facilities Most satisfied with: how much 8... provided",
+      "prompt": "Most satisfied with how much ___ was provided",
       "question_type": "Form Completion",
-      "instructions": "Complete the form below.",
+      "instructions": "Complete the form below. Write ONE WORD AND/OR A NUMBER for each answer.",
       "passage_number": null,
       "section_number": 1
     },
     {
       "number": 9,
-      "prompt": "Complete the form below. Customer Satisfaction Survey Customer details Name: Sophie Bird Occupation: Reason for travel today: Journey information Name of station returning to: Type of ticket purchased: Cost of ticket: When ticket was purchased: Where ticket was bought: Satisfaction with journey Most satisfied with: the wifi Least satisfied with: the 7. Satisfaction with station facilities Most satisfied with: how much 8... provided Least satisfied with: lack of seats, particularly on the Neither satisfied nor dissatisfied with: 74 > (Op. 125 p. 113 .. available Write the correct letter, A-H, next to",
+      "prompt": "Least satisfied with the lack of seats, particularly on the ___",
       "question_type": "Form Completion",
-      "instructions": "Complete the form below.",
+      "instructions": "Complete the form below. Write ONE WORD AND/OR A NUMBER for each answer.",
       "passage_number": null,
       "section_number": 1
     },
     {
       "number": 10,
-      "prompt": "Complete the form below. Customer Satisfaction Survey Customer details Name: Sophie Bird Occupation: Reason for travel today: Journey information Name of station returning to: Type of ticket purchased: Cost of ticket: When ticket was purchased: Where ticket was bought: Satisfaction with journey Most satisfied with: the wifi Least satisfied with: the 7. Satisfaction with station facilities Most satisfied with: how much 8... provided Least satisfied with: lack of seats, particularly on the Neither satisfied nor dissatisfied with: 74 > (Op. 125 p. 113 .. available Write the correct letter, A-H, next to",
+      "prompt": "Neither satisfied nor dissatisfied with the ___ available",
       "question_type": "Form Completion",
-      "instructions": "Complete the form below.",
+      "instructions": "Complete the form below. Write ONE WORD AND/OR A NUMBER for each answer.",
       "passage_number": null,
       "section_number": 1
     },
     {
       "number": 11,
       "prompt": "café",
-      "question_type": "Multiple Choice",
-      "instructions": "Write the correct letter, A-H, next to",
+      "question_type": "Map Labelling",
+      "instructions": "Label the map below. Write the correct letter, A–H, next to Questions 11–16.",
       "passage_number": null,
-      "section_number": 2
+      "section_number": 2,
+      "options": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H"
+      ]
     },
     {
       "number": 12,
-      "prompt": "toilets seeststsntstnite",
-      "question_type": "Multiple Choice",
-      "instructions": "Write the correct letter, A-H, next to",
+      "prompt": "toilets",
+      "question_type": "Map Labelling",
+      "instructions": "Label the map below. Write the correct letter, A–H, next to Questions 11–16.",
       "passage_number": null,
-      "section_number": 2
+      "section_number": 2,
+      "options": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H"
+      ]
     },
     {
       "number": 13,
       "prompt": "formal gardens",
-      "question_type": "Multiple Choice",
-      "instructions": "Write the correct letter, A-H, next to",
+      "question_type": "Map Labelling",
+      "instructions": "Label the map below. Write the correct letter, A–H, next to Questions 11–16.",
       "passage_number": null,
-      "section_number": 2
+      "section_number": 2,
+      "options": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H"
+      ]
     },
     {
       "number": 14,
       "prompt": "outdoor gym",
-      "question_type": "Multiple Choice",
-      "instructions": "Write the correct letter, A-H, next to",
+      "question_type": "Map Labelling",
+      "instructions": "Label the map below. Write the correct letter, A–H, next to Questions 11–16.",
       "passage_number": null,
-      "section_number": 2
+      "section_number": 2,
+      "options": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H"
+      ]
     },
     {
       "number": 15,
       "prompt": "skateboard ramp",
-      "question_type": "Multiple Choice",
-      "instructions": "Write the correct letter, A-H, next to",
+      "question_type": "Map Labelling",
+      "instructions": "Label the map below. Write the correct letter, A–H, next to Questions 11–16.",
       "passage_number": null,
-      "section_number": 2
+      "section_number": 2,
+      "options": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H"
+      ]
     },
     {
       "number": 16,
       "prompt": "wild flowers",
-      "question_type": "Multiple Choice",
-      "instructions": "Write the correct letter, A-H, next to",
+      "question_type": "Map Labelling",
+      "instructions": "Label the map below. Write the correct letter, A–H, next to Questions 11–16.",
       "passage_number": null,
-      "section_number": 2
+      "section_number": 2,
+      "options": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H"
+      ]
     },
     {
       "number": 17,
-      "prompt": "Choose TWO letters, A-E What does the speaker say about the adventure playground? Children must be supervised. It costs more in winter. Some activities are only for younger children. No payment fs required. It was recently expanded. moowWw>",
+      "prompt": "What does the speaker say about the adventure playground?",
       "question_type": "Multiple Choice",
-      "instructions": "Choose TWO letters, A-E What does the speaker say about the adventure playground?",
+      "instructions": "Choose TWO letters, A–E. What does the speaker say about the adventure playground?",
       "passage_number": null,
-      "section_number": 2
+      "section_number": 2,
+      "options": [
+        "Children must be supervised.",
+        "It costs more in winter.",
+        "Some activities are only for younger children.",
+        "No payment is required.",
+        "It was recently expanded."
+      ]
     },
     {
       "number": 18,
-      "prompt": "Choose TWO letters, A-E What does the speaker say about the adventure playground? Children must be supervised. It costs more in winter. Some activities are only for younger children. No payment fs required. It was recently expanded. moowWw>",
+      "prompt": "What does the speaker say about the adventure playground?",
       "question_type": "Multiple Choice",
-      "instructions": "Choose TWO letters, A-E What does the speaker say about the adventure playground?",
+      "instructions": "Choose TWO letters, A–E. What does the speaker say about the adventure playground?",
       "passage_number": null,
-      "section_number": 2
+      "section_number": 2,
+      "options": [
+        "Children must be supervised.",
+        "It costs more in winter.",
+        "Some activities are only for younger children.",
+        "No payment is required.",
+        "It was recently expanded."
+      ]
     },
     {
       "number": 19,
-      "prompt": "What does the speaker say about the glass houses? They are closed at weekends. Volunteers are needed to work there. They were badly damaged by fire. More money is needed to repair some of the glass. | Visitors can see palm trees from tropical regions. | mooap 76 => (9 p. 125 |/B p. 114 PART 3",
+      "prompt": "What does the speaker say about the glass houses?",
       "question_type": "Multiple Choice",
-      "instructions": "What does the speaker say about the glass houses?",
+      "instructions": "Choose TWO letters, A–E. What does the speaker say about the glass houses?",
       "passage_number": null,
-      "section_number": 2
+      "section_number": 2,
+      "options": [
+        "They are closed at weekends.",
+        "Volunteers are needed to work there.",
+        "They were badly damaged by fire.",
+        "More money is needed to repair some of the glass.",
+        "Visitors can see palm trees from tropical regions."
+      ]
     },
     {
       "number": 20,
-      "prompt": "What does the speaker say about the glass houses? They are closed at weekends. Volunteers are needed to work there. They were badly damaged by fire. More money is needed to repair some of the glass. | Visitors can see palm trees from tropical regions. | mooap 76 => (9 p. 125 |/B p. 114 PART 3",
+      "prompt": "What does the speaker say about the glass houses?",
       "question_type": "Multiple Choice",
-      "instructions": "What does the speaker say about the glass houses?",
+      "instructions": "Choose TWO letters, A–E. What does the speaker say about the glass houses?",
       "passage_number": null,
-      "section_number": 2
+      "section_number": 2,
+      "options": [
+        "They are closed at weekends.",
+        "Volunteers are needed to work there.",
+        "They were badly damaged by fire.",
+        "More money is needed to repair some of the glass.",
+        "Visitors can see palm trees from tropical regions."
+      ]
     },
     {
       "number": 21,
-      "prompt": "Presentation about refrigeration What did Annie discover from reading about icehouses? A why they were first created B__how the ice was kept frozen C where they were located What point does Annie make about refrigeration in ancient Rome? A It became a commercial business. B_ It used snow from nearby. C It took a long time to become popular. In connection with modern refrigerators, both Annie and Jack are worried about A the complexity of the technology. B the fact that some are disposed of irresponsibly. C the large number that quickly break down. What do Jack and Annie agree regarding domestic fridges? A_ They are generally good value for money. B There are plenty of useful variations. C They are more useful than other domestic appliances. Who is going to do research into each topic? Write the correct letter, A, B or C, next to",
+      "prompt": "What did Annie discover from reading about icehouses?",
       "question_type": "Multiple Choice",
-      "instructions": "What did Annie discover from reading about icehouses? What point does Annie make about refrigeration in ancient Rome?",
+      "instructions": "Choose the correct letter, A, B or C.",
       "passage_number": null,
-      "section_number": 3
+      "section_number": 3,
+      "options": [
+        "why they were first created",
+        "how the ice was kept frozen",
+        "where they were located"
+      ]
     },
     {
       "number": 22,
-      "prompt": "Presentation about refrigeration What did Annie discover from reading about icehouses? A why they were first created B__how the ice was kept frozen C where they were located What point does Annie make about refrigeration in ancient Rome? A It became a commercial business. B_ It used snow from nearby. C It took a long time to become popular. In connection with modern refrigerators, both Annie and Jack are worried about A the complexity of the technology. B the fact that some are disposed of irresponsibly. C the large number that quickly break down. What do Jack and Annie agree regarding domestic fridges? A_ They are generally good value for money. B There are plenty of useful variations. C They are more useful than other domestic appliances. Who is going to do research into each topic? Write the correct letter, A, B or C, next to",
+      "prompt": "What point does Annie make about refrigeration in ancient Rome?",
       "question_type": "Multiple Choice",
-      "instructions": "What did Annie discover from reading about icehouses? What point does Annie make about refrigeration in ancient Rome?",
+      "instructions": "Choose the correct letter, A, B or C.",
       "passage_number": null,
-      "section_number": 3
+      "section_number": 3,
+      "options": [
+        "It became a commercial business.",
+        "It used snow from nearby.",
+        "It took a long time to become popular."
+      ]
     },
     {
       "number": 23,
-      "prompt": "Presentation about refrigeration What did Annie discover from reading about icehouses? A why they were first created B__how the ice was kept frozen C where they were located What point does Annie make about refrigeration in ancient Rome? A It became a commercial business. B_ It used snow from nearby. C It took a long time to become popular. In connection with modern refrigerators, both Annie and Jack are worried about A the complexity of the technology. B the fact that some are disposed of irresponsibly. C the large number that quickly break down. What do Jack and Annie agree regarding domestic fridges? A_ They are generally good value for money. B There are plenty of useful variations. C They are more useful than other domestic appliances. Who is going to do research into each topic? Write the correct letter, A, B or C, next to",
+      "prompt": "In connection with modern refrigerators, both Annie and Jack are worried about",
       "question_type": "Multiple Choice",
-      "instructions": "What did Annie discover from reading about icehouses? What point does Annie make about refrigeration in ancient Rome?",
+      "instructions": "Choose the correct letter, A, B or C.",
       "passage_number": null,
-      "section_number": 3
+      "section_number": 3,
+      "options": [
+        "the complexity of the technology.",
+        "the fact that some are disposed of irresponsibly.",
+        "the large number that quickly break down."
+      ]
     },
     {
       "number": 24,
-      "prompt": "Presentation about refrigeration What did Annie discover from reading about icehouses? A why they were first created B__how the ice was kept frozen C where they were located What point does Annie make about refrigeration in ancient Rome? A It became a commercial business. B_ It used snow from nearby. C It took a long time to become popular. In connection with modern refrigerators, both Annie and Jack are worried about A the complexity of the technology. B the fact that some are disposed of irresponsibly. C the large number that quickly break down. What do Jack and Annie agree regarding domestic fridges? A_ They are generally good value for money. B There are plenty of useful variations. C They are more useful than other domestic appliances. Who is going to do research into each topic? Write the correct letter, A, B or C, next to",
+      "prompt": "What do Jack and Annie agree regarding domestic fridges?",
       "question_type": "Multiple Choice",
-      "instructions": "What did Annie discover from reading about icehouses? What point does Annie make about refrigeration in ancient Rome?",
+      "instructions": "Choose the correct letter, A, B or C.",
       "passage_number": null,
-      "section_number": 3
+      "section_number": 3,
+      "options": [
+        "They are generally good value for money.",
+        "There are plenty of useful variations.",
+        "They are more useful than other domestic appliances."
+      ]
     },
     {
       "number": 25,
       "prompt": "the goods that are refrigerated",
-      "question_type": "Multiple Choice",
-      "instructions": "Write the correct letter, A, B or C, next to",
+      "question_type": "Matching",
+      "instructions": "Who expresses each opinion? Write the correct letter, A, B or C, next to Questions 25–30.",
       "passage_number": null,
-      "section_number": 3
+      "section_number": 3,
+      "options": [
+        "Annie",
+        "Jack",
+        "both Annie and Jack"
+      ]
     },
     {
       "number": 26,
       "prompt": "the effects on health",
-      "question_type": "Multiple Choice",
-      "instructions": "Write the correct letter, A, B or C, next to",
+      "question_type": "Matching",
+      "instructions": "Who expresses each opinion? Write the correct letter, A, B or C, next to Questions 25–30.",
       "passage_number": null,
-      "section_number": 3
+      "section_number": 3,
+      "options": [
+        "Annie",
+        "Jack",
+        "both Annie and Jack"
+      ]
     },
     {
       "number": 27,
       "prompt": "the impact on food producers",
-      "question_type": "Multiple Choice",
-      "instructions": "Write the correct letter, A, B or C, next to",
+      "question_type": "Matching",
+      "instructions": "Who expresses each opinion? Write the correct letter, A, B or C, next to Questions 25–30.",
       "passage_number": null,
-      "section_number": 3
+      "section_number": 3,
+      "options": [
+        "Annie",
+        "Jack",
+        "both Annie and Jack"
+      ]
     },
     {
       "number": 28,
       "prompt": "the impact on cities",
-      "question_type": "Multiple Choice",
-      "instructions": "Write the correct letter, A, B or C, next to",
+      "question_type": "Matching",
+      "instructions": "Who expresses each opinion? Write the correct letter, A, B or C, next to Questions 25–30.",
       "passage_number": null,
-      "section_number": 3
+      "section_number": 3,
+      "options": [
+        "Annie",
+        "Jack",
+        "both Annie and Jack"
+      ]
     },
     {
       "number": 29,
       "prompt": "refrigerated transport",
-      "question_type": "Multiple Choice",
-      "instructions": "Write the correct letter, A, B or C, next to",
+      "question_type": "Matching",
+      "instructions": "Who expresses each opinion? Write the correct letter, A, B or C, next to Questions 25–30.",
       "passage_number": null,
-      "section_number": 3
+      "section_number": 3,
+      "options": [
+        "Annie",
+        "Jack",
+        "both Annie and Jack"
+      ]
     },
     {
       "number": 30,
-      "prompt": "domestic fridges 78 > (63 p. 125 |[B p. 115",
-      "question_type": "Multiple Choice",
-      "instructions": "Write the correct letter, A, B or C, next to",
+      "prompt": "domestic fridges",
+      "question_type": "Matching",
+      "instructions": "Who expresses each opinion? Write the correct letter, A, B or C, next to Questions 25–30.",
       "passage_number": null,
-      "section_number": 3
+      "section_number": 3,
+      "options": [
+        "Annie",
+        "Jack",
+        "both Annie and Jack"
+      ]
     },
     {
       "number": 31,
-      "prompt": "How the Industrial Revolution affected life in Britain 19th century e For the first time, people's possessions were used to measure Britain’s £3 e Developments in production of goods and in 32 greatly changed fives. MAIN AREAS OF CHANGE Manufacturing The Industrial Revolution would not have happened without the new types of that were used then. The leading industry was 34 (its products became widely available). made factories necessary and so more people moved into towns. Transport e The railways took the place of canals. e Because of the new transport: - greater access to 36... made people more aware of what they could buy in shops. - when shopping, people were not limited to buying Yc goods. Retailing * The first department stores were opened. « The displays of goods were more visible: - _ inside stores because of better 38 .............. — outside stores, because 39 were bigger. © AO i csstntsumunnunnnnn that Was persuasive became much more common. Op. 125 p.ti7| 79",
-      "question_type": "Multiple Choice",
-      "instructions": null,
+      "prompt": "People's possessions were used to measure Britain's ___",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
       "passage_number": null,
       "section_number": 4
     },
     {
       "number": 32,
-      "prompt": "£3 e Developments in production of goods and in 32 greatly changed fives.",
-      "question_type": "Multiple Choice",
-      "instructions": null,
+      "prompt": "Developments in goods production and ___ greatly changed lives",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
       "passage_number": null,
       "section_number": 4
     },
     {
       "number": 33,
-      "prompt": "How the Industrial Revolution affected life in Britain 19th century e For the first time, people's possessions were used to measure Britain’s £3 e Developments in production of goods and in 32 greatly changed fives. MAIN AREAS OF CHANGE Manufacturing The Industrial Revolution would not have happened without the new types of that were used then. The leading industry was 34 (its products became widely available). made factories necessary and so more people moved into towns. Transport e The railways took the place of canals. e Because of the new transport: - greater access to 36... made people more aware of what they could buy in shops. - when shopping, people were not limited to buying Yc goods. Retailing * The first department stores were opened. « The displays of goods were more visible: - _ inside stores because of better 38 .............. — outside stores, because 39 were bigger. © AO i csstntsumunnunnnnn that Was persuasive became much more common. Op. 125 p.ti7| 79",
-      "question_type": "Multiple Choice",
-      "instructions": null,
+      "prompt": "The Industrial Revolution depended on new sources of ___",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
       "passage_number": null,
       "section_number": 4
     },
     {
       "number": 34,
-      "prompt": "that were used then. The leading industry was 34 (its products became widely available).",
-      "question_type": "Multiple Choice",
-      "instructions": null,
+      "prompt": "The leading manufacturing industry was ___",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
       "passage_number": null,
       "section_number": 4
     },
     {
       "number": 35,
-      "prompt": "How the Industrial Revolution affected life in Britain 19th century e For the first time, people's possessions were used to measure Britain’s £3 e Developments in production of goods and in 32 greatly changed fives. MAIN AREAS OF CHANGE Manufacturing The Industrial Revolution would not have happened without the new types of that were used then. The leading industry was 34 (its products became widely available). made factories necessary and so more people moved into towns. Transport e The railways took the place of canals. e Because of the new transport: - greater access to 36... made people more aware of what they could buy in shops. - when shopping, people were not limited to buying Yc goods. Retailing * The first department stores were opened. « The displays of goods were more visible: - _ inside stores because of better 38 .............. — outside stores, because 39 were bigger. © AO i csstntsumunnunnnnn that Was persuasive became much more common. Op. 125 p.ti7| 79",
-      "question_type": "Multiple Choice",
-      "instructions": null,
+      "prompt": "New ___ made factories necessary",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
       "passage_number": null,
       "section_number": 4
     },
     {
       "number": 36,
-      "prompt": "e Because of the new transport: - greater access to 36... made people more aware of what they could buy in shops.",
-      "question_type": "Multiple Choice",
-      "instructions": null,
+      "prompt": "Greater access to ___ made people more aware of goods in shops",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
       "passage_number": null,
       "section_number": 4
     },
     {
       "number": 37,
-      "prompt": "How the Industrial Revolution affected life in Britain 19th century e For the first time, people's possessions were used to measure Britain’s £3 e Developments in production of goods and in 32 greatly changed fives. MAIN AREAS OF CHANGE Manufacturing The Industrial Revolution would not have happened without the new types of that were used then. The leading industry was 34 (its products became widely available). made factories necessary and so more people moved into towns. Transport e The railways took the place of canals. e Because of the new transport: - greater access to 36... made people more aware of what they could buy in shops. - when shopping, people were not limited to buying Yc goods. Retailing * The first department stores were opened. « The displays of goods were more visible: - _ inside stores because of better 38 .............. — outside stores, because 39 were bigger. © AO i csstntsumunnunnnnn that Was persuasive became much more common. Op. 125 p.ti7| 79",
-      "question_type": "Multiple Choice",
-      "instructions": null,
+      "prompt": "People were no longer limited to buying ___ goods",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
       "passage_number": null,
       "section_number": 4
     },
     {
       "number": 38,
-      "prompt": "« The displays of goods were more visible: - _ inside stores because of better 38 .............. — outside stores, because 39 were bigger.",
-      "question_type": "Multiple Choice",
-      "instructions": null,
+      "prompt": "Goods were more visible inside stores due to better ___",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
       "passage_number": null,
       "section_number": 4
     },
     {
       "number": 39,
-      "prompt": "- _ inside stores because of better 38 .............. — outside stores, because 39 were bigger. © AO i csstntsumunnunnnnn that Was persuasive became much more common.",
-      "question_type": "Multiple Choice",
-      "instructions": null,
+      "prompt": "Goods were more visible outside because ___ were bigger",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
       "passage_number": null,
       "section_number": 4
     },
     {
       "number": 40,
-      "prompt": "How the Industrial Revolution affected life in Britain 19th century e For the first time, people's possessions were used to measure Britain’s £3 e Developments in production of goods and in 32 greatly changed fives. MAIN AREAS OF CHANGE Manufacturing The Industrial Revolution would not have happened without the new types of that were used then. The leading industry was 34 (its products became widely available). made factories necessary and so more people moved into towns. Transport e The railways took the place of canals. e Because of the new transport: - greater access to 36... made people more aware of what they could buy in shops. - when shopping, people were not limited to buying Yc goods. Retailing * The first department stores were opened. « The displays of goods were more visible: - _ inside stores because of better 38 .............. — outside stores, because 39 were bigger. © AO i csstntsumunnunnnnn that Was persuasive became much more common. Op. 125 p.ti7| 79",
-      "question_type": "Multiple Choice",
-      "instructions": null,
+      "prompt": "Persuasive ___ became much more common",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
       "passage_number": null,
       "section_number": 4
     }
@@ -387,5 +525,6 @@
     ]
   },
   "audio_s3_key": "exam-audio/IELTS-15/4/section1.mp3",
-  "time_limit_seconds": 2400
+  "time_limit_seconds": 2400,
+  "image_s3_key": "listening/IELTS15/test4/croft-valley-park.png"
 }

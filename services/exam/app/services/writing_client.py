@@ -23,6 +23,7 @@ class ExamTaskEvaluationRequest(BaseModel):
     taskNumber: int = Field(ge=1, le=2)
     stimulusS3Key: str | None = None
     taskPrompt: str | None = Field(default=None, max_length=2000)
+    inputSource: Literal["typed", "ocr"] = "typed"
 
 
 class InlineIssue(BaseModel):
@@ -134,6 +135,7 @@ class WritingClient:
         task_number: int,
         stimulus_s3_key: str | None = None,
         task_prompt: str | None = None,
+        input_source: Literal["typed", "ocr"] = "typed",
     ) -> ExamTaskEvaluationResponse:
         """
         Calls POST /essays/evaluate/exam on the Writing service.
@@ -150,6 +152,7 @@ class WritingClient:
             taskNumber=task_number,
             stimulusS3Key=stimulus_s3_key,
             taskPrompt=task_prompt,
+            inputSource=input_source,
         )
 
         url = f"{self.base_url}/essays/evaluate/exam"

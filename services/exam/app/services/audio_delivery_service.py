@@ -18,8 +18,11 @@ class S3AudioDeliveryService:
     PRESIGNED_URL_EXPIRY_SECONDS = 7200
     SECTION_COUNT = 4
 
-    def __init__(self, s3_client: Any, bucket: str) -> None:
+    def __init__(
+        self, s3_client: Any, bucket: str, head_client: Any | None = None
+    ) -> None:
         self.s3_client = s3_client
+        self.head_client = head_client or s3_client
         self.bucket = bucket
 
     def generate_section_urls(
@@ -75,7 +78,7 @@ class S3AudioDeliveryService:
 
     def _object_exists(self, key: str) -> bool:
         try:
-            self.s3_client.head_object(Bucket=self.bucket, Key=key)
+            self.head_client.head_object(Bucket=self.bucket, Key=key)
         except Exception:
             # botocore raises ClientError for 404/403 alike, and a stubbed client
             # in tests may raise something else entirely. Either way the object

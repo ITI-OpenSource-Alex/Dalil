@@ -29,6 +29,11 @@ logger = logging.getLogger(__name__)
 
 REVIEW_MODEL = "claude-opus-5"
 REVIEW_TIMEOUT_SECONDS = 120.0
+REVIEW_REQUEST_TIMEOUT_SECONDS = 120.0
+COUNTRY_CONVENTIONS_TIMEOUT_SECONDS = 3.0
+# The router may emit a ThinkingBlock before its TextBlock. One response now
+# contains all five concise sections, so it needs enough output room for both.
+REVIEW_MAX_TOKENS = 6000
 CACHE_TTL_SECONDS = 24 * 60 * 60
 SECTION_NAMES: tuple[str, ...] = (
     "Structure and formatting",
@@ -46,9 +51,21 @@ class RawCVSection(BaseModel):
     suggestions: list[str] = Field(default_factory=list)
 
 
+class RawCVReview(BaseModel):
+    sections: list[RawCVSection] = Field(min_length=1, max_length=5)
+
+
 @dataclass(frozen=True)
 class CVSectionExecution:
     result: CVReviewSection
+    prompt_tokens: int
+    completion_tokens: int
+    latency_ms: float
+
+
+@dataclass(frozen=True)
+class CVReviewExecution:
+    sections: list[CVReviewSection]
     prompt_tokens: int
     completion_tokens: int
     latency_ms: float
@@ -69,6 +86,7 @@ def cv_review_cache_key(
     target_country: str,
     target_field: str,
     settings: Settings,
+    program_context: dict[str, Any] | None = None,
 ) -> str:
     payload = json.dumps(
         {
@@ -76,6 +94,7 @@ def cv_review_cache_key(
             "cvText": cv_text,
             "targetCountry": target_country.strip().casefold(),
             "targetField": target_field.strip().casefold(),
+            "programContext": program_context or {},
         },
         sort_keys=True,
         separators=(",", ":"),
@@ -137,7 +156,12 @@ async def fetch_country_conventions(
         "format, Europass or local convention guidance, and any ATS implications."
     )
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        # This lookup is supplemental context. Programme requirements are already
+        # supplied separately, so a slow RAG answer must not hold the visible
+        # review in a loading state before any section work can begin.
+        async with httpx.AsyncClient(
+            timeout=COUNTRY_CONVENTIONS_TIMEOUT_SECONDS,
+        ) as client:
             response = await client.post(
                 f"{settings.rag_service_url.rstrip('/')}/query",
                 json={"userId": user_id, "question": question, "topK": 5},
@@ -170,11 +194,14 @@ class CVReviewRunner:
         target_country: str,
         target_field: str,
         country_conventions: str,
+        program_context: dict[str, Any] | None = None,
     ) -> CVSectionExecution:
         system = (
             "You are the GOA CV Review Agent. Review one CV section dimension "
             "against study-abroad admissions, target-field expectations, ATS "
-            "keyword quality, and country-specific conventions. Return only JSON."
+            "keyword quality, and country-specific conventions. Return only JSON. "
+            "Do not include reasoning, thinking blocks, markdown, or commentary; "
+            "start immediately with the JSON object."
         )
         # GOA-034. These conventions are summarised by RAG from scraped pages,
         # so they are the same indirect-injection surface the RAG query path
@@ -186,6 +213,11 @@ class CVReviewRunner:
             country_conventions[:4000],
             label="COUNTRY CONVENTION CONTEXT",
             origin="pages scraped from the public web and summarised by the RAG service",
+        )
+        fenced_program = wrap_untrusted(
+            json.dumps(program_context or {}, ensure_ascii=False, indent=2)[:6000],
+            label="SELECTED PROGRAMME REQUIREMENTS",
+            origin="the programme catalogue owned by the RAG service",
         )
         prompt = f"""Return one JSON object with this exact shape:
 {{
@@ -206,20 +238,55 @@ Target country: {target_country}
 Target field: {target_field}
 Review dimension: {section_name}
 
+{fenced_program}
+
 {fenced_conventions}
 
 CV:
 {cv_context}
 """
         started = time.perf_counter()
-        response = await self.client.messages.create(
-            model=self.model,
-            max_tokens=1200,
-            system=system,
-            messages=[{"role": "user", "content": prompt}],
-        )
+        last_parse_error: Exception | None = None
+        response = None
+        raw = None
+        for attempt in range(2):
+            attempt_prompt = prompt
+            if attempt:
+                attempt_prompt = (
+                    "The previous response contained no valid JSON text. Return the "
+                    "requested JSON object immediately, without reasoning.\n\n" + prompt
+                )
+            response = await self.client.messages.create(
+                model=self.model,
+                max_tokens=REVIEW_MAX_TOKENS,
+                system=system,
+                messages=[{"role": "user", "content": attempt_prompt}],
+            )
+            try:
+                raw = RawCVSection.model_validate_json(
+                    _json_object(_response_text(response))
+                )
+                break
+            except ValueError as exc:
+                last_parse_error = exc
+                logger.warning(
+                    "CV review section returned invalid content",
+                    extra={
+                        "section": section_name,
+                        "attempt": attempt + 1,
+                        "stop_reason": getattr(response, "stop_reason", None),
+                        "content_types": [
+                            getattr(block, "type", type(block).__name__)
+                            for block in getattr(response, "content", [])
+                        ],
+                    },
+                )
+        if raw is None or response is None:
+            raise ValueError(
+                f"CV review returned no valid JSON for {section_name}"
+            ) from last_parse_error
+
         latency_ms = (time.perf_counter() - started) * 1000
-        raw = RawCVSection.model_validate_json(_json_object(_response_text(response)))
         result = CVReviewSection(
             name=raw.name,
             score=raw.score,
@@ -232,6 +299,136 @@ CV:
             prompt_tokens=int(getattr(usage, "input_tokens", 0) or 0),
             completion_tokens=int(getattr(usage, "output_tokens", 0) or 0),
             latency_ms=latency_ms,
+        )
+
+    async def review_all_sections(
+        self,
+        *,
+        cv_context: str,
+        target_country: str,
+        target_field: str,
+        country_conventions: str,
+        program_context: dict[str, Any] | None = None,
+    ) -> CVReviewExecution:
+        """Review every dimension in one bounded model request.
+
+        The old implementation submitted five large prompts concurrently. On
+        the live AgentRouter that exhausted output budgets and then saturated
+        the model queue. A single structured response is faster, cheaper, and
+        has one deadline the API can actually enforce.
+        """
+        system = (
+            "You are the GOA CV Review Agent. Compare the supplied CV with the "
+            "selected study programme and return only the requested JSON. Do "
+            "not include reasoning, thinking, markdown, or commentary. Start "
+            "immediately with the JSON object."
+        )
+        fenced_conventions = wrap_untrusted(
+            country_conventions[:4000],
+            label="COUNTRY CONVENTION CONTEXT",
+            origin="trusted application guidance about the target country",
+        )
+        fenced_program = wrap_untrusted(
+            json.dumps(program_context or {}, ensure_ascii=False, indent=2)[:6000],
+            label="SELECTED PROGRAMME REQUIREMENTS",
+            origin="the programme catalogue owned by the RAG service",
+        )
+        section_list = json.dumps(list(SECTION_NAMES), ensure_ascii=False)
+        prompt = f"""Return one JSON object with this exact shape:
+{{
+  "sections": [
+    {{
+      "name": "one exact name from the required list",
+      "score": 0,
+      "issues": ["specific problem found"],
+      "suggestions": ["specific action the candidate can take"]
+    }}
+  ]
+}}
+
+Required section names, in this exact order: {section_list}
+
+Rules:
+- Return exactly five sections, once each, in the required order.
+- Each score is an integer from 0 to 100.
+- Use at most three concise issues and three concise suggestions per section.
+- Judge only the supplied CV; never invent credentials or programme requirements.
+- If a skills section is absent, say so explicitly under Skills gaps.
+- Make every suggestion a concrete content, rewrite, formatting, or evidence action.
+- Treat programme requirements as authoritative. Treat country conventions as
+  guidance, not admissions requirements, and state uncertainty where relevant.
+
+Target country: {target_country}
+Target field or programme: {target_field}
+
+{fenced_program}
+
+{fenced_conventions}
+
+CV:
+{cv_context}
+"""
+        started = time.perf_counter()
+        last_parse_error: Exception | None = None
+        response = None
+        parsed = None
+        for attempt in range(2):
+            attempt_prompt = prompt
+            if attempt:
+                attempt_prompt = (
+                    "The previous response did not contain the required valid JSON. "
+                    "Return the complete five-section JSON object now.\n\n" + prompt
+                )
+            response = await self.client.messages.create(
+                model=self.model,
+                max_tokens=REVIEW_MAX_TOKENS,
+                system=system,
+                messages=[{"role": "user", "content": attempt_prompt}],
+            )
+            try:
+                candidate = RawCVReview.model_validate_json(
+                    _json_object(_response_text(response))
+                )
+                by_name = {item.name.casefold(): item for item in candidate.sections}
+                missing = [
+                    name for name in SECTION_NAMES if name.casefold() not in by_name
+                ]
+                if missing or len(by_name) != len(SECTION_NAMES):
+                    raise ValueError(f"missing or duplicate review sections: {missing}")
+                parsed = candidate
+                break
+            except ValueError as exc:
+                last_parse_error = exc
+                logger.warning(
+                    "CV review returned invalid aggregate content",
+                    extra={
+                        "attempt": attempt + 1,
+                        "stop_reason": getattr(response, "stop_reason", None),
+                        "content_types": [
+                            getattr(block, "type", type(block).__name__)
+                            for block in getattr(response, "content", [])
+                        ],
+                    },
+                )
+        if parsed is None or response is None:
+            raise ValueError("CV review returned no valid five-section JSON") from last_parse_error
+
+        by_name = {item.name.casefold(): item for item in parsed.sections}
+        sections = [
+            CVReviewSection(
+                name=by_name[name.casefold()].name,
+                score=by_name[name.casefold()].score,
+                issues=by_name[name.casefold()].issues,
+                suggestions=by_name[name.casefold()].suggestions,
+            )
+            for name in SECTION_NAMES
+        ]
+        usage = getattr(response, "usage", None)
+        return CVReviewExecution(
+            sections=sections,
+            prompt_tokens=int(getattr(usage, "input_tokens", 0) or 0),
+            completion_tokens=int(getattr(usage, "output_tokens", 0) or 0),
+            latency_ms=(time.perf_counter() - started) * 1000,
         )
 
 
@@ -247,45 +444,29 @@ class CVReviewCoordinator:
         target_country: str,
         target_field: str,
         country_conventions: str,
+        program_context: dict[str, Any] | None = None,
         on_partial: PartialCallback | None = None,
     ) -> CVReviewSummary:
         cv_context = _build_cv_context(extracted_text, structured_data)
 
-        async def run_one(section_name: str) -> CVSectionExecution:
-            execution = await self.runner.review_section(
-                section_name,
+        execution = await asyncio.wait_for(
+            self.runner.review_all_sections(
                 cv_context=cv_context,
                 target_country=target_country,
                 target_field=target_field,
                 country_conventions=country_conventions,
-            )
-            await _notify(on_partial, execution.result)
-            return execution
-
-        gathered = await asyncio.gather(
-            *(run_one(section_name) for section_name in SECTION_NAMES),
-            return_exceptions=True,
+                program_context=program_context,
+            ),
+            timeout=REVIEW_REQUEST_TIMEOUT_SECONDS,
         )
-        failures = [item for item in gathered if isinstance(item, BaseException)]
-        if failures:
-            raise RuntimeError(f"CV review failed: {failures[0]}") from failures[0]
-
-        executions = [item for item in gathered if isinstance(item, CVSectionExecution)]
-        by_name = {item.result.name.casefold(): item for item in executions}
-        ordered = [
-            by_name.get(section_name.casefold())
-            for section_name in SECTION_NAMES
-            if by_name.get(section_name.casefold()) is not None
-        ]
-        ordered.extend(item for item in executions if item not in ordered)
-        sections = [item.result for item in ordered]
+        sections = execution.sections
+        for section in sections:
+            await _notify(on_partial, section)
         overall_score = round(sum(item.score for item in sections) / len(sections))
         return CVReviewSummary(
             overall_score=overall_score,
             sections=sections,
-            total_tokens=sum(
-                item.prompt_tokens + item.completion_tokens for item in ordered
-            ),
+            total_tokens=execution.prompt_tokens + execution.completion_tokens,
         )
 
     async def replay_cached(
@@ -339,4 +520,4 @@ def get_cv_review_coordinator() -> CVReviewCoordinator:
         default_headers={"User-Agent": settings.anthropic_user_agent},
         **({"base_url": settings.anthropic_base_url} if settings.anthropic_base_url else {}),
     )
-    return CVReviewCoordinator(CVReviewRunner(client, model=REVIEW_MODEL))
+    return CVReviewCoordinator(CVReviewRunner(client, model=settings.cv_review_model))

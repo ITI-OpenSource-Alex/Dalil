@@ -59,6 +59,24 @@ for q in "$DOMAIN_QUEUE" "$PROCESSOR_QUEUE" "$PROCESSED_QUEUE"; do
     --attributes "{\"RedrivePolicy\":\"{\\\"deadLetterTargetArn\\\":\\\"arn:aws:sqs:${REGION}:${ACCOUNT_ID}:${q}-dlq\\\",\\\"maxReceiveCount\\\":\\\"3\\\"}\"}"
 done
 
+# VisibilityTimeout on the one queue that is actually consumed.
+#
+# The DLQ above (BUG-025) stopped poison messages redelivering forever, but the
+# queue kept the SQS default of 30s while a CV extraction takes 120-300s. That is
+# the wrong way round. The message became visible again roughly 30s into a
+# still-running extraction, so SQS handed it out again; maxReceiveCount 3 was
+# exhausted while the FIRST attempt was still in flight, and that attempt's
+# delete_message then failed on an expired receipt handle. The symptom was a CV
+# that never completed and a pipeline that looked broken -- diagnosed 2026-08-17
+# as an infrastructure timing bug, not the Lambda-vs-local question it resembled.
+#
+# 360s must stay above the writing service's cv_extraction_timeout_seconds
+# (300s, app/config.py). Raise both or neither. The other two queues are
+# write-only per the header, so their visibility timeout does not matter.
+awslocal sqs set-queue-attributes \
+  --queue-url "$PROCESSOR_QUEUE_URL" \
+  --attributes '{"VisibilityTimeout":"360"}'
+
 awslocal sqs set-queue-attributes \
   --queue-url "$PROCESSOR_QUEUE_URL" \
   --attributes "{\"Policy\":\"{\\\"Version\\\":\\\"2012-10-17\\\",\\\"Statement\\\":[{\\\"Effect\\\":\\\"Allow\\\",\\\"Principal\\\":{\\\"Service\\\":\\\"s3.amazonaws.com\\\"},\\\"Action\\\":\\\"sqs:SendMessage\\\",\\\"Resource\\\":\\\"${PROCESSOR_QUEUE_ARN}\\\",\\\"Condition\\\":{\\\"ArnLike\\\":{\\\"aws:SourceArn\\\":\\\"arn:aws:s3:::${BUCKET}\\\"}}}]}\"}"

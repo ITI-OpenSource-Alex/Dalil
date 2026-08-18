@@ -131,7 +131,7 @@ test("CV upload on profile shows Processing then ready filename", async ({
     ),
   );
 
-  await page.goto("/profile?tab=edit");
+  await page.goto("/profile?tab=cv");
   await page.locator('input[type="file"]').setInputFiles({
     name: "resume.pdf",
     mimeType: "application/pdf",
@@ -139,14 +139,58 @@ test("CV upload on profile shows Processing then ready filename", async ({
   });
 
   await expect(page.getByText("resume.pdf")).toBeVisible();
-  await expect(page.getByText(/Processing/)).toBeVisible();
+  await expect(page.getByText(/Extracting your CV/)).toBeVisible();
+  await expect(page.getByText("Upload received")).toBeVisible();
+  await expect(page.getByText("Extracting details")).toBeVisible();
+  await expect(page.getByText("Ready for recommendations")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Check now" })).toBeVisible();
+  await expect(page.getByText(/elapsed$/)).toBeVisible();
+  await expect(page.getByText(/You can leave this tab/)).toBeVisible();
 
   cvReady = true;
   await expect(page.getByText("Ready for review")).toBeVisible({
     timeout: 10_000,
   });
   await expect(page.getByText("resume.pdf")).toBeVisible();
-  await expect(page.getByText(/Processing/)).toHaveCount(0);
+  await expect(page.getByText(/Extracting your CV/)).toHaveCount(0);
+});
+
+test("CV lookup failure still exposes retry and immediate replacement upload", async ({
+  page,
+}) => {
+  await mockProfileGet(page);
+  await page.route(`${GATEWAY}/api/opportunities/query`, (route) =>
+    route.fulfill(withCors({ programs: [] })),
+  );
+  await page.route(`${CV_API_BASE}/latest`, (route) =>
+    route.fulfill(withCors({ detail: "Writing service unavailable" }, 502)),
+  );
+  await page.route(`${CV_API_BASE}/upload`, (route) =>
+    route.fulfill(
+      withCors({
+        cvId: 2,
+        status: "processing",
+        s3Key: "cvs/user-1/replacement.pdf",
+      }),
+    ),
+  );
+
+  await page.goto("/profile?tab=cv");
+
+  await expect(
+    page.getByText("Your saved CV is temporarily unavailable"),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Retry" })).toBeVisible();
+  await expect(page.locator('input[type="file"]')).toBeAttached();
+  await expect(page.getByText("Checking for an existing CV…")).toHaveCount(0);
+
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "replacement.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("%PDF-1.7\nreplacement\n%%EOF"),
+  });
+  await expect(page.getByText("replacement.pdf")).toBeVisible();
+  await expect(page.getByText(/Extracting your CV/)).toBeVisible();
 });
 
 test("opportunity matches show score bar and open detail modal", async ({

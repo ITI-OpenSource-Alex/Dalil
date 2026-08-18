@@ -57,6 +57,13 @@ class FakeSessionRepository:
     async def get_by_id(self, session_id: UUID) -> dict[str, Any] | None:
         return self.sessions.get(session_id)
 
+    async def try_abandon(self, session_id: UUID) -> bool:
+        session = self.sessions.get(session_id)
+        if session is None or session["status"] not in {"pending", "in_progress"}:
+            return False
+        session["status"] = "abandoned"
+        return True
+
     async def submit(self, session_id: UUID) -> None:
         if session_id in self.sessions:
             self.sessions[session_id]["status"] = "submitted"
@@ -370,6 +377,82 @@ def _writing_eval_response(
         overall_band=overall_band,
         from_cache=False,
     )
+
+
+# ---------------------------------------------------------------------------
+# Session lifecycle
+# ---------------------------------------------------------------------------
+
+
+class TestSessionLifecycle:
+    @pytest.mark.asyncio
+    async def test_discard_marks_owned_in_progress_session_abandoned(self) -> None:
+        owner_id = uuid4()
+        session_id = uuid4()
+        session_repo = FakeSessionRepository()
+        await session_repo.create(
+            session_id=session_id,
+            user_id=owner_id,
+            question_id=uuid4(),
+            exam_type="academic",
+            skill_area="listening",
+            status="in_progress",
+            time_limit_seconds=2400,
+        )
+        service = SessionService(
+            session_repository=session_repo,
+            question_repository=FakeQuestionRepository(_listening_question()),
+            result_repository=FakeResultRepository(),
+        )
+        app = FastAPI()
+        app.include_router(sessions_router)
+        app.dependency_overrides[sessions_get_session_service] = lambda: service
+
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url=BASE_URL
+        ) as client:
+            response = await client.delete(
+                f"/sessions/{session_id}",
+                headers={**INTERNAL_HEADERS, "X-User-Id": str(owner_id)},
+            )
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "abandoned"
+        assert session_repo.sessions[session_id]["status"] == "abandoned"
+
+    @pytest.mark.asyncio
+    async def test_discard_rejects_a_different_user(self) -> None:
+        owner_id = uuid4()
+        session_id = uuid4()
+        session_repo = FakeSessionRepository()
+        await session_repo.create(
+            session_id=session_id,
+            user_id=owner_id,
+            question_id=uuid4(),
+            exam_type="academic",
+            skill_area="listening",
+            status="in_progress",
+            time_limit_seconds=2400,
+        )
+        service = SessionService(
+            session_repository=session_repo,
+            question_repository=FakeQuestionRepository(_listening_question()),
+            result_repository=FakeResultRepository(),
+        )
+        app = FastAPI()
+        app.include_router(sessions_router)
+        app.dependency_overrides[sessions_get_session_service] = lambda: service
+
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url=BASE_URL
+        ) as client:
+            response = await client.delete(
+                f"/sessions/{session_id}",
+                headers={**INTERNAL_HEADERS, "X-User-Id": str(uuid4())},
+            )
+
+        assert response.status_code == 403
+        assert session_repo.sessions[session_id]["status"] == "in_progress"
 
 
 # ---------------------------------------------------------------------------

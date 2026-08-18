@@ -7,6 +7,7 @@ import { SSEParser } from "@/lib/chat-stream";
 const API_BASE = `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080"}/api/writing/cv`;
 
 const fetchOptions: RequestInit = { credentials: "include" };
+const CV_LOOKUP_TIMEOUT_MS = 3000;
 
 export interface CvUploadResponse {
   cvId: number;
@@ -33,6 +34,9 @@ export async function getLatestCv(): Promise<CvLatestResponse | null> {
   const response = await fetch(`${API_BASE}/latest`, {
     ...fetchOptions,
     cache: "no-store",
+    // A healthy metadata lookup is normally measured in milliseconds. Do not
+    // hold both CV surfaces behind the Gateway's full upstream timeout.
+    signal: AbortSignal.timeout(CV_LOOKUP_TIMEOUT_MS),
   });
   if (response.status === 404) return null;
   if (!response.ok) {
@@ -92,14 +96,16 @@ export type CvReviewEvent = CvSectionEvent | CvCompleteEvent | CvErrorEvent;
  * writing's frames do -- so its `parse` callback folds the two back together.
  */
 export async function streamCvReview(
-  params: { cvS3Key: string; targetCountry: string; targetField: string },
+  params: { cvS3Key: string; programId: string },
   onEvent: (event: CvReviewEvent) => void,
+  signal?: AbortSignal,
 ): Promise<void> {
   const response = await fetch(`${API_BASE}/review`, {
     ...fetchOptions,
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
+    signal,
   });
 
   if (!response.ok) {

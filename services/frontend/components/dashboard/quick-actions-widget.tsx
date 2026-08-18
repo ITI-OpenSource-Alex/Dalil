@@ -16,7 +16,7 @@ const ACTIONS: { label: string; href: string; icon: LucideIcon }[] = [
   { label: "Take IELTS Exam", href: "/exam", icon: GraduationCap },
   { label: "Speaking Practice", href: "/practice/speaking", icon: AudioLines },
   { label: "Writing Practice", href: "/practice/writing", icon: PenSquare },
-  { label: "CV Review", href: "/cv-review", icon: FileText },
+  { label: "Manage CV", href: "/profile?tab=cv", icon: FileText },
   { label: "Opportunities", href: "/opportunities", icon: Target },
   { label: "Checklists", href: "/checklists", icon: ListChecks },
 ];

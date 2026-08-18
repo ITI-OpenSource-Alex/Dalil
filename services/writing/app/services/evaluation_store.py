@@ -14,6 +14,7 @@ def evaluation_cache_key(
     submission_type: str,
     exam_type: str,
     settings: Settings,
+    input_source: str = "typed",
 ) -> str:
     canonical = json.dumps(
         {
@@ -22,6 +23,7 @@ def evaluation_cache_key(
             "essay_text": essay_text,
             "submission_type": submission_type,
             "exam_type": exam_type,
+            "input_source": input_source,
         },
         ensure_ascii=False,
         sort_keys=True,

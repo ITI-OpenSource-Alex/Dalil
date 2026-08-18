@@ -27,6 +27,7 @@ class QuestionLoader:
                 "skill_area": payload.get("skill_area", "reading"),
                 "passage_text": payload.get("passage_text"),
                 "audio_s3_key": payload.get("audio_s3_key"),
+                "image_s3_key": payload.get("image_s3_key"),
                 "questions": payload.get("questions", []),
                 "answer_key": payload.get("answer_key", {}),
             }
@@ -91,6 +92,7 @@ class QuestionLoader:
             "skill_area": record["skill_area"],
             "passage_text": record.get("passage_text"),
             "audio_s3_key": record.get("audio_s3_key"),
+            "image_s3_key": record.get("image_s3_key"),
             "questions": record.get("questions", []),
             "answer_key": record.get("answer_key", {}),
         }

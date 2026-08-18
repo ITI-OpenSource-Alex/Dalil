@@ -143,6 +143,11 @@ services:
       - "8000:8000"
     environment:
       - DATABASE_URL=postgresql://goa:goa_pass@postgres:5432/writing_db
+      # Needed for the motivation-letter reviewer to read programme requirements
+      # from RAG, which owns them. Without these the review still runs but
+      # programme_fit abstains, so the failure is silent rather than loud.
+      - INTERNAL_API_KEY=supersecret_internal_key_123
+      - RAG_SERVICE_URL=http://rag:8084
       - AWS_REGION=us-east-1
       - AWS_ACCESS_KEY_ID=test
       - AWS_SECRET_ACCESS_KEY=test
@@ -172,7 +177,12 @@ services:
       - VISION_MODEL=${VISION_MODEL:-claude-opus-5}
       - ANTHROPIC_TIMEOUT_SECONDS=${ANTHROPIC_TIMEOUT_SECONDS:-120}
       - WRITING_AGENT_MAX_TOKENS=${WRITING_AGENT_MAX_TOKENS:-16000}
-      - WRITING_CACHE_VERSION=${WRITING_CACHE_VERSION:-v1}
+      - WRITING_SCORE_MAX_TOKENS=${WRITING_SCORE_MAX_TOKENS:-8000}
+      - WRITING_FEEDBACK_MAX_TOKENS=${WRITING_FEEDBACK_MAX_TOKENS:-8000}
+      - WRITING_FEEDBACK_MODEL=${WRITING_FEEDBACK_MODEL:-gpt-5.6-sol}
+      - WRITING_SELECTIVE_ENSEMBLE=${WRITING_SELECTIVE_ENSEMBLE:-true}
+      - WRITING_MAX_ENSEMBLE_CRITERIA=${WRITING_MAX_ENSEMBLE_CRITERIA:-1}
+      - WRITING_CACHE_VERSION=${WRITING_CACHE_VERSION:-v2}
     volumes:
       - ./services/writing/app:/app/app
       - ./services/writing/cv_processor:/app/cv_processor
@@ -189,7 +199,12 @@ services:
       postgres:
         condition: service_healthy
       localstack:
-        condition: service_healthy
+        # The LocalStack healthcheck intentionally waits for all 16 Listening
+        # audio sections to be split and uploaded. CV metadata is PostgreSQL-
+        # owned and must remain readable while that unrelated seed is running.
+        # The upload path reports a recoverable error during the brief window
+        # before the writing bucket/queues are created.
+        condition: service_started
     healthcheck:
       test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" ]
       interval: 5s
@@ -202,6 +217,7 @@ services:
       dockerfile: services/writing/Dockerfile
       target: dev
     command: [ "sh", "-c", "python -m app.init_db && python -m cv_processor.local_worker" ]
+    restart: unless-stopped
     environment:
       - DATABASE_URL=postgresql://goa:goa_pass@postgres:5432/writing_db
       - AWS_REGION=us-east-1
@@ -241,7 +257,9 @@ services:
       postgres:
         condition: service_healthy
       localstack:
-        condition: service_healthy
+        # This worker already retries missing/unready SQS resources. Starting it
+        # immediately keeps Writing startup independent of Listening audio seed.
+        condition: service_started
 
   notification:
     build:
@@ -322,11 +340,18 @@ services:
       - SES_SENDER_ADDRESS=${SES_SENDER_ADDRESS:-notifications@localhost.test}
     ports:
       - "4566:4566"
+    volumes:
+      # The community image has no local-state persistence. Re-seed Listening
+      # audio from the user-provided recordings on every LocalStack start.
+      - ./services/exam/data/recordings:/seed/listening-recordings:ro
+      - ./services/exam/scripts/upload_listening_audio.py:/seed/upload_listening_audio.py:ro
     healthcheck:
-      test: [ "CMD-SHELL", "awslocal s3api head-bucket --bucket goa-writing-files" ]
+      # The marker is written by the last ready hook only after Listening audio
+      # has either been seeded or explicitly skipped because no recordings exist.
+      test: [ "CMD-SHELL", "awslocal s3api head-object --bucket goa-exam-audio --key .listening-seed-ready" ]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 30
 
   prometheus:
     image: prom/prometheus:v2.50.1

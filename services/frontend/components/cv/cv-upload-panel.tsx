@@ -1,8 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import { AlertCircle, CheckCircle2, Upload, X } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Clock3,
+  RefreshCw,
+  Upload,
+  X,
+} from "lucide-react";
 import { cn } from "@/lib/cn";
 import { sanitizeErrorMessage } from "@/lib/chat-sanitize";
 import {
@@ -32,10 +38,35 @@ const ACCEPTED_TYPES = [
 // services/writing/app/routers/cvs.py. This panel polls GET /cv/latest while
 // that is in flight rather than requiring a manual refresh.
 const POLL_INTERVAL_MS = 4000;
+const DELAYED_POLL_INTERVAL_MS = 15000;
+export const CV_PROCESSING_DELAY_MS = 2 * 60 * 1000;
+
+export function isCvProcessingDelayed(
+  cv: Pick<CvLatestResponse, "status" | "uploadedAt">,
+  now: number,
+) {
+  if (cv.status !== "processing" || !now) return false;
+  const uploadedAt = Date.parse(cv.uploadedAt);
+  return Number.isFinite(uploadedAt) && now - uploadedAt >= CV_PROCESSING_DELAY_MS;
+}
+
+export function cvProcessingElapsedSeconds(
+  cv: Pick<CvLatestResponse, "uploadedAt">,
+  now: number,
+): number {
+  const uploadedAt = Date.parse(cv.uploadedAt);
+  if (!Number.isFinite(uploadedAt) || !now) return 0;
+  return Math.max(0, Math.floor((now - uploadedAt) / 1000));
+}
+
+export function formatCvProcessingElapsed(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes}m ${remainingSeconds.toString().padStart(2, "0")}s`;
+}
 
 export type CvUploadPanelProps = {
-  /** When true, show a link to the full CV review page (used on profile). */
-  showReviewLink?: boolean;
   /** Notifies the parent whenever the loaded/uploaded CV changes. */
   onCvChange?: (cv: CvLatestResponse | null | undefined) => void;
   /** Fired when a new upload begins (e.g. clear review results on cv-review). */
@@ -43,11 +74,10 @@ export type CvUploadPanelProps = {
 };
 
 /**
- * Shared CV dropzone + status card. Used by /cv-review and (later) /profile.
+ * Profile-owned CV dropzone and processing status.
  * Owns load, upload, validation, replace, and processing poll.
  */
 export function CvUploadPanel({
-  showReviewLink = false,
   onCvChange,
   onUploadStart,
 }: CvUploadPanelProps) {
@@ -59,20 +89,31 @@ export function CvUploadPanel({
   const [validationError, setValidationError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [checkingStatus, setCheckingStatus] = useState(false);
+  const [processingClock, setProcessingClock] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const loadInFlightRef = useRef(false);
 
   function updateCv(next: CvLatestResponse | null | undefined) {
     setCv(next);
     onCvChange?.(next);
   }
 
-  async function loadLatest() {
+  async function loadLatest(manual = false) {
+    if (loadInFlightRef.current) return;
+    loadInFlightRef.current = true;
+    if (manual) setCheckingStatus(true);
     try {
       const latest = await getLatestCv();
       updateCv(latest);
       setLoadError(null);
     } catch (err) {
-      setLoadError(sanitizeErrorMessage(err instanceof Error ? err.message : undefined));
+      setLoadError(
+        "We couldn't check your saved CV. You can retry or upload a replacement below.",
+      );
+    } finally {
+      loadInFlightRef.current = false;
+      if (manual) setCheckingStatus(false);
     }
   }
 
@@ -84,12 +125,27 @@ export function CvUploadPanel({
   // Poll while the extraction pipeline is still working on the current CV.
   useEffect(() => {
     if (cv?.status !== "processing") return;
+    setProcessingClock(Date.now());
+    const clock = setInterval(() => setProcessingClock(Date.now()), 10000);
+    return () => clearInterval(clock);
+  }, [cv?.status, cv?.cvId]);
+
+  const processingDelayed = cv
+    ? isCvProcessingDelayed(cv, processingClock)
+    : false;
+  const processingElapsedSeconds = cv
+    ? cvProcessingElapsedSeconds(cv, processingClock)
+    : 0;
+
+  // Poll quickly for a normal job, then back off if processing is delayed.
+  useEffect(() => {
+    if (cv?.status !== "processing") return;
     const timer = setInterval(() => {
       void loadLatest();
-    }, POLL_INTERVAL_MS);
+    }, processingDelayed ? DELAYED_POLL_INTERVAL_MS : POLL_INTERVAL_MS);
     return () => clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run only when status flips
-  }, [cv?.status]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- polling follows current CV state
+  }, [cv?.status, cv?.cvId, processingDelayed]);
 
   function validate(candidate: File): string | null {
     if (!ACCEPTED_TYPES.includes(candidate.type)) {
@@ -140,12 +196,29 @@ export function CvUploadPanel({
     e.target.value = "";
   }
 
-  const showDropzone = cv === null || replacing;
+  const showDropzone = cv === null || replacing || (cv === undefined && !!loadError);
 
   return (
     <div className="space-y-4">
       {loadError && (
-        <Alert tone="danger" announce="assertive">
+        <Alert
+          tone="danger"
+          announce="assertive"
+          title="Your saved CV is temporarily unavailable"
+          actions={
+            <Button
+              variant="secondary"
+              size="sm"
+              leadingIcon={RefreshCw}
+              onClick={() => {
+                setLoadError(null);
+                void loadLatest(true);
+              }}
+            >
+              Retry
+            </Button>
+          }
+        >
           {loadError}
         </Alert>
       )}
@@ -162,7 +235,7 @@ export function CvUploadPanel({
           )}
         </div>
 
-        {cv === undefined && (
+        {cv === undefined && !loadError && (
           <div className="flex items-center gap-3 py-6" aria-busy="true" aria-label="Loading">
             <Spinner size="sm" />
             <Text size="sm" tone="muted">
@@ -171,7 +244,7 @@ export function CvUploadPanel({
           </div>
         )}
 
-        {cv !== undefined && showDropzone && (
+        {showDropzone && (
           <CvDropzone
             isDragging={isDragging}
             setIsDragging={setIsDragging}
@@ -195,19 +268,15 @@ export function CvUploadPanel({
         )}
 
         {cv !== undefined && cv !== null && !showDropzone && (
-          <CvStatusCard cv={cv} />
+          <CvStatusCard
+            cv={cv}
+            processingDelayed={processingDelayed}
+            elapsedSeconds={processingElapsedSeconds}
+            checkingStatus={checkingStatus}
+            onCheckStatus={() => void loadLatest(true)}
+          />
         )}
 
-        {showReviewLink && (
-          <Text size="sm" className="mt-4">
-            <Link
-              href="/cv-review"
-              className="font-medium text-brand-fg underline-offset-2 hover:underline"
-            >
-              Open full CV review
-            </Link>
-          </Text>
-        )}
       </Card>
     </div>
   );
@@ -294,17 +363,86 @@ function CvDropzone({
   );
 }
 
-function CvStatusCard({ cv }: { cv: CvLatestResponse }) {
+function CvStatusCard({
+  cv,
+  processingDelayed,
+  elapsedSeconds,
+  checkingStatus,
+  onCheckStatus,
+}: {
+  cv: CvLatestResponse;
+  processingDelayed: boolean;
+  elapsedSeconds: number;
+  checkingStatus: boolean;
+  onCheckStatus: () => void;
+}) {
   if (cv.status === "processing") {
     return (
-      <div className="flex items-center gap-3 rounded-card border border-border bg-canvas-subtle p-5">
-        <Spinner size="sm" />
-        <div>
-          <Text size="sm" className="font-semibold text-fg">
-            {cv.originalFilename}
+      <div
+        className={cn(
+          "rounded-card border p-5",
+          processingDelayed
+            ? "border-warning-border bg-warning-subtle"
+            : "border-brand-border bg-brand-subtle",
+        )}
+        role="status"
+        aria-live="polite"
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex min-w-0 items-start gap-3">
+            {processingDelayed ? (
+              <Icon
+                icon={Clock3}
+                size="sm"
+                className="mt-0.5 shrink-0 text-warning-fg"
+              />
+            ) : (
+              <Spinner size="sm" className="mt-0.5 shrink-0" />
+            )}
+            <div className="min-w-0">
+              <Text size="sm" className="truncate font-semibold text-fg">
+                {cv.originalFilename}
+              </Text>
+              <Text size="sm" tone="muted">
+                {processingDelayed
+                  ? "This is taking longer than usual, but processing is still active."
+                  : "Extracting your CV and organizing its details."}
+              </Text>
+            </div>
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            leadingIcon={checkingStatus ? undefined : RefreshCw}
+            disabled={checkingStatus}
+            onClick={onCheckStatus}
+            className="shrink-0"
+          >
+            {checkingStatus ? "Checking…" : "Check now"}
+          </Button>
+        </div>
+
+        <ol className="mt-5 grid gap-2 text-sm sm:grid-cols-3" aria-label="CV extraction progress">
+          <li className="flex items-center gap-2 font-medium text-success-fg">
+            <Icon icon={CheckCircle2} size="xs" />
+            Upload received
+          </li>
+          <li className="flex items-center gap-2 font-medium text-brand-fg">
+            <Spinner size="xs" />
+            Extracting details
+          </li>
+          <li className="flex items-center gap-2 text-fg-subtle">
+            <span className="h-2 w-2 rounded-full border border-border-strong" />
+            Ready for recommendations
+          </li>
+        </ol>
+
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
+          <Text size="sm" tone="muted" className="tabular-nums">
+            {formatCvProcessingElapsed(elapsedSeconds)} elapsed
           </Text>
           <Text size="sm" tone="muted">
-            Processing&hellip; this can take a moment.
+            You can leave this tab — we&apos;ll keep processing automatically.
           </Text>
         </div>
       </div>

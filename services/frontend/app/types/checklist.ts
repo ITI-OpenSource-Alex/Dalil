@@ -7,11 +7,54 @@ export interface ChecklistItem {
   description: string | null;
   category: string | null;
   checked: boolean;
+  // Present when the item can be actioned inside the product rather than only
+  // ticked off. Derived server-side from the stable item_id, so checklists
+  // generated before the feature existed carry it too.
+  actionType?: string | null;
+  actionTarget?: string | null;
+}
+
+export const MOTIVATION_LETTER_ACTION = "motivation_letter_review";
+
+export interface MotivationLetterIssue {
+  quote: string;
+  why: string;
+  suggestion: string;
+}
+
+export interface MotivationLetterCriterion {
+  criterion: string;
+  // null whenever the criterion abstained or errored. Never rendered as 0.
+  score: number | null;
+  status: "complete" | "insufficient_evidence" | "error";
+  strengths: string[];
+  issues: MotivationLetterIssue[];
+  unaddressed_requirements?: string[];
+  error?: string;
+}
+
+export interface MotivationLetterReview {
+  letterId: number;
+  userId: string;
+  programId: string | null;
+  status: string;
+  // null unless at least three criteria scored — a mean of one or two is not an
+  // overall judgement.
+  overallScore: number | null;
+  criteria: MotivationLetterCriterion[];
+  programmeSnapshot: Record<string, unknown> | null;
+  content: string | null;
+  errorMessage: string | null;
+  createdAt: string | null;
+  completedAt: string | null;
 }
 
 export interface ChecklistResponse {
   checklistId: string;
   programId: string;
+  programName?: string | null;
+  country?: string | null;
+  discipline?: string | null;
   generatedBy: "llm" | "fallback" | "requirements";
   items: ChecklistItem[];
 }

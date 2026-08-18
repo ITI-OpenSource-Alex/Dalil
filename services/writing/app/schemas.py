@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class EssayCreate(BaseModel):
@@ -32,6 +32,7 @@ class EssayEvaluationRequest(BaseModel):
     essayText: str = Field(min_length=1, max_length=10000)
     submissionType: str = Field(min_length=1, max_length=64)
     examType: str = Field(min_length=1, max_length=64)
+    inputSource: Literal["typed", "ocr"] = "typed"
 
 
 class InlineIssue(BaseModel):
@@ -94,8 +95,17 @@ class CVReviewRequest(BaseModel):
 
     userId: str = Field(min_length=1, max_length=128)
     cvS3Key: str = Field(min_length=1, max_length=512)
-    targetCountry: str = Field(min_length=1, max_length=128)
-    targetField: str = Field(min_length=1, max_length=128)
+    programId: Optional[str] = Field(default=None, min_length=1, max_length=128)
+    # Compatibility for older API clients. The product UI sends programId and
+    # the service resolves the target from RAG rather than trusting form fields.
+    targetCountry: Optional[str] = Field(default=None, min_length=1, max_length=128)
+    targetField: Optional[str] = Field(default=None, min_length=1, max_length=128)
+
+    @model_validator(mode="after")
+    def require_program_or_legacy_target(self):
+        if self.programId or (self.targetCountry and self.targetField):
+            return self
+        raise ValueError("programId is required")
 
 
 class CVReviewSection(BaseModel):
@@ -122,6 +132,7 @@ class ExamTaskEvaluationRequest(BaseModel):
     taskNumber: int = Field(ge=1, le=2)
     stimulusS3Key: Optional[str] = Field(default=None, max_length=512)
     taskPrompt: Optional[str] = Field(default=None, max_length=2000)
+    inputSource: Literal["typed", "ocr"] = "typed"
 
 
 class ExamTaskEvaluationResponse(BaseModel):
@@ -145,3 +156,35 @@ class EssayHistoryItem(BaseModel):
     task_number: Optional[int]
     overall_band: Optional[float] = Field(default=None, ge=0.0, le=9.0)
     excerpt: str
+
+# --- Motivation letter review (per-programme admissions feedback) -----------------
+# Scores are 1-5 against admissions criteria and are deliberately NOT IELTS bands.
+# overallScore is Optional and stays None unless at least three criteria produced a
+# score: a mean of one or two is not an overall judgement.
+
+class MotivationLetterCreateRequest(BaseModel):
+    userId: str
+    programId: Optional[str] = None
+    content: str
+
+
+class MotivationLetterResponse(BaseModel):
+    letterId: int
+    userId: str
+    programId: Optional[str] = None
+    status: str
+    overallScore: Optional[float] = None
+    criteria: list[dict] = []
+    programmeSnapshot: Optional[dict] = None
+    content: Optional[str] = None
+    errorMessage: Optional[str] = None
+    createdAt: Optional[str] = None
+    completedAt: Optional[str] = None
+
+
+class MotivationLetterSummary(BaseModel):
+    letterId: int
+    programId: Optional[str] = None
+    status: str
+    overallScore: Optional[float] = None
+    createdAt: Optional[str] = None

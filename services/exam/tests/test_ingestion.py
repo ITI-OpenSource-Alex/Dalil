@@ -228,6 +228,38 @@ def test_curated_listening_banks_are_complete_and_listening_only(
     assert "listening and reading answer keys" not in prompt_text
 
 
+@pytest.mark.parametrize("test_number", range(1, 5))
+def test_curated_listening_multiple_choice_questions_have_structured_options(
+    test_number: int,
+) -> None:
+    """Real UI controls need one option set per multiple-choice question.
+
+    Flattening several questions and all of their choices into one OCR prompt
+    leaves the browser able to show only a free-text fallback. The data contract
+    must preserve choices independently of visual layout.
+    """
+    data_path = (
+        Path(__file__).resolve().parent.parent
+        / "data"
+        / "parsed"
+        / "IELTS15"
+        / "listening"
+        / f"test{test_number}.json"
+    )
+    payload = json.loads(data_path.read_text(encoding="utf-8"))
+    multiple_choice = [
+        question
+        for question in payload["questions"]
+        if "multiple choice" in question["question_type"].lower()
+    ]
+
+    assert multiple_choice, "fixture must exercise real multiple-choice content"
+    assert all(
+        isinstance(question.get("options"), list) and len(question["options"]) >= 2
+        for question in multiple_choice
+    ), "every multiple-choice question must carry its own structured options"
+
+
 def test_answer_keys_are_parsed_from_cambridge_style_pages() -> None:
     parser = ReadingParser()
 

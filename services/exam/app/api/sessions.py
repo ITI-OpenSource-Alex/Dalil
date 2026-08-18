@@ -14,6 +14,7 @@ from app.repositories.result_repository import ResultRepository
 from app.repositories.session_repository import SessionRepository
 from app.schemas import CreateSessionRequest, SubmitAnswersRequest
 from app.services.session_service import SessionService
+from app.services.audio_delivery_service import S3AudioDeliveryService
 from app.services.writing_image_delivery_service import S3WritingImageDeliveryService
 from app.repositories.writing_response_repository import WritingResponseRepository
 from app.services.writing_client import WritingClient
@@ -59,9 +60,33 @@ def get_image_delivery_service() -> S3WritingImageDeliveryService:
     )
 
 
+def get_audio_delivery_service() -> S3AudioDeliveryService:
+    presign_endpoint = settings.s3_public_endpoint_url or settings.aws_endpoint_url
+    s3_client = boto3.client(
+        "s3",
+        region_name=settings.s3_region or settings.aws_region,
+        endpoint_url=presign_endpoint,
+        config=Config(signature_version="s3v4"),
+    )
+    head_client = boto3.client(
+        "s3",
+        region_name=settings.s3_region or settings.aws_region,
+        endpoint_url=settings.aws_endpoint_url or presign_endpoint,
+        config=Config(signature_version="s3v4"),
+    )
+    return S3AudioDeliveryService(
+        s3_client=s3_client,
+        bucket=settings.s3_bucket,
+        head_client=head_client,
+    )
+
+
 def get_session_service(
     image_delivery_service: S3WritingImageDeliveryService = Depends(
         get_image_delivery_service
+    ),
+    audio_delivery_service: S3AudioDeliveryService = Depends(
+        get_audio_delivery_service
     ),
 ) -> SessionService:
     return SessionService(
@@ -71,6 +96,7 @@ def get_session_service(
         writing_response_repository=WritingResponseRepository(db.pool),
         writing_client=WritingClient(base_url=settings.writing_service_url),
         image_delivery_service=image_delivery_service,
+        audio_delivery_service=audio_delivery_service,
     )
 
 
@@ -90,6 +116,15 @@ async def get_session(
     session = await service.get_session(session_id)
     session["remaining_time_seconds"] = session.pop("remaining_seconds")
     return session
+
+
+@router.delete("/{session_id}")
+async def abandon_session(
+    session_id: UUID,
+    x_user_id: UUID = Header(),
+    service: SessionService = Depends(get_session_service),
+) -> dict[str, Any]:
+    return await service.abandon_session(session_id, requester_id=x_user_id)
 
 
 @router.put("/{session_id}/submit")

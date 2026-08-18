@@ -218,12 +218,20 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	// /api/exam group carries the gate rather than each route repeating it.
 	api.Post("/writing/essays/upload", subscriptionMiddleware.RequirePaid, middleware.ValidateEssayTextLength(5000), writingHandler.UploadEssay)
 	// Phase E (docs/IA-REDESIGN-PROPOSAL.md): CV upload moved to the free side of
-	// the gate on purpose, matching the CV Review page's agreed product policy --
+	// the gate on purpose: Profile owns upload, while programme checklists own review --
 	// a Free user can upload and hold a CV, they just cannot ask for an AI review
 	// of it. Review is the paid step and keeps RequirePaid below. This narrows the
 	// default-allow exception list above, so calling it out explicitly here too.
 	api.Post("/writing/cv/upload", writingHandler.UploadCV)
 	api.Get("/writing/cv/latest", writingHandler.LatestCV)
+	// Motivation letter review. Paid, and rate-limited on the same bucket as CV
+	// review: both fan out to several criterion agents per request, so the cost
+	// profile is the same shape.
+	api.Post("/writing/motivation-letters",
+		subscriptionMiddleware.RequirePaid,
+		middleware.AIRateLimiter(redisClient, "motivation_letter", cfg.CVReviewsPerHour, time.Hour, logger, metrics),
+		writingHandler.CreateMotivationLetterReview)
+	api.Get("/writing/motivation-letters", writingHandler.ListMotivationLetterReviews)
 	api.Post("/writing/cv/review",
 		subscriptionMiddleware.RequirePaid,
 		middleware.AIRateLimiter(redisClient, "cv_review", cfg.CVReviewsPerHour, time.Hour, logger, metrics),
@@ -272,6 +280,7 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 	// upstream round trip per poll for a check the upstream already performs.
 	exam.Put("/sessions/:sessionId/submit", examOwnership.Validate, examHandler.SubmitSession)
 	exam.Get("/sessions/:sessionId/result", examOwnership.Validate, examHandler.GetSessionResult)
+	exam.Delete("/sessions/:sessionId", examOwnership.Validate, examHandler.AbandonSession)
 	exam.Put("/listening/:sessionId/submit", examOwnership.Validate, examHandler.SubmitListening)
 	// GOA-055: Reading-specific submit, needed for per_question_result and
 	// section_breakdown that the generic submit above doesn't return.

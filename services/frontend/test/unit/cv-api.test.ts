@@ -30,6 +30,7 @@ describe("getLatestCv", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(getLatestCv()).resolves.toEqual(body);
+    expect(fetchMock.mock.calls[0][1].signal).toBeInstanceOf(AbortSignal);
   });
 });
 
@@ -96,11 +97,34 @@ describe("streamCvReview", () => {
 
     const events: string[] = [];
     await streamCvReview(
-      { cvS3Key: "cvs/user-1/resume.pdf", targetCountry: "Germany", targetField: "CS" },
+      { cvS3Key: "cvs/user-1/resume.pdf", programId: "program-1" },
       (event) => events.push(event.type),
     );
 
     expect(events).toEqual(["section", "complete"]);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      cvS3Key: "cvs/user-1/resume.pdf",
+      programId: "program-1",
+    });
+  });
+
+  it("passes an abort signal so a user can cancel a slow streamed review", async () => {
+    const controller = new AbortController();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      body: {
+        getReader: () => ({ read: async () => ({ done: true, value: undefined }) }),
+      },
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await streamCvReview(
+      { cvS3Key: "cvs/user-1/resume.pdf", programId: "program-1" },
+      () => {},
+      controller.signal,
+    );
+
+    expect(fetchMock.mock.calls[0][1].signal).toBe(controller.signal);
   });
 
   it("rejects with a SubscriptionRequiredError on the Gateway's paid-tier 403", async () => {
@@ -114,7 +138,7 @@ describe("streamCvReview", () => {
 
     await expect(
       streamCvReview(
-        { cvS3Key: "cvs/user-1/resume.pdf", targetCountry: "Germany", targetField: "CS" },
+        { cvS3Key: "cvs/user-1/resume.pdf", programId: "program-1" },
         () => {},
       ),
     ).rejects.toSatisfy(isSubscriptionRequiredError);

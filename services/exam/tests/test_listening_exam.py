@@ -14,6 +14,7 @@ from app.services.audio_delivery_service import (
 )
 from app.services.grading_service import GradingService
 from app.services.session_service import SessionService
+from app.services.writing_image_delivery_service import S3WritingImageDeliveryService
 
 
 INTERNAL_HEADERS = {"X-Internal-API-Key": "test-internal-key"}
@@ -52,9 +53,7 @@ def test_empty_bucket_is_refused_rather_than_signed() -> None:
     Before the guard this returned four well-formed URLs and a 200, and the
     candidate got a session, a 40-minute clock and four 404s on play.
     """
-    all_sections = {
-        f"exam-audio/IELTS-18/1/section{n}.mp3" for n in range(1, 5)
-    }
+    all_sections = {f"exam-audio/IELTS-18/1/section{n}.mp3" for n in range(1, 5)}
     s3 = FakeS3Client(missing_keys=all_sections)
     service = S3AudioDeliveryService(s3, "goa-exam-audio")
 
@@ -199,12 +198,41 @@ class FakeResultRepository:
     async def create(self, **kwargs: Any) -> None:
         self.saved = kwargs
 
+    async def get_by_session(self, session_id: UUID) -> dict[str, Any] | None:
+        if self.saved is None or self.saved["session_id"] != session_id:
+            return None
+        return {
+            "id": self.saved["result_id"],
+            "session_id": self.saved["session_id"],
+            "user_id": self.saved["user_id"],
+            "skill_area": self.saved["skill_area"],
+            "raw_score": self.saved["raw_score"],
+            "band_score": self.saved["band_score"],
+            "section_scores": self.saved["section_scores"],
+            "detail": self.saved.get("detail"),
+            "graded_at": datetime.now(timezone.utc),
+        }
+
 
 def _question() -> dict[str, Any]:
     return {
         "id": uuid4(),
+        "book_ref": "IELTS-18",
+        "test_number": 1,
+        "exam_type": "academic",
+        "skill_area": "listening",
+        "passage_text": None,
         "audio_s3_key": "exam-audio/IELTS-18/1/section1.mp3",
-        "questions": [{"id": str(i), "prompt": f"Question {i}"} for i in range(1, 41)],
+        "image_s3_key": None,
+        "questions": [
+            {
+                "number": i,
+                "prompt": f"Question {i}",
+                "question_type": "Sentence Completion",
+                "section_number": ((i - 1) // 10) + 1,
+            }
+            for i in range(1, 41)
+        ],
         "answer_key": {str(i): f"A{i}" for i in range(1, 41)},
     }
 
@@ -236,6 +264,98 @@ async def test_start_and_submit_listening_session_integration() -> None:
     assert result["raw_score"] == 40
     assert result["band_score"] == 9.0
     assert result_repository.saved is not None
+
+
+@pytest.mark.asyncio
+async def test_get_listening_session_remints_all_four_audio_urls() -> None:
+    user_id = uuid4()
+    session_repository = FakeSessionRepository()
+    audio = S3AudioDeliveryService(FakeS3Client(), "goa-exam-audio")
+    service = SessionService(
+        session_repository=session_repository,
+        question_repository=FakeQuestionRepository(_question()),
+        result_repository=FakeResultRepository(),
+        audio_delivery_service=audio,
+    )
+
+    started = await service.create_listening_session(user_id, "academic")
+    reloaded = await service.get_session(started["session_id"])
+
+    assert len(reloaded["audio_urls"]) == 4
+    assert all("section" in url for url in reloaded["audio_urls"])
+
+
+@pytest.mark.asyncio
+async def test_listening_map_is_signed_at_start_and_reminted_on_reload() -> None:
+    user_id = uuid4()
+    session_repository = FakeSessionRepository()
+    question = {**_question(), "image_s3_key": "listening/IELTS15/test2/map.png"}
+    image = S3WritingImageDeliveryService(FakeS3Client(), "goa-writing-files")
+    service = SessionService(
+        session_repository=session_repository,
+        question_repository=FakeQuestionRepository(question),
+        result_repository=FakeResultRepository(),
+        audio_delivery_service=S3AudioDeliveryService(FakeS3Client(), "goa-exam-audio"),
+        image_delivery_service=image,
+    )
+
+    started = await service.create_listening_session(user_id, "academic")
+    reloaded = await service.get_session(started["session_id"])
+
+    assert started["image_url"].startswith("https://audio.example/listening/")
+    assert started["image_url_expiry_seconds"] == 7200
+    assert reloaded["questions"][0]["image_url"].startswith(
+        "https://audio.example/listening/"
+    )
+
+
+@pytest.mark.asyncio
+async def test_listening_map_missing_refuses_session_before_clock_starts() -> None:
+    user_id = uuid4()
+    session_repository = FakeSessionRepository()
+    image_key = "listening/IELTS15/test2/map.png"
+    question = {**_question(), "image_s3_key": image_key}
+    image = S3WritingImageDeliveryService(
+        FakeS3Client(missing_keys={image_key}), "goa-writing-files"
+    )
+    service = SessionService(
+        session_repository=session_repository,
+        question_repository=FakeQuestionRepository(question),
+        result_repository=FakeResultRepository(),
+        audio_delivery_service=S3AudioDeliveryService(FakeS3Client(), "goa-exam-audio"),
+        image_delivery_service=image,
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await service.create_listening_session(user_id, "academic")
+
+    assert exc_info.value.status_code == 503
+    assert session_repository.session is None
+
+
+@pytest.mark.asyncio
+async def test_listening_result_can_rebuild_detailed_results_page() -> None:
+    user_id = uuid4()
+    session_repository = FakeSessionRepository()
+    result_repository = FakeResultRepository()
+    service = SessionService(
+        session_repository=session_repository,
+        question_repository=FakeQuestionRepository(_question()),
+        result_repository=result_repository,
+        audio_delivery_service=S3AudioDeliveryService(FakeS3Client(), "goa-exam-audio"),
+    )
+
+    started = await service.create_listening_session(user_id, "academic")
+    await service.submit_listening_session(
+        session_id=started["session_id"],
+        user_id=user_id,
+        answers={str(i): f"A{i}" for i in range(1, 41)},
+    )
+    recovered = await service.get_result(started["session_id"], user_id)
+
+    assert len(recovered["per_question_result"]) == 40
+    assert len(recovered["section_breakdown"]) == 4
+    assert len(recovered["questions"]) == 40
 
 
 @pytest.mark.asyncio

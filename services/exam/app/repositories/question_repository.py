@@ -82,6 +82,24 @@ class QuestionRepository:
                 user_id,
             )
 
+    async def get_any_scorable_question(
+        self,
+        exam_type: str,
+        skill_area: str,
+    ) -> Record | None:
+        query = f"""
+        SELECT q.*
+        FROM questions q
+        WHERE q.exam_type=$1
+          AND q.skill_area=$2
+          AND jsonb_array_length(q.questions) > 0
+          {_SCORABLE_CLAUSE}
+        ORDER BY RANDOM()
+        LIMIT 1
+        """
+        async with self.pool.acquire() as conn:
+            return await conn.fetchrow(query, exam_type, skill_area)
+
     async def get_random_unseen_question(
         self,
         exam_type: str,

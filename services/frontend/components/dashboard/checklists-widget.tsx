@@ -14,7 +14,9 @@ import {
 import { getOpportunity } from "@/lib/opportunities-api";
 import { Button, Card, Icon, Text } from "@/components/ui";
 
-function useResolvedEntry(entry: ChecklistIndexEntry | undefined) {
+import { useCurrentUser } from "@/app/hooks/useCurrentUser";
+
+function useResolvedEntry(entry: ChecklistIndexEntry | undefined, userId?: string | null) {
   const [resolved, setResolved] = useState<ChecklistIndexEntry | undefined>(
     entry,
   );
@@ -46,14 +48,17 @@ function useResolvedEntry(entry: ChecklistIndexEntry | undefined) {
           country: program.country,
         };
         setResolved(enriched);
-        rememberChecklist({
-          programId: entry.programId,
-          programName: program.programName,
-          university: program.university,
-          country: program.country,
-          totalItems: entry.totalItems,
-          completedItems: entry.completedItems,
-        });
+        rememberChecklist(
+          {
+            programId: entry.programId,
+            programName: program.programName,
+            university: program.university,
+            country: program.country,
+            totalItems: entry.totalItems,
+            completedItems: entry.completedItems,
+          },
+          userId,
+        );
       })
       .catch(() => {
         if (!cancelled) setResolved(entry);
@@ -62,16 +67,21 @@ function useResolvedEntry(entry: ChecklistIndexEntry | undefined) {
     return () => {
       cancelled = true;
     };
-  }, [entry]);
+  }, [entry, userId]);
 
   return resolved;
 }
 
 export function ChecklistsWidget() {
+  const { user, status: profileStatus } = useCurrentUser();
+  const userId = user?.id;
   const [entries, setEntries] = useState<ChecklistIndexEntry[]>([]);
-  useEffect(() => setEntries(readChecklistIndex()), []);
+  useEffect(() => {
+    if (profileStatus === "loading" || profileStatus === "idle") return;
+    setEntries(readChecklistIndex(userId));
+  }, [userId, profileStatus]);
   const next = entries[0];
-  const display = useResolvedEntry(next);
+  const display = useResolvedEntry(next, userId);
 
   return (
     <Card data-testid="dashboard-checklists">

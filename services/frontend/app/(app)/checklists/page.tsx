@@ -48,6 +48,7 @@ import {
  */
 export default function ChecklistsPage() {
   const { user, status: profileStatus } = useCurrentUser();
+  const userId = user?.id;
   const [entries, setEntries] = useState<ChecklistIndexEntry[]>([]);
   const [restored, setRestored] = useState(false);
 
@@ -59,12 +60,12 @@ export default function ChecklistsPage() {
 
   const profileComplete = isProfileComplete(user?.profile ?? null);
 
-  // localStorage is read in an effect, not during render: the server has none,
-  // and seeding useState from it is a hydration mismatch.
+  // localStorage is read in an effect once user profile status has settled
   useEffect(() => {
-    setEntries(readChecklistIndex());
+    if (profileStatus === "loading" || profileStatus === "idle") return;
+    setEntries(readChecklistIndex(userId));
     setRestored(true);
-  }, []);
+  }, [userId, profileStatus]);
 
   const loadPrograms = useCallback(async () => {
     requestRef.current?.abort();
@@ -110,8 +111,8 @@ export default function ChecklistsPage() {
   );
 
   function handleRemove(programId: string) {
-    forgetChecklist(programId);
-    setEntries(readChecklistIndex());
+    forgetChecklist(programId, userId);
+    setEntries(readChecklistIndex(userId));
   }
 
   return (

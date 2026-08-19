@@ -467,3 +467,34 @@ func (h *WritingHandler) ListMotivationLetterReviews(c *fiber.Ctx) error {
 	}
 	return c.Status(resp.StatusCode).Send(respBody)
 }
+
+func (h *WritingHandler) GetMotivationLetterReview(c *fiber.Ctx) error {
+	userID, err := authenticatedUserID(c)
+	if err != nil {
+		return err
+	}
+
+	letterID := c.Params("id")
+	target := h.writingServiceURL + "/motivation-letters/" + url.QueryEscape(letterID) + "?userId=" + url.QueryEscape(userID)
+
+	req, err := downstream.NewRequest(c, http.MethodGet, target, nil)
+	if err != nil {
+		return err
+	}
+	c.Locals(middleware.ContextKeyUpstream, "writing")
+
+	resp, err := h.httpClient.Do(req)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadGateway, "failed to contact writing service")
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadGateway, "failed to read writing service response")
+	}
+	if ct := resp.Header.Get(fiber.HeaderContentType); ct != "" {
+		c.Set(fiber.HeaderContentType, ct)
+	}
+	return c.Status(resp.StatusCode).Send(respBody)
+}

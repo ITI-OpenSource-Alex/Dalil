@@ -24,7 +24,11 @@ import {
   Text,
   Textarea,
 } from "@/components/ui";
-import { reviewMotivationLetter } from "@/lib/motivation-api";
+import {
+  getMotivationLetter,
+  listMotivationLetters,
+  reviewMotivationLetter,
+} from "@/lib/motivation-api";
 import type {
   MotivationLetterCriterion,
   MotivationLetterReview,
@@ -34,6 +38,13 @@ const MIN_WORDS = 100;
 const TYPICAL_MIN = 500;
 const TYPICAL_MAX = 800;
 const DRAFT_KEY_PREFIX = "goa:motivation-letter:";
+// How often to re-check a review that is still running server-side.
+const POLL_MS = 4000;
+// A review that has sat in "processing" longer than this is treated as stalled
+// rather than in-flight. Without this the button stays disabled forever if the
+// server died mid-review, and the student has no way to retry. Reviews measure
+// ~40s; six minutes is far outside the normal band.
+const STALE_AFTER_MS = 6 * 60 * 1000;
 
 const CRITERIA_ORDER = [
   "programme_fit",
@@ -61,6 +72,13 @@ const CRITERION_BLURBS: Record<string, string> = {
 
 function countWords(text: string): number {
   return text.trim() ? text.trim().split(/\s+/).length : 0;
+}
+
+/** Elapsed seconds as m:ss, so a long wait reads as progress rather than a hang. */
+function formatElapsed(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const ss = String(seconds % 60).padStart(2, "0");
+  return m > 0 ? `${m}m ${ss}s` : `${seconds}s`;
 }
 
 /** 1–5 as a filled pip row — readable at a glance without parsing a number. */
@@ -110,6 +128,16 @@ export default function MotivationLetterPage() {
   const [review, setReview] = useState<MotivationLetterReview | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // A review already running on the server, adopted from the API rather than from
+  // component state. The POST is synchronous and takes ~40s, so navigating away
+  // loses the in-flight request while the server carries on and writes the result.
+  // Re-entering the page previously showed a bare "Review my letter", as though
+  // nothing had been started. The row exists at status='processing' from the moment
+  // of submission, which makes the server the only honest source for this.
+  const [pendingLetterId, setPendingLetterId] = useState<number | null>(null);
+  const [pendingSince, setPendingSince] = useState<number | null>(null);
+  const [stalled, setStalled] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
 
   // Restore the draft first: a review takes tens of seconds, and a reload
   // mid-flight must not cost the student their letter.
@@ -124,26 +152,151 @@ export default function MotivationLetterPage() {
     window.localStorage.setItem(draftKey, content);
   }, [content, draftKey, programId]);
 
-  // The programme name comes from the review's programmeSnapshot: the checklist
-  // response carries only the programme id, and rendering that put a raw UUID in
-  // the heading -- the anonymous-checklist defect
-  // reports/frontend-e2e-ux-audit-2026-08-09.md flagged. Before a review exists we
-  // say nothing rather than showing an id no student can read.
+  // The programme name comes from the review's programmeSnapshot
   useEffect(() => {
     const name = review?.programmeSnapshot?.name;
     if (typeof name === "string" && name) setProgramName(name);
   }, [review]);
 
+  // On mount, reconcile with the server: adopt a review that is still running, or
+  // load the most recent finished one. The list is returned newest-first and
+  // includes 'processing' rows, so the newest row alone decides which case we are in.
+  useEffect(() => {
+    if (!programId) return;
+    let cancelled = false;
+    void listMotivationLetters(programId)
+      .then(async (list) => {
+        if (cancelled || !list.length) return;
+
+        const newest = list[0];
+        if (newest.status === "processing") {
+          const startedAt = newest.createdAt
+            ? Date.parse(newest.createdAt)
+            : Date.now();
+          if (Date.now() - startedAt > STALE_AFTER_MS) {
+            setStalled(true);
+          } else {
+            setPendingLetterId(newest.letterId);
+            setPendingSince(startedAt);
+          }
+        }
+
+        const latestFinished = list.find(
+          (item) => item.status === "completed" || item.status === "partial",
+        );
+        if (latestFinished) {
+          const detail = await getMotivationLetter(latestFinished.letterId);
+          if (cancelled) return;
+          setReview(detail);
+          if (typeof detail.content === "string" && detail.content) {
+            const letterText = detail.content;
+            setContent((current) => current || letterText);
+          }
+        }
+      })
+      .catch(() => {
+        // Quiet fallback if list lookup fails
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [programId]);
+
+  // Poll an adopted review until it finishes, or until it is old enough to call
+  // stalled. Only runs while something is actually pending, so an idle page makes
+  // no requests.
+  useEffect(() => {
+    if (pendingLetterId === null) return;
+    let cancelled = false;
+
+    const check = async () => {
+      if (pendingSince !== null && Date.now() - pendingSince > STALE_AFTER_MS) {
+        if (cancelled) return;
+        setStalled(true);
+        setPendingLetterId(null);
+        setPendingSince(null);
+        return;
+      }
+      try {
+        const detail = await getMotivationLetter(pendingLetterId);
+        if (cancelled || detail.status === "processing") return;
+        setReview(detail);
+        setPendingLetterId(null);
+        setPendingSince(null);
+        if (detail.status === "failed") {
+          setError(detail.errorMessage ?? "The review did not finish.");
+        }
+      } catch {
+        // A failed poll is not a failed review; the next tick tries again.
+      }
+    };
+
+    void check();
+    const timer = setInterval(() => void check(), POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [pendingLetterId, pendingSince]);
+
+  // Ticking elapsed counter, so a long wait visibly progresses instead of looking
+  // frozen. Separate from the poll so the display updates every second without
+  // making a request every second.
+  useEffect(() => {
+    if (pendingSince === null) {
+      setElapsed(0);
+      return;
+    }
+    const tick = () => setElapsed(Math.floor((Date.now() - pendingSince) / 1000));
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, [pendingSince]);
+
+  // Automatically scroll to the review card when review completes
+  useEffect(() => {
+    if (review && !submitting) {
+      const el = document.getElementById("motivation-letter-review");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
+  }, [review, submitting]);
+
   const words = countWords(content);
-  const canSubmit = words >= MIN_WORDS && !submitting;
+  // inProgress covers a review this tab did not start -- adopted from the server on
+  // mount. busy is what the controls gate on, so a second submission cannot be
+  // stacked on top of one already running in another tab or a previous visit.
+  const inProgress = pendingLetterId !== null;
+  const busy = submitting || inProgress;
+  const canSubmit = words >= MIN_WORDS && !busy;
 
   const submit = useCallback(async () => {
     setSubmitting(true);
     setError(null);
+    setStalled(false);
     try {
-      setReview(await reviewMotivationLetter({ content, programId }));
+      // 202 with the row at status='processing'. The result is NOT in this
+      // response; the poller below owns everything from here, which is what makes
+      // the progress survive navigation, reload and a closed tab.
+      const accepted = await reviewMotivationLetter({ content, programId });
+
+      if (accepted.status === "processing") {
+        setPendingLetterId(accepted.letterId);
+        setPendingSince(
+          accepted.createdAt ? Date.parse(accepted.createdAt) : Date.now(),
+        );
+      } else {
+        // A dedupe hit: this exact letter was already reviewed for this programme,
+        // so the server returned the stored review instead of paying for five more
+        // model calls.
+        setReview(accepted);
+        setPendingLetterId(null);
+        setPendingSince(null);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Review failed");
+      setPendingSince(null);
     } finally {
       setSubmitting(false);
     }
@@ -201,7 +354,7 @@ export default function MotivationLetterPage() {
           value={content}
           onChange={(event) => setContent(event.target.value)}
           rows={24}
-          disabled={submitting}
+          disabled={busy}
           placeholder="Paste or write your motivation letter here…"
           className="min-h-[32rem] resize-y text-base leading-relaxed"
         />
@@ -242,15 +395,41 @@ export default function MotivationLetterPage() {
             disabled={!canSubmit}
             size="lg"
           >
-            {submitting ? "Reviewing…" : review ? "Review again" : "Review my letter"}
+            {busy
+              ? "Review in progress…"
+              : review
+                ? "Review again"
+                : "Review my letter"}
           </Button>
-          {submitting && (
-            <span className="inline-flex items-center gap-2 text-sm text-fg-muted">
+          {busy && (
+            <span
+              data-testid="motivation-letter-progress"
+              className="inline-flex items-center gap-2 text-sm text-fg-muted"
+            >
               <Spinner size="sm" />
-              Assessing five criteria — usually under a minute
+              Assessing five criteria
+              {elapsed > 0 && (
+                <span className="tabular-nums">· {formatElapsed(elapsed)}</span>
+              )}
             </span>
           )}
         </div>
+
+        {/* Survives navigation and reload: the state comes from the server row, not
+            from this component, so leaving the page and coming back still shows the
+            review as running rather than resetting to an untouched button. */}
+        {busy && (
+          <Alert tone="info" data-testid="motivation-letter-pending">
+            Your review is running. You can leave this page — it keeps going, and the
+            result will be here when you come back.
+          </Alert>
+        )}
+
+        {stalled && !busy && (
+          <Alert tone="warning" data-testid="motivation-letter-stalled">
+            A previous review was started but never finished. You can run it again.
+          </Alert>
+        )}
 
         {error && (
           <Alert tone="danger" data-testid="motivation-letter-error">
@@ -260,7 +439,7 @@ export default function MotivationLetterPage() {
       </Card>
 
       {review && (
-        <section data-testid="motivation-letter-review" className="space-y-5">
+        <section id="motivation-letter-review" data-testid="motivation-letter-review" className="space-y-5">
           <Card variant="raised">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>

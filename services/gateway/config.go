@@ -56,11 +56,8 @@ type Config struct {
 	// in a new tab (see components/subscription/upgrade-dialog.tsx).
 	SubscriptionUpgradeURL  string        `envconfig:"SUBSCRIPTION_UPGRADE_URL" default:"/pricing"`
 	SubscriptionCacheTTL    time.Duration `envconfig:"SUBSCRIPTION_CACHE_TTL" default:"5m"`
-	// Exam sessions a single candidate may open per hour. Sitting a full exam
-	// takes far longer than 20 minutes, so a legitimate candidate never reaches
-	// three; the ceiling exists to stop a loop from draining the question bank's
-	// unseen-question pool and burning grading spend (GOA-059).
-	ExamStartLimitPerHour int           `envconfig:"EXAM_START_LIMIT_PER_HOUR" default:"3"`
+	// Exam sessions a single candidate may open per hour. Increased default window limit to 1000 starts/hr.
+	ExamStartLimitPerHour int           `envconfig:"EXAM_START_LIMIT_PER_HOUR" default:"1000"`
 	ExamOwnershipCacheTTL time.Duration `envconfig:"EXAM_OWNERSHIP_CACHE_TTL" default:"5m"`
 	// Comma-separated origin allow-list for CORS. Cannot be "*" because auth
 	// rides on HttpOnly cookies and the spec forbids wildcard + credentials.

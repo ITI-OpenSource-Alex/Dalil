@@ -1,7 +1,9 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { AudioLines, MessageSquareText, X } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import WaveformCanvas from "@/components/speaking/waveform-canvas";
 import StatusChip from "@/components/speaking/status-chip";
 import MicButton from "@/components/speaking/mic-button";
@@ -76,6 +78,19 @@ export default function SpeakingSessionPanel({
   title = "Speaking Practice",
 }: SpeakingSessionPanelProps) {
   const reduceMotion = useReducedMotion();
+  const [showExaminerTranscript, setShowExaminerTranscript] = useState<boolean>(true);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("dalil:speaking:show-examiner-transcript");
+    if (saved !== null) {
+      setShowExaminerTranscript(saved === "true");
+    }
+  }, []);
+
+  const handleToggleTranscript = (checked: boolean) => {
+    setShowExaminerTranscript(checked);
+    localStorage.setItem("dalil:speaking:show-examiner-transcript", String(checked));
+  };
 
   if (!open) return null;
 
@@ -183,14 +198,32 @@ export default function SpeakingSessionPanel({
           {examinerText && (
             <div
               data-testid="examiner-turn"
-              className="rounded-xl border border-violet-100 bg-violet-50/70 p-4"
+              className="rounded-xl border border-violet-100 bg-violet-50/70 p-4 transition-all"
             >
-              <p className="mb-1 text-[11px] font-semibold tracking-wide text-violet-700 uppercase">
-                Examiner
-              </p>
-              <p className="text-sm leading-relaxed text-violet-950">
-                {examinerText}
-              </p>
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <p className="text-[11px] font-semibold tracking-wide text-violet-700 uppercase">
+                  Examiner
+                </p>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-violet-900">
+                    Subtitles
+                  </span>
+                  <Switch
+                    checked={showExaminerTranscript}
+                    onChange={handleToggleTranscript}
+                    aria-label="Toggle Examiner Subtitles"
+                  />
+                </div>
+              </div>
+              {showExaminerTranscript ? (
+                <p className="text-sm leading-relaxed text-violet-950">
+                  {examinerText}
+                </p>
+              ) : (
+                <p className="text-xs italic text-violet-600/80">
+                  Examiner subtitles turned off.
+                </p>
+              )}
             </div>
           )}
 

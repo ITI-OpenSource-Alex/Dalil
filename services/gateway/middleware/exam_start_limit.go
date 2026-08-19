@@ -28,7 +28,7 @@ func ExamStartRateLimiter(
 ) fiber.Handler {
 	metrics := firstMetrics(metricCollectors)
 	if limit <= 0 {
-		limit = 3
+		limit = 1000
 	}
 
 	return func(c *fiber.Ctx) error {

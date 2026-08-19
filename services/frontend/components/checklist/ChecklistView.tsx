@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useChecklist } from "@/app/hooks/useChecklist";
+import { useCurrentUser } from "@/app/hooks/useCurrentUser";
 import { rememberChecklist } from "@/lib/checklist-index";
 import { phaseForItem } from "@/lib/checklist-phases";
 import type { ChecklistItem, Phase } from "@/app/types/checklist";
@@ -40,6 +41,8 @@ export default function ChecklistView({
   university?: string | null;
   country?: string | null;
 }) {
+  const { user } = useCurrentUser();
+  const userId = user?.id;
   const { checklist, financialItems, status, error, toggleError, retry, toggleItem } =
     useChecklist(programId);
 
@@ -50,15 +53,18 @@ export default function ChecklistView({
   const items = checklist?.items;
   useEffect(() => {
     if (!items) return;
-    rememberChecklist({
-      programId,
-      programName: checklist?.programName || programName || programId,
-      university: university ?? null,
-      country: checklist?.country || country || null,
-      totalItems: items.length,
-      completedItems: items.filter((item) => item.checked).length,
-    });
-  }, [items, checklist?.programName, checklist?.country, programId, programName, university, country]);
+    rememberChecklist(
+      {
+        programId,
+        programName: checklist?.programName || programName || programId,
+        university: university ?? null,
+        country: checklist?.country || country || null,
+        totalItems: items.length,
+        completedItems: items.filter((item) => item.checked).length,
+      },
+      userId,
+    );
+  }, [items, checklist?.programName, checklist?.country, programId, programName, university, country, userId]);
 
   if (status === "loading" || status === "idle") {
     return (

@@ -56,3 +56,11 @@ export async function listMotivationLetters(
   const response = await fetch(url, fetchOptions);
   return parseJSONOrThrow(response);
 }
+
+/** GET /api/writing/motivation-letters/:id — single completed review details. */
+export async function getMotivationLetter(
+  letterId: number,
+): Promise<MotivationLetterReview> {
+  const response = await fetch(`${API_BASE}/${letterId}`, fetchOptions);
+  return parseJSONOrThrow<MotivationLetterReview>(response);
+}

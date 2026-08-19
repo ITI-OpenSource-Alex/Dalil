@@ -1,10 +1,19 @@
 """Motivation letter review endpoints.
 
-Synchronous on purpose. The CV pipeline is queue-driven and that indirection is the
-single hardest part of it to demonstrate or debug -- an upload returns 202 and the
-result appears somewhere else, later, if the worker is healthy. A letter review is a
-foreground action the student is waiting on, so it returns the result directly and
-fails visibly.
+Asynchronous, in-process. Submission returns 202 with a row at status='processing'
+and the client polls for the result.
+
+This began synchronous, on the reasoning that a letter review is a foreground action
+and the CV pipeline's SQS hop is the hardest part of that feature to demo or debug.
+Measurement overturned it: a real review took 2m32s, and an HTTP request held open
+that long loses its result to any navigation, reload or dropped connection while the
+server carries on computing it. The client had no way to rejoin work already running.
+
+The middle position is the one taken here -- background execution for the duration,
+without a broker. FastAPI BackgroundTasks keeps the work in this process, so a
+restart mid-review abandons the row at 'processing'; the client bounds that by
+treating a row stuck there past six minutes as stalled. A queue would fix it
+properly, at the cost of the indirection the CV pipeline already demonstrates.
 """
 
 from __future__ import annotations
@@ -15,10 +24,11 @@ from datetime import datetime, timezone
 from typing import Any
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
+from app.database import SessionLocal
 from app.dependencies import get_db
 from app.models import MotivationLetter
 from app.motivation_agents import review_letter
@@ -80,12 +90,73 @@ async def _fetch_programme(
         return None
 
 
-@router.post("", response_model=MotivationLetterResponse, status_code=status.HTTP_201_CREATED)
+async def _run_review(letter_id: int, content: str, program_id: str | None) -> None:
+    """Run the five criterion agents and record the outcome.
+
+    Owns its own Session. The request-scoped one from Depends(get_db) is closed the
+    moment the 202 is returned, and this coroutine outlives that by minutes.
+
+    Never raises: a background task has no caller to report to, so every failure is
+    written to the row instead. A review that dies silently would leave the row at
+    'processing' forever, which the client can only interpret as a stall.
+    """
+    db = SessionLocal()
+    try:
+        row = db.query(MotivationLetter).filter(MotivationLetter.id == letter_id).first()
+        if row is None:
+            logger.error("Motivation letter %s vanished before review", letter_id)
+            return
+        try:
+            programme = await _fetch_programme(program_id, get_settings())
+            criteria, overall = await review_letter(content, programme)
+        except Exception as exc:
+            logger.exception("Motivation letter review failed for letter %s", letter_id)
+            row.status = "failed"
+            row.error_message = f"{type(exc).__name__}: {exc}"[:500]
+            row.completed_at = datetime.now(timezone.utc)
+            db.commit()
+            return
+
+        completed = [c for c in criteria if c.get("status") == "complete"]
+        row.criteria = criteria
+        row.overall_score = overall
+        row.programme_snapshot = programme
+        # "partial" is a real outcome, not a failure: some criteria abstained or
+        # errored but the review still carries usable feedback. The UI labels it as
+        # such rather than presenting a mean of two criteria as an overall judgement.
+        row.status = "completed" if len(completed) == len(criteria) else "partial"
+        row.completed_at = datetime.now(timezone.utc)
+        db.commit()
+    finally:
+        db.close()
+
+
+@router.post(
+    "", response_model=MotivationLetterResponse, status_code=status.HTTP_202_ACCEPTED
+)
 async def create_review(
     payload: MotivationLetterCreateRequest,
+    background: BackgroundTasks,
     db: Session = Depends(get_db),
-    settings: Settings = Depends(get_settings),
 ) -> MotivationLetterResponse:
+    """Accept the letter, return immediately, review in the background.
+
+    This was synchronous until a measured run took 2m32s. Holding an HTTP request
+    open that long means any navigation, reload or flaky connection loses the result
+    for the client while the server carries on producing it -- the client had no way
+    to rejoin work that was already running.
+
+    Returns 202 with the row at status='processing'; the client polls
+    GET /motivation-letters/{id}. Same shape as the CV pipeline without the SQS hop:
+    the queue there buys retries and cross-process durability that a foreground
+    review does not need, at the cost of being the hardest part of that feature to
+    demo or debug.
+
+    Known limitation: BackgroundTasks runs in this process, so a restart mid-review
+    abandons the row at 'processing'. The client treats a row stuck there past six
+    minutes as stalled and re-enables submission, which bounds the damage without
+    introducing a broker.
+    """
     content = (payload.content or "").strip()
     if len(content) > MAX_CHARS:
         raise HTTPException(status_code=413, detail="Letter exceeds 20,000 characters")
@@ -113,6 +184,23 @@ async def create_review(
     if existing:
         return _to_response(existing)
 
+    # Rejoin a review of this same letter that is already running, rather than
+    # starting a second one. Without this, a double click or a resubmit from another
+    # tab pays for five more model calls and races to write the same row.
+    running = (
+        db.query(MotivationLetter)
+        .filter(
+            MotivationLetter.user_id == payload.userId,
+            MotivationLetter.program_id == payload.programId,
+            MotivationLetter.content_hash == content_hash,
+            MotivationLetter.status == "processing",
+        )
+        .order_by(MotivationLetter.id.desc())
+        .first()
+    )
+    if running:
+        return _to_response(running)
+
     row = MotivationLetter(
         user_id=payload.userId,
         program_id=payload.programId,
@@ -124,28 +212,7 @@ async def create_review(
     db.commit()
     db.refresh(row)
 
-    programme = await _fetch_programme(payload.programId, settings)
-    try:
-        criteria, overall = await review_letter(content, programme)
-    except Exception as exc:
-        logger.exception("Motivation letter review failed for letter %s", row.id)
-        row.status = "failed"
-        row.error_message = f"{type(exc).__name__}: {exc}"[:500]
-        db.commit()
-        db.refresh(row)
-        raise HTTPException(status_code=502, detail="Review failed") from exc
-
-    completed = [c for c in criteria if c.get("status") == "complete"]
-    row.criteria = criteria
-    row.overall_score = overall
-    row.programme_snapshot = programme
-    # "partial" is a real outcome, not a failure: some criteria abstained or errored
-    # but the review still carries usable feedback. The UI labels it as such rather
-    # than presenting a mean of two criteria as an overall judgement.
-    row.status = "completed" if len(completed) == len(criteria) else "partial"
-    row.completed_at = datetime.now(timezone.utc)
-    db.commit()
-    db.refresh(row)
+    background.add_task(_run_review, row.id, content, payload.programId)
     return _to_response(row)
 
 

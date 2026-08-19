@@ -20,8 +20,13 @@
  * wholesale, and should. Recorded as a known limitation.
  */
 
-const STORAGE_KEY = "goa.checklists.index";
+const DEFAULT_STORAGE_KEY = "goa.checklists.index";
 const MAX_ENTRIES = 50;
+
+function getStorageKey(userId?: string | null): string {
+  if (!userId) return DEFAULT_STORAGE_KEY;
+  return `goa.checklists.index.${userId}`;
+}
 
 export interface ChecklistIndexEntry {
   programId: string;
@@ -46,10 +51,11 @@ function isEntry(value: unknown): value is ChecklistIndexEntry {
   );
 }
 
-export function readChecklistIndex(): ChecklistIndexEntry[] {
+export function readChecklistIndex(userId?: string | null): ChecklistIndexEntry[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const key = getStorageKey(userId);
+    const raw = window.localStorage.getItem(key);
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
@@ -63,11 +69,12 @@ export function readChecklistIndex(): ChecklistIndexEntry[] {
   }
 }
 
-function write(entries: ChecklistIndexEntry[]): void {
+function write(entries: ChecklistIndexEntry[], userId?: string | null): void {
   if (typeof window === "undefined") return;
   try {
+    const key = getStorageKey(userId);
     window.localStorage.setItem(
-      STORAGE_KEY,
+      key,
       JSON.stringify(entries.slice(0, MAX_ENTRIES)),
     );
   } catch {
@@ -83,29 +90,36 @@ function write(entries: ChecklistIndexEntry[]): void {
  */
 export function rememberChecklist(
   entry: Omit<ChecklistIndexEntry, "lastOpenedAt">,
+  userId?: string | null,
 ): void {
-  const existing = readChecklistIndex().filter(
+  const existing = readChecklistIndex(userId).filter(
     (e) => e.programId !== entry.programId,
   );
-  write([
-    {
-      ...entry,
-      // Preserve a previously-known programme name if this call has only the
-      // raw id to offer -- the detail page knows the checklist, not always the
-      // programme metadata.
-      programName:
-        entry.programName ||
-        readChecklistIndex().find((e) => e.programId === entry.programId)
-          ?.programName ||
-        entry.programId,
-      lastOpenedAt: new Date().toISOString(),
-    },
-    ...existing,
-  ]);
+  write(
+    [
+      {
+        ...entry,
+        // Preserve a previously-known programme name if this call has only the
+        // raw id to offer -- the detail page knows the checklist, not always the
+        // programme metadata.
+        programName:
+          entry.programName ||
+          readChecklistIndex(userId).find((e) => e.programId === entry.programId)
+            ?.programName ||
+          entry.programId,
+        lastOpenedAt: new Date().toISOString(),
+      },
+      ...existing,
+    ],
+    userId,
+  );
 }
 
-export function forgetChecklist(programId: string): void {
-  write(readChecklistIndex().filter((e) => e.programId !== programId));
+export function forgetChecklist(programId: string, userId?: string | null): void {
+  write(
+    readChecklistIndex(userId).filter((e) => e.programId !== programId),
+    userId,
+  );
 }
 
 /** 0-100, or 0 for a checklist with no items. */

@@ -232,6 +232,7 @@ func NewGatewayServer(cfg Config, logger zerolog.Logger) (*GatewayServer, error)
 		middleware.AIRateLimiter(redisClient, "motivation_letter", cfg.CVReviewsPerHour, time.Hour, logger, metrics),
 		writingHandler.CreateMotivationLetterReview)
 	api.Get("/writing/motivation-letters", writingHandler.ListMotivationLetterReviews)
+	api.Get("/writing/motivation-letters/:id", writingHandler.GetMotivationLetterReview)
 	api.Post("/writing/cv/review",
 		subscriptionMiddleware.RequirePaid,
 		middleware.AIRateLimiter(redisClient, "cv_review", cfg.CVReviewsPerHour, time.Hour, logger, metrics),

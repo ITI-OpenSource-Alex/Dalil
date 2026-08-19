@@ -79,6 +79,16 @@ class SessionService:
                 user_id=request.user_id,
             )
         if question is None:
+            question = await self.question_repository.get_any_scorable_question(
+                exam_type=request.exam_type.value,
+                skill_area=request.skill_area.value,
+            )
+        if question is None and request.skill_area.value == "speaking":
+            question = await self.question_repository.get_any_scorable_question(
+                exam_type="academic",
+                skill_area="speaking",
+            )
+        if question is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Question not found",

@@ -39,15 +39,29 @@ jobs:
       - name: Start Docker Compose Stack
         run: |
           docker compose up -d
-          # Wait for Gateway to become healthy
+          # Wait for Gateway and Writing service to become healthy
           echo "Waiting for services..."
-          for i in {1..20}; do
-            if curl -s http://localhost:8080/health > /dev/null; then
+          GATEWAY_UP=false
+          WRITING_UP=false
+          for i in {1..30}; do
+            if [ "$GATEWAY_UP" = "false" ] && curl -s http://localhost:8080/health > /dev/null; then
               echo "Gateway is up!"
+              GATEWAY_UP=true
+            fi
+            if [ "$WRITING_UP" = "false" ] && curl -s http://localhost:8000/health > /dev/null; then
+              echo "Writing service is up!"
+              WRITING_UP=true
+            fi
+            if [ "$GATEWAY_UP" = "true" ] && [ "$WRITING_UP" = "true" ]; then
+              echo "All required services are ready!"
               break
             fi
             sleep 5
           done
+          if [ "$GATEWAY_UP" != "true" ] || [ "$WRITING_UP" != "true" ]; then
+            echo "ERROR: Gateway or Writing service failed to become ready in time."
+            exit 1
+          fi
           # Give localstack & postgres extra time to stabilize
           sleep 10
 

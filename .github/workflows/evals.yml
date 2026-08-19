@@ -39,11 +39,30 @@ jobs:
       - name: Start Docker Compose Stack
         run: |
           docker compose up -d
-          # Wait for Gateway and Writing service to become healthy
-          echo "Waiting for services..."
+
+          # Phase 1: Wait for upstream dependencies (LocalStack S3 seed) to become healthy.
+          # Gateway has `depends_on: localstack: condition: service_healthy` so Docker Compose
+          # holds Gateway until LocalStack finishes its S3 seeding.
+          echo "Waiting for LocalStack dependency..."
+          LOCALSTACK_UP=false
+          for i in {1..30}; do
+            if aws --endpoint-url=http://localhost:4566 s3api head-object --bucket goa-exam-audio --key .listening-seed-ready > /dev/null 2>&1; then
+              echo "LocalStack S3 seed is ready!"
+              LOCALSTACK_UP=true
+              break
+            fi
+            sleep 5
+          done
+          if [ "$LOCALSTACK_UP" != "true" ]; then
+            echo "ERROR: LocalStack dependency failed to become ready in time."
+            exit 1
+          fi
+
+          # Phase 2: Now that upstream dependencies are healthy, wait for Gateway and Writing services
+          echo "Waiting for Gateway and Writing services..."
           GATEWAY_UP=false
           WRITING_UP=false
-          for i in {1..30}; do
+          for i in {1..20}; do
             if [ "$GATEWAY_UP" = "false" ] && curl -s http://localhost:8080/health > /dev/null; then
               echo "Gateway is up!"
               GATEWAY_UP=true
@@ -62,8 +81,9 @@ jobs:
             echo "ERROR: Gateway or Writing service failed to become ready in time."
             exit 1
           fi
+
           # Give localstack & postgres extra time to stabilize
-          sleep 10
+          sleep 5
 
       - name: Provision Local Infrastructure (DB & S3)
         run: |

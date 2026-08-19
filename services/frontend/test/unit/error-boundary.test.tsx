@@ -36,9 +36,9 @@ describe("app/error.tsx (root error boundary)", () => {
       screen.getByRole("heading", { name: "Something went wrong" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Back to Chat" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Back to dashboard" })).toHaveAttribute(
       "href",
-      "/chat",
+      "/dashboard",
     );
   });
 

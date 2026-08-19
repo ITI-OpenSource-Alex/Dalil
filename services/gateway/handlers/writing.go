@@ -274,9 +274,8 @@ func (h *WritingHandler) ListEssays(c *fiber.Ctx) error {
 }
 
 // LatestCV proxies GET /api/writing/cv/latest -- the signed-in user's most
-// recent upload, if any. Lets the CV Review page (Phase E,
-// docs/IA-REDESIGN-PROPOSAL.md) show upload/processing status and recover
-// cvS3Key across a reload without keeping that state only on the client.
+// recent upload, if any. Lets the Profile and programme checklist surfaces
+// show upload/processing status and recover cvS3Key across a reload.
 // Free-tier, same as ListEssays: reading your own upload status is not the
 // paid step, POST /cv/review is.
 func (h *WritingHandler) LatestCV(c *fiber.Ctx) error {
@@ -384,4 +383,87 @@ func (h *WritingHandler) ReviewCV(c *fiber.Ctx) error {
 		}
 	}))
 	return nil
+}
+
+// --- Motivation letter review (per-programme admissions feedback) --------------
+//
+// Plain JSON proxies, not the SSE stream ReviewCV uses: the writing service returns
+// the completed review in one response, so there is nothing to stream. userId is
+// injected from the JWT here and never accepted from the browser, matching every
+// other route in this file (BUG-046).
+
+func (h *WritingHandler) CreateMotivationLetterReview(c *fiber.Ctx) error {
+	userID, err := authenticatedUserID(c)
+	if err != nil {
+		return err
+	}
+
+	payload := map[string]any{}
+	if len(bytes.TrimSpace(c.Body())) > 0 {
+		if err := json.Unmarshal(c.Body(), &payload); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "invalid JSON body")
+		}
+	}
+	payload["userId"] = userID
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	req, err := downstream.NewRequest(c, http.MethodPost, h.writingServiceURL+"/motivation-letters", bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	c.Locals(middleware.ContextKeyUpstream, "writing")
+
+	// llmClient, not httpClient: five concurrent criterion agents run inside this
+	// request and the default client timeout is sized for ordinary CRUD.
+	resp, err := h.llmClient.Do(req)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadGateway, "failed to contact writing service")
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadGateway, "failed to read writing service response")
+	}
+	if ct := resp.Header.Get(fiber.HeaderContentType); ct != "" {
+		c.Set(fiber.HeaderContentType, ct)
+	}
+	return c.Status(resp.StatusCode).Send(respBody)
+}
+
+func (h *WritingHandler) ListMotivationLetterReviews(c *fiber.Ctx) error {
+	userID, err := authenticatedUserID(c)
+	if err != nil {
+		return err
+	}
+
+	target := h.writingServiceURL + "/motivation-letters?userId=" + url.QueryEscape(userID)
+	if programID := c.Query("programId"); programID != "" {
+		target += "&programId=" + url.QueryEscape(programID)
+	}
+
+	req, err := downstream.NewRequest(c, http.MethodGet, target, nil)
+	if err != nil {
+		return err
+	}
+	c.Locals(middleware.ContextKeyUpstream, "writing")
+
+	resp, err := h.httpClient.Do(req)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadGateway, "failed to contact writing service")
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadGateway, "failed to read writing service response")
+	}
+	if ct := resp.Header.Get(fiber.HeaderContentType); ct != "" {
+		c.Set(fiber.HeaderContentType, ct)
+	}
+	return c.Status(resp.StatusCode).Send(respBody)
 }

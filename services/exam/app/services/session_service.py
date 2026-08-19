@@ -20,6 +20,10 @@ from app.services.audio_delivery_service import (
     ListeningAudioUnavailableError,
     S3AudioDeliveryService,
 )
+from app.services.writing_image_delivery_service import (
+    S3WritingImageDeliveryService,
+    WritingImageUnavailableError,
+)
 from app.services.timer_service import TimerService
 from app.repositories.writing_response_repository import WritingResponseRepository
 from app.services.writing_client import WritingClient, WritingServiceError
@@ -43,6 +47,7 @@ class SessionService:
         writing_response_repository: WritingResponseRepository | None = None,
         writing_client: WritingClient | None = None,
         audio_delivery_service: S3AudioDeliveryService | None = None,
+        image_delivery_service: S3WritingImageDeliveryService | None = None,
     ):
         self.session_repository = session_repository
         self.question_repository = question_repository
@@ -52,6 +57,7 @@ class SessionService:
         self.writing_response_repository = writing_response_repository
         self.writing_client = writing_client
         self.audio_delivery_service = audio_delivery_service
+        self.image_delivery_service = image_delivery_service
 
     async def create_session(
         self,
@@ -62,6 +68,16 @@ class SessionService:
             skill_area=request.skill_area.value,
             user_id=request.user_id,
         )
+        # Academic and General Training use the same Speaking interview. The
+        # current bank predates General rows, so reuse a Speaking set rather
+        # than making General candidates fail before the live interviewer (the
+        # source of the questions used during the socket) can start.
+        if question is None and request.skill_area.value == "speaking":
+            question = await self.question_repository.get_random_question(
+                exam_type="academic",
+                skill_area="speaking",
+                user_id=request.user_id,
+            )
         if question is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -70,6 +86,15 @@ class SessionService:
 
         session_id = uuid4()
         time_limit_seconds = self._time_limit_for(request.skill_area.value)
+
+        # Refuse a broken Academic Writing Task 1 before any state exists.
+        # Computing the URL here -- ahead of the session row -- means a missing
+        # stimulus image costs the candidate nothing: no row, no clock, retry
+        # later. Serving the prompt without its chart would be worse than
+        # refusing, because the task is literally "describe the chart" (BUG-022
+        # shape). NULL image_s3_key (every non-visual task) returns None and is
+        # untouched.
+        image_url = self._require_image_url(question, session_id)
 
         await self.session_repository.create(
             session_id=session_id,
@@ -83,7 +108,7 @@ class SessionService:
 
         return {
             "session_id": session_id,
-            "first_question_set": self._public_question(question),
+            "first_question_set": self._public_question(question, image_url=image_url),
         }
 
     async def get_session(self, session_id: UUID) -> dict[str, Any]:
@@ -101,7 +126,37 @@ class SessionService:
                 detail="Question not found",
             )
 
-        return {
+        # Best-effort on the read path: presigned URLs expire (7200s) and are
+        # never persisted, so a page reload mid-exam has to re-mint one. Unlike
+        # session start this must NOT refuse -- get_session also backs the submit
+        # flow (sessions.py reads it for metrics), and a chart that vanished
+        # mid-attempt should not block the candidate from submitting what they
+        # already wrote. A missing image degrades to image_url=None here.
+        image_url = self._optional_image_url(question, session["id"])
+        audio_urls = None
+        if session["skill_area"] == "listening":
+            if self.audio_delivery_service is None:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Listening audio delivery is not configured",
+                )
+            try:
+                audio_urls = self.audio_delivery_service.generate_section_urls(
+                    audio_s3_key=question["audio_s3_key"],
+                    session_id=session["id"],
+                )
+            except ListeningAudioUnavailableError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail=str(exc),
+                ) from exc
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=str(exc),
+                ) from exc
+
+        response = {
             "id": session["id"],
             "user_id": session["user_id"],
             "exam_type": session["exam_type"],
@@ -114,7 +169,45 @@ class SessionService:
                 session["started_at"],
                 session["time_limit_seconds"],
             ),
-            "questions": [self._public_question(question)],
+            "questions": [self._public_question(question, image_url=image_url)],
+        }
+        if audio_urls is not None:
+            response["audio_urls"] = audio_urls
+            response["audio_url_expiry_seconds"] = (
+                self.audio_delivery_service.PRESIGNED_URL_EXPIRY_SECONDS
+            )
+        return response
+
+    async def abandon_session(
+        self,
+        session_id: UUID,
+        requester_id: UUID,
+    ) -> dict[str, Any]:
+        """Discard an active attempt without consuming its question set.
+
+        The requester check belongs in the service as well as the Gateway so
+        an internal caller cannot abandon another candidate's session merely
+        by knowing its UUID. Completed and already-abandoned sessions are
+        treated idempotently: the browser may safely clear a stale resume
+        marker without changing a finished result.
+        """
+        session = await self.session_repository.get_by_id(session_id)
+        if session is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Session not found",
+            )
+        if session["user_id"] != requester_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Session belongs to another user",
+            )
+
+        await self.session_repository.try_abandon(session_id)
+        current = await self.session_repository.get_by_id(session_id)
+        return {
+            "session_id": session_id,
+            "status": current["status"] if current is not None else session["status"],
         }
 
     async def submit_session(
@@ -231,8 +324,9 @@ class SessionService:
                 detail="Question not found",
             )
         answer_key = self._decode_json(question["answer_key"])
+        detail = self._decode_json(result.get("detail")) or {}
 
-        return {
+        response = {
             "id": result["id"],
             "session_id": result["session_id"],
             "user_id": result["user_id"],
@@ -243,6 +337,18 @@ class SessionService:
             "graded_at": result["graded_at"],
             "answer_key": answer_key,
         }
+        if session["skill_area"] == "listening":
+            response.update(
+                {
+                    "per_question_result": detail.get("per_question_result", {}),
+                    "section_breakdown": detail.get(
+                        "section_breakdown",
+                        self._decode_json(result["section_scores"]) or {},
+                    ),
+                    "questions": self._question_list(question["questions"]),
+                }
+            )
+        return response
 
     async def create_reading_session(
         self,
@@ -347,6 +453,7 @@ class SessionService:
             raw_score=grading["raw_score"],
             band_score=grading["band_score"],
             section_scores=grading["section_breakdown"],
+            detail=grading,
         )
         await self.session_repository.submit(session_id)
         await self.session_repository.mark_scored(session_id)
@@ -406,6 +513,11 @@ class SessionService:
                 detail=str(exc),
             ) from exc
 
+        # A map is as essential to map-labelling questions as the recordings
+        # are to the listening paper. Resolve it before creating the session so
+        # a missing object cannot consume an attempt or start the exam clock.
+        image_url = self._require_image_url(question, session_id)
+
         await self.session_repository.create(
             session_id=session_id,
             user_id=user_id,
@@ -420,9 +532,15 @@ class SessionService:
             "session_id": session_id,
             "audio_urls": audio_urls,
             "questions": self._question_list(question["questions"]),
+            "image_url": image_url,
             "time_limit_seconds": time_limit_seconds,
             "audio_url_expiry_seconds": (
                 self.audio_delivery_service.PRESIGNED_URL_EXPIRY_SECONDS
+            ),
+            "image_url_expiry_seconds": (
+                self.image_delivery_service.PRESIGNED_URL_EXPIRY_SECONDS
+                if image_url is not None and self.image_delivery_service is not None
+                else None
             ),
         }
 
@@ -491,6 +609,7 @@ class SessionService:
             raw_score=grading["raw_score"],
             band_score=grading["band_score"],
             section_scores=grading["section_breakdown"],
+            detail=grading,
         )
         await self.session_repository.submit(session_id)
         await self.session_repository.mark_scored(session_id)
@@ -510,7 +629,67 @@ class SessionService:
     def _time_limit_for(self, skill_area: str) -> int:
         return self.DEFAULT_TIME_LIMITS_SECONDS[skill_area]
 
-    def _public_question(self, question: Any) -> dict[str, Any]:
+    def _require_image_url(self, question: Any, session_id: UUID) -> str | None:
+        """Mint a visual stimulus URL, refusing the session if it can't be served.
+
+        Returns None when the question carries no image (the common case: every
+        non-visual task). When it does carry one, a failure to produce a usable
+        URL is fatal here -- raised as an HTTPException so no session row is
+        created -- because serving "describe the chart" without the chart is a
+        broken exam, not a degraded one.
+        """
+        image_s3_key = question.get("image_s3_key")
+        if not image_s3_key:
+            return None
+
+        if self.image_delivery_service is None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Exam image delivery is not configured",
+            )
+
+        try:
+            return self.image_delivery_service.generate_image_url(
+                image_s3_key=image_s3_key,
+                session_id=session_id,
+            )
+        except WritingImageUnavailableError as exc:
+            # 503, not 500: the key is well-formed and this code is correct --
+            # the image was simply never uploaded. Same reasoning as the
+            # listening audio guard (BUG-022): refuse before creating state.
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=str(exc),
+            ) from exc
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=str(exc),
+            ) from exc
+
+    def _optional_image_url(self, question: Any, session_id: UUID) -> str | None:
+        """Mint a visual stimulus URL on the read path, degrading to None.
+
+        The read/submit path must never raise on a missing image (see
+        get_session), so every failure -- unconfigured service, missing object,
+        malformed key -- collapses to None. Start-of-session already refused the
+        genuinely broken cases; this only re-mints an expiring URL.
+        """
+        image_s3_key = question.get("image_s3_key")
+        if not image_s3_key or self.image_delivery_service is None:
+            return None
+
+        try:
+            return self.image_delivery_service.generate_image_url(
+                image_s3_key=image_s3_key,
+                session_id=session_id,
+            )
+        except Exception:
+            return None
+
+    def _public_question(
+        self, question: Any, image_url: str | None = None
+    ) -> dict[str, Any]:
         questions_data = self._question_list(question["questions"])
         if question["skill_area"] == "speaking":
             questions_data = self._shape_speaking_questions(questions_data)
@@ -522,6 +701,8 @@ class SessionService:
             "skill_area": question["skill_area"],
             "passage_text": question["passage_text"],
             "audio_s3_key": question["audio_s3_key"],
+            "image_s3_key": question.get("image_s3_key"),
+            "image_url": image_url,
             "questions": questions_data,
         }
         return QuestionResponse.model_validate(payload).model_dump()

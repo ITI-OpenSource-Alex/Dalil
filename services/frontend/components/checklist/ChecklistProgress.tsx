@@ -1,11 +1,14 @@
+import type { ReactNode } from "react";
 import { estimateCompletionDate } from "@/lib/checklist-estimate";
 import type { ChecklistItem } from "@/app/types/checklist";
+import { Card, Progress, Text } from "@/components/ui";
 
 type ChecklistProgressProps =
-  | { items: ChecklistItem[]; summary?: never }
+  | { items: ChecklistItem[]; summary?: never; action?: ReactNode }
   | {
       items?: never;
       summary: { completed: number; total: number };
+      action?: ReactNode;
     };
 
 // "Blocked" items don't exist in the backend schema (see ChecklistItemRow), so
@@ -20,35 +23,38 @@ export default function ChecklistProgress(props: ChecklistProgressProps) {
   const estimatedDate = estimateCompletionDate(remaining);
 
   return (
-    <div
+    <Card
       data-testid="checklist-progress"
-      className="rounded-2xl border border-border bg-surface p-4"
+      padding="md"
+      className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between"
     >
-      <div className="flex items-center justify-between text-sm">
-        <span className="font-medium text-brand-fg">
-          {done} of {total} tasks complete
-        </span>
-        <span className="text-fg-subtle">{percent}%</span>
-      </div>
-      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-canvas-inset">
-        <div
-          className="h-full rounded-full bg-success transition-all"
-          style={{ width: `${percent}%` }}
+      <div className="min-w-0 flex-1">
+        <Progress
+          value={done}
+          max={Math.max(total, 1)}
+          tone="success"
+          size="md"
+          label="Application progress"
+          valueText={`${done} of ${total} tasks complete · ${percent}%`}
+          showValue
         />
+        {estimatedDate && (
+          <Text size="sm" tone="subtle" className="mt-3">
+            Estimated completion:{" "}
+            <span className="font-medium text-fg-muted">
+              {estimatedDate.toLocaleDateString(undefined, {
+                month: "long",
+                day: "numeric",
+                year: "numeric",
+              })}
+            </span>{" "}
+            · Approximate, based on the remaining tasks
+          </Text>
+        )}
       </div>
-      {estimatedDate && (
-        <p className="mt-3 text-xs text-fg-subtle">
-          Estimated completion:{" "}
-          <span className="font-medium text-fg-muted">
-            {estimatedDate.toLocaleDateString(undefined, {
-              month: "long",
-              day: "numeric",
-              year: "numeric",
-            })}
-          </span>{" "}
-          (approximate — assumes a few days per remaining task)
-        </p>
+      {props.action && (
+        <div className="print-hidden shrink-0">{props.action}</div>
       )}
-    </div>
+    </Card>
   );
 }

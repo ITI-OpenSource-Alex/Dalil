@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { AppShell } from "@/components/app-shell";
 import { UpgradeProvider } from "@/components/subscription/upgrade-dialog";
+import { DalilChatProvider } from "@/components/chat/dalil-chat-provider";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 /*
  * The shared shell for every authenticated route (chat, exam, profile,
@@ -18,7 +20,11 @@ import { UpgradeProvider } from "@/components/subscription/upgrade-dialog";
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <UpgradeProvider>
-      <AppShell>{children}</AppShell>
+      <TooltipProvider>
+        <DalilChatProvider>
+          <AppShell>{children}</AppShell>
+        </DalilChatProvider>
+      </TooltipProvider>
     </UpgradeProvider>
   );
 }

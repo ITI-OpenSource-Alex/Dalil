@@ -1,6 +1,7 @@
 import { ExamType, SkillArea } from "@/app/types/exam";
 import { throwForResponse } from "@/lib/subscription";
 import { dedupe } from "@/lib/request-dedupe";
+import { authenticatedFetch } from "@/lib/authenticated-fetch";
 
 // Exam is reached through the Gateway, not directly on :8085.
 //
@@ -55,6 +56,13 @@ export interface ExamQuestion {
   skill_area: string;
   passage_text?: string | null;
   audio_s3_key?: string | null;
+  // Visual exam stimulus (for example a Writing chart or Listening map).
+  // `image_s3_key` is the raw object key; `image_url` is the pre-signed,
+  // browser-reachable URL the exam service mints at session start
+  // (services/exam/app/schemas/question.py, QuestionResponse). Both are null
+  // for every non-visual task, so this is purely additive.
+  image_s3_key?: string | null;
+  image_url?: string | null;
   questions: Record<string, unknown>[];
 }
 
@@ -74,6 +82,8 @@ export interface ExamSessionResponse {
   time_limit_seconds: number;
   remaining_time_seconds: number;
   questions: ExamQuestion[];
+  audio_urls?: [string, string, string, string];
+  audio_url_expiry_seconds?: number;
 }
 
 export interface ExamResultResponse {
@@ -89,6 +99,9 @@ export interface ExamResultResponse {
   section_scores: Record<string, unknown>;
   graded_at: string;
   answer_key: Record<string, unknown>;
+  per_question_result?: Record<string, import("@/app/types/reading").ReadingQuestionResult>;
+  section_breakdown?: Record<string, import("@/app/types/reading").ReadingSectionBreakdown>;
+  questions?: import("@/app/types/reading").RawReadingQuestion[];
 }
 
 export type ExamHistoryItem = {
@@ -190,7 +203,7 @@ export async function createSession(
   examType: ExamType,
   skillArea: SkillArea,
 ): Promise<CreateSessionResponse> {
-  const response = await fetch(`${API_BASE}/sessions`, {
+  const response = await authenticatedFetch(`${API_BASE}/sessions`, {
     ...fetchOptions,
     method: "POST",
     headers,
@@ -216,7 +229,7 @@ export async function createSession(
  */
 export async function getExamProgress(): Promise<ExamProgress> {
   return dedupe(`GET ${API_BASE}/progress`, async () => {
-    const response = await fetch(`${API_BASE}/progress`, {
+    const response = await authenticatedFetch(`${API_BASE}/progress`, {
       ...fetchOptions,
       headers,
       cache: "no-store",
@@ -232,7 +245,7 @@ export async function getExamProgress(): Promise<ExamProgress> {
 
 export async function getExamHistory(page = 1): Promise<ExamHistoryItem[]> {
   return dedupe(`GET ${API_BASE}/history?page=${page}`, async () => {
-    const response = await fetch(`${API_BASE}/history?page=${page}`, {
+    const response = await authenticatedFetch(`${API_BASE}/history?page=${page}`, {
       ...fetchOptions,
       headers,
       cache: "no-store",
@@ -246,7 +259,7 @@ export async function getExamHistory(page = 1): Promise<ExamHistoryItem[]> {
 
 export async function getWeakAreas(): Promise<WeakAreas> {
   return dedupe(`GET ${API_BASE}/weak-areas`, async () => {
-    const response = await fetch(`${API_BASE}/weak-areas`, {
+    const response = await authenticatedFetch(`${API_BASE}/weak-areas`, {
       ...fetchOptions,
       headers,
       cache: "no-store",
@@ -261,7 +274,7 @@ export async function getWeakAreas(): Promise<WeakAreas> {
 export async function getSession(
   sessionId: string,
 ): Promise<ExamSessionResponse> {
-  const response = await fetch(`${API_BASE}/sessions/${sessionId}`, {
+  const response = await authenticatedFetch(`${API_BASE}/sessions/${sessionId}`, {
     ...fetchOptions,
     headers,
     cache: "no-store",
@@ -278,7 +291,7 @@ export async function submitSession(
   sessionId: string,
   answers: Record<string, unknown>,
 ) {
-  const response = await fetch(`${API_BASE}/sessions/${sessionId}/submit`, {
+  const response = await authenticatedFetch(`${API_BASE}/sessions/${sessionId}/submit`, {
     ...fetchOptions,
     method: "PUT",
     headers,
@@ -316,7 +329,7 @@ export async function submitWritingTask(
   taskNumber: 1 | 2,
   essayText: string,
 ): Promise<WritingSubmitResponse> {
-  const response = await fetch(`${API_BASE}/sessions/${sessionId}/submit`, {
+  const response = await authenticatedFetch(`${API_BASE}/sessions/${sessionId}/submit`, {
     ...fetchOptions,
     method: "PUT",
     headers,
@@ -344,7 +357,7 @@ export async function submitWritingTask(
 export async function getWritingResult(
   sessionId: string,
 ): Promise<WritingResultResponse> {
-  const response = await fetch(`${API_BASE}/sessions/${sessionId}/result`, {
+  const response = await authenticatedFetch(`${API_BASE}/sessions/${sessionId}/result`, {
     ...fetchOptions,
     headers,
     cache: "no-store",
@@ -371,7 +384,7 @@ export async function getWritingResult(
  */
 export async function sendHeartbeat(sessionId: string): Promise<boolean> {
   try {
-    const response = await fetch(
+    const response = await authenticatedFetch(
       `${API_BASE}/sessions/${sessionId}/heartbeat`,
       { ...fetchOptions, method: "PATCH", headers },
     );
@@ -381,10 +394,29 @@ export async function sendHeartbeat(sessionId: string): Promise<boolean> {
   }
 }
 
+/**
+ * Discard an active attempt on the server, not only in sessionStorage.
+ *
+ * A 404 means the local resume marker was already stale, so clearing it is
+ * still the correct outcome. Other failures remain visible to the candidate;
+ * silently clearing the marker would strand an active backend attempt again.
+ */
+export async function abandonSession(sessionId: string): Promise<void> {
+  const response = await authenticatedFetch(`${API_BASE}/sessions/${sessionId}`, {
+    ...fetchOptions,
+    method: "DELETE",
+    headers,
+  });
+
+  if (!response.ok && response.status !== 404) {
+    await throwForResponse(response, "exam");
+  }
+}
+
 export async function getResult(
   sessionId: string,
 ): Promise<ExamResultResponse> {
-  const response = await fetch(`${API_BASE}/sessions/${sessionId}/result`, {
+  const response = await authenticatedFetch(`${API_BASE}/sessions/${sessionId}/result`, {
     ...fetchOptions,
     headers,
     cache: "no-store",

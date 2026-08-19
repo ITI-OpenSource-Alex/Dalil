@@ -7,321 +7,495 @@
   "questions": [
     {
       "number": 1,
-      "prompt": "Write ONE WORD ONLY for each answer. Festival information Type of event Details 18th 49th—20th type of play: a comedy called Jemima (afternoon) has had & GO0d 2 wanes 20th (evening)",
-      "question_type": "Sentence Completion",
-      "instructions": "Write ONE WORD ONLY for each answer.",
+      "prompt": "18th: ballet company called ___",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the table below. Write ONE WORD ONLY for each answer.",
       "passage_number": null,
       "section_number": 1
     },
     {
       "number": 2,
-      "prompt": "49th—20th type of play: a comedy called Jemima (afternoon) has had & GO0d 2 wanes 20th (evening)",
-      "question_type": "Sentence Completion",
-      "instructions": "Write ONE WORD ONLY for each answer.",
+      "prompt": "18th–20th: the comedy Jemima has had a good ___",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the table below. Write ONE WORD ONLY for each answer.",
       "passage_number": null,
       "section_number": 1
     },
     {
       "number": 3,
-      "prompt": "Write ONE WORD ONLY for each answer. Festival information Type of event Details 18th 49th—20th type of play: a comedy called Jemima (afternoon) has had & GO0d 2 wanes 20th (evening)",
-      "question_type": "Sentence Completion",
-      "instructions": "Write ONE WORD ONLY for each answer.",
+      "prompt": "20th evening: type of performance — ___",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the table below. Write ONE WORD ONLY for each answer.",
       "passage_number": null,
       "section_number": 1
     },
     {
       "number": 4,
-      "prompt": "Write ONE WORD ONLY for each answer. Festival information Type of event Details 18th 49th—20th type of play: a comedy called Jemima (afternoon) has had & GO0d 2 wanes 20th (evening)",
-      "question_type": "Sentence Completion",
-      "instructions": "Write ONE WORD ONLY for each answer.",
+      "prompt": "20th evening: name of show — ___",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the table below. Write ONE WORD ONLY for each answer.",
       "passage_number": null,
       "section_number": 1
     },
     {
       "number": 5,
-      "prompt": "Workshops e Making § « — (children only) Making 6 ® (adults only) Making toys from 7 using various tools Outdoor activities ® Swimming in the 8... - e Walking in the woods, led i by an expert on 9... See the festival organiser’s 10 for more information (9 p. 121 |S p. 101 31 PART 2",
-      "question_type": "Multiple Choice",
-      "instructions": null,
+      "prompt": "Cookery workshop: making food part of a ___ lifestyle",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
       "passage_number": null,
       "section_number": 1
     },
     {
       "number": 6,
-      "prompt": "e Making § « — (children only) Making 6 ® (adults only) Making toys from 7 using various tools",
-      "question_type": "Multiple Choice",
-      "instructions": null,
+      "prompt": "Children's workshop: making ___ about the town's history",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
       "passage_number": null,
       "section_number": 1
     },
     {
       "number": 7,
-      "prompt": "« — (children only) Making 6 ® (adults only) Making toys from 7 using various tools Outdoor activities",
-      "question_type": "Multiple Choice",
-      "instructions": null,
+      "prompt": "Adults' workshop: making toys from ___ using various tools",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
       "passage_number": null,
       "section_number": 1
     },
     {
       "number": 8,
-      "prompt": "Outdoor activities ® Swimming in the 8... - e Walking in the woods, led i by an expert on 9...",
-      "question_type": "Multiple Choice",
-      "instructions": null,
+      "prompt": "Outdoor activity: swimming in the ___",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
       "passage_number": null,
       "section_number": 1
     },
     {
       "number": 9,
-      "prompt": "® Swimming in the 8... - e Walking in the woods, led i by an expert on 9... See the festival organiser’s 10 for more information",
-      "question_type": "Multiple Choice",
-      "instructions": null,
+      "prompt": "Woodland walks are led by an expert on ___",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
       "passage_number": null,
       "section_number": 1
     },
     {
       "number": 10,
-      "prompt": "e Walking in the woods, led i by an expert on 9... See the festival organiser’s 10 for more information (9 p. 121 |S p. 101 31",
-      "question_type": "Multiple Choice",
-      "instructions": null,
+      "prompt": "See the festival organiser's ___ for more information",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
       "passage_number": null,
       "section_number": 1
     },
     {
       "number": 11,
-      "prompt": "The park was originally established A as an amenity provided by the city council. B as land belonging to a private house. Casa shared area set up by the local community.",
+      "prompt": "The park was originally established",
       "question_type": "Multiple Choice",
-      "instructions": "Choose the correct letter, A, B or C. Listening test audio",
+      "instructions": "Choose the correct letter, A, B or C.",
       "passage_number": null,
-      "section_number": 2
+      "section_number": 2,
+      "options": [
+        "as an amenity provided by the city council.",
+        "as land belonging to a private house.",
+        "as a shared area set up by the local community."
+      ]
     },
     {
       "number": 12,
-      "prompt": "Why is there a statue of Diane Gosforth in the park? A_ She was a resident who helped to lead a campaign. B_ She was a council member responsible for giving the public access. C_ She was a senior worker at the park for many years.",
+      "prompt": "Why is there a statue of Diane Gosforth in the park?",
       "question_type": "Multiple Choice",
-      "instructions": "Choose the correct letter, A, B or C. Listening test audio",
+      "instructions": "Choose the correct letter, A, B or C.",
       "passage_number": null,
-      "section_number": 2
+      "section_number": 2,
+      "options": [
+        "She was a resident who helped to lead a campaign.",
+        "She was a council member responsible for giving the public access.",
+        "She was a senior worker at the park for many years."
+      ]
     },
     {
       "number": 13,
-      "prompt": "During the First World War, the park was mainly used for A exercises by troops. B growing vegetables. C public meetings.",
+      "prompt": "During the First World War, the park was mainly used for",
       "question_type": "Multiple Choice",
-      "instructions": "Choose the correct letter, A, B or C. Listening test audio",
+      "instructions": "Choose the correct letter, A, B or C.",
       "passage_number": null,
-      "section_number": 2
+      "section_number": 2,
+      "options": [
+        "exercises by troops.",
+        "growing vegetables.",
+        "public meetings."
+      ]
     },
     {
       "number": 14,
-      "prompt": "When did the physical transformation of the park begin? A 2013 B 2015 C 2016",
+      "prompt": "When did the physical transformation of the park begin?",
       "question_type": "Multiple Choice",
-      "instructions": "Choose the correct letter, A, B or C. Listening test audio",
+      "instructions": "Choose the correct letter, A, B or C.",
       "passage_number": null,
-      "section_number": 2
+      "section_number": 2,
+      "options": [
+        "2013",
+        "2015",
+        "2016"
+      ]
     },
     {
       "number": 15,
-      "prompt": "statue of Diane Gosforth srcseesssssnene",
-      "question_type": "Diagram Labelling",
-      "instructions": "Label the map below. Write the correct letter, A-I, next to",
+      "prompt": "statue of Diane Gosforth",
+      "question_type": "Map Labelling",
+      "instructions": "Label the map below. Write the correct letter, A–I, next to Questions 15–20.",
       "passage_number": null,
-      "section_number": 2
+      "section_number": 2,
+      "options": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H",
+        "I"
+      ]
     },
     {
       "number": 16,
-      "prompt": "wooden sculptures —rsssstsnsnneeve",
-      "question_type": "Diagram Labelling",
-      "instructions": "Label the map below. Write the correct letter, A-I, next to",
+      "prompt": "wooden sculptures",
+      "question_type": "Map Labelling",
+      "instructions": "Label the map below. Write the correct letter, A–I, next to Questions 15–20.",
       "passage_number": null,
-      "section_number": 2
+      "section_number": 2,
+      "options": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H",
+        "I"
+      ]
     },
     {
       "number": 17,
-      "prompt": "playground ssttnttsetnenne",
-      "question_type": "Diagram Labelling",
-      "instructions": "Label the map below. Write the correct letter, A-I, next to",
+      "prompt": "playground",
+      "question_type": "Map Labelling",
+      "instructions": "Label the map below. Write the correct letter, A–I, next to Questions 15–20.",
       "passage_number": null,
-      "section_number": 2
+      "section_number": 2,
+      "options": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H",
+        "I"
+      ]
     },
     {
       "number": 18,
       "prompt": "maze",
-      "question_type": "Diagram Labelling",
-      "instructions": "Label the map below. Write the correct letter, A-I, next to",
+      "question_type": "Map Labelling",
+      "instructions": "Label the map below. Write the correct letter, A–I, next to Questions 15–20.",
       "passage_number": null,
-      "section_number": 2
+      "section_number": 2,
+      "options": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H",
+        "I"
+      ]
     },
     {
       "number": 19,
-      "prompt": "tennis courts nesesentsertentes",
-      "question_type": "Diagram Labelling",
-      "instructions": "Label the map below. Write the correct letter, A-I, next to",
+      "prompt": "tennis courts",
+      "question_type": "Map Labelling",
+      "instructions": "Label the map below. Write the correct letter, A–I, next to Questions 15–20.",
       "passage_number": null,
-      "section_number": 2
+      "section_number": 2,
+      "options": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H",
+        "I"
+      ]
     },
     {
       "number": 20,
-      "prompt": "fitmess ared ——teesssestntnae > East @ p. 121 PART 3",
-      "question_type": "Diagram Labelling",
-      "instructions": "Label the map below. Write the correct letter, A-I, next to",
+      "prompt": "fitness area",
+      "question_type": "Map Labelling",
+      "instructions": "Label the map below. Write the correct letter, A–I, next to Questions 15–20.",
       "passage_number": null,
-      "section_number": 2
+      "section_number": 2,
+      "options": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H",
+        "I"
+      ]
     },
     {
       "number": 21,
-      "prompt": "ie test audio Choose TWO letiers, A-E. Which TWO groups of people is the display primarily intended for? students from the English department residents of the local area the university's teaching staff potential new students students from other departments mooUp Choose TWO ietters, A-E. What are Cathy and Graham’s TWO reasons for choosing the novelist Charles Dickens? His speeches inspired others to try to improve society. He used his publications to draw attention to social problems. His novels are well-known now. He was consulted on a number of social issues. His reputation has changed in recent times. mooop",
+      "prompt": "Which TWO groups of people is the display primarily intended for?",
       "question_type": "Multiple Choice",
-      "instructions": "Choose TWO letiers, A-E. Which TWO groups of people is the display primarily intended for?",
+      "instructions": "Choose TWO letters, A–E. Which TWO groups of people is the display primarily intended for?",
       "passage_number": null,
-      "section_number": 3
+      "section_number": 3,
+      "options": [
+        "students from the English department",
+        "residents of the local area",
+        "the university's teaching staff",
+        "potential new students",
+        "students from other departments"
+      ]
     },
     {
       "number": 22,
-      "prompt": "ie test audio Choose TWO letiers, A-E. Which TWO groups of people is the display primarily intended for? students from the English department residents of the local area the university's teaching staff potential new students students from other departments mooUp Choose TWO ietters, A-E. What are Cathy and Graham’s TWO reasons for choosing the novelist Charles Dickens? His speeches inspired others to try to improve society. He used his publications to draw attention to social problems. His novels are well-known now. He was consulted on a number of social issues. His reputation has changed in recent times. mooop",
+      "prompt": "Which TWO groups of people is the display primarily intended for?",
       "question_type": "Multiple Choice",
-      "instructions": "Choose TWO letiers, A-E. Which TWO groups of people is the display primarily intended for?",
+      "instructions": "Choose TWO letters, A–E. Which TWO groups of people is the display primarily intended for?",
       "passage_number": null,
-      "section_number": 3
+      "section_number": 3,
+      "options": [
+        "students from the English department",
+        "residents of the local area",
+        "the university's teaching staff",
+        "potential new students",
+        "students from other departments"
+      ]
     },
     {
       "number": 23,
-      "prompt": "ce aw»",
+      "prompt": "What are Cathy and Graham's TWO reasons for choosing the novelist Charles Dickens?",
       "question_type": "Multiple Choice",
-      "instructions": null,
+      "instructions": "Choose TWO letters, A–E. What are Cathy and Graham's TWO reasons for choosing the novelist Charles Dickens?",
       "passage_number": null,
-      "section_number": 3
+      "section_number": 3,
+      "options": [
+        "His speeches inspired others to try to improve society.",
+        "He used his publications to draw attention to social problems.",
+        "His novels are well-known now.",
+        "He was consulted on a number of social issues.",
+        "His reputation has changed in recent times."
+      ]
     },
     {
       "number": 24,
-      "prompt": "ce aw»",
+      "prompt": "What are Cathy and Graham's TWO reasons for choosing the novelist Charles Dickens?",
       "question_type": "Multiple Choice",
-      "instructions": null,
+      "instructions": "Choose TWO letters, A–E. What are Cathy and Graham's TWO reasons for choosing the novelist Charles Dickens?",
       "passage_number": null,
-      "section_number": 3
+      "section_number": 3,
+      "options": [
+        "His speeches inspired others to try to improve society.",
+        "He used his publications to draw attention to social problems.",
+        "His novels are well-known now.",
+        "He was consulted on a number of social issues.",
+        "His reputation has changed in recent times."
+      ]
     },
     {
       "number": 25,
-      "prompt": "What topic do Cathy and Graham choose to illustrate with each novel? . Topics poverty education Dickens's travels entertainment wealth medicine zro7nrmoonw > a woman's life crime and the law Novels by Dickens The Pickwick Papers ace Oliver Twist Nicholas Nickleby Martin Chuzzlewit Bleak House Little Dorrit (© p. 121 | [EB p. 103",
-      "question_type": "Multiple Choice",
-      "instructions": "What topic do Cathy and Graham choose to illustrate with each novel?",
+      "prompt": "The Pickwick Papers",
+      "question_type": "Matching",
+      "instructions": "What topic do Cathy and Graham choose to illustrate with each novel? Choose SIX answers from the box and write the correct letter, A–H, next to Questions 25–30.",
       "passage_number": null,
-      "section_number": 3
+      "section_number": 3,
+      "options": [
+        "poverty",
+        "education",
+        "Dickens's travels",
+        "entertainment",
+        "wealth",
+        "medicine",
+        "a woman's life",
+        "crime and the law"
+      ]
     },
     {
       "number": 26,
-      "prompt": "What topic do Cathy and Graham choose to illustrate with each novel? . Topics poverty education Dickens's travels entertainment wealth medicine zro7nrmoonw > a woman's life crime and the law Novels by Dickens The Pickwick Papers ace Oliver Twist Nicholas Nickleby Martin Chuzzlewit Bleak House Little Dorrit (© p. 121 | [EB p. 103",
-      "question_type": "Multiple Choice",
-      "instructions": "What topic do Cathy and Graham choose to illustrate with each novel?",
+      "prompt": "Oliver Twist",
+      "question_type": "Matching",
+      "instructions": "What topic do Cathy and Graham choose to illustrate with each novel? Choose SIX answers from the box and write the correct letter, A–H, next to Questions 25–30.",
       "passage_number": null,
-      "section_number": 3
+      "section_number": 3,
+      "options": [
+        "poverty",
+        "education",
+        "Dickens's travels",
+        "entertainment",
+        "wealth",
+        "medicine",
+        "a woman's life",
+        "crime and the law"
+      ]
     },
     {
       "number": 27,
-      "prompt": "What topic do Cathy and Graham choose to illustrate with each novel? . Topics poverty education Dickens's travels entertainment wealth medicine zro7nrmoonw > a woman's life crime and the law Novels by Dickens The Pickwick Papers ace Oliver Twist Nicholas Nickleby Martin Chuzzlewit Bleak House Little Dorrit (© p. 121 | [EB p. 103",
-      "question_type": "Multiple Choice",
-      "instructions": "What topic do Cathy and Graham choose to illustrate with each novel?",
+      "prompt": "Nicholas Nickleby",
+      "question_type": "Matching",
+      "instructions": "What topic do Cathy and Graham choose to illustrate with each novel? Choose SIX answers from the box and write the correct letter, A–H, next to Questions 25–30.",
       "passage_number": null,
-      "section_number": 3
+      "section_number": 3,
+      "options": [
+        "poverty",
+        "education",
+        "Dickens's travels",
+        "entertainment",
+        "wealth",
+        "medicine",
+        "a woman's life",
+        "crime and the law"
+      ]
     },
     {
       "number": 28,
-      "prompt": "What topic do Cathy and Graham choose to illustrate with each novel? . Topics poverty education Dickens's travels entertainment wealth medicine zro7nrmoonw > a woman's life crime and the law Novels by Dickens The Pickwick Papers ace Oliver Twist Nicholas Nickleby Martin Chuzzlewit Bleak House Little Dorrit (© p. 121 | [EB p. 103",
-      "question_type": "Multiple Choice",
-      "instructions": "What topic do Cathy and Graham choose to illustrate with each novel?",
+      "prompt": "Martin Chuzzlewit",
+      "question_type": "Matching",
+      "instructions": "What topic do Cathy and Graham choose to illustrate with each novel? Choose SIX answers from the box and write the correct letter, A–H, next to Questions 25–30.",
       "passage_number": null,
-      "section_number": 3
+      "section_number": 3,
+      "options": [
+        "poverty",
+        "education",
+        "Dickens's travels",
+        "entertainment",
+        "wealth",
+        "medicine",
+        "a woman's life",
+        "crime and the law"
+      ]
     },
     {
       "number": 29,
-      "prompt": "What topic do Cathy and Graham choose to illustrate with each novel? . Topics poverty education Dickens's travels entertainment wealth medicine zro7nrmoonw > a woman's life crime and the law Novels by Dickens The Pickwick Papers ace Oliver Twist Nicholas Nickleby Martin Chuzzlewit Bleak House Little Dorrit (© p. 121 | [EB p. 103",
-      "question_type": "Multiple Choice",
-      "instructions": "What topic do Cathy and Graham choose to illustrate with each novel?",
+      "prompt": "Bleak House",
+      "question_type": "Matching",
+      "instructions": "What topic do Cathy and Graham choose to illustrate with each novel? Choose SIX answers from the box and write the correct letter, A–H, next to Questions 25–30.",
       "passage_number": null,
-      "section_number": 3
+      "section_number": 3,
+      "options": [
+        "poverty",
+        "education",
+        "Dickens's travels",
+        "entertainment",
+        "wealth",
+        "medicine",
+        "a woman's life",
+        "crime and the law"
+      ]
     },
     {
       "number": 30,
-      "prompt": "What topic do Cathy and Graham choose to illustrate with each novel? . Topics poverty education Dickens's travels entertainment wealth medicine zro7nrmoonw > a woman's life crime and the law Novels by Dickens The Pickwick Papers ace Oliver Twist Nicholas Nickleby Martin Chuzzlewit Bleak House Little Dorrit (© p. 121 | [EB p. 103",
-      "question_type": "Multiple Choice",
-      "instructions": "What topic do Cathy and Graham choose to illustrate with each novel?",
+      "prompt": "Little Dorrit",
+      "question_type": "Matching",
+      "instructions": "What topic do Cathy and Graham choose to illustrate with each novel? Choose SIX answers from the box and write the correct letter, A–H, next to Questions 25–30.",
       "passage_number": null,
-      "section_number": 3
+      "section_number": 3,
+      "options": [
+        "poverty",
+        "education",
+        "Dickens's travels",
+        "entertainment",
+        "wealth",
+        "medicine",
+        "a woman's life",
+        "crime and the law"
+      ]
     },
     {
       "number": 31,
-      "prompt": "35 | Agricultural programme in Mozambique How the programme was organised It focused on a dry and arid region in Chicualacuala district, near the Limpopo River. People depended on the forest to provide charcoal as a source of income. was seen as the main priority to ensure the supply of water. Most of the work organised by farmers’ associations was done by K 7 . Fenced areas were created to keep animals away from crops. The programme provided for the fences for suitable crops - — water pumps. The farmers provided — labour for the fences on their land. Training was therefore provided in methods Of FOO 37 oe eceecscseccceereseee : Farmers made special places where 38 could be kept. Local people later suggested keeping 39 a eceencecsceesinn . Evaluation and lessons learned e —_- Agricultural production increased, improving incomes and food security. . Enough time must be allowed, particularly forthe 40 phase of the programme. 36 > / p. 121|/B p. 105",
-      "question_type": "Multiple Choice",
-      "instructions": null,
+      "prompt": "___ was the main priority to ensure the supply of water",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
       "passage_number": null,
       "section_number": 4
     },
     {
       "number": 32,
-      "prompt": "35 | Agricultural programme in Mozambique How the programme was organised It focused on a dry and arid region in Chicualacuala district, near the Limpopo River. People depended on the forest to provide charcoal as a source of income. was seen as the main priority to ensure the supply of water. Most of the work organised by farmers’ associations was done by K 7 . Fenced areas were created to keep animals away from crops. The programme provided for the fences for suitable crops - — water pumps. The farmers provided — labour for the fences on their land. Training was therefore provided in methods Of FOO 37 oe eceecscseccceereseee : Farmers made special places where 38 could be kept. Local people later suggested keeping 39 a eceencecsceesinn . Evaluation and lessons learned e —_- Agricultural production increased, improving incomes and food security. . Enough time must be allowed, particularly forthe 40 phase of the programme. 36 > / p. 121|/B p. 105",
-      "question_type": "Multiple Choice",
-      "instructions": null,
+      "prompt": "Most work organised by farmers' associations was done by ___",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
       "passage_number": null,
       "section_number": 4
     },
     {
       "number": 33,
-      "prompt": "35 | Agricultural programme in Mozambique How the programme was organised It focused on a dry and arid region in Chicualacuala district, near the Limpopo River. People depended on the forest to provide charcoal as a source of income. was seen as the main priority to ensure the supply of water. Most of the work organised by farmers’ associations was done by K 7 . Fenced areas were created to keep animals away from crops. The programme provided for the fences for suitable crops - — water pumps. The farmers provided — labour for the fences on their land. Training was therefore provided in methods Of FOO 37 oe eceecscseccceereseee : Farmers made special places where 38 could be kept. Local people later suggested keeping 39 a eceencecsceesinn . Evaluation and lessons learned e —_- Agricultural production increased, improving incomes and food security. . Enough time must be allowed, particularly forthe 40 phase of the programme. 36 > / p. 121|/B p. 105",
-      "question_type": "Multiple Choice",
-      "instructions": null,
+      "prompt": "The programme provided ___ for the fences",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
       "passage_number": null,
       "section_number": 4
     },
     {
       "number": 34,
-      "prompt": "35 | Agricultural programme in Mozambique How the programme was organised It focused on a dry and arid region in Chicualacuala district, near the Limpopo River. People depended on the forest to provide charcoal as a source of income. was seen as the main priority to ensure the supply of water. Most of the work organised by farmers’ associations was done by K 7 . Fenced areas were created to keep animals away from crops. The programme provided for the fences for suitable crops - — water pumps. The farmers provided — labour for the fences on their land. Training was therefore provided in methods Of FOO 37 oe eceecscseccceereseee : Farmers made special places where 38 could be kept. Local people later suggested keeping 39 a eceencecsceesinn . Evaluation and lessons learned e —_- Agricultural production increased, improving incomes and food security. . Enough time must be allowed, particularly forthe 40 phase of the programme. 36 > / p. 121|/B p. 105",
-      "question_type": "Multiple Choice",
-      "instructions": null,
+      "prompt": "The programme provided ___ for suitable crops",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
       "passage_number": null,
       "section_number": 4
     },
     {
       "number": 35,
-      "prompt": "| Agricultural programme in Mozambique How the programme was organised It focused on a dry and arid region in Chicualacuala district, near the Limpopo River. People depended on the forest to provide charcoal as a source of income. was seen as the main priority to ensure the supply of water. Most of the work organised by farmers’ associations was done by K 7 . Fenced areas were created to keep animals away from crops. The programme provided for the fences for suitable crops - — water pumps. The farmers provided — labour for the fences on their land. Training was therefore provided in methods Of FOO 37 oe eceecscseccceereseee : Farmers made special places where 38 could be kept. Local people later suggested keeping 39 a eceencecsceesinn . Evaluation and lessons learned e —_- Agricultural production increased, improving incomes and food security. . Enough time must be allowed, particularly forthe 40 phase of the programme.",
-      "question_type": "Multiple Choice",
-      "instructions": null,
+      "prompt": "Local people provided and put up the ___ that supported the fences",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
       "passage_number": null,
       "section_number": 4
     },
     {
       "number": 36,
-      "prompt": "> / p. 121|/B p. 105",
-      "question_type": "Multiple Choice",
-      "instructions": null,
+      "prompt": "Farmers had difficulty marketing produce because they lacked ___",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
       "passage_number": null,
       "section_number": 4
     },
     {
       "number": 37,
-      "prompt": "for the fences on their land. Training was therefore provided in methods Of FOO 37 oe eceecscseccceereseee : Farmers made special places where 38 could be kept.",
-      "question_type": "Multiple Choice",
-      "instructions": null,
+      "prompt": "Training was provided in methods of food ___",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
       "passage_number": null,
       "section_number": 4
     },
     {
       "number": 38,
-      "prompt": "Training was therefore provided in methods Of FOO 37 oe eceecscseccceereseee : Farmers made special places where 38 could be kept. Local people later suggested keeping 39 a eceencecsceesinn .",
-      "question_type": "Multiple Choice",
-      "instructions": null,
+      "prompt": "Farmers made special places where ___ could be kept",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
       "passage_number": null,
       "section_number": 4
     },
     {
       "number": 39,
-      "prompt": "Farmers made special places where 38 could be kept. Local people later suggested keeping 39 a eceencecsceesinn . Evaluation and lessons learned",
-      "question_type": "Multiple Choice",
-      "instructions": null,
+      "prompt": "Local people later suggested keeping ___",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
       "passage_number": null,
       "section_number": 4
     },
     {
       "number": 40,
-      "prompt": "e —_- Agricultural production increased, improving incomes and food security. . Enough time must be allowed, particularly forthe 40 phase of the programme.",
-      "question_type": "Multiple Choice",
-      "instructions": null,
+      "prompt": "Enough time must be allowed, particularly for the ___ phase",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
       "passage_number": null,
       "section_number": 4
     }
@@ -390,5 +564,6 @@
     ]
   },
   "audio_s3_key": "exam-audio/IELTS-15/2/section1.mp3",
-  "time_limit_seconds": 2400
+  "time_limit_seconds": 2400,
+  "image_s3_key": "listening/IELTS15/test2/minster-park.png"
 }

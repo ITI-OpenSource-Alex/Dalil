@@ -47,15 +47,14 @@ export default function ExamShell() {
   );
 }
 
-// Listening sessions receive their audio URLs from the start response, not
-// from the generic session fetch. The shell falls back to the stored start
-// payload when the session object itself does not include audio_urls.
+// Listening URLs are re-minted by the generic session fetch. The stored start
+// payload remains a fallback for a transient reload failure while its URLs are
+// still valid.
 function getListeningAudioUrls(
   session: ExamSessionResponse | null,
   sessionId: string,
 ): [string, string, string, string] | null {
-  const sessionUrls = (session as unknown as { audio_urls?: unknown })
-    .audio_urls;
+  const sessionUrls = session?.audio_urls;
   if (
     Array.isArray(sessionUrls) &&
     sessionUrls.length === 4 &&
@@ -91,6 +90,33 @@ function getListeningAudioUrls(
   return null;
 }
 
+function getListeningStimulusImageUrl(
+  session: ExamSessionResponse | null,
+  sessionId: string,
+): string | null {
+  const sessionUrl = session?.questions?.[0]?.image_url;
+  if (typeof sessionUrl === "string" && sessionUrl.length > 0) {
+    return sessionUrl;
+  }
+
+  if (typeof window === "undefined") return null;
+
+  try {
+    const storedListeningSession = window.sessionStorage.getItem(
+      `listening_start_${sessionId}`,
+    );
+    if (!storedListeningSession) return null;
+    const parsed = JSON.parse(storedListeningSession) as unknown as {
+      image_url?: unknown;
+    };
+    return typeof parsed.image_url === "string" && parsed.image_url.length > 0
+      ? parsed.image_url
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 function ExamShellContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -115,6 +141,7 @@ function ExamShellContent() {
   // ReadingExam's forceSubmitSignal prop for why this can't just reuse
   // a generic submission path here.
   const [readingForceSubmit, setReadingForceSubmit] = useState(0);
+  const [listeningForceSubmit, setListeningForceSubmit] = useState(0);
   // The same mechanism for Writing. Writing owns its own per-task submits
   // (GOA-058), so on expiry it is told to flush whatever is unsubmitted rather
   // than having the shell post on its behalf.
@@ -199,7 +226,9 @@ function ExamShellContent() {
       setSubmissionError(null);
       await submitSession(sessionId, {});
 
-      router.push(`/exam/results?session=${sessionId}&skill=${examConfig?.skill}`);
+      router.push(
+        `/exam/results?session=${sessionId}&skill=${examConfig?.skill}`,
+      );
     } catch (err) {
       console.error(err);
       // Reset so the "Analyzing performance..." overlay clears and the exam
@@ -248,7 +277,7 @@ function ExamShellContent() {
   const handleTimeUp = () => {
     if (!examConfig) return;
 
-    switch (examConfig?.skill) {
+    switch (examConfig.skill) {
       case "Reading":
         // useExamTimer is called below with session?.remaining_time_seconds ?? 0
         // — before the session finishes loading, that's 0, which makes the
@@ -257,22 +286,22 @@ function ExamShellContent() {
         // for Reading/Listening (and doesn't change Writing's real-timeout
         // behavior, which only ever fires once examConfig is already set).
         setReadingForceSubmit((n) => n + 1);
-        break;
+        return;
 
       case "Listening":
-        // ListeningExam owns its own submission flow via the mandated
-        // 10-minute answer-transfer countdown (see its TRANSFER_TICK /
-        // handleSubmit) and already disables its own Submit button once that
-        // window elapses. Calling executeSubmission() here would fire
-        // Writing's task1/task2 payload shape against a Listening session and
-        // fight with the transfer window ListeningExam is already managing —
-        // so this is intentionally a no-op. The shell's outer timer is not
-        // the authority on when a Listening attempt ends.
+        // The transfer timer handles the normal path, but the authoritative
+        // backend clock can expire first after slow transitions or a restored
+        // tab. ListeningExam owns the answer state and endpoint, so signal it
+        // to submit while the backend grace period is still open.
+        setListeningForceSubmit((n) => n + 1);
         return;
 
       case "Writing":
-        executeSubmission();
-        break;
+        // Writing owns two task-specific payloads. A generic `{ answers: {} }`
+        // submit would race those evaluations and could complete the session
+        // without the candidate's essays.
+        setWritingForceSubmit((n) => n + 1);
+        return;
 
       case "Speaking":
         // TODO: speaking timeout handling
@@ -281,14 +310,6 @@ function ExamShellContent() {
       default:
         return;
     }
-    // Writing flushes its own unsubmitted tasks: only it knows which of the two
-    // have already been evaluated, and each submit needs that task's own text
-    // and number.
-    if (examConfig.skill === "Writing") {
-      setWritingForceSubmit((n) => n + 1);
-      return;
-    }
-    executeSubmission();
   };
 
   const { formattedTime, isCritical, secondsLeft } = useExamTimer(
@@ -394,11 +415,16 @@ function ExamShellContent() {
                 <ListeningExam
                   sessionId={sessionId}
                   audioUrls={listeningAudioUrls}
+                  stimulusImageUrl={getListeningStimulusImageUrl(
+                    session,
+                    sessionId,
+                  )}
                   rawQuestions={
                     extractRawQuestions(
                       session,
                     ) as unknown as RawReadingQuestion[]
                   }
+                  forceSubmitSignal={listeningForceSubmit}
                   onSubmitted={handleListeningSubmitted}
                 />
               ) : (
@@ -465,7 +491,11 @@ function ExamShellContent() {
               Your responses will be evaluated using AI scoring guidelines.
             </p>
             <div className="flex justify-end gap-2 text-xs font-semibold">
-              <Button variant="secondary" size="sm" onClick={() => setShowSubmitModal(false)}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowSubmitModal(false)}
+              >
                 Cancel
               </Button>
               <Button size="sm" onClick={executeSubmission}>

@@ -18,7 +18,7 @@ const LINKS = [
 ];
 
 /** Where the signed-in CTA goes. Matching ProtectedShell's own landing route. */
-const APP_HOME = "/chat";
+const APP_HOME = "/dashboard";
 
 /**
  * The previous navbar's mobile button had no onClick, no aria-label and no

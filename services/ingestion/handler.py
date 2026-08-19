@@ -11,7 +11,7 @@ from typing import Any
 from app.adapters.chevening import CheveningAdapter
 from app.adapters.daad import DAADAdapter
 from app.adapters.ielts_org import IELTSOrgAdapter
-from app.adapters.masters_portal import MastersPortalAdapter
+from app.adapters.masters_portal import PAGE_SIZE, MastersPortalAdapter
 from app.adapters.stipendium_hungaricum import StipendiumHungaricumAdapter
 from app.adapters.study_in_poland import StudyInPolandAdapter
 from app.adapters.visa_adapter import VisaSourceAdapter
@@ -648,6 +648,23 @@ def handle_ingestion(
             state.mark_url_status(
                 "masters_portal", discipline, source_url, "scraped"
             )
+        if tier == 1 and program_failed == 0:
+            # MastersPortal returns a pending cursor in telemetry. Commit it only
+            # after every document and program row is durable; otherwise the next
+            # invocation starts at the old cursor and retries instead of losing data.
+            masters_telemetry = source_telemetry.get("masters_portal", {})
+            for discipline, values in masters_telemetry.items():
+                if not isinstance(values, dict) or "next_offset" not in values:
+                    continue
+                next_offset = int(values["next_offset"])
+                state.update_cursor(
+                    "masters_portal",
+                    discipline,
+                    next_offset // PAGE_SIZE + 1,
+                    scroll_offset=next_offset,
+                    exhausted=bool(values.get("cursor_exhausted", False)),
+                    total_items=values.get("total_items"),
+                )
         if tier == 2:
             for source_url in source_urls:
                 state.mark_page_status(source_url, "fetched")

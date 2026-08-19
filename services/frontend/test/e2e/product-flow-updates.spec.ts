@@ -78,6 +78,88 @@ test("Speaking exam is shipped and opens the full interviewer", async ({
   await expect(page).toHaveURL(/\/practice\/speaking\?mode=exam$/);
 });
 
+test("discarding an in-progress exam abandons it before another can start", async ({
+  page,
+}) => {
+  const sessionId = "33333333-3333-3333-3333-333333333333";
+  let discardRequested = false;
+
+  await page.addInitScript((id) => {
+    sessionStorage.setItem(
+      "active_exam_session",
+      JSON.stringify({
+        sessionId: id,
+        examType: "Academic",
+        skillArea: "Listening",
+      }),
+    );
+    sessionStorage.setItem(`listening_start_${id}`, "cached-start-payload");
+  }, sessionId);
+  await page.route(`${GATEWAY}/api/profile`, (route) =>
+    route.fulfill(cors(paidProfile)),
+  );
+  await page.route(`${GATEWAY}/api/exam/progress`, (route) =>
+    route.fulfill(
+      cors({ reading: [], listening: [], writing: [], speaking: [] }),
+    ),
+  );
+  await page.route(`${GATEWAY}/api/exam/sessions/${sessionId}`, (route) => {
+    const headers = {
+      "Access-Control-Allow-Origin": "http://localhost:3000",
+      "Access-Control-Allow-Credentials": "true",
+      "Access-Control-Allow-Methods": "DELETE,OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+    };
+    if (route.request().method() === "OPTIONS") {
+      return route.fulfill({ status: 204, headers });
+    }
+    discardRequested = true;
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      headers,
+      body: JSON.stringify({ session_id: sessionId, status: "abandoned" }),
+    });
+  });
+  page.on("dialog", (dialog) => dialog.accept());
+
+  await page.goto("/exam");
+  await expect(
+    page.getByRole("button", { name: "Academic", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "General", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Resume in-progress exam" }),
+  ).toBeVisible();
+
+  const takeExamButtons = page.getByRole("button", { name: "Take Exam" });
+  await expect(takeExamButtons).toHaveCount(4);
+  for (const button of await takeExamButtons.all()) {
+    await expect(button).toBeDisabled();
+  }
+
+  await page.getByRole("button", { name: "Discard", exact: true }).click();
+
+  await expect.poll(() => discardRequested).toBe(true);
+  await expect(
+    page.getByRole("button", { name: "Resume in-progress exam" }),
+  ).toHaveCount(0);
+  await expect(takeExamButtons.first()).toBeEnabled();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        (id) => ({
+          active: sessionStorage.getItem("active_exam_session"),
+          listening: sessionStorage.getItem(`listening_start_${id}`),
+        }),
+        sessionId,
+      ),
+    )
+    .toEqual({ active: null, listening: null });
+});
+
 test("Programme detail shows source, complete requirements and visa facts", async ({
   page,
 }) => {

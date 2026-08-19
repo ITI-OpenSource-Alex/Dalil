@@ -96,7 +96,9 @@ func NewSession(selection Selection, timing Timing, now func() time.Time, sink T
 }
 
 func NewAdaptiveSession(selection Selection, timing Timing, now func() time.Time, sink TurnSink, followups *FollowupEngine, part3MaxTurns int) (*Session, error) {
-	if len(selection.Part1Topics) != 3 || selection.Cue.CueID == "" || len(selection.Part3Seeds) == 0 {
+	// IELTS Part 1 samples two familiar topics. Accept three as well so an
+	// already-persisted session selected by the previous bank remains resumable.
+	if len(selection.Part1Topics) < 2 || len(selection.Part1Topics) > 3 || selection.Cue.CueID == "" || len(selection.Part3Seeds) == 0 {
 		return nil, fmt.Errorf("%w: incomplete question selection", ErrInvalidTransition)
 	}
 	if err := timing.Validate(); err != nil {
@@ -145,6 +147,7 @@ func (s *Session) Start(ctx context.Context) ([]Output, error) {
 	}
 	s.appendTurn(turn)
 	s.state = StatePart1Intro
+	s.deadline = s.now().Add(s.timing.Part1Expected)
 	return []Output{s.partChange(1, s.timing.Part1Expected), frame}, nil
 }
 
@@ -190,11 +193,16 @@ func (s *Session) handleAudioEnd(ctx context.Context, candidate CandidateTurn) (
 		if err := s.persistCandidate(ctx, candidate); err != nil {
 			return nil, err
 		}
+		if !s.deadline.IsZero() && !s.now().Before(s.deadline) {
+			return s.startPart2(ctx)
+		}
 		return s.askNextPart1(ctx)
 	case StatePart2Prep:
 		return nil, ErrAudioNotAccepted
 	case StatePart2LongTurn:
-		if s.now().Sub(s.longTurnStartedAt) < s.timing.LongTurnMin {
+		// The evidence is recorded speech, not wall time. STT latency used to count
+		// toward this minute, so a 20-second answer could pass after a slow decode.
+		if time.Duration(candidate.DurationS*float64(time.Second)) < s.timing.LongTurnMin {
 			return nil, ErrLongTurnTooShort
 		}
 		if err := s.persistCandidate(ctx, candidate); err != nil {
@@ -210,6 +218,9 @@ func (s *Session) handleAudioEnd(ctx context.Context, candidate CandidateTurn) (
 		if err := s.persistCandidate(ctx, candidate); err != nil {
 			return nil, err
 		}
+		if !s.deadline.IsZero() && !s.now().Before(s.deadline) {
+			return s.finish(ctx)
+		}
 		return s.askNextPart3(ctx, candidate.Text)
 	default:
 		return nil, ErrAudioNotAccepted
@@ -221,6 +232,13 @@ func (s *Session) handleTimerExpired(ctx context.Context, candidate CandidateTur
 		return nil, ErrTimerNotExpired
 	}
 	switch s.state {
+	case StatePart1Intro, StatePart1Question:
+		if candidate.Text != "" || candidate.DurationS > 0 {
+			if err := s.persistCandidate(ctx, candidate); err != nil {
+				return nil, err
+			}
+		}
+		return s.startPart2(ctx)
 	case StatePart2Prep:
 		s.state = StatePart2LongTurn
 		s.longTurnStartedAt = s.now()
@@ -238,6 +256,13 @@ func (s *Session) handleTimerExpired(ctx context.Context, candidate CandidateTur
 			return nil, err
 		}
 		return s.askNextRounding(ctx)
+	case StatePart3Question:
+		if candidate.Text != "" || candidate.DurationS > 0 {
+			if err := s.persistCandidate(ctx, candidate); err != nil {
+				return nil, err
+			}
+		}
+		return s.finish(ctx)
 	default:
 		return nil, ErrInvalidTransition
 	}
@@ -316,6 +341,7 @@ func (s *Session) startPart3(ctx context.Context) ([]Output, error) {
 	s.currentQuestionID = q.ID
 	s.part3Asked[q.ID] = struct{}{}
 	s.state = StatePart3Question
+	s.deadline = s.now().Add(s.timing.Part3Expected)
 	return []Output{s.partChange(3, s.timing.Part3Expected), frame, questionFrame}, nil
 }
 
@@ -368,6 +394,7 @@ func (s *Session) finish(ctx context.Context) ([]Output, error) {
 	s.appendTurn(turn)
 	s.state = StateComplete
 	s.currentQuestionID = ""
+	s.deadline = time.Time{}
 	return []Output{frame, s.completeFrame(false)}, nil
 }
 
@@ -431,7 +458,7 @@ func (s *Session) currentPart() int {
 }
 
 func (s *Session) partChange(part int, expected time.Duration) Output {
-	return Output{Type: "part_change", Part: part, PartLabel: partLabel(part), ExpectedDurationS: seconds(expected)}
+	return Output{Type: "part_change", Part: part, PartLabel: partLabel(part), ExpectedDurationS: seconds(expected), EndsAt: s.deadline}
 }
 
 func (s *Session) completeFrame(partial bool) Output {

@@ -1,6 +1,70 @@
 import pytest
+from contextlib import contextmanager
 from unittest.mock import AsyncMock, patch, MagicMock
-from app.agents import extract_chart_context
+from app.agents import (
+    CRITERIA,
+    FeedbackExecution,
+    RawCriterionFeedback,
+    RawScoreResponse,
+    ScoreExecution,
+    extract_chart_context,
+)
+
+
+def _score_execution(criterion):
+    return ScoreExecution(
+        criterion=criterion,
+        decision=RawScoreResponse(
+            band_score=7.0,
+            descriptor_id=f"{criterion}.7",
+            confidence="high",
+            evidence=["Evidence one", "Evidence two"],
+            lower_band_comparison="Above lower band.",
+            higher_band_comparison="Below higher band.",
+        ),
+        band_score=7.0,
+        prompt_tokens=10,
+        completion_tokens=10,
+        latency_ms=10.0,
+        cost_usd=0.01,
+        model_calls=1,
+        ensemble_used=False,
+    )
+
+
+@contextmanager
+def _mock_staged_runner(runner):
+    async def score_side_effect(criterion, *args, **kwargs):
+        return _score_execution(criterion)
+
+    feedback = FeedbackExecution(
+        evaluations={
+            criterion: RawCriterionFeedback(
+                criterion=criterion,
+                feedback="Good",
+                improvement_tip="Tip",
+                sentence_examples=["One", "Two", "Three"],
+                highlighted_issues=[],
+            )
+            for criterion in CRITERIA
+        },
+        prompt_tokens=10,
+        completion_tokens=10,
+        latency_ms=10.0,
+        cost_usd=0.01,
+        model_calls=1,
+    )
+    with (
+        patch.object(runner, "score", new_callable=AsyncMock) as mock_score,
+        patch.object(
+            runner,
+            "generate_feedback",
+            new_callable=AsyncMock,
+            return_value=feedback,
+        ),
+    ):
+        mock_score.side_effect = score_side_effect
+        yield mock_score
 
 @pytest.fixture
 def mock_fetch_bytes():
@@ -115,26 +179,7 @@ async def test_academic_task1_sends_image_block(mock_fetch_bytes, mock_anthropic
     from app.evaluation import get_evaluation_coordinator
     coordinator = get_evaluation_coordinator()
     
-    with patch.object(coordinator.runner, "evaluate_exam_task", new_callable=AsyncMock) as mock_eval:
-        from app.schemas import CriterionEvaluation
-        from app.agents import AgentExecution
-        def mock_side_effect(criterion, *args, **kwargs):
-            return AgentExecution(
-                result=CriterionEvaluation(
-                    criterion=criterion,
-                    band_score=7.0,
-                    feedback="Good",
-                    improvement_tip="Tip",
-                    word_count=200,
-                    inline_issues=[]
-                ),
-                prompt_tokens=10,
-                completion_tokens=10,
-                latency_ms=10.0,
-                cost_usd=0.01
-            )
-        mock_eval.side_effect = mock_side_effect
-        
+    with _mock_staged_runner(coordinator.runner) as mock_score:
         await coordinator.evaluate_exam_task(
             essay_text="test",
             exam_type="Academic",
@@ -143,34 +188,15 @@ async def test_academic_task1_sends_image_block(mock_fetch_bytes, mock_anthropic
         )
         mock_fetch_bytes.assert_called_once_with("some/s3/key.png")
         mock_anthropic.messages.create.assert_called_once()
-        mock_eval.assert_called()
-        assert mock_eval.call_args.kwargs.get("chart_context") == "A chart showing data."
+        mock_score.assert_called()
+        assert mock_score.call_args.kwargs.get("chart_context") == "A chart showing data."
 
 @pytest.mark.asyncio
 async def test_general_task1_sends_no_image_block(mock_fetch_bytes, mock_anthropic):
     from app.evaluation import get_evaluation_coordinator
     coordinator = get_evaluation_coordinator()
     
-    with patch.object(coordinator.runner, "evaluate_exam_task", new_callable=AsyncMock) as mock_eval:
-        from app.schemas import CriterionEvaluation
-        from app.agents import AgentExecution
-        def mock_side_effect(criterion, *args, **kwargs):
-            return AgentExecution(
-                result=CriterionEvaluation(
-                    criterion=criterion,
-                    band_score=7.0,
-                    feedback="Good",
-                    improvement_tip="Tip",
-                    word_count=200,
-                    inline_issues=[]
-                ),
-                prompt_tokens=10,
-                completion_tokens=10,
-                latency_ms=10.0,
-                cost_usd=0.01
-            )
-        mock_eval.side_effect = mock_side_effect
-        
+    with _mock_staged_runner(coordinator.runner) as mock_score:
         await coordinator.evaluate_exam_task(
             essay_text="test",
             exam_type="General",
@@ -179,34 +205,15 @@ async def test_general_task1_sends_no_image_block(mock_fetch_bytes, mock_anthrop
         )
         mock_fetch_bytes.assert_not_called()
         mock_anthropic.messages.create.assert_not_called()
-        mock_eval.assert_called()
-        assert mock_eval.call_args.kwargs.get("chart_context") is None
+        mock_score.assert_called()
+        assert mock_score.call_args.kwargs.get("chart_context") is None
 
 @pytest.mark.asyncio
 async def test_task2_sends_no_image_block(mock_fetch_bytes, mock_anthropic):
     from app.evaluation import get_evaluation_coordinator
     coordinator = get_evaluation_coordinator()
     
-    with patch.object(coordinator.runner, "evaluate_exam_task", new_callable=AsyncMock) as mock_eval:
-        from app.schemas import CriterionEvaluation
-        from app.agents import AgentExecution
-        def mock_side_effect(criterion, *args, **kwargs):
-            return AgentExecution(
-                result=CriterionEvaluation(
-                    criterion=criterion,
-                    band_score=7.0,
-                    feedback="Good",
-                    improvement_tip="Tip",
-                    word_count=200,
-                    inline_issues=[]
-                ),
-                prompt_tokens=10,
-                completion_tokens=10,
-                latency_ms=10.0,
-                cost_usd=0.01
-            )
-        mock_eval.side_effect = mock_side_effect
-        
+    with _mock_staged_runner(coordinator.runner) as mock_score:
         await coordinator.evaluate_exam_task(
             essay_text="test",
             exam_type="Academic",
@@ -215,8 +222,8 @@ async def test_task2_sends_no_image_block(mock_fetch_bytes, mock_anthropic):
         )
         mock_fetch_bytes.assert_not_called()
         mock_anthropic.messages.create.assert_not_called()
-        mock_eval.assert_called()
-        assert mock_eval.call_args.kwargs.get("chart_context") is None
+        mock_score.assert_called()
+        assert mock_score.call_args.kwargs.get("chart_context") is None
 
 @pytest.mark.asyncio
 async def test_academic_task1_without_image_evaluates_without_chart_context(
@@ -240,27 +247,7 @@ async def test_academic_task1_without_image_evaluates_without_chart_context(
     from app.evaluation import get_evaluation_coordinator
     coordinator = get_evaluation_coordinator()
 
-    with patch.object(coordinator.runner, "evaluate_exam_task", new_callable=AsyncMock) as mock_eval:
-        from app.schemas import CriterionEvaluation
-        from app.agents import AgentExecution
-
-        def mock_side_effect(criterion, *args, **kwargs):
-            return AgentExecution(
-                result=CriterionEvaluation(
-                    criterion=criterion,
-                    band_score=7.0,
-                    feedback="Good",
-                    improvement_tip="Tip",
-                    word_count=200,
-                    inline_issues=[]
-                ),
-                prompt_tokens=10,
-                completion_tokens=10,
-                latency_ms=10.0,
-                cost_usd=0.01
-            )
-        mock_eval.side_effect = mock_side_effect
-
+    with _mock_staged_runner(coordinator.runner) as mock_score:
         summary = await coordinator.evaluate_exam_task(
             essay_text="test",
             exam_type="Academic",
@@ -277,7 +264,7 @@ async def test_academic_task1_without_image_evaluates_without_chart_context(
     mock_anthropic.messages.create.assert_not_called()
 
     # The agents ran without chart context — the accepted limitation.
-    assert mock_eval.call_args.kwargs.get("chart_context") is None
+    assert mock_score.call_args.kwargs.get("chart_context") is None
 
 
 @pytest.mark.asyncio
@@ -293,27 +280,7 @@ async def test_vision_span_is_attached_to_the_evaluation_trace(
     coordinator = get_evaluation_coordinator()
     trace = _FakeTrace()
 
-    with patch.object(coordinator.runner, "evaluate_exam_task", new_callable=AsyncMock) as mock_eval:
-        from app.agents import AgentExecution
-        from app.schemas import CriterionEvaluation
-
-        def mock_side_effect(criterion, *args, **kwargs):
-            return AgentExecution(
-                result=CriterionEvaluation(
-                    criterion=criterion,
-                    band_score=7.0,
-                    feedback="Good",
-                    improvement_tip="Tip",
-                    word_count=200,
-                    inline_issues=[]
-                ),
-                prompt_tokens=10,
-                completion_tokens=10,
-                latency_ms=10.0,
-                cost_usd=0.01
-            )
-        mock_eval.side_effect = mock_side_effect
-
+    with _mock_staged_runner(coordinator.runner):
         await coordinator.evaluate_exam_task(
             essay_text="test",
             exam_type="Academic",
@@ -325,5 +292,5 @@ async def test_vision_span_is_attached_to_the_evaluation_trace(
     vision = _vision_observations(trace)
     assert len(vision) == 1
     assert vision[0]["kwargs"]["model"] == "claude-opus-5"
-    # Four criterion spans plus the one vision span, all on the same trace.
-    assert len(trace.observations) == 5
+    # Four score spans, one feedback span, and the vision span share one trace.
+    assert len(trace.observations) == 6

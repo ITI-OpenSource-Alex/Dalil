@@ -34,7 +34,7 @@ export default function ChecklistPage() {
   }, [programId]);
 
   return (
-    <PageContainer size="md">
+    <PageContainer size="2xl">
       {/* Back to Checklists, not back to Chat: the checklist now has a home
           of its own, and a user who arrived from an opportunity card should
           land somewhere that lists the rest of their applications. */}
@@ -42,7 +42,7 @@ export default function ChecklistPage() {
         <Link href="/checklists">All checklists</Link>
       </Button>
 
-      <div className="mb-6">
+      <div className="mb-8 max-w-3xl">
         <Badge tone="brand" pill className="print-hidden">
           Application Checklist
         </Badge>

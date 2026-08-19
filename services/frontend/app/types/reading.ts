@@ -22,6 +22,8 @@ export interface RawReadingQuestion {
   instructions?: string | null;
   passage_number: number | null;
   section_number?: number | null;
+  /** Structured choices supplied by the ingestion pipeline. */
+  options?: string[];
 }
 
 /** A question after normalization: bucketed into a UI type, with any

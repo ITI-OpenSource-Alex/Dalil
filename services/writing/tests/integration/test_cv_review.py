@@ -84,6 +84,7 @@ class FakeCoordinator:
         target_country,
         target_field,
         country_conventions,
+        program_context=None,
         on_partial=None,
     ):
         self.review_calls.append(
@@ -93,6 +94,7 @@ class FakeCoordinator:
                 "target_country": target_country,
                 "target_field": target_field,
                 "country_conventions": country_conventions,
+                "program_context": program_context,
             }
         )
         skills_issues = (
@@ -124,6 +126,12 @@ class FakeCoordinator:
                 score=90,
                 issues=[],
                 suggestions=["Keep the CV to one or two pages."],
+            ),
+            CVReviewSection(
+                name="Country-specific conventions",
+                score=83,
+                issues=[],
+                suggestions=["Use the expected German CV layout."],
             ),
         ]
         for section in sections:
@@ -160,9 +168,22 @@ def cv_review_stubs(monkeypatch):
         rag_calls.append((user_id, target_country, settings.rag_service_url))
         return "German CV conventions: photo may be expected locally; keep concise."
 
+    async def fake_programme(program_id, settings):
+        assert settings.rag_service_url == "http://rag:8084"
+        return {
+            "id": program_id,
+            "name": "MSc Data Engineering",
+            "country": "Germany",
+            "discipline": "computer_science",
+            "min_ielts": 7.0,
+        }
+
     monkeypatch.setattr("app.routers.cvs.get_redis_client", lambda settings: cache)
     monkeypatch.setattr(
         "app.routers.cvs.fetch_country_conventions", fake_conventions
+    )
+    monkeypatch.setattr(
+        "app.routers.cvs._fetch_programme_requirements", fake_programme
     )
 
     from app.main import app
@@ -244,13 +265,13 @@ def test_cv_review_streams_structured_sections_and_complete_event(
     assert response.headers["content-type"].startswith("text/event-stream")
     events = _sse_events(response)
     section_events = [data for name, data in events if name == "section"]
-    assert len(section_events) == 4
+    assert len(section_events) == 5
     assert events[-1][0] == "complete"
 
     complete = events[-1][1]
     CVReviewResponse.model_validate(complete)
     assert complete["overallScore"] == 82
-    assert len(complete["sections"]) == 4
+    assert len(complete["sections"]) == 5
     assert complete["fromCache"] is False
     assert coordinator.review_calls[0]["structured_data"]["skills"] == [
         "Python",
@@ -284,6 +305,29 @@ def test_missing_skills_section_returns_skills_gap_feedback(
     ]
     assert sections
     assert "no skills section" in " ".join(sections[0]["issues"]).lower()
+
+
+def test_programme_scoped_review_resolves_target_from_rag(
+    client, db_session, cv_review_stubs
+):
+    _, coordinator, rag_calls = cv_review_stubs
+    cv = _make_cv(db_session, s3_key_suffix="programme")
+
+    response = client.post(
+        "/cv/review",
+        json={
+            "userId": cv.user_id,
+            "cvS3Key": cv.s3_key,
+            "programId": "program-1",
+        },
+    )
+
+    assert response.status_code == 200
+    call = coordinator.review_calls[0]
+    assert call["target_country"] == "Germany"
+    assert call["target_field"] == "MSc Data Engineering"
+    assert call["program_context"]["min_ielts"] == 7.0
+    assert rag_calls == []
 
 
 def test_redis_cache_hit_replays_without_llm_call(client, db_session, cv_review_stubs):

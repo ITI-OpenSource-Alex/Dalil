@@ -49,6 +49,32 @@ async def list_visa_sources(_=Security(verify_api_key)):
         raise HTTPException(status_code=500, detail="Internal Processing Error")
 
 
+@router.get("/internal/visa-requirements")
+async def get_visa_requirement(source_url: str, _=Security(verify_api_key)):
+    """Return one source-backed snapshot for operator preflight checks.
+
+    The demo reset must verify persisted extraction evidence rather than trust
+    the same JSON file it just submitted.  Keeping this internal preserves RAG
+    ownership without exposing raw evidence payloads to browsers.
+    """
+    async with db.pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            SELECT country, visa_type, issuing_body, requirements,
+                   proof_of_funds, source_url, processing_days_min,
+                   processing_days_max, notes, content_hash,
+                   extraction_evidence, egyptian_specific, last_scraped_at,
+                   last_verified_at
+            FROM visa_requirements
+            WHERE source_url = $1
+            """,
+            source_url,
+        )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Visa requirement not found")
+    return dict(row)
+
+
 @router.post("/internal/visa-requirements")
 async def handle_visa_requirements(request: VisaRequirementsRequest, _ = Security(verify_api_key)):
     try:

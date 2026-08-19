@@ -146,6 +146,9 @@ func TestReviewCVInjectsAuthenticatedUserAndForwardsSSE(t *testing.T) {
 		if got := payload["cvS3Key"]; got != "cvs/user-123/resume.pdf" {
 			t.Fatalf("expected cvS3Key to be preserved, got %v", got)
 		}
+		if got := payload["programId"]; got != "program-1" {
+			t.Fatalf("expected programId to be preserved, got %v", got)
+		}
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("event: section\n"))
@@ -163,7 +166,7 @@ func TestReviewCVInjectsAuthenticatedUserAndForwardsSSE(t *testing.T) {
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/cv/review",
-		bytes.NewReader([]byte(`{"userId":"attacker","cvS3Key":"cvs/user-123/resume.pdf","targetCountry":"Germany","targetField":"CS"}`)),
+		bytes.NewReader([]byte(`{"userId":"attacker","cvS3Key":"cvs/user-123/resume.pdf","programId":"program-1"}`)),
 	)
 	request.Header.Set("Content-Type", "application/json")
 	response, err := app.Test(request)

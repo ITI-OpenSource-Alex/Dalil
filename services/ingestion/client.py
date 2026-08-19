@@ -65,6 +65,14 @@ def check_existing_chunks(ids: list[str]) -> list[str]:
     except Exception as e:
         logger.error("Failed to connect to RAG check-existing endpoint: %s", str(e))
         raise e
+
+
+def get_document_stats() -> dict:
+    """Read corpus readiness through the RAG service ownership boundary."""
+    url = f"{settings.rag_service_url}/internal/documents/stats"
+    response = requests.get(url, headers=get_headers(), timeout=15)
+    response.raise_for_status()
+    return response.json()
     
 def upsert_visa_requirement(record: dict) -> dict:
     """

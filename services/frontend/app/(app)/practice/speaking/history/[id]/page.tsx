@@ -70,6 +70,8 @@ export default function SpeakingSessionDetailPage() {
           <EvaluationBreakdown
             overallBand={session.overall_band}
             criteria={extractCriteriaScores(session.evaluation)}
+            enableAskDalil
+            subjectId={session.id}
             className="max-w-none rounded-card border border-brand-border bg-surface p-6 shadow-e1"
           />
 

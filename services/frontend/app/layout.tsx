@@ -1,39 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Fraunces } from "next/font/google";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-  display: "swap",
-});
-
-// preload: false — Geist Mono is used only for the occasional code-style
-// label (the design-system reference page, essentially). Preloading it put a
-// third font on the critical path of every route, including the landing page,
-// where no monospace text is rendered at all. It still loads on demand
-// wherever font-mono is actually applied.
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-  display: "swap",
-  preload: false,
-});
-
-// Display face for page- and section-level headings. Applied deliberately at
-// display sizes (via the Heading primitive and the marketing sections), not
-// globally to every h1-h6 -- a serif on a 14px `<h2>` section label, of which
-// this app has several, reads as a mistake rather than as a voice.
-//
-// Loaded as a variable font on the weight axis only. Fraunces' other axes
-// (SOFT, WONK, opsz) stay at their defaults, which is the clean, high-end cut
-// -- opting them in would make them variable too and inflate the file for no
-// benefit here.
-const fraunces = Fraunces({
-  variable: "--font-fraunces",
-  subsets: ["latin"],
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   // Required for Next to resolve the relative openGraph/twitter image URLs
@@ -66,10 +32,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable} h-full antialiased`}
-    >
+    <html lang="en" className="h-full antialiased">
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
         {/* Lets keyboard and screen-reader users bypass the navbar/sidebar on
             every route. Visually hidden until focused. Pages provide the

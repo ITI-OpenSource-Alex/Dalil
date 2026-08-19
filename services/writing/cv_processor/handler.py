@@ -304,7 +304,12 @@ def get_processor() -> CVProcessor:
     # only thing missing here (BUG-018).
     anthropic_client = Anthropic(
         api_key=settings.anthropic_api_key,
-        timeout=settings.anthropic_timeout_seconds,
+        # NOT anthropic_timeout_seconds. That ceiling is tuned for the four
+        # user-facing criterion agents; this is a background worker with nobody
+        # watching, and extraction was measured timing out at 90s and succeeding
+        # under 280s. See the comment on cv_extraction_timeout_seconds in
+        # app/config.py, which is coupled to the queue's VisibilityTimeout.
+        timeout=settings.cv_extraction_timeout_seconds,
         default_headers={"User-Agent": settings.anthropic_user_agent},
         **({"base_url": settings.anthropic_base_url} if settings.anthropic_base_url else {}),
     )

@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://goa.local/schemas/k6-report.schema.json",
+  "title": "GOA-036 load test report",
+  "description": "Shape of a k6 --summary-export artefact for the GOA-036 system load test. Validating against this is how 'Load test report JSON validates against expected schema' is checked: it asserts the metrics the report and bottlenecks analysis actually read are present, so a run that silently stopped emitting one fails here rather than producing a report with a blank cell.",
+  "type": "object",
+  "required": ["metrics"],
+  "properties": {
+    "root_group": { "type": "object" },
+    "metrics": {
+      "type": "object",
+      "description": "Every metric the report depends on. A scenario that never ran omits its metric entirely, which is exactly the failure this list is here to catch.",
+      "required": [
+        "http_reqs",
+        "iterations",
+        "checks",
+        "goa_server_errors",
+        "goa_rate_limited",
+        "goa_chat_duration_ms",
+        "goa_match_duration_ms",
+        "goa_essay_upload_duration_ms",
+        "goa_essay_agent_failures",
+        "goa_speaking_time_to_first_transcript_ms",
+        "goa_speaking_ws_upgrade_success",
+        "goa_speaking_empty_transcripts"
+      ],
+      "properties": {
+        "checks": {
+          "type": "object",
+          "required": ["passes", "fails"],
+          "properties": {
+            "passes": { "type": "number", "minimum": 0 },
+            "fails": { "type": "number", "minimum": 0 }
+          }
+        },
+        "goa_chat_duration_ms": { "$ref": "#/definitions/trend" },
+        "goa_match_duration_ms": { "$ref": "#/definitions/trend" },
+        "goa_essay_upload_duration_ms": { "$ref": "#/definitions/trend" },
+        "goa_essay_evaluation_duration_ms": { "$ref": "#/definitions/trend" },
+        "goa_speaking_time_to_first_transcript_ms": { "$ref": "#/definitions/trend" },
+        "goa_speaking_time_to_complete_ms": { "$ref": "#/definitions/trend" },
+        "goa_server_errors": { "$ref": "#/definitions/counter" },
+        "goa_rate_limited": { "$ref": "#/definitions/counter" },
+        "goa_essay_agent_failures": { "$ref": "#/definitions/counter" },
+        "goa_speaking_empty_transcripts": { "$ref": "#/definitions/counter" },
+        "goa_speaking_ws_upgrade_success": { "$ref": "#/definitions/rate" },
+        "http_reqs": { "$ref": "#/definitions/counter" },
+        "iterations": { "$ref": "#/definitions/counter" }
+      }
+    }
+  },
+  "definitions": {
+    "trend": {
+      "type": "object",
+      "description": "A k6 Trend as emitted by --summary-export. Note there is no p(99): the exporter emits p50/p90/p95 only, which is why the report states p99 as unavailable rather than inventing one.",
+      "required": ["med", "p(95)", "max", "min", "avg"],
+      "properties": {
+        "med": { "type": "number", "minimum": 0 },
+        "p(90)": { "type": "number", "minimum": 0 },
+        "p(95)": { "type": "number", "minimum": 0 },
+        "min": { "type": "number", "minimum": 0 },
+        "max": { "type": "number", "minimum": 0 },
+        "avg": { "type": "number", "minimum": 0 },
+        "thresholds": { "type": "object" }
+      }
+    },
+    "counter": {
+      "type": "object",
+      "required": ["count"],
+      "properties": {
+        "count": { "type": "number", "minimum": 0 },
+        "rate": { "type": "number" },
+        "thresholds": { "type": "object" }
+      }
+    },
+    "rate": {
+      "type": "object",
+      "required": ["value"],
+      "properties": {
+        "value": { "type": "number", "minimum": 0, "maximum": 1 },
+        "passes": { "type": "number", "minimum": 0 },
+        "fails": { "type": "number", "minimum": 0 },
+        "thresholds": { "type": "object" }
+      }
+    }
+  }
+}

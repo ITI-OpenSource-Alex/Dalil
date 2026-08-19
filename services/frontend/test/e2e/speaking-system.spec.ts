@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures/auth";
+import { test, expect, signInThroughApi } from "./fixtures/auth";
 
 async function isSpeakingServiceReachable(
   request: import("@playwright/test").APIRequestContext,
@@ -53,6 +53,14 @@ test.describe("Dalil Speaking Practice", () => {
       "Speaking service not reachable — this test needs a live WebSocket handshake.",
     );
 
+    // A REAL session, not the placeholder cookie the fixture installs by
+    // default. GOA-132 put this socket behind the Gateway, so the upgrade now
+    // goes through middleware.JWT and a placeholder token is rejected -- the
+    // panel reports "Status: Error" and the assertions below describe nothing.
+    const account = await signInThroughApi(page, request);
+    test.skip(!account, "Gateway unreachable - cannot mint a real session for a live socket.");
+    await page.reload();
+
     await page.context().grantPermissions(["microphone"]);
 
     await page.getByTestId("start-speaking-button").click();
@@ -79,6 +87,14 @@ test.describe("Dalil Speaking Practice", () => {
       "Speaking service not reachable — the waveform only appears once a live WebSocket delivers a MediaStream.",
     );
 
+    // A REAL session, not the placeholder cookie the fixture installs by
+    // default. GOA-132 put this socket behind the Gateway, so the upgrade now
+    // goes through middleware.JWT and a placeholder token is rejected -- the
+    // panel reports "Status: Error" and the assertions below describe nothing.
+    const account = await signInThroughApi(page, request);
+    test.skip(!account, "Gateway unreachable - cannot mint a real session for a live socket.");
+    await page.reload();
+
     await page.context().grantPermissions(["microphone"]);
 
     await page.getByTestId("start-speaking-button").click();
@@ -96,6 +112,14 @@ test.describe("Dalil Speaking Practice", () => {
       !(await isSpeakingServiceReachable(request)),
       "Speaking service not reachable — this test needs the real recording pipeline.",
     );
+
+    // A REAL session, not the placeholder cookie the fixture installs by
+    // default. GOA-132 put this socket behind the Gateway, so the upgrade now
+    // goes through middleware.JWT and a placeholder token is rejected -- the
+    // panel reports "Status: Error" and the assertions below describe nothing.
+    const account = await signInThroughApi(page, request);
+    test.skip(!account, "Gateway unreachable - cannot mint a real session for a live socket.");
+    await page.reload();
 
     await page.context().grantPermissions(["microphone"]);
 

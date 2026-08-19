@@ -4,12 +4,24 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from goa_pricing import cost_usd as price_call
 
 
 MODEL = "claude-opus-5"
+# 1200 until 2026-08-17, and the same bug app/agents.py:417 already documents:
+# claude-opus-5 emits a ThinkingBlock before its TextBlock, and both draw on this
+# budget. A long enough thinking block exhausts it, the response returns with
+# stop_reason='max_tokens' and no TextBlock at all, and _response_text then has
+# nothing to parse. The failure is intermittent by nature -- it depends on how
+# much the model happens to think -- which is why the same CV extracted fine by
+# hand and failed through the worker. agents.py raised its equivalent to 4000
+# for exactly this reason; this call site was missed.
+#
+# A well-formed extraction measures ~550 output tokens, so 4000 leaves room for
+# thinking without inviting a runaway generation.
+MAX_TOKENS = 4000
 # GOA-135: INPUT_COST_PER_MILLION_USD = 1.0 / OUTPUT_COST_PER_MILLION_USD = 5.0
 # lived here and were half the $2/$10 table current during GOA-135, so every CV
 # extraction cost was reported at 50%. Current prices come from the shared table
@@ -48,8 +60,22 @@ class StructuredCV(BaseModel):
     phone: str | None = None
     degree: str | None = None
     institution: str | None = None
-    graduation_year: str | None = None
+    # Declared str, but a year is a number and the model writes it as one:
+    # {"graduation_year": 2025} fails `str | None` under Pydantic v2, which does
+    # not coerce int to str. SYSTEM_PROMPT shows the field as bare `null`, so
+    # nothing ever told the model to quote it. Every extraction carrying a
+    # graduation year therefore failed validation, retried once, failed again,
+    # and surfaced as "Claude returned invalid structured CV JSON twice" -- a
+    # message that points at the model when the schema was at fault.
+    # Accept both and normalise to str so downstream consumers see one type.
+    graduation_year: str | int | None = None
     field_of_study: str | None = None
+
+    @field_validator("graduation_year", mode="after")
+    @classmethod
+    def _year_to_str(cls, value: str | int | None) -> str | None:
+        return None if value is None else str(value)
+
     skills: list[str] = Field(default_factory=list)
     work_experience: list[WorkExperience] = Field(default_factory=list)
     languages: list[str] = Field(default_factory=list)
@@ -104,7 +130,7 @@ class StructuredCVExtractor:
             started = time.perf_counter()
             response = self.client.messages.create(
                 model=self.model,
-                max_tokens=1200,
+                max_tokens=MAX_TOKENS,
                 # No `temperature`. The gateway fronts Bedrock, which rejects the
                 # parameter outright for Claude Opus through AgentRouter:
                 #   ValidationException: `temperature` is deprecated for this model

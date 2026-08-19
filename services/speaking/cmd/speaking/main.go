@@ -128,13 +128,14 @@ func main() {
 	// Every route lives in speaking.NewRouter so the exact production routing
 	// table can be built (and asserted on) by tests without binding a port.
 	router := speaking.NewRouter(speaking.RouterDeps{
-		Config:      cfg,
-		Repo:        dbRepo,
-		PracticeLLM: practiceLLMClient,
-		ExamLLM:     examLLMClient,
-		TTS:         ttsClient,
-		Langfuse:    langfuseClient,
-		Interviewer: speaking.NewInterviewerAgent(interviewerLLMClient),
+		Config:       cfg,
+		Repo:         dbRepo,
+		PracticeLLM:  practiceLLMClient,
+		ExamLLM:      examLLMClient,
+		TTS:          ttsClient,
+		Langfuse:     langfuseClient,
+		Interviewer:  speaking.NewInterviewerAgent(interviewerLLMClient),
+		ExamSessions: speaking.NewExamSessionClient(cfg.ExamServiceURL, cfg.InternalAPIKey),
 	})
 
 	server := &http.Server{

@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles } from "lucide-react";
+import Link from "next/link";
+import { History, Sparkles } from "lucide-react";
 import { ExamType, SkillArea } from "@/app/types/exam";
 import {
+  abandonSession,
   createSession,
   getExamProgress,
   type ExamProgress,
@@ -13,6 +15,10 @@ import { startListeningSession } from "@/lib/listening-api";
 import { useCurrentUser } from "@/app/hooks/useCurrentUser";
 import { useUpgradePrompt } from "@/components/subscription/upgrade-dialog";
 import { Alert, Button, Card, PageContainer } from "@/components/ui";
+import { ExplainWithDalilButton } from "@/components/chat/explain-with-dalil-button";
+import { compactFacts, fact } from "@/lib/explanation-context";
+
+const EXAM_TYPE: ExamType = "Academic";
 
 export default function ExamLandingPage() {
   const router = useRouter();
@@ -23,11 +29,12 @@ export default function ExamLandingPage() {
     retry: retryProfile,
   } = useCurrentUser();
   const upgrade = useUpgradePrompt();
-  const [examType, setExamType] = useState<ExamType>("Academic");
   const [progress, setProgress] = useState<ExamProgress | null>(null);
   const [mounted, setMounted] = useState(false);
   const [startingExam, setStartingExam] = useState<SkillArea | null>(null);
+  const [discardingSession, setDiscardingSession] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
+  const [discardError, setDiscardError] = useState<string | null>(null);
   // doc 11: tracked so the error banner's Retry action re-attempts the
   // same skill the user actually clicked, not a hardcoded one.
   const [lastAttemptedSkill, setLastAttemptedSkill] =
@@ -76,13 +83,31 @@ export default function ExamLandingPage() {
     router.push(`/exam/shell?session=${resumableSessionId}`);
   };
 
-  const handleDiscardSession = () => {
-    sessionStorage.removeItem("active_exam_session");
-    setResumableSessionId(null);
-  };
+  const handleDiscardSession = async () => {
+    if (!resumableSessionId || discardingSession) return;
+    if (
+      !window.confirm(
+        "Discard this in-progress exam? Your current answers will be lost.",
+      )
+    ) {
+      return;
+    }
 
-  const handleToggle = (type: ExamType) => {
-    setExamType(type);
+    setDiscardingSession(true);
+    setDiscardError(null);
+    try {
+      await abandonSession(resumableSessionId);
+      sessionStorage.removeItem("active_exam_session");
+      sessionStorage.removeItem(`listening_start_${resumableSessionId}`);
+      setResumableSessionId(null);
+    } catch (error) {
+      console.error(error);
+      setDiscardError(
+        "Unable to discard the in-progress exam. Please try again.",
+      );
+    } finally {
+      setDiscardingSession(false);
+    }
   };
 
   const startExam = async (skill: SkillArea) => {
@@ -109,11 +134,6 @@ export default function ExamLandingPage() {
       return;
     }
 
-    if (skill === "Speaking") {
-      router.push("/practice/speaking?mode=exam");
-      return;
-    }
-
     try {
       setStartingExam(skill);
 
@@ -129,13 +149,13 @@ export default function ExamLandingPage() {
       // the session marker and the raw start response have to be persisted
       // here.
       if (skill === "Listening") {
-        const listeningSession = await startListeningSession(examType);
+        const listeningSession = await startListeningSession(EXAM_TYPE);
 
         sessionStorage.setItem(
           "active_exam_session",
           JSON.stringify({
             sessionId: listeningSession.session_id,
-            examType,
+            examType: EXAM_TYPE,
             skillArea: skill,
           }),
         );
@@ -149,18 +169,24 @@ export default function ExamLandingPage() {
         return;
       }
 
-      const session = await createSession(examType, skill);
+      const session = await createSession(EXAM_TYPE, skill);
 
       sessionStorage.setItem(
         "active_exam_session",
         JSON.stringify({
           sessionId: session.session_id,
-          examType,
+          examType: EXAM_TYPE,
           skillArea: skill,
         }),
       );
 
-      router.push(`/exam/shell?session=${session.session_id}`);
+      if (skill === "Speaking") {
+        router.push(
+          `/practice/speaking?mode=exam&session=${session.session_id}`,
+        );
+      } else {
+        router.push(`/exam/shell?session=${session.session_id}`);
+      }
     } catch (error) {
       // A paid-tier refusal is a product decision, not a fault. The whole
       // /api/exam group is gated (GOA-059), so on a Free account this is the
@@ -190,6 +216,21 @@ export default function ExamLandingPage() {
       void startExam(lastAttemptedSkill);
     }
   };
+
+// Where each skill's past attempts live. Speaking and Writing have dedicated
+// history views; Reading and Listening have no per-skill page, so they point at
+// the Exam Progress tab, which already charts every skill's recorded bands.
+//
+// These controls exist because the Practice section was removed from the sidebar:
+// a student looking for past attempts starts from the skill they sat, not from a
+// separate nav tree. Without them the two history views would be unreachable
+// outside the Dashboard widgets.
+const HISTORY_HREF: Record<SkillArea, string> = {
+  Speaking: "/practice/speaking/history",
+  Writing: "/practice/writing/history",
+  Reading: "/profile?tab=progress",
+  Listening: "/profile?tab=progress",
+};
 
   const skillCards: {
     key: SkillArea;
@@ -312,7 +353,8 @@ export default function ExamLandingPage() {
   // is still loading would flash a paywall badge at a paying subscriber.
   const isFreeTier =
     profileStatus === "success" && user?.subscriptionTier !== "paid";
-  const identityLoading = profileStatus === "loading" || profileStatus === "idle";
+  const identityLoading =
+    profileStatus === "loading" || profileStatus === "idle";
 
   return (
     <PageContainer
@@ -339,28 +381,37 @@ export default function ExamLandingPage() {
             </p>
           </div>
 
-          <div className="flex rounded-full border border-border bg-surface p-1 text-xs font-semibold">
-            {(["Academic", "General"] as ExamType[]).map((type) => (
-              <button
-                key={type}
-                onClick={() => handleToggle(type)}
-                aria-pressed={examType === type}
-                className={`rounded-full px-3 py-1.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted ${examType === type ? "bg-brand text-fg-on-brand" : "text-fg-muted hover:bg-canvas-subtle"}`}
-              >
-                {type}
-              </button>
-            ))}
-          </div>
-
           {/* Overall Band Card */}
           <Card padding="sm" className="min-w-40">
             <span className="text-xs text-fg-subtle font-medium block mb-1">
               Current overall
             </span>
-            <div className="flex items-baseline gap-2">
+            <div className="flex items-center gap-2">
               <span className="text-3xl font-serif font-semibold text-fg">
                 {overallBand ?? "—"}
               </span>
+              {overallBand !== null && (
+                <ExplainWithDalilButton
+                  context={{
+                    kind: "exam_score",
+                    title: `your current IELTS practice average ${overallBand}`,
+                    facts: compactFacts([
+                      fact("Displayed average", overallBand),
+                      ...skillCards.map((card) =>
+                        fact(
+                          `${card.title} latest band`,
+                          latestBand(card.key)?.toFixed(1),
+                        ),
+                      ),
+                    ]),
+                    limitations: [
+                      "The dashboard average uses only the latest available practice band for each completed skill.",
+                      "This is not an official IELTS result.",
+                    ],
+                  }}
+                  prompt={`How is my current IELTS practice average ${overallBand} formed from my latest skill scores? Tell me which skill is pulling it down most.`}
+                />
+              )}
             </div>
           </Card>
         </div>
@@ -371,18 +422,24 @@ export default function ExamLandingPage() {
             className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
           >
             <p className="text-sm text-fg-muted">
-              You have an exam in progress. Would you like to resume it?
+              You have an exam in progress. Resume it, or discard it before
+              starting another exam.
             </p>
             <div className="flex shrink-0 gap-2">
-              <Button size="sm" onClick={handleResumeSession}>
+              <Button
+                size="sm"
+                disabled={discardingSession || startingExam !== null}
+                onClick={handleResumeSession}
+              >
                 Resume in-progress exam
               </Button>
               <Button
                 size="sm"
                 variant="secondary"
-                onClick={handleDiscardSession}
+                disabled={discardingSession || startingExam !== null}
+                onClick={() => void handleDiscardSession()}
               >
-                Discard
+                {discardingSession ? "Discarding…" : "Discard"}
               </Button>
             </div>
           </Card>
@@ -411,7 +468,7 @@ export default function ExamLandingPage() {
                 <Button
                   size="sm"
                   onClick={handleRetryStartExam}
-                          disabled={startingExam !== null || identityLoading}
+                  disabled={startingExam !== null || identityLoading}
                 >
                   Retry
                 </Button>
@@ -426,6 +483,33 @@ export default function ExamLandingPage() {
             }
           >
             {startError}
+          </Alert>
+        )}
+
+        {discardError && (
+          <Alert
+            tone="warning"
+            className="mb-6"
+            actions={
+              <>
+                <Button
+                  size="sm"
+                  onClick={() => void handleDiscardSession()}
+                  disabled={discardingSession}
+                >
+                  Retry discard
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setDiscardError(null)}
+                >
+                  Dismiss
+                </Button>
+              </>
+            }
+          >
+            {discardError}
           </Alert>
         )}
 
@@ -444,13 +528,41 @@ export default function ExamLandingPage() {
               <div>
                 <div className="flex justify-between items-start mb-2">
                   <div className="p-1">{card.icon}</div>
-                  <div className="text-right">
-                    <span className="text-2xl font-serif font-bold text-fg leading-none block">
-                      {latestBand(card.key)?.toFixed(1) ?? "—"}
-                    </span>
-                    <span className="text-[10px] uppercase font-bold text-fg-subtle tracking-wider">
-                      CURRENT BAND
-                    </span>
+                  <div className="flex items-start gap-1">
+                    <div className="text-right">
+                      <span className="text-2xl font-serif font-bold text-fg leading-none block">
+                        {latestBand(card.key)?.toFixed(1) ?? "—"}
+                      </span>
+                      <span className="text-[10px] uppercase font-bold text-fg-subtle tracking-wider">
+                        CURRENT BAND
+                      </span>
+                    </div>
+                    {latestBand(card.key) !== null && (
+                      <ExplainWithDalilButton
+                        context={{
+                          kind: "exam_score",
+                          title: `your latest ${card.title} practice band ${latestBand(card.key)?.toFixed(1)}`,
+                          facts: compactFacts([
+                            fact("Skill", card.title),
+                            fact(
+                              "Latest practice band",
+                              latestBand(card.key)?.toFixed(1),
+                            ),
+                            fact(
+                              "Recorded attempts",
+                              progress?.[
+                                card.key.toLowerCase() as keyof ExamProgress
+                              ]?.length,
+                            ),
+                          ]),
+                          limitations: [
+                            "This summary does not include the question- or criterion-level evidence; open the result for the full breakdown.",
+                          ],
+                        }}
+                        prompt={`What does my latest ${card.title} practice band ${latestBand(card.key)?.toFixed(1)} mean, and what should I inspect in the full result before deciding what to practise next?`}
+                        className="-mt-1"
+                      />
+                    )}
                   </div>
                 </div>
 
@@ -468,7 +580,11 @@ export default function ExamLandingPage() {
                   {card.available ? (
                     <>
                       <button
-                        disabled={startingExam !== null}
+                        disabled={
+                          startingExam !== null ||
+                          discardingSession ||
+                          resumableSessionId !== null
+                        }
                         onClick={() => startExam(card.key)}
                         className="bg-white/80 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed text-fg-muted text-l font-medium px-3 py-1 rounded-full border border-black/5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted"
                       >
@@ -496,6 +612,19 @@ export default function ExamLandingPage() {
                     </span>
                   )}
                 </div>
+
+                {/* Past attempts for this skill. Reading and Listening have no
+                    dedicated history page, so they open the Exam Progress tab,
+                    which already charts their recorded bands. */}
+                <Link
+                  href={HISTORY_HREF[card.key]}
+                  aria-label={`View your ${card.title} history`}
+                  title={`View your ${card.title} history`}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-black/5 bg-white/80 px-3 py-1 text-xs font-medium text-fg-muted transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-muted"
+                >
+                  <History size={13} aria-hidden="true" />
+                  History
+                </Link>
               </div>
             </div>
           ))}

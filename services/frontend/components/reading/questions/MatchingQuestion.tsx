@@ -17,6 +17,10 @@ interface Props {
  * grading with no extra serialization step). Falls back to free text when
  * no option list could be parsed from the prompt. */
 export default function MatchingQuestion({ question, value, onChange }: Props) {
+  const isMapLabelling = question.rawQuestionType
+    .toLowerCase()
+    .includes("map labelling");
+
   return (
     <QuestionShell
       number={question.number}
@@ -39,9 +43,10 @@ export default function MatchingQuestion({ question, value, onChange }: Props) {
           <option value="">Select a match…</option>
           {question.options.map((option, i) => {
             const letter = String.fromCharCode(65 + i);
+            const optionValue = isMapLabelling ? option : letter;
             return (
-              <option key={i} value={letter}>
-                {letter}. {option}
+              <option key={i} value={optionValue}>
+                {isMapLabelling ? `Location ${option}` : `${letter}. ${option}`}
               </option>
             );
           })}

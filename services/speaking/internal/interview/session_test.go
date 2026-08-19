@@ -104,12 +104,38 @@ func TestPrepIsServerAuthoritativeAndLongTurnCannotEndEarly(t *testing.T) {
 	if !errors.Is(err, ErrLongTurnTooShort) || session.State() != StatePart2LongTurn {
 		t.Fatalf("short long-turn was accepted: state=%s err=%v", session.State(), err)
 	}
+	// Waiting must not turn a short recording into a valid long turn.
 	clock.Advance(40 * time.Second)
+	if _, err := session.Handle(ctx, Event{Type: EventAudioEnd, Candidate: CandidateTurn{Text: "Still short", DurationS: 20}}); !errors.Is(err, ErrLongTurnTooShort) {
+		t.Fatalf("wall-clock delay incorrectly satisfied speech minimum: %v", err)
+	}
 	if _, err := session.Handle(ctx, Event{Type: EventAudioEnd, Candidate: CandidateTurn{Text: "Complete long turn", DurationS: 60}}); err != nil {
 		t.Fatalf("60-second long turn was rejected: %v", err)
 	}
 	if session.State() != StatePart2Rounding {
 		t.Fatalf("long turn did not advance to rounding: %s", session.State())
+	}
+}
+
+func TestPart1AndPart3DeadlinesAreAuthoritative(t *testing.T) {
+	session, clock, _ := newTestSession(t)
+	ctx := context.Background()
+	if _, err := session.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if session.Deadline().IsZero() {
+		t.Fatal("Part 1 has no server deadline")
+	}
+	if _, err := session.Handle(ctx, Event{Type: EventReady}); err != nil {
+		t.Fatal(err)
+	}
+	clock.Advance(time.Minute)
+	if _, err := session.Handle(ctx, Event{Type: EventTimerExpired}); !errors.Is(err, ErrTimerNotExpired) {
+		t.Fatalf("early Part 1 timer accepted: %v", err)
+	}
+	clock.Advance(4 * time.Minute)
+	if _, err := session.Handle(ctx, Event{Type: EventTimerExpired}); err != nil || session.State() != StatePart2Cue {
+		t.Fatalf("Part 1 deadline did not advance: state=%s err=%v", session.State(), err)
 	}
 }
 

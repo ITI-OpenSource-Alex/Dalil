@@ -19,6 +19,9 @@ import {
 import ReadingResultsView from "@/components/reading/results/ReadingResultsView";
 import { READING_UI_TYPE_LABELS } from "@/lib/reading-results";
 import { Badge, Button, Card, Heading, PageContainer, Text } from "@/components/ui";
+import { ExplainWithDalilButton } from "@/components/chat/explain-with-dalil-button";
+import { compactFacts, fact } from "@/lib/explanation-context";
+import { normalizeListeningQuestions } from "@/lib/listening-api";
 
 // useSearchParams() opts the page into client-side rendering during
 // prerendering, which Next.js requires to be wrapped in a Suspense boundary
@@ -91,21 +94,49 @@ function ResultsPageContent() {
       return;
     }
 
-    // Listening is stored and read back exactly like Reading, and for the same
-    // reason -- the exam service has no GET-result endpoint for it either, so
-    // the submit response captured client-side is the only copy of the
-    // per-question breakdown. See lib/listening-result-storage.ts.
     if (skill === "Listening") {
       const stored = loadListeningResult(sessionId);
-      setListeningResult(stored);
-      setLoading(false);
-
-      if (!stored) {
-        setError("No Listening result found for this session.");
+      if (stored) {
+        setListeningResult(stored);
+        setLoading(false);
+        sessionStorage.removeItem("active_exam_session");
         return;
       }
 
-      sessionStorage.removeItem("active_exam_session");
+      // sessionStorage is only a fast path. A refresh, a new tab, or browser
+      // cleanup must still be able to rebuild the detailed result from the
+      // durable exam-service record.
+      (async () => {
+        try {
+          setLoading(true);
+          const recovered = await getResult(sessionId);
+          if (
+            !recovered.per_question_result ||
+            !recovered.section_breakdown ||
+            !recovered.questions
+          ) {
+            throw new Error("Listening result details are unavailable.");
+          }
+          setListeningResult({
+            result: {
+              raw_score: recovered.raw_score,
+              band_score: recovered.band_score ?? 0,
+              per_question_result: recovered.per_question_result,
+              section_breakdown: recovered.section_breakdown,
+            },
+            questions: normalizeListeningQuestions(recovered.questions),
+          });
+          sessionStorage.removeItem("active_exam_session");
+        } catch (err) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Failed to load Listening result",
+          );
+        } finally {
+          setLoading(false);
+        }
+      })();
 
       return;
     }
@@ -209,6 +240,7 @@ function ResultsPageContent() {
           <ReadingResultsView
             result={readingResult.result}
             questions={readingResult.questions}
+            subjectId={sessionId}
           />
         </div>
       </PageContainer>
@@ -247,6 +279,7 @@ function ResultsPageContent() {
             buttonTestId="practice-listening-again-button"
             questionTypeLabels={READING_UI_TYPE_LABELS}
             locationLabel="Section"
+            subjectId={sessionId}
             sections={[
               { key: "section_1", label: "Section 1" },
               { key: "section_2", label: "Section 2" },
@@ -275,7 +308,7 @@ function ResultsPageContent() {
             mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
           }`}
         >
-          <CombinedWritingResults result={writingResult} />
+          <CombinedWritingResults result={writingResult} subjectId={sessionId} />
         </div>
       </PageContainer>
     );
@@ -317,7 +350,7 @@ function ResultsPageContent() {
               {skill} Analytics
             </Heading>
           </div>
-          <div className="shrink-0 rounded-card border border-border bg-canvas-subtle px-6 py-3 text-center">
+          <div className="relative shrink-0 rounded-card border border-border bg-canvas-subtle px-6 py-3 text-center">
             <Text size="xs" tone="subtle" weight="semibold" className="tracking-widest uppercase">
               Overall band
             </Text>
@@ -332,6 +365,28 @@ function ResultsPageContent() {
             <Text size="sm" tone="muted">
               Raw Score: {result.raw_score}
             </Text>
+            {result.band_score !== null && (
+              <ExplainWithDalilButton
+                context={{
+                  kind: "exam_score",
+                  title: `your ${skill} simulation band ${result.band_score}`,
+                  subjectId: sessionId,
+                  facts: compactFacts([
+                    fact("Skill", skill),
+                    fact("Band score", result.band_score),
+                    fact("Raw score", result.raw_score),
+                    ...sectionScores.map(([section, score]) =>
+                      fact(`${section.replaceAll("_", " ")} score`, score),
+                    ),
+                  ]),
+                  limitations: [
+                    "This is a simulation result, not an official IELTS result.",
+                  ],
+                }}
+                prompt={`Explain my ${skill} simulation band ${result.band_score}. How did the section scores contribute, and why is ${weakestSection?.[0]?.replaceAll("_", " ") ?? "the weakest section"} my priority?`}
+                className="absolute -right-3 -top-3"
+              />
+            )}
           </div>
         </Card>
 

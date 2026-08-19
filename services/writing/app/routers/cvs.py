@@ -1,8 +1,10 @@
 import asyncio
 import json
 import logging
+from typing import Any
 from uuid import uuid4
 
+import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -12,6 +14,7 @@ from app.dependencies import get_db, get_s3_client, get_sqs_client
 from app.models import CVReview
 from app.schemas import CVLatestResponse, CVReviewRequest, CVUploadResponse
 from app.services.cv_review import (
+    SECTION_NAMES,
     CVReviewCoordinator,
     cv_review_cache_key,
     cv_review_response,
@@ -34,6 +37,37 @@ from app.services.event_publisher import publish_cv_uploaded
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/cv", tags=["CV"])
+
+
+async def _fetch_programme_requirements(
+    program_id: str, settings: Settings
+) -> dict[str, Any]:
+    """Resolve authoritative programme context from the RAG owner."""
+    url = f"{settings.rag_service_url.rstrip('/')}/internal/programs/{program_id}/requirements"
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                url,
+                headers={"X-Internal-Api-Key": settings.internal_api_key},
+            )
+    except Exception as exc:
+        logger.exception("Programme lookup failed for CV review %s", program_id)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Programme details are temporarily unavailable",
+        ) from exc
+
+    if response.status_code == status.HTTP_404_NOT_FOUND:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Program not found",
+        )
+    if response.status_code != status.HTTP_200_OK:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Programme details are temporarily unavailable",
+        )
+    return response.json()
 
 
 def _delete_review(db: Session, review: CVReview) -> None:
@@ -213,11 +247,28 @@ async def review_cv_endpoint(
             detail="CV is marked ready but holds no extracted content",
         )
 
+    programme: dict[str, Any] | None = None
+    if payload.programId:
+        programme = await _fetch_programme_requirements(payload.programId, settings)
+        target_country = str(programme.get("country") or "Not specified").strip()
+        target_field = str(
+            programme.get("name")
+            or programme.get("program_name")
+            or programme.get("discipline")
+            or "Selected programme"
+        ).strip()
+    else:
+        # Backward-compatible path for clients deployed before programme-scoped
+        # recommendations. The current frontend never exposes these fields.
+        target_country = payload.targetCountry or "Not specified"
+        target_field = payload.targetField or "Selected programme"
+
     cache_key = cv_review_cache_key(
         review.extracted_text or "",
-        payload.targetCountry,
-        payload.targetField,
+        target_country,
+        target_field,
         settings,
+        programme,
     )
     cache_client = get_redis_client(settings)
     try:
@@ -241,28 +292,44 @@ async def review_cv_endpoint(
                     )
                     from_cache = True
                 else:
-                    conventions = await fetch_country_conventions(
-                        payload.userId,
-                        payload.targetCountry,
-                        settings,
-                    )
+                    if programme is not None:
+                        # The selected programme response is already the verified
+                        # requirements source. Starting a second RAG/LLM request
+                        # here used to compete with the review itself even after
+                        # its short client timeout had elapsed.
+                        conventions = (
+                            f"Apply conservative CV conventions for {target_country}. "
+                            "Do not present local customs as programme requirements, "
+                            "and state uncertainty where conventions vary."
+                        )
+                    else:
+                        conventions = await fetch_country_conventions(
+                            payload.userId,
+                            target_country,
+                            settings,
+                        )
                     summary = await coordinator.review(
                         extracted_text=review.extracted_text,
                         structured_data=review.structured_data,
-                        target_country=payload.targetCountry,
-                        target_field=payload.targetField,
+                        target_country=target_country,
+                        target_field=target_field,
                         country_conventions=conventions,
+                        program_context=programme,
                         on_partial=on_partial,
                     )
                     from_cache = False
-                    try:
-                        await set_cached_review(
-                            cache_client,
-                            cache_key,
-                            cv_review_response(summary).model_dump(mode="json"),
-                        )
-                    except Exception:
-                        logger.warning("CV review cache write failed", exc_info=True)
+                    # A timed-out model section should not discard four useful
+                    # results, but it should also not turn that partial response
+                    # into the user's cached answer for the next 24 hours.
+                    if len(summary.sections) == len(SECTION_NAMES):
+                        try:
+                            await set_cached_review(
+                                cache_client,
+                                cache_key,
+                                cv_review_response(summary).model_dump(mode="json"),
+                            )
+                        except Exception:
+                            logger.warning("CV review cache write failed", exc_info=True)
 
                 data = cv_review_response(summary).model_dump(mode="json")
                 data["fromCache"] = from_cache
@@ -270,7 +337,15 @@ async def review_cv_endpoint(
             except Exception:
                 logger.exception("CV review failed", extra={"cv_id": review.id})
                 await queue.put(
-                    ("error", {"detail": "The CV review model could not be reached"})
+                    (
+                        "error",
+                        {
+                            "detail": (
+                                "CV recommendations couldn't be generated. "
+                                "Please try again."
+                            )
+                        },
+                    )
                 )
             finally:
                 await queue.put(None)

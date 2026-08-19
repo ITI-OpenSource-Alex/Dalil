@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, fireEvent } from "@testing-library/react";
+import { render, fireEvent, screen } from "@testing-library/react";
 import LockedAudioPlayer from "@/components/listening/LockedAudioPlayer";
 
 // jsdom doesn't implement HTMLMediaElement playback, so `.play()`/`.pause()`
@@ -27,6 +27,17 @@ function setCurrentTime(audio: HTMLAudioElement, value: number) {
 }
 
 describe("LockedAudioPlayer", () => {
+
+  it("places the play/pause control at the right edge of the status row", () => {
+    render(<LockedAudioPlayer src="test.mp3" />);
+
+    const controls = screen.getByTestId("locked-audio-controls");
+    const button = screen.getByTestId("locked-audio-play-pause");
+
+    expect(controls).toHaveClass("justify-between");
+    expect(button).toHaveClass("ml-auto");
+    expect(controls.lastElementChild).toBe(button);
+  });
 
 /**
  * Advance playback to `target` the way a browser does: many small steps.
@@ -146,5 +157,16 @@ function playTo(audio: HTMLAudioElement, target: number, step = 0.25) {
     fireEvent(audio, new Event("seeking"));
 
     expect(audio.currentTime).toBe(0);
+  });
+
+  it("shows a recoverable error when the section audio cannot be loaded", () => {
+    const { container } = render(<LockedAudioPlayer src="missing.mp3" />);
+
+    fireEvent.error(getAudio(container));
+
+    expect(screen.getByRole("alert")).toHaveTextContent(/unable to load/i);
+    expect(
+      screen.getByRole("button", { name: /retry audio/i }),
+    ).toBeEnabled();
   });
 });

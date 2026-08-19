@@ -168,7 +168,7 @@ export default function BillingSuccessPage() {
                 <a href="/exam">Take an IELTS exam</a>
               </Button>
               <Button asChild variant="secondary" leadingIcon={FileText}>
-                <a href="/cv-review">Review my CV</a>
+                <a href="/profile?tab=cv">Manage my CV</a>
               </Button>
               <Button asChild variant="secondary">
                 <a href="/practice">Practice speaking or writing</a>

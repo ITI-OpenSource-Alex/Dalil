@@ -3,7 +3,7 @@
 import { useCallback } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-export const PROFILE_TABS = ["matches", "progress", "edit"] as const;
+export const PROFILE_TABS = ["matches", "progress", "cv", "edit"] as const;
 export type ProfileTab = (typeof PROFILE_TABS)[number];
 
 const DEFAULT_TAB: ProfileTab = "matches";

@@ -7,18 +7,21 @@ import { GraduationCap, MapPin, Calendar } from "lucide-react";
 import TypingIndicator from "./typing-indicator";
 import MessageBubble from "./message-bubble";
 import SourcesFootnote from "./sources-footnote";
+import { cn } from "@/lib/cn";
 
 interface MessageListProps {
   messages: Message[];
   isTyping: boolean;
   /** Initials for the user avatar, from the signed-in account. */
   userInitials?: string;
+  compact?: boolean;
 }
 
 export default function MessageList({
   messages,
   isTyping,
   userInitials,
+  compact = false,
 }: MessageListProps) {
   const endRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -36,7 +39,7 @@ export default function MessageList({
   const showTypingIndicator = isTyping && !hasStreamingMessage;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className={cn("mx-auto max-w-4xl", compact ? "space-y-4" : "space-y-6")}>
       <AnimatePresence initial={false}>
         {messages.map((msg) => {
           const isUser = msg.role === "user";
@@ -73,13 +76,13 @@ export default function MessageList({
                 // the avatar. max-w-3xl is deliberately wider than the
                 // bubble's max-w-[75%] -- the two-column opportunity card
                 // grid needs more room than that constraint allows.
-                <div className="ml-12 max-w-3xl space-y-2">
+                <div className={cn("max-w-3xl space-y-2", !compact && "ml-12")}>
                   {msg.sources && msg.sources.length > 0 && (
                     <SourcesFootnote sources={msg.sources} />
                   )}
 
                   {msg.opportunities && msg.opportunities.length > 0 && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className={cn("grid grid-cols-1 gap-3", !compact && "md:grid-cols-2")}>
                       {msg.opportunities.map((opp, idx) => (
                         <OpportunityCard key={idx} opp={opp} index={idx} />
                       ))}

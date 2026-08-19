@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import JSON, Column, DateTime, Integer, String, Text, func
+from sqlalchemy import JSON, Column, DateTime, Integer, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB
 
 from app.database import Base
@@ -60,3 +60,32 @@ class CVReview(Base):
         nullable=False,
         server_default=func.now(),
     )
+
+
+class MotivationLetter(Base):
+    """A motivation letter reviewed against a specific programme.
+
+    Separate from Essay by design -- see migrations/006_motivation_letters.sql for
+    why the two could not share a table.
+    """
+
+    __tablename__ = "motivation_letters"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String(128), nullable=False, index=True)
+    # Nullable: a letter can be reviewed before a programme is chosen. The
+    # programme_fit criterion abstains rather than the whole review failing.
+    program_id = Column(String(64), nullable=True, index=True)
+    content = Column(Text, nullable=False)
+    content_hash = Column(String(64), nullable=False, index=True)
+    status = Column(String(32), nullable=False, default="pending")
+    # Numeric, nullable, never defaulted to 0 -- an unscored review and a review
+    # that scored zero are different facts.
+    overall_score = Column(Numeric(3, 1), nullable=True)
+    criteria = Column(JSON().with_variant(JSONB, "postgresql"), nullable=True)
+    programme_snapshot = Column(JSON().with_variant(JSONB, "postgresql"), nullable=True)
+    error_message = Column(Text, nullable=True)
+    created_at = Column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    completed_at = Column(DateTime(timezone=True), nullable=True)

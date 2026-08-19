@@ -6,14 +6,11 @@ import { usePathname } from "next/navigation";
 import {
   AlertCircle,
   ArrowRight,
-  AudioLines,
   ChevronUp,
-  FileText,
   GraduationCap,
   LayoutDashboard,
   LogOut,
   Menu,
-  MessageSquare,
   Sparkles,
   Target,
   User as UserIcon,
@@ -48,6 +45,13 @@ import { Wordmark } from "@/components/marketing/wordmark";
 // buttons, Writing with no sidebar presence at all), each with its own
 // Practice + History children. Opportunities and Checklists likewise stop
 // pointing at /chat with an "In Chat" badge -- both now have their own pages.
+//
+// The Practice section was then removed again: it duplicated IELTS Exam at the
+// same altitude, and a user looking for their past attempts reasonably starts
+// from the skill they sat rather than from a separate top-level tree. Per-skill
+// History controls now live on the exam skill cards. The /practice routes are
+// unchanged and still reached from the Dashboard shortcut, quick-action and
+// recommendation widgets, so nothing is orphaned by dropping the nav entry.
 interface NavItem {
   label: string;
   icon: LucideIcon;
@@ -73,34 +77,13 @@ const NAV_ITEMS: NavItem[] = [
   // Phase E (docs/IA-REDESIGN-PROPOSAL.md): the user's home after
   // onboarding, replacing the temporary redirect to /opportunities.
   { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
-  { label: "Chat", icon: MessageSquare, href: "/chat" },
   {
     label: "IELTS Exam",
     icon: GraduationCap,
     href: "/exam",
     matchStrategy: "prefix",
   },
-  {
-    // Phase D (docs/IA-REDESIGN-PROPOSAL.md): a standalone section, no
-    // longer reachable only by opening Chat and finding the right toolbar
-    // button. "Speaking" used to sit here as its own top-level item with a
-    // single History child; Writing had no sidebar presence at all. Both
-    // skills are peers under Practice now, each with Practice + History.
-    label: "Practice",
-    icon: AudioLines,
-    href: "/practice",
-    matchStrategy: "prefix",
-    children: [
-      { label: "Speaking Practice", href: "/practice/speaking" },
-      { label: "Writing Practice", href: "/practice/writing" },
-    ],
-  },
   { label: "Opportunities", icon: Target, href: "/opportunities" },
-  // Phase E: standalone page, upload is free-tier, AI review remains paid
-  // (surfaced by the upgrade dialog on the page itself, not by hiding the
-  // nav entry -- href: null is for routes that don't exist yet, not for
-  // paid features, see the comment above NavItem).
-  { label: "CV Review", icon: FileText, href: "/cv-review" },
   { label: "Profile", icon: UserIcon, href: "/profile" },
 ];
 

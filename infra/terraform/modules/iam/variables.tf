@@ -105,3 +105,9 @@ variable "lambda_s3_bucket_arns" {
   type        = list(string)
   default     = []
 }
+
+variable "manage_session_manager_preferences" {
+  description = "Whether this workspace creates the account-global SSM-SessionManagerRunShell document. Exactly one workspace per account may own it."
+  type        = bool
+  default     = true
+}

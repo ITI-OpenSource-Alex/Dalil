@@ -105,12 +105,10 @@ async def test_per_country_finance_caching():
 
 
 @pytest.mark.asyncio
-async def test_pathway_without_amounts_or_evidence_is_not_rendered():
-    """Proof-of-funds is what Egyptian applicants plan months ahead for. A pathway with
-    no published figure produced items reading "requires proof of financial proof via
-    self_funded", which tells a student nothing — observed live from
-    gov.uk/student-visa (the landing page) before the source was repointed at
-    gov.uk/student-visa/money, where the GBP figures are actually published."""
+async def test_pathway_with_notes_but_no_amount_is_explicitly_informational():
+    """An authoritative page can establish the requirement without publishing a
+    number. Preserve that fact and say the number is absent; never render a fake zero
+    or the old contentless "financial proof via self_funded" string."""
     conn = await asyncpg.connect(settings.database_url)
     try:
         await conn.execute("DELETE FROM visa_requirements WHERE country = 'TestEmpty'")
@@ -121,7 +119,12 @@ async def test_pathway_without_amounts_or_evidence_is_not_rendered():
             VALUES ($1, 'TestEmpty', 'Student Visa', 'Landing Page', $2::jsonb, 'https://gov.uk/x', '{}'::jsonb)
         """, uuid.uuid4(), empty)
         clear_visa_finance_cache()
-        assert await get_student_visa_finance("TestEmpty", conn=conn) == []
+        items = await get_student_visa_finance("TestEmpty", conn=conn)
+        assert len(items) == 1
+        assert items[0]["type"] == "informational"
+        assert "the amount will vary" in items[0]["message"]
+        assert "no amount is published by this source" in items[0]["message"]
+        assert "0" not in items[0]["message"]
     finally:
         await conn.execute("DELETE FROM visa_requirements WHERE country = 'TestEmpty'")
         clear_visa_finance_cache()

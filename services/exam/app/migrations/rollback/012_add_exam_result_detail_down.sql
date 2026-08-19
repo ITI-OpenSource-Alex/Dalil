@@ -1,0 +1,2 @@
+ALTER TABLE exam_results
+DROP COLUMN IF EXISTS detail;

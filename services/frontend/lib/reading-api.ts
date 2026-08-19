@@ -1,6 +1,7 @@
 import type { ReadingAnswers, ReadingSubmitResponse } from "@/app/types/reading";
 import type { ExamSessionResponse } from "@/lib/exam-api";
 import { throwForResponse } from "@/lib/subscription";
+import { authenticatedFetch } from "@/lib/authenticated-fetch";
 
 // Reading-specific client for the /exam/reading/* endpoint.
 //
@@ -35,7 +36,7 @@ export async function submitReadingSession(
   sessionId: string,
   answers: ReadingAnswers,
 ): Promise<ReadingSubmitResponse> {
-  const response = await fetch(`${API_BASE}/reading/${sessionId}/submit`, {
+  const response = await authenticatedFetch(`${API_BASE}/reading/${sessionId}/submit`, {
     ...fetchOptions,
     method: "PUT",
     headers,

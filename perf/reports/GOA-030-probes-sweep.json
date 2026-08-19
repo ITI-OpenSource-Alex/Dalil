@@ -1,0 +1,718 @@
+{
+  "benchmark": "GOA-030 ivfflat probes recall/latency",
+  "generated_at": "2026-08-11T01:02:24.862999+00:00",
+  "validity": {
+    "corpus": "live rag_db catalogue, not the frozen eval corpus",
+    "retrieval_only": true,
+    "note": "Recall is measured against expected source HOST, not chunk id, so a re-ingest does not invalidate it. Latency is the RAG service HTTP boundary on one developer machine and is a relative comparison between probes settings, not an SLO."
+  },
+  "top_k": 5,
+  "repeats": 3,
+  "results": {
+    "1": {
+      "recall_at_k": 0.4,
+      "visa_recall_at_k": 0.25,
+      "programme_recall_at_k": 1.0,
+      "mean_hit_rank": 1.25,
+      "latency_p50_ms": 1949.2,
+      "latency_p95_ms": 4570.3,
+      "latency_mean_ms": 1973.9,
+      "cases": [
+        {
+          "question": "What are the student visa requirements for Germany?",
+          "expected_host": "home-affairs.ec.europa.eu",
+          "hit_rank": null,
+          "hit": false,
+          "top_hosts": [
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com"
+          ]
+        },
+        {
+          "question": "How much money do I need in a blocked account for a German student visa?",
+          "expected_host": "www.fintiba.com",
+          "hit_rank": null,
+          "hit": false,
+          "top_hosts": [
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com"
+          ]
+        },
+        {
+          "question": "What do I need for a student visa in France?",
+          "expected_host": "home-affairs.ec.europa.eu",
+          "hit_rank": null,
+          "hit": false,
+          "top_hosts": [
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "stipendiumhungaricum.hu"
+          ]
+        },
+        {
+          "question": "Tell me about the student residence permit for the Netherlands.",
+          "expected_host": "home-affairs.ec.europa.eu",
+          "hit_rank": null,
+          "hit": false,
+          "top_hosts": [
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com"
+          ]
+        },
+        {
+          "question": "What are the visa requirements to study in Italy?",
+          "expected_host": "home-affairs.ec.europa.eu",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "home-affairs.ec.europa.eu",
+            "www.mastersportal.com",
+            "stipendiumhungaricum.hu",
+            "stipendiumhungaricum.hu",
+            "www.mastersportal.com"
+          ]
+        },
+        {
+          "question": "How do I get a student visa for Romania?",
+          "expected_host": "studyinromania.gov.ro",
+          "hit_rank": null,
+          "hit": false,
+          "top_hosts": [
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com"
+          ]
+        },
+        {
+          "question": "What is required for an Austrian student residence permit?",
+          "expected_host": "home-affairs.ec.europa.eu",
+          "hit_rank": null,
+          "hit": false,
+          "top_hosts": [
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com"
+          ]
+        },
+        {
+          "question": "Student visa requirements for Ireland?",
+          "expected_host": "home-affairs.ec.europa.eu",
+          "hit_rank": 2,
+          "hit": true,
+          "top_hosts": [
+            "www.mastersportal.com",
+            "home-affairs.ec.europa.eu",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com"
+          ]
+        },
+        {
+          "question": "Which universities in Germany offer a master's in software engineering?",
+          "expected_host": "www.mastersportal.com",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com"
+          ]
+        },
+        {
+          "question": "Show me computer science master's programmes.",
+          "expected_host": "www.mastersportal.com",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com"
+          ]
+        }
+      ]
+    },
+    "5": {
+      "recall_at_k": 0.9,
+      "visa_recall_at_k": 0.875,
+      "programme_recall_at_k": 1.0,
+      "mean_hit_rank": 1.1111111111111112,
+      "latency_p50_ms": 1873.9,
+      "latency_p95_ms": 2250.8,
+      "latency_mean_ms": 1657.5,
+      "cases": [
+        {
+          "question": "What are the student visa requirements for Germany?",
+          "expected_host": "home-affairs.ec.europa.eu",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "home-affairs.ec.europa.eu",
+            "www.mastersportal.com",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu"
+          ]
+        },
+        {
+          "question": "How much money do I need in a blocked account for a German student visa?",
+          "expected_host": "www.fintiba.com",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "www.fintiba.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com"
+          ]
+        },
+        {
+          "question": "What do I need for a student visa in France?",
+          "expected_host": "home-affairs.ec.europa.eu",
+          "hit_rank": 2,
+          "hit": true,
+          "top_hosts": [
+            "www.mastersportal.com",
+            "home-affairs.ec.europa.eu",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com"
+          ]
+        },
+        {
+          "question": "Tell me about the student residence permit for the Netherlands.",
+          "expected_host": "home-affairs.ec.europa.eu",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "www.mastersportal.com"
+          ]
+        },
+        {
+          "question": "What are the visa requirements to study in Italy?",
+          "expected_host": "home-affairs.ec.europa.eu",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu"
+          ]
+        },
+        {
+          "question": "How do I get a student visa for Romania?",
+          "expected_host": "studyinromania.gov.ro",
+          "hit_rank": null,
+          "hit": false,
+          "top_hosts": [
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "stipendiumhungaricum.hu",
+            "stipendiumhungaricum.hu",
+            "stipendiumhungaricum.hu"
+          ]
+        },
+        {
+          "question": "What is required for an Austrian student residence permit?",
+          "expected_host": "home-affairs.ec.europa.eu",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu"
+          ]
+        },
+        {
+          "question": "Student visa requirements for Ireland?",
+          "expected_host": "home-affairs.ec.europa.eu",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "www.mastersportal.com"
+          ]
+        },
+        {
+          "question": "Which universities in Germany offer a master's in software engineering?",
+          "expected_host": "www.mastersportal.com",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com"
+          ]
+        },
+        {
+          "question": "Show me computer science master's programmes.",
+          "expected_host": "www.mastersportal.com",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com"
+          ]
+        }
+      ]
+    },
+    "10": {
+      "recall_at_k": 1.0,
+      "visa_recall_at_k": 1.0,
+      "programme_recall_at_k": 1.0,
+      "mean_hit_rank": 1,
+      "latency_p50_ms": 1805.0,
+      "latency_p95_ms": 2149.7,
+      "latency_mean_ms": 1584.2,
+      "cases": [
+        {
+          "question": "What are the student visa requirements for Germany?",
+          "expected_host": "home-affairs.ec.europa.eu",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "home-affairs.ec.europa.eu",
+            "www.fintiba.com",
+            "www.mastersportal.com",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu"
+          ]
+        },
+        {
+          "question": "How much money do I need in a blocked account for a German student visa?",
+          "expected_host": "www.fintiba.com",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "www.fintiba.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com"
+          ]
+        },
+        {
+          "question": "What do I need for a student visa in France?",
+          "expected_host": "home-affairs.ec.europa.eu",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu"
+          ]
+        },
+        {
+          "question": "Tell me about the student residence permit for the Netherlands.",
+          "expected_host": "home-affairs.ec.europa.eu",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "www.mastersportal.com"
+          ]
+        },
+        {
+          "question": "What are the visa requirements to study in Italy?",
+          "expected_host": "home-affairs.ec.europa.eu",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu"
+          ]
+        },
+        {
+          "question": "How do I get a student visa for Romania?",
+          "expected_host": "studyinromania.gov.ro",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "studyinromania.gov.ro",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu"
+          ]
+        },
+        {
+          "question": "What is required for an Austrian student residence permit?",
+          "expected_host": "home-affairs.ec.europa.eu",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu"
+          ]
+        },
+        {
+          "question": "Student visa requirements for Ireland?",
+          "expected_host": "home-affairs.ec.europa.eu",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "www.mastersportal.com"
+          ]
+        },
+        {
+          "question": "Which universities in Germany offer a master's in software engineering?",
+          "expected_host": "www.mastersportal.com",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com"
+          ]
+        },
+        {
+          "question": "Show me computer science master's programmes.",
+          "expected_host": "www.mastersportal.com",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com"
+          ]
+        }
+      ]
+    },
+    "20": {
+      "recall_at_k": 1.0,
+      "visa_recall_at_k": 1.0,
+      "programme_recall_at_k": 1.0,
+      "mean_hit_rank": 1,
+      "latency_p50_ms": 2028.3,
+      "latency_p95_ms": 2773.6,
+      "latency_mean_ms": 1899.7,
+      "cases": [
+        {
+          "question": "What are the student visa requirements for Germany?",
+          "expected_host": "home-affairs.ec.europa.eu",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "home-affairs.ec.europa.eu",
+            "www.fintiba.com",
+            "www.mastersportal.com",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu"
+          ]
+        },
+        {
+          "question": "How much money do I need in a blocked account for a German student visa?",
+          "expected_host": "www.fintiba.com",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "www.fintiba.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "home-affairs.ec.europa.eu",
+            "www.mastersportal.com"
+          ]
+        },
+        {
+          "question": "What do I need for a student visa in France?",
+          "expected_host": "home-affairs.ec.europa.eu",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu"
+          ]
+        },
+        {
+          "question": "Tell me about the student residence permit for the Netherlands.",
+          "expected_host": "home-affairs.ec.europa.eu",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu"
+          ]
+        },
+        {
+          "question": "What are the visa requirements to study in Italy?",
+          "expected_host": "home-affairs.ec.europa.eu",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu"
+          ]
+        },
+        {
+          "question": "How do I get a student visa for Romania?",
+          "expected_host": "studyinromania.gov.ro",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "studyinromania.gov.ro",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu"
+          ]
+        },
+        {
+          "question": "What is required for an Austrian student residence permit?",
+          "expected_host": "home-affairs.ec.europa.eu",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu"
+          ]
+        },
+        {
+          "question": "Student visa requirements for Ireland?",
+          "expected_host": "home-affairs.ec.europa.eu",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "www.mastersportal.com"
+          ]
+        },
+        {
+          "question": "Which universities in Germany offer a master's in software engineering?",
+          "expected_host": "www.mastersportal.com",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com"
+          ]
+        },
+        {
+          "question": "Show me computer science master's programmes.",
+          "expected_host": "www.mastersportal.com",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com"
+          ]
+        }
+      ]
+    },
+    "50": {
+      "recall_at_k": 1.0,
+      "visa_recall_at_k": 1.0,
+      "programme_recall_at_k": 1.0,
+      "mean_hit_rank": 1,
+      "latency_p50_ms": 2206.2,
+      "latency_p95_ms": 2686.0,
+      "latency_mean_ms": 1999.3,
+      "cases": [
+        {
+          "question": "What are the student visa requirements for Germany?",
+          "expected_host": "home-affairs.ec.europa.eu",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "home-affairs.ec.europa.eu",
+            "www.fintiba.com",
+            "www.mastersportal.com",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu"
+          ]
+        },
+        {
+          "question": "How much money do I need in a blocked account for a German student visa?",
+          "expected_host": "www.fintiba.com",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "www.fintiba.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "home-affairs.ec.europa.eu",
+            "www.mastersportal.com"
+          ]
+        },
+        {
+          "question": "What do I need for a student visa in France?",
+          "expected_host": "home-affairs.ec.europa.eu",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu"
+          ]
+        },
+        {
+          "question": "Tell me about the student residence permit for the Netherlands.",
+          "expected_host": "home-affairs.ec.europa.eu",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu"
+          ]
+        },
+        {
+          "question": "What are the visa requirements to study in Italy?",
+          "expected_host": "home-affairs.ec.europa.eu",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu"
+          ]
+        },
+        {
+          "question": "How do I get a student visa for Romania?",
+          "expected_host": "studyinromania.gov.ro",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "studyinromania.gov.ro",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu"
+          ]
+        },
+        {
+          "question": "What is required for an Austrian student residence permit?",
+          "expected_host": "home-affairs.ec.europa.eu",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu"
+          ]
+        },
+        {
+          "question": "Student visa requirements for Ireland?",
+          "expected_host": "home-affairs.ec.europa.eu",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "home-affairs.ec.europa.eu",
+            "www.mastersportal.com"
+          ]
+        },
+        {
+          "question": "Which universities in Germany offer a master's in software engineering?",
+          "expected_host": "www.mastersportal.com",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com"
+          ]
+        },
+        {
+          "question": "Show me computer science master's programmes.",
+          "expected_host": "www.mastersportal.com",
+          "hit_rank": 1,
+          "hit": true,
+          "top_hosts": [
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com",
+            "www.mastersportal.com"
+          ]
+        }
+      ]
+    }
+  }
+}

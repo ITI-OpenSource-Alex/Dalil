@@ -85,6 +85,8 @@ function buildListeningQuestions() {
         section_number: section,
         question_type: "sentence_completion",
         prompt: `Section ${section}, question ${number}`,
+        instructions:
+          "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.",
         options: null,
         correct_answer: `answer-${number}`,
       });
@@ -175,17 +177,49 @@ function buildListeningSubmitResponse(answers: Record<string, string>) {
 /** Mocks the Gateway's GET session and PUT listening/:id/submit endpoints,
  * plus the four section audio URLs, and exposes both the raw submit body
  * (to assert the scratch pad never leaks into it) and the parsed answers. */
-async function mockListeningBackend(page: Page) {
+async function mockListeningBackend(
+  page: Page,
+  options: {
+    expireFirstSubmit?: boolean;
+    remainingTimeSeconds?: number;
+  } = {},
+) {
   let submittedBody: Record<string, unknown> | null = null;
+  let submitAttempts = 0;
+  let genericSubmitAttempts = 0;
+  let refreshCalls = 0;
 
   await page.route(`${GATEWAY_API_BASE}/sessions/${SESSION_ID}`, (route) =>
-    withPreflight(route, (r) => fulfillJson(r, SESSION_RESPONSE)),
+    withPreflight(route, (r) =>
+      fulfillJson(r, {
+        ...SESSION_RESPONSE,
+        remaining_time_seconds:
+          options.remainingTimeSeconds ??
+          SESSION_RESPONSE.remaining_time_seconds,
+      }),
+    ),
+  );
+
+  // The shell sends this immediately and once per minute. Keep it inside the
+  // mocked auth boundary so only the deliberately expired submit below can
+  // exercise refresh, rather than leaking heartbeat calls to the live Gateway.
+  await page.route(
+    `${GATEWAY_API_BASE}/sessions/${SESSION_ID}/heartbeat`,
+    (route) => withPreflight(route, (r) => fulfillJson(r, { ok: true })),
   );
 
   await page.route(
     `${GATEWAY_API_BASE}/listening/${SESSION_ID}/submit`,
     (route) =>
       withPreflight(route, (r) => {
+        submitAttempts += 1;
+        if (options.expireFirstSubmit && submitAttempts === 1) {
+          return fulfillJson(
+            r,
+            { error: "missing or invalid authorization token" },
+            401,
+          );
+        }
         submittedBody = r.request().postDataJSON() as Record<string, unknown>;
         const answers = (submittedBody?.answers ?? {}) as Record<
           string,
@@ -193,6 +227,25 @@ async function mockListeningBackend(page: Page) {
         >;
         return fulfillJson(r, buildListeningSubmitResponse(answers));
       }),
+  );
+
+  // This endpoint is wrong for Listening because it receives the shell's
+  // generic `{answers:{}}` payload instead of the component's saved answers.
+  // Track it so the timer-expiry regression test can prove it is never called.
+  await page.route(
+    `${GATEWAY_API_BASE}/sessions/${SESSION_ID}/submit`,
+    (route) =>
+      withPreflight(route, (r) => {
+        genericSubmitAttempts += 1;
+        return fulfillJson(r, { detail: "wrong submit route" }, 500);
+      }),
+  );
+
+  await page.route("http://localhost:8080/auth/refresh", (route) =>
+    withPreflight(route, (r) => {
+      refreshCalls += 1;
+      return fulfillJson(r, { access_token: "rotated", token_type: "Bearer" });
+    }),
   );
 
   for (const url of AUDIO_URLS) {
@@ -207,6 +260,9 @@ async function mockListeningBackend(page: Page) {
 
   return {
     getSubmittedBody: () => submittedBody,
+    getSubmitAttempts: () => submitAttempts,
+    getGenericSubmitAttempts: () => genericSubmitAttempts,
+    getRefreshCalls: () => refreshCalls,
   };
 }
 
@@ -273,13 +329,57 @@ async function installPausedClock(page: Page) {
   const start = new Date("2024-01-01T12:00:00Z");
   await page.clock.install({ time: start });
   await gotoListeningExam(page);
-  await page.clock.pauseAt(new Date(start.getTime() + 1_000));
+
+  // Pause at whatever the page's clock actually reads, not at a fixed
+  // start + 1s.
+  //
+  // The fixed offset assumed the exam shell finished loading inside one second
+  // of fake-clock time. That stopped being true as the (app) layout grew, and
+  // pauseAt() then pointed into the past -- which Playwright rejects outright
+  // with "Cannot fast-forward to the past". Three specs were failing on a
+  // helper that had quietly become a measurement of page load rather than a
+  // setup for the silence gap.
+  //
+  // Reading the clock first makes this independent of how long the load takes,
+  // so it cannot rot the same way again.
+  // The margin is not superstition: the clock is still running between reading
+  // it and pausing it, so pausing at exactly the value just read is already in
+  // the past by the time the call lands. One second comfortably covers the
+  // round trip while staying far too short to reach the 30s silence gap these
+  // tests then advance through deliberately.
+  const now = await page.evaluate(() => Date.now());
+  await page.clock.pauseAt(new Date(now + 1_000));
 }
 
 test.describe("Dalil Listening exam (mocked backend)", () => {
   // First hit of /exam/shell often pays for a cold Next compile; keep headroom
   // above the default 30s so a slow webServer does not flake the suite.
   test.describe.configure({ timeout: 60_000 });
+
+  test("shows one instruction heading for the group and keeps playback controls on the right", async ({
+    page,
+  }) => {
+    await mockListeningBackend(page);
+    await gotoListeningExam(page);
+
+    await expect(page.getByText("Questions 1–3")).toBeVisible();
+    await expect(
+      page.getByText(
+        "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.",
+      ),
+    ).toHaveCount(1);
+
+    const statusBox = await page
+      .getByText("Ready to play", { exact: true })
+      .boundingBox();
+    const buttonBox = await page
+      .getByTestId("locked-audio-play-pause")
+      .boundingBox();
+
+    expect(statusBox).not.toBeNull();
+    expect(buttonBox).not.toBeNull();
+    expect(buttonBox!.x).toBeGreaterThan(statusBox!.x);
+  });
 
   test("audio plays, section 1 ends, and Next Section appears", async ({
     page,
@@ -362,10 +462,12 @@ test.describe("Dalil Listening exam (mocked backend)", () => {
     expect(currentTimeAfter).toBeLessThan(5);
   });
 
-  test("questions stay answerable across section transitions, and the scratch pad is never sent on submit", async ({
+  test("answers survive transitions and an expired token is refreshed before submit retries", async ({
     page,
   }) => {
-    const backend = await mockListeningBackend(page);
+    const backend = await mockListeningBackend(page, {
+      expireFirstSubmit: true,
+    });
     await installPausedClock(page);
 
     await page
@@ -433,6 +535,24 @@ test.describe("Dalil Listening exam (mocked backend)", () => {
         "10": "answer-10",
       }),
     );
+    expect(backend.getSubmitAttempts()).toBe(2);
+    expect(backend.getRefreshCalls()).toBe(1);
+  });
+
+  test("overall timer expiry submits through Listening only, never the empty generic route", async ({
+    page,
+  }) => {
+    const backend = await mockListeningBackend(page, {
+      remainingTimeSeconds: 1,
+    });
+    await gotoListeningExam(page);
+
+    await expect(page).toHaveURL(
+      new RegExp(`/exam/results\\?session=${SESSION_ID}&skill=Listening`),
+      { timeout: 10_000 },
+    );
+    expect(backend.getSubmitAttempts()).toBe(1);
+    expect(backend.getGenericSubmitAttempts()).toBe(0);
   });
 
   test("results render all four section scores and highlight the weakest question type", async ({

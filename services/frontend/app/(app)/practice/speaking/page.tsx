@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { History } from "lucide-react";
 import SpeakingPracticePanel from "@/components/practice/speaking-practice-panel";
 import { Badge, Button, Heading, PageContainer, Text } from "@/components/ui";
@@ -14,26 +16,56 @@ import { Badge, Button, Heading, PageContainer, Text } from "@/components/ui";
  */
 export default function SpeakingPracticePage() {
   return (
+    <Suspense
+      fallback={
+        <PageContainer size="lg">
+          <Text tone="muted">Loading speaking exam…</Text>
+        </PageContainer>
+      }
+    >
+      <SpeakingPageContent />
+    </Suspense>
+  );
+}
+
+function SpeakingPageContent() {
+  const searchParams = useSearchParams();
+  const examSessionId =
+    searchParams.get("mode") === "exam" ? searchParams.get("session") : null;
+  const examMode = Boolean(examSessionId);
+  return (
     <PageContainer size="lg">
       <div className="mb-8 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <Badge tone="brand" pill>
-            Speaking Practice
+            {examMode ? "Speaking Exam" : "Speaking Practice"}
           </Badge>
           <Heading as="h1" size="xl" className="mt-2">
-            IELTS Speaking
+            {examMode ? "IELTS Speaking Exam" : "IELTS Speaking"}
           </Heading>
           <Text size="sm" tone="muted" className="mt-1">
-            Answer a Part 2 prompt out loud and get scored on fluency,
-            lexical range, grammar and pronunciation.
+            {examMode
+              ? "Complete all three timed parts. Your transcript and official result are saved to Exam history."
+              : "Complete a full interview and get scored on fluency, lexical range, grammar and pronunciation."}
           </Text>
         </div>
-        <Button variant="secondary" size="sm" leadingIcon={History} asChild className="shrink-0">
-          <Link href="/practice/speaking/history">View history</Link>
-        </Button>
+        {!examMode && (
+          <Button
+            variant="secondary"
+            size="sm"
+            leadingIcon={History}
+            asChild
+            className="shrink-0"
+          >
+            <Link href="/practice/speaking/history">View history</Link>
+          </Button>
+        )}
       </div>
 
-      <SpeakingPracticePanel />
+      <SpeakingPracticePanel
+        mode={examMode ? "exam" : "practice"}
+        examSessionId={examSessionId ?? undefined}
+      />
     </PageContainer>
   );
 }

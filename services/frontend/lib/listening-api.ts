@@ -8,6 +8,8 @@ import type {
   NormalizedListeningQuestion,
 } from "@/app/types/listening";
 import { normalizeReadingQuestions } from "@/lib/normalizeReadingQuestions";
+import { authenticatedFetch } from "@/lib/authenticated-fetch";
+import { throwForResponse } from "@/lib/subscription";
 
 const API_BASE = `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080"}/api/exam`;
 
@@ -26,7 +28,7 @@ function toApiExamType(examType: ExamType): "academic" | "general" {
 export async function startListeningSession(
   examType: ExamType,
 ): Promise<ListeningStartResponse> {
-  const response = await fetch(
+  const response = await authenticatedFetch(
     `${API_BASE}/listening/start?exam_type=${toApiExamType(examType)}`,
     {
       ...fetchOptions,
@@ -36,7 +38,7 @@ export async function startListeningSession(
   );
 
   if (!response.ok) {
-    throw new Error(await response.text());
+    await throwForResponse(response, "exam-listening");
   }
 
   return response.json();
@@ -46,7 +48,7 @@ export async function submitListeningSession(
   sessionId: string,
   answers: ListeningAnswers,
 ): Promise<ListeningSubmitResponse> {
-  const response = await fetch(`${API_BASE}/listening/${sessionId}/submit`, {
+  const response = await authenticatedFetch(`${API_BASE}/listening/${sessionId}/submit`, {
     ...fetchOptions,
     method: "PUT",
     headers,
@@ -54,7 +56,7 @@ export async function submitListeningSession(
   });
 
   if (!response.ok) {
-    throw new Error(await response.text());
+    await throwForResponse(response, "exam-listening");
   }
 
   return response.json();

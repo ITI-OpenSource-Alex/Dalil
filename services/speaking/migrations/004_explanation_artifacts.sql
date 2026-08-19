@@ -14,7 +14,14 @@
 -- The table has no UPDATE path by design.
 
 CREATE TABLE IF NOT EXISTS speaking_explanations (
-    session_id      TEXT PRIMARY KEY
+    -- UUID, not TEXT: speaking_sessions.id is UUID (001), and Postgres refuses a
+    -- foreign key whose type does not match the column it references —
+    -- SQLSTATE 42804. Every migration runs in one transaction, so this single
+    -- statement rolled 001-003 back with it and left speaking_db with no tables
+    -- at all. The service calls log.Fatal on a migration failure, so it never
+    -- started, and the whole Speaking feature was unreachable rather than
+    -- merely missing its explanations.
+    session_id      UUID PRIMARY KEY
                     REFERENCES speaking_sessions(id) ON DELETE CASCADE,
 
     -- The renderable projection exactly as it was shown, including the claims

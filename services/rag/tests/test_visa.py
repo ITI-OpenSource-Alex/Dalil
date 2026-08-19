@@ -191,6 +191,43 @@ def test_visa_endpoint_with_correct_api_key_succeeds(monkeypatch):
     assert data["id"] == str(new_id)
 
 
+def test_visa_snapshot_endpoint_returns_persisted_evidence(monkeypatch):
+    make_mock_visa_db(
+        monkeypatch,
+        fetchrow_results=[
+            {
+                "country": "Germany",
+                "source_url": VALID_PAYLOAD["source_url"],
+                "extraction_evidence": {"requirements.passport": "Valid passport"},
+                "last_verified_at": "2026-08-09T12:00:00+00:00",
+            }
+        ],
+    )
+
+    response = client.get(
+        "/internal/visa-requirements",
+        params={"source_url": VALID_PAYLOAD["source_url"]},
+        headers={"X-Internal-Api-Key": settings.internal_api_key},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["extraction_evidence"] == {
+        "requirements.passport": "Valid passport"
+    }
+
+
+def test_visa_snapshot_endpoint_returns_404_when_source_is_absent(monkeypatch):
+    make_mock_visa_db(monkeypatch, fetchrow_results=[None])
+
+    response = client.get(
+        "/internal/visa-requirements",
+        params={"source_url": "https://missing.example/visa"},
+        headers={"X-Internal-Api-Key": settings.internal_api_key},
+    )
+
+    assert response.status_code == 404
+
+
 def test_documents_endpoint_auth_still_enforced_after_extraction(monkeypatch):
     """Regression check for Task 04's shared-module extraction: /internal/documents
     must still require the same header after verify_api_key moved to app.core.security."""

@@ -160,20 +160,37 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                 if facts_redis is not None:
                     await facts_redis.aclose()
 
-            # 3. Classify intent via structured LLM call
-            intent_result = await classify_intent(
-                message=request.message,
-                trace_id=trace_id,
-                parent_span_id=parent_span_id,
-                user_id=request.userId,
-                history=history,
-                exam_context=exam_context,
-                user_facts=user_facts,
-            )
-            intent = intent_result.intent
-            downstream_service = intent.lower()
-
-            resolved_message = intent_result.standalone_question or request.message
+            # 3. Explainability entry points already declare their intent and
+            # carry the exact evidence visible on the page. Sending them through
+            # the ordinary classifier adds latency and can misroute "why is my
+            # writing band 6?" into a new essay submission. The context remains
+            # turn-scoped and is never written into long-term facts.
+            if request.explanationContext:
+                intent = "GENERAL"
+                downstream_service = "explanation"
+                resolved_message = request.message
+                intent_confidence = 1.0
+                supervisor_output = {
+                    "intent": "EXPLANATION",
+                    "confidence": 1.0,
+                    "context_kind": request.explanationContext.kind,
+                    "facts_count": len(request.explanationContext.facts),
+                }
+            else:
+                intent_result = await classify_intent(
+                    message=request.message,
+                    trace_id=trace_id,
+                    parent_span_id=parent_span_id,
+                    user_id=request.userId,
+                    history=history,
+                    exam_context=exam_context,
+                    user_facts=user_facts,
+                )
+                intent = intent_result.intent
+                downstream_service = intent.lower()
+                resolved_message = intent_result.standalone_question or request.message
+                intent_confidence = intent_result.confidence
+                supervisor_output = intent_result.model_dump()
             if resolved_message != request.message:
                 logger.info(
                     "Resolved message against history",
@@ -199,7 +216,7 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                 
             if supervisor_span:
                 try:
-                    supervisor_span.update(output=intent_result.model_dump())
+                    supervisor_span.update(output=supervisor_output)
                     supervisor_span.end()
                 except Exception as e:
                     logger.warning("Failed to end Langfuse supervisor span", error=str(e))
@@ -228,7 +245,7 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                 data=ChatStreamEvent(
                     type="metadata",
                     intent=intent,
-                    confidence=intent_result.confidence
+                    confidence=intent_confidence
                 ).model_dump_json()
             )
             
@@ -259,6 +276,11 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                 attachments=request.attachments,
                 exam_context=exam_context,
                 traceparent=downstream_traceparent,
+                explanation_context=(
+                    request.explanationContext.model_dump(mode="json")
+                    if request.explanationContext
+                    else None
+                ),
             )
             
             async for event in response_stream:

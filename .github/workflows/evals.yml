@@ -39,15 +39,26 @@ jobs:
       - name: Start Docker Compose Stack
         run: |
           docker compose up -d
-          # Wait for Gateway to become healthy
-          echo "Waiting for services..."
-          for i in {1..20}; do
-            if curl -s http://localhost:8080/health > /dev/null; then
-              echo "Gateway is up!"
+          # Only wait for the Writing service, which is the sole service the
+          # eval runner calls directly (http://localhost:8000/essays/evaluate).
+          # The Gateway dev target compiles Go via air on container start, which
+          # takes 2-4+ minutes on a cold runner -- far longer than any eval needs.
+          # Gateway is not in the eval runner's call path so its readiness is
+          # not a precondition for running evaluations.
+          echo "Waiting for Writing service..."
+          WRITING_UP=false
+          for i in {1..30}; do
+            if curl -s http://localhost:8000/health > /dev/null; then
+              echo "Writing service is up!"
+              WRITING_UP=true
               break
             fi
             sleep 5
           done
+          if [ "$WRITING_UP" != "true" ]; then
+            echo "ERROR: Writing service failed to become ready in time."
+            exit 1
+          fi
           # Give localstack & postgres extra time to stabilize
           sleep 10
 

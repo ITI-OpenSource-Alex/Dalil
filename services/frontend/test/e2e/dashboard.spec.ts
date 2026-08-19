@@ -166,7 +166,7 @@ test.describe("Dalil Dashboard", () => {
 
     await page.goto("/dashboard");
 
-    await expect(page.getByText("5 of 5 fields")).toBeVisible();
+    await expect(page.getByText("6 of 6 details")).toBeVisible();
     await expect(
       page.getByRole("link", { name: "Complete your profile" }),
     ).toHaveCount(0);

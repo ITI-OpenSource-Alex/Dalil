@@ -1,14 +1,37 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import ChecklistView from "@/components/checklist/ChecklistView";
+import { getOpportunity } from "@/lib/opportunities-api";
 import { Badge, Button, Heading, PageContainer, Text } from "@/components/ui";
 
 export default function ChecklistPage() {
   const params = useParams<{ programId: string }>();
   const programId = params.programId;
+  const [programName, setProgramName] = useState<string | undefined>();
+  const [university, setUniversity] = useState<string | null>(null);
+  const [country, setCountry] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getOpportunity(programId)
+      .then((program) => {
+        if (cancelled) return;
+        setProgramName(program.programName);
+        setUniversity(program.university);
+        setCountry(program.country);
+      })
+      .catch(() => {
+        // Checklist still works without metadata; the index may keep the id
+        // as a fallback until the user opens from an opportunity card.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [programId]);
 
   return (
     <PageContainer size="md">
@@ -24,15 +47,27 @@ export default function ChecklistPage() {
           Application Checklist
         </Badge>
         <Heading as="h1" size="xl" className="mt-2">
-          Your Step-by-Step Guide
+          {programName ?? "Your step-by-step guide"}
         </Heading>
-        <Text size="sm" tone="muted" className="print-hidden mt-1">
-          Tick items off as you go — progress is saved automatically and shows
-          up on your checklists page.
-        </Text>
+        {(university || country) && (
+          <Text size="sm" tone="muted" className="print-hidden mt-1">
+            {[university, country].filter(Boolean).join(" · ")}
+          </Text>
+        )}
+        {!programName && (
+          <Text size="sm" tone="muted" className="print-hidden mt-1">
+            Tick items off as you go — progress is saved automatically and shows
+            up on your checklists page.
+          </Text>
+        )}
       </div>
 
-      <ChecklistView programId={programId} />
+      <ChecklistView
+        programId={programId}
+        programName={programName}
+        university={university}
+        country={country}
+      />
     </PageContainer>
   );
 }

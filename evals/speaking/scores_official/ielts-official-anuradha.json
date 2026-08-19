@@ -1,0 +1,131 @@
+{
+  "evaluation": {
+    "schema_version": "speaking-evaluation/v1",
+    "evaluation_id": "ielts-official-anuradha",
+    "mode": "benchmark",
+    "status": "partial",
+    "score_semantics": "estimated_ielts_practice_band",
+    "criteria": [
+      {
+        "criterion_id": "fluency_coherence",
+        "status": "scored",
+        "band": 8.5,
+        "summary": "Note: no measured speech features (words per minute, pause counts/durations) were supplied, so rate of speech, flow and pause proportion cannot be assessed directly; this evaluation is based on the coherence and cohesion evidence in the transcript, plus repetition patterns visible in the wording. On those dimensions the performance is very strong. Ideas are sequenced logically and developed at length, for example the clear past/present/future framing when discussing famous people in Malaysia, and the argument that models rather than celebrities should really sponsor perfume. Cohesive features are fully appropriate and used flexibly ('if we're talking about', 'Compared to now', 'Other than that', 'As you can see', 'Whilst'). What holds this just below a clear top band on available evidence is the presence of occasional repetition and restarts ('Among the among Malaysians', 'where whereby', 'that that celebrity'), which read as slightly more than 'rare', and the absence of timing data means the effortlessness of delivery cannot be confirmed.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "fc.8",
+            "descriptor_band": 8,
+            "polarity": "supports",
+            "application": "Topics are developed coherently and appropriately with only occasional repetition and self-correction visible in the wording."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "fc.7",
+            "descriptor_band": 7,
+            "polarity": "supports",
+            "application": "The candidate clearly speaks at length without loss of coherence, using a range of connectives and discourse markers flexibly."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "fc.9",
+            "descriptor_band": 9,
+            "polarity": "reaches_toward",
+            "application": "Cohesive features are fully appropriate, but repetitions such as 'among the among' and 'where whereby' read as slightly more than rare, and missing timing data prevents confirming effortless, content-only hesitation."
+          }
+        ]
+      },
+      {
+        "criterion_id": "lexical_resource",
+        "status": "scored",
+        "band": 8.5,
+        "summary": "You use a wide vocabulary resource readily and flexibly across a genuinely varied set of topics (media, advertising, body image, consumerism, animal rights), conveying precise meaning throughout. Less common and idiomatic language is deployed skilfully and, in most cases, naturally and accurately: 'strikes a chord', 'the world is becoming more globalized', 'have a tendency to be exposed to', 'grasp over people's mindset', 'consumerism', 'materialistically'. This is clearly a top-band performance. What keeps it from a flat 9 for word choice is a small number of slight imprecisions rather than any real vocabulary limitation: the coinage 'normal-bodied' and the awkward placement in 'influenced in a way materialistically' are marginally less than fully precise. Tighten those occasional word-formation and adverb-placement choices and the lexical precision is complete across all topics.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "lr.8",
+            "descriptor_band": 8,
+            "polarity": "supports",
+            "application": "She uses a wide vocabulary resource readily and flexibly to convey precise meaning and handles less common and idiomatic items ('strikes a chord', 'globalized', 'consumerism', 'grasp over people's mindset') skilfully."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "lr.9",
+            "descriptor_band": 9,
+            "polarity": "reaches_toward",
+            "application": "Idiomatic language is largely natural and accurate across all topics, approaching full flexibility and precision."
+          }
+        ]
+      },
+      {
+        "criterion_id": "grammatical_range",
+        "status": "scored",
+        "band": 8,
+        "summary": "You use a wide range of structures flexibly and produce a clear majority of error-free sentences, including nested relative clauses, passives, modals, participle phrases and long compound-complex sentences. Subordination and comparison are handled accurately and naturally. A few genuine errors beyond minor slips (a missing verb, occasional tense inconsistency, one redundant connector) keep you from the fully consistent accuracy required for Band 9. To reach the top band, aim for that same range with slightly cleaner control under spontaneous pressure.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.7",
+            "descriptor_band": 7,
+            "polarity": "supports",
+            "application": "The candidate uses a range of complex structures with real flexibility and frequently produces error-free sentences."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.8",
+            "descriptor_band": 8,
+            "polarity": "supports",
+            "application": "A wide range of structures is deployed flexibly and the majority of sentences, including long compound-complex ones, are error-free."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.9",
+            "descriptor_band": 9,
+            "polarity": "caps_below",
+            "application": "A handful of genuine errors (missing verb in 'they would one of the big car', tense shift in 'that sponsored', the 'where whereby' redundancy) go beyond minor slips, so accuracy is not yet fully consistent."
+          }
+        ]
+      },
+      {
+        "criterion_id": "pronunciation",
+        "status": "unavailable",
+        "unavailable_reason": "insufficient_evidence",
+        "summary": "Evaluation unavailable due to an internal error."
+      }
+    ],
+    "overall": {
+      "band": 8.5,
+      "unrounded_mean": 8.333333333333334,
+      "included_criteria": [
+        "fluency_coherence",
+        "lexical_resource",
+        "grammatical_range"
+      ],
+      "excluded_criteria": [
+        "pronunciation"
+      ],
+      "rounding_rule": "ielts_half_band_v1",
+      "min_criteria_required": 3
+    },
+    "provenance": {
+      "created_at": "2026-08-09T01:11:58.9277022Z",
+      "scorer_version": "speaking@dev",
+      "rubric_id": "ielts-speaking-public",
+      "rubric_version": "2023-06",
+      "rubric_sha256": "40820db22ab572944baa4ecc399d6ff2597291e076dd5c990bd7bc578974f9cb",
+      "llm_provider": "agentrouter",
+      "llm_model": "claude-opus-4-8"
+    }
+  },
+  "lane": "scorer_only",
+  "latency_ms": 70449,
+  "swarm_error": ""
+}

@@ -1,0 +1,95 @@
+{
+  "evaluation": {
+    "schema_version": "speaking-evaluation/v1",
+    "evaluation_id": "ielts-official-katsuharu",
+    "mode": "benchmark",
+    "status": "partial",
+    "score_semantics": "estimated_ielts_practice_band",
+    "criteria": [
+      {
+        "criterion_id": "fluency_coherence",
+        "status": "unavailable",
+        "unavailable_reason": "provider_error",
+        "summary": "Evaluation unavailable due to an internal error."
+      },
+      {
+        "criterion_id": "lexical_resource",
+        "status": "scored",
+        "band": 5,
+        "summary": "You manage to talk about the familiar topic of hobbies and generally make your meaning clear, but your vocabulary is used with limited flexibility. There is heavy repetition of core words (hobby, relax, enjoy, work, businessman, good feeling) rather than variation through synonyms. Word choice and collocation errors are frequent, such as 'good for social', 'fishing load'/'fishing wheels', and 'good feeling and atmospheres'. You do reach for some more general or abstract terms (essential, expensive, provides, extremely hard), which shows potential, but these appear inconsistently and are often surrounded by imprecise phrasing. To move higher, aim to paraphrase more successfully and reduce the repetition of the same few words.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "lr.5",
+            "descriptor_band": 5,
+            "polarity": "supports",
+            "application": "The candidate talks about the familiar hobbies topic but relies on a narrow set of repeated words and paraphrases with varying success, e.g. reaching for 'atmospheres' and 'good for social'."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "lr.6",
+            "descriptor_band": 6,
+            "polarity": "caps_below",
+            "application": "Vocabulary is not yet wide enough to discuss the topic at length flexibly, and paraphrase is not consistently successful, so meaning occasionally becomes unclear (e.g. 'Japan has deoration')."
+          }
+        ]
+      },
+      {
+        "criterion_id": "grammatical_range",
+        "status": "scored",
+        "band": 5,
+        "summary": "You produce basic sentence forms and manage a limited range of complex structures, mostly 'if' clauses (if I go fishing, I can relax), but there is little variety beyond these. Errors occur frequently, even in basic structures, particularly with subject-verb agreement ('some of them has problem', 'it depend on people') and quantifier/article use ('almost Japanese people likes'). To reach Band 6 you need to attempt a wider mix of complex structures with more flexibility and reduce the repeated basic errors so that more of your sentences are error-free.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.5",
+            "descriptor_band": 5,
+            "polarity": "supports",
+            "application": "The candidate produces basic sentence forms with reasonable accuracy but relies on a limited range of complex structures (chiefly 'if' clauses) that contain frequent errors."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.6",
+            "descriptor_band": 6,
+            "polarity": "caps_below",
+            "application": "The candidate does not yet use a broad enough mix of complex structures with flexibility, and repeated subject-verb agreement and article errors prevent the steadier control expected at Band 6."
+          }
+        ]
+      },
+      {
+        "criterion_id": "pronunciation",
+        "status": "unavailable",
+        "unavailable_reason": "insufficient_evidence",
+        "summary": "Evaluation unavailable due to an internal error."
+      }
+    ],
+    "overall": {
+      "included_criteria": [
+        "lexical_resource",
+        "grammatical_range"
+      ],
+      "excluded_criteria": [
+        "fluency_coherence",
+        "pronunciation"
+      ],
+      "rounding_rule": "ielts_half_band_v1",
+      "min_criteria_required": 3
+    },
+    "provenance": {
+      "created_at": "2026-08-09T01:14:25.0296568Z",
+      "scorer_version": "speaking@dev",
+      "rubric_id": "ielts-speaking-public",
+      "rubric_version": "2023-06",
+      "rubric_sha256": "40820db22ab572944baa4ecc399d6ff2597291e076dd5c990bd7bc578974f9cb",
+      "llm_provider": "agentrouter",
+      "llm_model": "claude-opus-4-8"
+    }
+  },
+  "lane": "scorer_only",
+  "latency_ms": 101356,
+  "swarm_error": ""
+}

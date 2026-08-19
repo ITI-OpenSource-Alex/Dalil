@@ -1,0 +1,131 @@
+{
+  "evaluation": {
+    "schema_version": "speaking-evaluation/v1",
+    "evaluation_id": "ielts-official-kopi",
+    "mode": "benchmark",
+    "status": "partial",
+    "score_semantics": "estimated_ielts_practice_band",
+    "criteria": [
+      {
+        "criterion_id": "fluency_coherence",
+        "status": "scored",
+        "band": 7.5,
+        "summary": "Note: no measured speech features (words per minute, articulation rate, pause counts/durations) were supplied, so I cannot judge your rate of speech, pausing or flow from timing. I have therefore assessed the coherence and cohesion components from the transcript only. Your ideas are logically sequenced and developed at length without loss of coherence, and you deploy a strong, flexible range of discourse markers and connectives to introduce and link ideas. This meets Band 7 comfortably and reaches into Band 8 in the way you develop topics coherently and appropriately. What holds the fluency judgement back is the noticeable clustering of repetition and false starts in several places, which goes beyond the 'only occasional repetition or self-correction' expected at Band 8; some of this reads as content-search hesitation as you consider abstract questions, which is consistent with a high band, but I cannot confirm the underlying delivery rate without timing data.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "fc.7",
+            "descriptor_band": 7,
+            "polarity": "supports",
+            "application": "The candidate speaks at length with no loss of coherence and uses a range of connectives and discourse markers flexibly (in that way, in some way, in that regards, in every respect, because, so)."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "fc.8",
+            "descriptor_band": 8,
+            "polarity": "reaches_toward",
+            "application": "Topics are developed coherently and appropriately with reasons and examples, and much of the hesitation appears content-related as the candidate considers abstract Part 3 questions."
+          }
+        ]
+      },
+      {
+        "criterion_id": "lexical_resource",
+        "status": "scored",
+        "band": 8,
+        "summary": "You draw on a wide vocabulary resource readily and flexibly, and your use of less common and idiomatic language is genuinely skilful ('I wouldn't put it past them', 'it can have a ripple effect', 'reaching out through music'). This precision and range place you firmly in the band 8 range. A few inappropriate word forms and choices keep you from full band 9 precision: 'recreation drugs' should be 'recreational drugs', 'old generation' should be 'older generation', and 'I see that as a step back' would more naturally be 'a backward step'. Tightening these word-form and collocation slips is what separates skilful use (8) from the fully natural and accurate idiomatic control expected at 9.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "lr.8",
+            "descriptor_band": 8,
+            "polarity": "supports",
+            "application": "Uses a wide vocabulary resource flexibly and deploys less common and idiomatic expressions such as 'I wouldn't put it past them' and 'a ripple effect' skilfully to convey precise meaning."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "lr.7",
+            "descriptor_band": 7,
+            "polarity": "supports",
+            "application": "Discusses varied abstract topics (fame, commercialisation, political influence) with clear awareness of collocation."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "lr.9",
+            "descriptor_band": 9,
+            "polarity": "caps_below",
+            "application": "A few inaccurate word forms and choices ('recreation drugs', 'old generation', 'step back') fall short of the full flexibility and consistently natural, accurate idiomatic language required for band 9."
+          }
+        ]
+      },
+      {
+        "criterion_id": "grammatical_range",
+        "status": "scored",
+        "band": 8,
+        "summary": "You use a wide range of sentence forms flexibly and naturally, and the majority of your sentences are error-free despite very complex ideas. You handle noun clauses, relative clauses, conditionals and indirect questions with control (e.g. 'I'm not sure whether celebrities is the right word to use', 'it depends on how we as a society are going to take it'). This is firmly Band 8 territory. What holds you back from Band 9 is a small cluster of errors that are slightly more than 'minor slips': an omitted verb ('the youth they easily influenced by' should be 'they are easily influenced'), a tense slip ('the old generation we're reaching out through music' should be 'were'), a missing article ('going for particular political candidate'), and one self-corrected but malformed structure ('how we as a society going to are going to take it'). Reducing these occasional inaccuracies would push your accuracy into the consistently-accurate range.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.8",
+            "descriptor_band": 8,
+            "polarity": "supports",
+            "application": "The candidate uses a wide range of structures flexibly and naturally and produces a clear majority of error-free sentences even when expressing complex, detailed ideas."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.7",
+            "descriptor_band": 7,
+            "polarity": "supports",
+            "application": "Complex structures such as conditionals, relative clauses and indirect questions are frequently produced accurately with good flexibility."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.9",
+            "descriptor_band": 9,
+            "polarity": "caps_below",
+            "application": "A handful of errors beyond minor slips (omitted verb, a tense error, a dropped article, and a malformed self-correction) mean structures are not yet consistently accurate."
+          }
+        ]
+      },
+      {
+        "criterion_id": "pronunciation",
+        "status": "unavailable",
+        "unavailable_reason": "insufficient_evidence",
+        "summary": "Evaluation unavailable due to an internal error."
+      }
+    ],
+    "overall": {
+      "band": 8,
+      "unrounded_mean": 7.833333333333333,
+      "included_criteria": [
+        "fluency_coherence",
+        "lexical_resource",
+        "grammatical_range"
+      ],
+      "excluded_criteria": [
+        "pronunciation"
+      ],
+      "rounding_rule": "ielts_half_band_v1",
+      "min_criteria_required": 3
+    },
+    "provenance": {
+      "created_at": "2026-08-09T01:17:07.3451579Z",
+      "scorer_version": "speaking@dev",
+      "rubric_id": "ielts-speaking-public",
+      "rubric_version": "2023-06",
+      "rubric_sha256": "40820db22ab572944baa4ecc399d6ff2597291e076dd5c990bd7bc578974f9cb",
+      "llm_provider": "agentrouter",
+      "llm_model": "claude-opus-4-8"
+    }
+  },
+  "lane": "scorer_only",
+  "latency_ms": 67146,
+  "swarm_error": ""
+}

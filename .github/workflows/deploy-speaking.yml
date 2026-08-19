@@ -1,0 +1,53 @@
+# -----------------------------------------------------------------------------
+# GOA-022: caller workflow for the speaking service.
+#
+# Deployment logic lives in deploy-template.yml; this file only declares which
+# service to deploy and when. Internal service: no ALB target group, so ECS can only detect a container that fails to start. See GOA-022 follow-up on container health checks.
+# -----------------------------------------------------------------------------
+
+name: Deploy Speaking to Staging
+
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - services/speaking/**
+      - .github/workflows/deploy-speaking.yml
+      - .github/workflows/deploy-template.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+  statuses: write
+
+# GOA-022 (N2): serialise deploys of this service. Each service has its own
+# group, so all changed services still deploy in parallel with one another --
+# which is what the "services deploy in parallel when all changed" AC asks for.
+#
+# cancel-in-progress is false on purpose: cancelling mid-deploy does not stop
+# ECS, it only discards the stability wait, so the run would go green while a
+# possibly-broken deployment carried on unwatched.
+concurrency:
+  group: deploy-staging-speaking
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # GOA-022 (B2): staging Terraform has never been applied, so without this
+    # guard every push to dev fails at the OIDC step with "Not authorized to
+    # perform sts:AssumeRoleWithWebIdentity".
+    #
+    # TO ENABLE: apply the staging Terraform, set AWS_ROLE_TO_ASSUME to the
+    # staging_deploy_role_arn output, then set STAGING_INFRA_READY to "true"
+    # under Settings > Secrets and variables > Actions > Variables.
+    #
+    # Do NOT work around a failing OIDC step with static AWS access keys.
+    if: vars.STAGING_INFRA_READY == 'true'
+    uses: ./.github/workflows/deploy-template.yml
+    with:
+      service_path: services/speaking
+      ecr_repository: goa-staging-speaking
+      ecs_service: goa-staging-speaking
+      container_name: speaking

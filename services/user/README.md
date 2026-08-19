@@ -1,98 +1,146 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# User Service
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+The User service is a NestJS application that manages user registration, credential hashing using bcrypt, profile information, password reset workflows, and email verification.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+---
 
-## Description
+## What it Owns
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+* **Responsibility**: Authenticating user credentials, managing user profiles (GPA, IELTS scores, target study countries), and generating email verification and password reset tokens.
+* **Database**: Connects to PostgreSQL (`user_db`). Manages `users`, `user_profiles`, and `refresh_tokens` tables.
+* **Queues**: Publishes `user.updated` and `notification.requested` events to LocalStack SQS.
 
-## Project setup
+---
 
-```bash
-$ npm install
+## API Reference
+
+*Note: `GET /users/internal`, `GET /users/:id`, and everything under `/internal/auth/*` require the `X-Internal-Api-Key` header and are only meant to be called by the Gateway. `POST /users` and everything under `/auth/*` below are public-facing.*
+
+### 1. `POST /users`
+* **Request Shape**:
+```json
+{
+  "email": "student@example.com",
+  "password": "strongpassword123",
+  "name": "John Doe"
+}
+```
+* **Response Shape (201 Created)**:
+```json
+{
+  "id": "usr_abc123",
+  "email": "student@example.com",
+  "name": "John Doe",
+  "subscriptionTier": "free",
+  "createdAt": "2026-06-28T01:00:00Z"
+}
+```
+* **Error Codes**:
+  * `400 Bad Request`: Validation failure (e.g. invalid email format).
+  * `409 Conflict`: User with this email already exists.
+
+### 2. `GET /users/:id`
+* **Response Shape (200 OK)**:
+```json
+{
+  "id": "usr_abc123",
+  "email": "student@example.com",
+  "name": "John Doe",
+  "subscriptionTier": "free",
+  "profile": {
+    "degreeLevel": "Bachelor",
+    "gpa": 3.7,
+    "ieltsScore": 7.5,
+    "targetCountries": ["Germany", "Canada"],
+    "fieldOfStudy": "Computer Science"
+  }
+}
 ```
 
-## Compile and run the project
+### 3. `PUT /users/:id/profile`
+* **Request Shape**:
+```json
+{
+  "degreeLevel": "Master",
+  "gpa": 3.8,
+  "ieltsScore": 8.0,
+  "targetCountries": ["Germany"],
+  "fieldOfStudy": "Software Engineering"
+}
+```
+* **Response Shape (200 OK)**:
+```json
+{
+  "status": "success",
+  "message": "Profile updated successfully"
+}
+```
+* **Error Codes**:
+  * `422 Unprocessable Entity`: Field validation failed (e.g. GPA out of bounds `> 4.0`).
 
-```bash
-# development
-$ npm run start
+### 4. `POST /auth/forgot-password`
+* **Request Shape**: `{"email": "student@example.com"}`
+* **Response Shape (200 OK)**: `{"message": "If the email exists, a reset link has been sent."}`
+* **Description**: Generates a 32-byte hash reset token, stores it, and dispatches a notification request event. Returns 200 regardless of email existence to prevent user enumeration.
 
-# watch mode
-$ npm run start:dev
+### 5. `POST /auth/reset-password`
+* **Request Shape**: `{"token": "reset_token_xyz", "newPassword": "newpassword123"}`
+* **Response Shape (200 OK)**: `{"message": "Password has been successfully reset. You can now log in with your new password."}`
+* **Description**: Revokes every existing refresh token for the user as part of the same transaction, so any session issued before the reset (including one held by an attacker) is terminated.
 
-# production mode
-$ npm run start:prod
+### 6. `GET /auth/verify-email/:token`
+* **Response Shape (200 OK)**: `{"message": "Your email address has been verified successfully. Welcome aboard!"}`
+* **Error Codes**:
+  * `400 Bad Request`: Token is invalid, already used, or unknown.
+
+---
+
+## Email Delivery (Local/Test Environments)
+
+Verification and password-reset links are **not** sent through LocalStack SES or SQS in this environment — that path is intentionally not wired up (SES isn't enabled in the LocalStack container, and no notification service currently consumes those events). Instead, `register()` and `forgotPassword()` write the link directly to the service's stdout as a single structured line:
+
+```
+[SQS Simulation] Send verification email to user@example.com with link: https://goa.app/verify-email/<token>
+[SQS Simulation] Send email to user@example.com with link: https://goa.app/reset-password?token=<token>
 ```
 
-## Run tests
+To retrieve a token during manual or automated testing, read the `user-service` container logs (`docker compose logs user-service`) and grab the token from the relevant line. If real email delivery via SES/SQS becomes a requirement, that work should enable `ses` in `infra/localstack`, uncomment/implement the SQS publish calls in `UsersService`, and register a consumer for the `EmailVerificationRequired` / `PasswordResetRequested` events — none of that exists today, so partially wiring only one side of it would be worse than the current log-based approach.
 
+---
+
+## Environment Variables
+
+| Variable Name | Description | Default Value |
+| :--- | :--- | :--- |
+| `PORT` | NestJS server port binding. | `8081` |
+| `DATABASE_URL` | PostgreSQL user database connection URL. | `postgresql://goa:goa_pass@postgres:5432/user_db` |
+| `INTERNAL_API_KEY` | Secret token used to authenticate gateway-to-service internal calls. | `supersecret_internal_key_123` |
+| `AWS_REGION` | AWS target region for SQS interactions. | `us-east-1` |
+| `LOCALSTACK_URL` | LocalStack connection host for local development. | `http://localstack:4566` |
+
+---
+
+## How to Run Locally
+
+### Running outside Docker
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npm install
+npm run start:dev
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
+### Running with Docker
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+docker compose up -d user
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+---
 
-## Resources
+## How to Run Tests
 
-Check out a few resources that may come in handy when working with NestJS:
+```bash
+# Run unit tests
+npm run test
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+# Run e2e tests
+npm run test:e2e
+```

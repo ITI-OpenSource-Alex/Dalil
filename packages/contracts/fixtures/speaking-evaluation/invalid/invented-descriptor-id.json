@@ -1,0 +1,20 @@
+{
+  "_why_invalid": "'fc.11' is not in the frozen rubric. An LLM citing a descriptor that does not exist is exactly the failure the rubric_matches contract prevents: a fluent, checkable-looking justification with nothing behind it.",
+  "schema_version": "speaking-evaluation/v1",
+  "evaluation_id": "eval-invalid-4",
+  "mode": "practice",
+  "status": "complete",
+  "score_semantics": "estimated_ielts_practice_band",
+  "criteria": [
+    {
+      "criterion_id": "fluency_coherence",
+      "status": "scored",
+      "band": 6.5,
+      "rubric_matches": [
+        { "rubric_id": "r", "rubric_version": "v", "descriptor_id": "fc.11", "descriptor_band": 6.0, "polarity": "supports" }
+      ]
+    }
+  ],
+  "overall": { "included_criteria": ["fluency_coherence"], "rounding_rule": "ielts_half_band_v1", "min_criteria_required": 3 },
+  "provenance": { "created_at": "2026-08-08T10:00:00Z", "scorer_version": "s", "rubric_id": "r", "rubric_version": "v" }
+}

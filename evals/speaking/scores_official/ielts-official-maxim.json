@@ -1,0 +1,123 @@
+{
+  "evaluation": {
+    "schema_version": "speaking-evaluation/v1",
+    "evaluation_id": "ielts-official-maxim",
+    "mode": "benchmark",
+    "status": "partial",
+    "score_semantics": "estimated_ielts_practice_band",
+    "criteria": [
+      {
+        "criterion_id": "fluency_coherence",
+        "status": "scored",
+        "band": 6,
+        "summary": "Note: no measured speech features (words per minute, articulation rate, pause counts or durations) were supplied, so rate of speech and pausing cannot be objectively assessed. This evaluation therefore focuses on coherence and cohesion, with hesitation inferred only cautiously from transcribed fillers and repetitions. On coherence, you are clearly willing to speak at length and generally develop relevant ideas in a logical sequence (e.g. explaining why reading became a big hobby by linking it to few entertainments and few good films). On cohesion, you use a genuine range of connectives and discourse markers, but coherence is lost at times through frequent repetition and self-correction, and several markers are used inaccurately. This keeps you at band 6: to reach band 7 you would need to sustain speech without this noticeable effort and use discourse markers more flexibly and accurately.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "fc.6",
+            "descriptor_band": 6,
+            "polarity": "supports",
+            "application": "The candidate is willing to speak at length and uses a range of connectives, but loses coherence at times through evident repetition and self-correction such as 'harder stronger harder tougher'."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "fc.5",
+            "descriptor_band": 5,
+            "polarity": "supports",
+            "application": "Flow is maintained by falling back on repetition and reformulation ('to to', 'in in in', 'find to find') to keep going, which is characteristic of this level and above."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "fc.7",
+            "descriptor_band": 7,
+            "polarity": "caps_below",
+            "application": "Speech is not produced without noticeable effort, and discourse markers are not always deployed flexibly or accurately ('on the other side', 'in nearest future'), so the band 7 criteria are not met."
+          }
+        ]
+      },
+      {
+        "criterion_id": "lexical_resource",
+        "status": "scored",
+        "band": 6,
+        "summary": "You have a wide enough vocabulary to discuss familiar topics like hobbies, work and future trends at some length, and you paraphrase successfully to keep your meaning clear (e.g. describing work hours and company growth). You reach toward the next band with some less common items such as 'consultancy agency', 'facilities', 'fashionable' and 'yacht sailing'. However, your awareness of collocation is not yet consistent: errors like 'surfing in internet', 'in nearest future' and 'not very well for family and for health' (where 'good' is needed), plus frequent uncertainty markers ('how to say'), hold you at Band 6. To move higher, use less common vocabulary with more reliable collocation and reduce the inaccurate word choices.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "lr.6",
+            "descriptor_band": 6,
+            "polarity": "supports",
+            "application": "The candidate has enough vocabulary to discuss hobbies, work and future trends at length and paraphrases successfully to convey ideas clearly."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "lr.7",
+            "descriptor_band": 7,
+            "polarity": "caps_below",
+            "application": "Less common items appear but are undermined by recurrent collocation errors ('surfing in internet', 'in nearest future') and inaccurate word choice, so awareness of collocation is not consistent enough for Band 7."
+          }
+        ]
+      },
+      {
+        "criterion_id": "grammatical_range",
+        "status": "scored",
+        "band": 6,
+        "summary": "You produced a genuine mix of simple and complex structures, attempting subordinate clauses ('I think...', 'because...', 'I'm not sure that...') and modal/infinitive patterns ('I'd prefer to have shorter work hours'), so your range is sufficient for a higher band. Accuracy is the limiting factor. Errors are frequent, especially towards the end: missing or omitted verbs ('most companies now developing'), articles ('it's very popular hobby'; 'in nearest future'), and countability ('a lot of job to do'; 'grow potato'). These rarely impede communication, but error-free sentences are not frequent enough. To move up, aim to produce error-free sentences much more consistently, particularly checking articles, plural nouns, and that every clause has a finite verb.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.6",
+            "descriptor_band": 6,
+            "polarity": "supports",
+            "application": "Uses a mix of simple and complex structures but makes frequent mistakes with the complex ones, e.g. verb omissions and article errors that increase towards the end of the test."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.7",
+            "descriptor_band": 7,
+            "polarity": "caps_below",
+            "application": "Although the range of complex structures is present, the candidate does not frequently produce error-free sentences, which is required for Band 7."
+          }
+        ]
+      },
+      {
+        "criterion_id": "pronunciation",
+        "status": "unavailable",
+        "unavailable_reason": "insufficient_evidence",
+        "summary": "Evaluation unavailable due to an internal error."
+      }
+    ],
+    "overall": {
+      "band": 6,
+      "unrounded_mean": 6,
+      "included_criteria": [
+        "fluency_coherence",
+        "lexical_resource",
+        "grammatical_range"
+      ],
+      "excluded_criteria": [
+        "pronunciation"
+      ],
+      "rounding_rule": "ielts_half_band_v1",
+      "min_criteria_required": 3
+    },
+    "provenance": {
+      "created_at": "2026-08-09T01:18:04.9141889Z",
+      "scorer_version": "speaking@dev",
+      "rubric_id": "ielts-speaking-public",
+      "rubric_version": "2023-06",
+      "rubric_sha256": "40820db22ab572944baa4ecc399d6ff2597291e076dd5c990bd7bc578974f9cb",
+      "llm_provider": "agentrouter",
+      "llm_model": "claude-opus-4-8"
+    }
+  },
+  "lane": "scorer_only",
+  "latency_ms": 53467,
+  "swarm_error": ""
+}

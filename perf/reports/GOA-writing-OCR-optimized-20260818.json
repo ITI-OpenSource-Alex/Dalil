@@ -1,0 +1,319 @@
+{
+  "benchmark": "writing-ocr-examiner-band/v1",
+  "captured_at": "2026-08-17T23:55:17+00:00",
+  "git_sha": "f185b33719fb7fbeba09ed3f9125f7bdee558537",
+  "dry_run": false,
+  "valid": true,
+  "scope": {
+    "task": "IELTS Academic Writing Task 2",
+    "books": [
+      "IELTS15",
+      "IELTS16",
+      "IELTS17"
+    ],
+    "labels": "published candidate bands and examiner comments in book OCR",
+    "input_source": "ocr",
+    "normalization": "deterministic Writing-service OCR cleanup; typed submissions are not normalized",
+    "excluded": "Task 1 responses: source chart/image is required for a fair Task Achievement score",
+    "interpretation": "end-to-end OCR-normalization-to-scoring benchmark; only the service's deterministic artifact rules are applied"
+  },
+  "model": "claude-opus-5 scoring + gpt-5.6-sol feedback",
+  "writing_url": "http://localhost:8000",
+  "metrics": {
+    "n_total": 6,
+    "n_scored": 6,
+    "n_failed": 0,
+    "exact_agreement": 0.5,
+    "within_half_band": 0.6667,
+    "within_one_band": 0.8333,
+    "mae": 0.5,
+    "rmse": 0.7638,
+    "mean_signed_error": -0.3333,
+    "latency_ms": {
+      "median": 230447.557,
+      "p95": 246702.872,
+      "max": 246702.872
+    }
+  },
+  "samples": [
+    {
+      "sample_id": "ielts15-test1-task2",
+      "book": "IELTS15",
+      "test_number": 1,
+      "published_band": 7.0,
+      "predicted_band": 6.0,
+      "delta": -1.0,
+      "absolute_error": 1.0,
+      "exact": false,
+      "within_half_band": false,
+      "within_one_band": true,
+      "criteria": {
+        "task_response": 5.5,
+        "cohesion": 5.0,
+        "vocabulary": 6.5,
+        "grammar": 6.0
+      },
+      "latency_ms": 242172.042,
+      "from_cache": false,
+      "word_count": 322,
+      "source_sha256": "b1dd0796311807ce1011d2df1c434f39e7df13a7bb782550d9957c0f00692552",
+      "essay_sha256": "28d5a6d6977ab0ca48546c6f1923db89b9647c1226bc2f6980602451dcf40e1f",
+      "ocr_artifacts": {
+        "literal_backslash_n": 1,
+        "standalone_pipe": 4,
+        "digit_touching_letter": 0
+      }
+    },
+    {
+      "sample_id": "ielts16-test1-task2",
+      "book": "IELTS16",
+      "test_number": 1,
+      "published_band": 6.0,
+      "predicted_band": 6.5,
+      "delta": 0.5,
+      "absolute_error": 0.5,
+      "exact": false,
+      "within_half_band": true,
+      "within_one_band": true,
+      "criteria": {
+        "task_response": 6.0,
+        "cohesion": 6.0,
+        "vocabulary": 6.5,
+        "grammar": 6.5
+      },
+      "latency_ms": 147155.643,
+      "from_cache": false,
+      "word_count": 285,
+      "source_sha256": "221d186a8e6df9df9209be7c5bf37993b6b224c949a3fee13597e8826e35cdd8",
+      "essay_sha256": "a9c4115c7b4ab362fca294921f22e26475635523a85ef6a2ce1f7a220dd69755",
+      "ocr_artifacts": {
+        "literal_backslash_n": 0,
+        "standalone_pipe": 0,
+        "digit_touching_letter": 0
+      }
+    },
+    {
+      "sample_id": "ielts16-test2-task2",
+      "book": "IELTS16",
+      "test_number": 2,
+      "published_band": 4.5,
+      "predicted_band": 4.5,
+      "delta": 0.0,
+      "absolute_error": 0.0,
+      "exact": true,
+      "within_half_band": true,
+      "within_one_band": true,
+      "criteria": {
+        "task_response": 3.5,
+        "cohesion": 5.0,
+        "vocabulary": 5.0,
+        "grammar": 5.0
+      },
+      "latency_ms": 240963.973,
+      "from_cache": false,
+      "word_count": 186,
+      "source_sha256": "221d186a8e6df9df9209be7c5bf37993b6b224c949a3fee13597e8826e35cdd8",
+      "essay_sha256": "b6444f399f7b6714d53db99745a4dbaffff2358628f060e2e69d3baa4e1279de",
+      "ocr_artifacts": {
+        "literal_backslash_n": 0,
+        "standalone_pipe": 5,
+        "digit_touching_letter": 0
+      }
+    },
+    {
+      "sample_id": "ielts16-test3-task2",
+      "book": "IELTS16",
+      "test_number": 3,
+      "published_band": 7.0,
+      "predicted_band": 5.5,
+      "delta": -1.5,
+      "absolute_error": 1.5,
+      "exact": false,
+      "within_half_band": false,
+      "within_one_band": false,
+      "criteria": {
+        "task_response": 6.0,
+        "cohesion": 5.5,
+        "vocabulary": 5.5,
+        "grammar": 5.5
+      },
+      "latency_ms": 80930.557,
+      "from_cache": false,
+      "word_count": 385,
+      "source_sha256": "221d186a8e6df9df9209be7c5bf37993b6b224c949a3fee13597e8826e35cdd8",
+      "essay_sha256": "198952d027e81e9658911e600c2c09d83439ac592fe5380d3b2ff4838b3ba50e",
+      "ocr_artifacts": {
+        "literal_backslash_n": 0,
+        "standalone_pipe": 4,
+        "digit_touching_letter": 1
+      }
+    },
+    {
+      "sample_id": "ielts16-test4-task2",
+      "book": "IELTS16",
+      "test_number": 4,
+      "published_band": 4.0,
+      "predicted_band": 4.0,
+      "delta": 0.0,
+      "absolute_error": 0.0,
+      "exact": true,
+      "within_half_band": true,
+      "within_one_band": true,
+      "criteria": {
+        "task_response": 3.0,
+        "cohesion": 4.0,
+        "vocabulary": 4.0,
+        "grammar": 4.5
+      },
+      "latency_ms": 246702.872,
+      "from_cache": false,
+      "word_count": 243,
+      "source_sha256": "221d186a8e6df9df9209be7c5bf37993b6b224c949a3fee13597e8826e35cdd8",
+      "essay_sha256": "2ca2543a3ff15c8625579792ad4def406ef48da3cbd9b9e33f3e687d6dd1671a",
+      "ocr_artifacts": {
+        "literal_backslash_n": 0,
+        "standalone_pipe": 1,
+        "digit_touching_letter": 0
+      }
+    },
+    {
+      "sample_id": "ielts17-test1-task2",
+      "book": "IELTS17",
+      "test_number": 1,
+      "published_band": 6.5,
+      "predicted_band": 6.5,
+      "delta": 0.0,
+      "absolute_error": 0.0,
+      "exact": true,
+      "within_half_band": true,
+      "within_one_band": true,
+      "criteria": {
+        "task_response": 6.0,
+        "cohesion": 6.0,
+        "vocabulary": 6.0,
+        "grammar": 7.0
+      },
+      "latency_ms": 219931.142,
+      "from_cache": false,
+      "word_count": 243,
+      "source_sha256": "3319374d51bc6445767e4670c8ffa5b824b8af1c0a8ed72a53a7ebf34bbdee71",
+      "essay_sha256": "3df0a47223d8fe782557acdc8e04133dfccc631a0680b109f8bd2c6213f8426d",
+      "ocr_artifacts": {
+        "literal_backslash_n": 0,
+        "standalone_pipe": 0,
+        "digit_touching_letter": 0
+      }
+    }
+  ],
+  "failures": [],
+  "dataset_manifest": [
+    {
+      "sample_id": "ielts15-test1-task2",
+      "book": "IELTS15",
+      "test_number": 1,
+      "answer_start_line": 3452,
+      "answer_end_line": 3472,
+      "published_band": 7.0,
+      "task_prompt": "In some countries, owning a home rather than renting one is very important for people. Why might this be the case? Do you think this is a positive or negative situation?",
+      "source_path": "services\\exam\\data\\ocr\\IELTS15\\full.txt",
+      "source_sha256": "b1dd0796311807ce1011d2df1c434f39e7df13a7bb782550d9957c0f00692552",
+      "essay_sha256": "28d5a6d6977ab0ca48546c6f1923db89b9647c1226bc2f6980602451dcf40e1f",
+      "word_count": 322,
+      "ocr_artifacts": {
+        "literal_backslash_n": 1,
+        "standalone_pipe": 4,
+        "digit_touching_letter": 0
+      }
+    },
+    {
+      "sample_id": "ielts16-test1-task2",
+      "book": "IELTS16",
+      "test_number": 1,
+      "answer_start_line": 3493,
+      "answer_end_line": 3511,
+      "published_band": 6.0,
+      "task_prompt": "In some countries, more and more people are becoming interested in finding out about the history of the house or building they live in. What are the reasons for this? How can people research this?",
+      "source_path": "services\\exam\\data\\ocr\\IELTS16\\full.txt",
+      "source_sha256": "221d186a8e6df9df9209be7c5bf37993b6b224c949a3fee13597e8826e35cdd8",
+      "essay_sha256": "a9c4115c7b4ab362fca294921f22e26475635523a85ef6a2ce1f7a220dd69755",
+      "word_count": 285,
+      "ocr_artifacts": {
+        "literal_backslash_n": 0,
+        "standalone_pipe": 0,
+        "digit_touching_letter": 0
+      }
+    },
+    {
+      "sample_id": "ielts16-test2-task2",
+      "book": "IELTS16",
+      "test_number": 2,
+      "answer_start_line": 3552,
+      "answer_end_line": 3563,
+      "published_band": 4.5,
+      "task_prompt": "In their advertising, businesses nowadays usually emphasise that their products are new in some way. Why is this? Do you think it is a positive or negative development?",
+      "source_path": "services\\exam\\data\\ocr\\IELTS16\\full.txt",
+      "source_sha256": "221d186a8e6df9df9209be7c5bf37993b6b224c949a3fee13597e8826e35cdd8",
+      "essay_sha256": "b6444f399f7b6714d53db99745a4dbaffff2358628f060e2e69d3baa4e1279de",
+      "word_count": 186,
+      "ocr_artifacts": {
+        "literal_backslash_n": 0,
+        "standalone_pipe": 5,
+        "digit_touching_letter": 0
+      }
+    },
+    {
+      "sample_id": "ielts16-test3-task2",
+      "book": "IELTS16",
+      "test_number": 3,
+      "answer_start_line": 3608,
+      "answer_end_line": 3630,
+      "published_band": 7.0,
+      "task_prompt": "Many manufactured food and drink products contain high levels of sugar, which causes many health problems. Sugary products should be made more expensive to encourage people to consume less sugar. Do you agree or disagree?",
+      "source_path": "services\\exam\\data\\ocr\\IELTS16\\full.txt",
+      "source_sha256": "221d186a8e6df9df9209be7c5bf37993b6b224c949a3fee13597e8826e35cdd8",
+      "essay_sha256": "198952d027e81e9658911e600c2c09d83439ac592fe5380d3b2ff4838b3ba50e",
+      "word_count": 385,
+      "ocr_artifacts": {
+        "literal_backslash_n": 0,
+        "standalone_pipe": 4,
+        "digit_touching_letter": 1
+      }
+    },
+    {
+      "sample_id": "ielts16-test4-task2",
+      "book": "IELTS16",
+      "test_number": 4,
+      "answer_start_line": 3683,
+      "answer_end_line": 3698,
+      "published_band": 4.0,
+      "task_prompt": "In the future all cars, buses and trucks will be driverless. The only people travelling inside these vehicles will be passengers. Do you think the advantages of driverless vehicles outweigh the disadvantages?",
+      "source_path": "services\\exam\\data\\ocr\\IELTS16\\full.txt",
+      "source_sha256": "221d186a8e6df9df9209be7c5bf37993b6b224c949a3fee13597e8826e35cdd8",
+      "essay_sha256": "2ca2543a3ff15c8625579792ad4def406ef48da3cbd9b9e33f3e687d6dd1671a",
+      "word_count": 243,
+      "ocr_artifacts": {
+        "literal_backslash_n": 0,
+        "standalone_pipe": 1,
+        "digit_touching_letter": 0
+      }
+    },
+    {
+      "sample_id": "ielts17-test1-task2",
+      "book": "IELTS17",
+      "test_number": 1,
+      "answer_start_line": 3464,
+      "answer_end_line": 3478,
+      "published_band": 6.5,
+      "task_prompt": "It is important for people to take risks, both in their professional lives and their personal lives. Do you think the advantages of taking risks outweigh the disadvantages?",
+      "source_path": "services\\exam\\data\\ocr\\IELTS17\\full.txt",
+      "source_sha256": "3319374d51bc6445767e4670c8ffa5b824b8af1c0a8ed72a53a7ebf34bbdee71",
+      "essay_sha256": "3df0a47223d8fe782557acdc8e04133dfccc631a0680b109f8bd2c6213f8426d",
+      "word_count": 243,
+      "ocr_artifacts": {
+        "literal_backslash_n": 0,
+        "standalone_pipe": 0,
+        "digit_touching_letter": 0
+      }
+    }
+  ]
+}

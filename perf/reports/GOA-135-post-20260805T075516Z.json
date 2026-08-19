@@ -1,0 +1,103 @@
+{
+  "ticket": "GOA-135",
+  "phase": "post",
+  "captured_at": "2026-08-05T07:55:16+00:00",
+  "git_sha": "996dedd",
+  "host": {
+    "platform": "Windows-10-10.0.26200-SP0",
+    "python": "3.11.3"
+  },
+  "providers": {
+    "llm": {
+      "base_url": "https://agentrouter.org",
+      "model": "claude-opus-4-8",
+      "real": true
+    }
+  },
+  "metrics": {
+    "C1_cost_ratios": {
+      "model": "claude-opus-4-8",
+      "input_tokens": 2000,
+      "output_tokens": 300,
+      "true_cost_usd": 0.007,
+      "sites": {
+        "rag": {
+          "source": "services/rag/app/services/rag_service.py:555",
+          "reported_cost_usd": 0.007,
+          "cost_ratio": 1.0,
+          "checked": true,
+          "imports_goa_pricing": true,
+          "old_literals_present": []
+        },
+        "writing": {
+          "source": "services/writing/app/agents.py:549",
+          "reported_cost_usd": 0.007,
+          "cost_ratio": 1.0,
+          "checked": true,
+          "imports_goa_pricing": true,
+          "old_literals_present": []
+        },
+        "cv_processor": {
+          "source": "services/writing/cv_processor/structured.py:124",
+          "reported_cost_usd": 0.007,
+          "cost_ratio": 1.0,
+          "checked": true,
+          "imports_goa_pricing": true,
+          "old_literals_present": []
+        },
+        "ingestion": {
+          "source": "services/ingestion/handler.py:682",
+          "reported_cost_usd": 0.007,
+          "cost_ratio": 1.0,
+          "checked": true,
+          "imports_goa_pricing": true,
+          "old_literals_present": []
+        }
+      }
+    },
+    "C1b_gateway_cost_ratio": {
+      "available": true,
+      "source": "services/gateway/config.go LLMPricingJSON default",
+      "models_priced": [
+        "claude-opus-4-6",
+        "claude-opus-4-7",
+        "claude-opus-4-8",
+        "glm-5.2",
+        "gpt-5.5"
+      ],
+      "reported_cost_usd": 0.007,
+      "cost_ratio": 1.0
+    },
+    "C3_C4_client_behaviour": {
+      "available": true,
+      "calls_per_arm": 20,
+      "unpooled": {
+        "latency_ms": {
+          "min": 866.6,
+          "p50": 907.5,
+          "p95": 963.0,
+          "max": 1092.0
+        },
+        "tcp_connects": 20
+      },
+      "pooled": {
+        "latency_ms": {
+          "min": 293.6,
+          "p50": 295.4,
+          "p95": 331.4,
+          "max": 892.9
+        },
+        "tcp_connects": 1
+      },
+      "p50_delta_ms": 612.1
+    },
+    "C7_auth_failure": {
+      "available": true,
+      "driver": "rag_service._invoke_llm_with_retry",
+      "driver_fallback_reason": null,
+      "http_requests": 1,
+      "wall_ms": 937.6,
+      "error_type": "AuthenticationError"
+    }
+  }
+}

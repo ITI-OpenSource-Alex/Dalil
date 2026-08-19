@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Literal, Dict, Union
+from typing import Literal, Dict, Union, Optional, List
 from pydantic import BaseModel
 
 
@@ -12,13 +12,34 @@ class BaseEvent(BaseModel):
 class UserUpdatedPayload(BaseModel):
     userId: str
     email: str
-    subscribtionTier: Literal['free', 'paid']
+    subscriptionTier: Literal['free', 'paid']
+    ects: float
+    gpa: float
+    gpaScale: Literal['4.0', '100']
+    ieltsScore: float
+    ieltsListening: Optional[float] = None
+    ieltsReading: Optional[float] = None
+    ieltsWriting: Optional[float] = None
+    ieltsSpeaking: Optional[float] = None
+    degreeLevel: str
+    workExperienceYears: float
+    extracurricularsScore: float
+    targetCountries: List[str]
+    fieldOfStudy: Optional[str] = None
+    targetFieldOfStudy: Optional[str] = None
 
 
 class UserUpdated(BaseEvent):
     type: Literal["user.updated"] = "user.updated"
     payload: UserUpdatedPayload
 
+class AccountDeletedPayload(BaseModel):
+    userId: str
+    deletedAt: datetime
+
+class AccountDeleted(BaseEvent):
+    type: Literal["account.deleted"] = "account.deleted"
+    payload: AccountDeletedPayload
 class CVUploadedPayload(BaseModel):
     userId: str
     s3Key: str
@@ -29,14 +50,12 @@ class CVUploaded(BaseEvent):
     payload: CVUploadedPayload
 
 
-class CVProcessedPayload(BaseModel):
-    userId: str
-    extractedText: str
-    status: Literal["success", "failed"]
-
 class CVProcessed(BaseEvent):
-    type: Literal["cv.processed"] = "cv.processed"
-    payload: CVProcessedPayload
+    type: Literal["CVProcessed"] = "CVProcessed"
+    userId: str
+    cvId: int
+    s3Key: str
+    status: Literal["ready", "failed"]
 
 class ScholarshipMatchedPayload(BaseModel):
     userId: str
@@ -65,12 +84,39 @@ class IngestionCompleted(BaseEvent):
     type: Literal["ingestion.completed"] = "ingestion.completed"
     payload: IngestionCompletedPayload
 
+class ScholarshipMatchedNotification(BaseModel):
+    eventType: Literal["ScholarshipMatched"] = "ScholarshipMatched"
+    userId: str
+    programId: str
+    programName: str | None = None
+    provider: str | None = None
+    country: str | None = None
+    deadline: str | None = None
+    score: float
+    cycleDate: str
+
+
+class DeadlineReminderNotification(BaseModel):
+    eventType: Literal["DEADLINE_REMINDER"] = "DEADLINE_REMINDER"
+    userId: str
+    programId: str
+    programName: str | None = None
+    provider: str | None = None
+    country: str | None = None
+    deadline: str | None = None
+    score: float
+    cycleDate: str
+
+
 # A Union type representing any valid domain event
 DomainEvent = Union[
     UserUpdated,
+    AccountDeleted,
     CVUploaded,
     CVProcessed,
     ScholarshipMatched,
     NotificationRequested,
     IngestionCompleted
 ]
+
+

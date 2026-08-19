@@ -1,0 +1,2 @@
+ALTER TABLE exam_writing_responses
+    ADD COLUMN IF NOT EXISTS penalty_flag BOOLEAN NOT NULL DEFAULT FALSE;

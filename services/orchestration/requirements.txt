@@ -1,0 +1,29 @@
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
+asyncpg>=0.29.0
+langchain>=0.1.13,<0.2.0
+langchain-core>=0.1.33,<0.2.0
+langchain-community>=0.0.29,<0.1.0
+langchain-anthropic>=0.1.4,<0.2.0
+redis>=5.0.1
+sse-starlette>=2.0.0
+# Upper bound is deliberate. This was an unbounded >=3.0.0, which floated to
+# 4.14.1 -- a major the code had never been written against, so every trace call
+# raised AttributeError into an except that logged and continued. The handler now
+# targets the v4 observation API (start_observation / update / end); rag, writing
+# and cv-processor are still on the v2 API at <3.0.0, so the four are not yet
+# consistent. Converging them is worth one deliberate pass.
+langfuse>=4.0.0,<5.0.0
+prometheus-client>=0.20.0
+pydantic>=2.6.4
+pydantic-settings>=2.2.1
+python-dotenv>=1.0.1
+structlog>=24.1.0
+httpx>=0.27.0
+pytest>=8.1.1
+pytest-asyncio>=0.23.6
+pytest-mock>=3.12.0
+pytest-recording>=0.13.2
+vcrpy>=7.0.0
+pybreaker>=1.2.0
+aiobotocore>=2.13.0,<3.0.0

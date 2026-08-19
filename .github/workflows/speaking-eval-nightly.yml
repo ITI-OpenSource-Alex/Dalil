@@ -1,0 +1,187 @@
+name: Speaking eval (nightly, live)
+
+# SPEAK-EVAL-009 — the live job.
+#
+# Separate from the PR gate because it needs a paid provider. A required check
+# that depends on a credential fails the whole repository the day that
+# credential expires, and the failure has nothing to do with the pull request
+# that triggered it.
+#
+# What it must NOT do is fail quietly. A nightly that skips on a missing secret
+# and reports success is worse than no nightly: it reports that the system was
+# measured when nothing ran. So a missing secret is an execution FAILURE here,
+# not a skip.
+
+on:
+  schedule:
+    # 02:00 UTC. Off the working day so a slow provider does not compete with
+    # interactive use, and so cost lands on one predictable run.
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      promote_baseline:
+        description: 'Promote this run to the baseline if it passes'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: speaking-eval-nightly
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Preflight — secrets and budget
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      # Checked BEFORE anything expensive starts, and reported as a failure
+      # rather than a skip. The acceptance criterion is "a missing required
+      # secret reports execution failure": a green run with no measurement is
+      # the outcome this exists to prevent.
+      - name: Required secrets are present
+        id: check
+        env:
+          ANTHROPIC_AUTH_TOKEN: ${{ secrets.ANTHROPIC_AUTH_TOKEN }}
+          GLADIA_API_KEY: ${{ secrets.GLADIA_API_KEY }}
+        run: |
+          missing=""
+          [ -n "$ANTHROPIC_AUTH_TOKEN" ] || missing="$missing ANTHROPIC_AUTH_TOKEN"
+          if [ -n "$missing" ]; then
+            echo "::error::Required secret(s) missing:$missing"
+            echo "The nightly eval cannot run without them. This is reported as a"
+            echo "failure rather than a skip: a green run that measured nothing is"
+            echo "indistinguishable from a green run that measured everything."
+            exit 1
+          fi
+          # Gladia is optional: ingestion replays from committed cassettes, and
+          # only re-recording a source needs the key.
+          if [ -z "$GLADIA_API_KEY" ]; then
+            echo "::notice::GLADIA_API_KEY absent; ingestion will replay cassettes only."
+          fi
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+
+  scorer-lane:
+    name: Scorer lane
+    needs: preflight
+    # Waits on the exact dependency rather than `always()`. A lane that runs
+    # after a failed preflight would produce numbers nobody should read.
+    if: needs.preflight.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      ANTHROPIC_AUTH_TOKEN: ${{ secrets.ANTHROPIC_AUTH_TOKEN }}
+      GOA_LLM_BASE_URL: ${{ vars.GOA_LLM_BASE_URL }}
+      LLM_MODEL: ${{ vars.SPEAKING_PRACTICE_MODEL || 'claude-opus-5' }}
+      GOA_SCORER_VERSION: speaking@${{ github.sha }}
+      # Anchors stay off unless deliberately enabled: they measurably degraded
+      # the audio lane, and an eval that quietly changes the production prompt
+      # is not measuring production.
+      SPEAKING_BAND_ANCHORS: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: services/speaking/go.mod
+          cache-dependency-path: services/speaking/go.sum
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pydantic jsonschema httpx
+
+      # Governance first. A number computed over an unsafe dataset must never
+      # be produced at all, let alone published.
+      - name: Dataset governance gate
+        run: python evals/speaking/manifest/validate.py
+
+      - name: Build the scorer
+        working-directory: services/speaking
+        run: go build -o "$RUNNER_TEMP/score-transcript" ./cmd/score-transcript
+
+      - name: Run the eval
+        run: python -m evals.runner
+        timeout-minutes: 30
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: speaking-eval-report-${{ github.run_id }}
+          path: |
+            evals/reports/*.json
+            evals/reports/*.html
+            perf/reports/*.md
+          # Artifacts are readable by anyone with repo access. Retention is
+          # bounded because a report carries transcript excerpts.
+          retention-days: 30
+
+  promote-baseline:
+    name: Promote baseline
+    needs: scorer-lane
+    # success() explicitly, not always(). The acceptance criterion is that a
+    # failed candidate cannot replace the baseline -- and the workflow this
+    # replaces uploaded unconditionally, so a broken run overwrote the very
+    # thing the next run would compare against.
+    if: success() && (github.event_name == 'schedule' || inputs.promote_baseline)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    environment: eval-baseline
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: speaking-eval-report-${{ github.run_id }}
+          path: candidate
+
+      # A baseline is only comparable to a later run if it carries what the run
+      # was measured under. A report missing its provenance is a number with no
+      # context, and promoting one poisons every comparison after it.
+      - name: Candidate carries the provenance a comparison needs
+        run: |
+          python - <<'PY'
+          import glob, json, sys
+
+          reports = sorted(glob.glob("candidate/**/*.json", recursive=True))
+          if not reports:
+              sys.exit("no report in the candidate artifact")
+
+          with open(reports[-1], encoding="utf-8") as handle:
+              report = json.load(handle)
+
+          required = ["run_id", "git_sha", "timestamp", "metrics"]
+          missing = [field for field in required if field not in report]
+          if missing:
+              sys.exit(f"candidate is missing {missing}; refusing to promote")
+
+          lanes = report.get("metrics", {}).get("speaking_lanes")
+          if lanes is None:
+              sys.exit("candidate has no per-lane breakdown; refusing to promote")
+
+          for name, lane in lanes.items():
+              if not lane.get("reason"):
+                  sys.exit(f"lane {name} reports no reason; refusing to promote")
+
+          print(f"candidate {report['run_id']} @ {report['git_sha']} is promotable")
+          PY
+
+      - name: Publish as the new baseline
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+          BASELINE_URI: ${{ vars.EVAL_BASELINE_URI }}
+        run: |
+          if [ -z "$BASELINE_URI" ] || [ -z "$AWS_ACCESS_KEY_ID" ]; then
+            echo "::error::Baseline storage is not configured; refusing to promote silently."
+            exit 1
+          fi
+          # Durable: the run id is kept alongside `latest`, so a bad promotion
+          # can be rolled back to a named predecessor rather than lost.
+          latest=$(ls candidate/**/*.json | tail -1)
+          aws s3 cp "$latest" "$BASELINE_URI/runs/${{ github.run_id }}.json"
+          aws s3 cp "$latest" "$BASELINE_URI/latest_report.json"
+          echo "::notice::Baseline promoted from run ${{ github.run_id }}"

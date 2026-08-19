@@ -1,0 +1,134 @@
+name: Evals (advisory — not a required gate)
+
+on:
+  pull_request:
+    branches:
+      - main
+      - dev
+    paths:
+      - 'evals/**'
+      - 'services/**'
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    # Required for the PR comment step; the default token is read-only for
+    # pull-requests, so github-script would 403 without this.
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      # SPEAK-EVAL-009: this workflow is no longer a gate.
+      #
+      # It ran with STRICT_EVAL_MODE "false" and continue-on-error keyed off it,
+      # so the job could not fail whatever broke -- a green badge with a cost.
+      # The deterministic checks that SHOULD block a PR now live in
+      # speaking-eval-pr.yml, which has no continue-on-error anywhere, and the
+      # live scoring lanes live in speaking-eval-nightly.yml.
+      #
+      # This one is kept for the writing and RAG domains it still covers, and is
+      # explicitly advisory until those get the same treatment. Advisory and
+      # labelled is honest; advisory and presented as a gate is not.
+      STRICT_EVAL_MODE: "false"
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Start Docker Compose Stack
+        run: |
+          docker compose up -d
+          # Wait for Gateway to become healthy
+          echo "Waiting for services..."
+          for i in {1..20}; do
+            if curl -s http://localhost:8080/health > /dev/null; then
+              echo "Gateway is up!"
+              break
+            fi
+            sleep 5
+          done
+          # Give localstack & postgres extra time to stabilize
+          sleep 10
+
+      - name: Provision Local Infrastructure (DB & S3)
+        run: |
+          # Provision S3 Bucket via AWS CLI to LocalStack
+          aws --endpoint-url=http://localhost:4566 s3 mb s3://goa-eval-reports || true
+          
+          # Provision DB using the dedicated seed script
+          docker exec -i $(docker compose ps -q postgres) psql -U goa -d rag_db < evals/seed_data.sql
+        env:
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_REGION: us-east-1
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r evals/requirements.txt
+
+      - name: Run Tests
+        run: |
+          pytest evals/tests/
+        
+      - name: Run Evals
+        env:
+          RAG_SERVICE_URL: http://localhost:8084
+          SCORING_SERVICE_URL: http://localhost:8084
+          SPEAKING_SERVICE_URL: http://localhost:8082
+          WRITING_SERVICE_URL: http://localhost:8000
+          AWS_ENDPOINT_URL: http://localhost:4566
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_REGION: us-east-1
+        run: |
+          # `python evals/runner.py` puts evals/ on sys.path, not the repo
+          # root, so runner.py's own `from evals.judge import ...` fails with
+          # ModuleNotFoundError. -m puts the repo root on the path instead.
+          python -m evals.runner --compare-with s3://goa-eval-reports/latest_report.json --s3-upload-path s3://goa-eval-reports/
+        timeout-minutes: 15
+        continue-on-error: ${{ env.STRICT_EVAL_MODE != 'true' }}
+
+      - name: Upload Report Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evals-report
+          # The HTML carries the per-item reasons; uploading only JSON meant the
+          # artifact could not be read the way the DoD asks it to be read.
+          path: |
+            evals/reports/*.json
+            evals/reports/*.html
+
+      # DoD: "CI posts the PR comment". The runner writes the body; this posts it.
+      - name: Comment eval results on PR
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = 'evals/reports/pr_comment.md';
+            if (!fs.existsSync(path)) {
+              core.info('No eval comment body was produced; skipping.');
+              return;
+            }
+            const body = fs.readFileSync(path, 'utf8');
+            const marker = '## Eval report';
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const existing = await github.rest.issues.listComments({ owner, repo, issue_number });
+            // Update in place so a PR with many pushes keeps one comment, not twenty.
+            const mine = existing.data.find(c => c.body && c.body.startsWith(marker));
+            if (mine) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: mine.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
+
+      - name: Shutdown Docker Compose
+        if: always()
+        run: docker compose down

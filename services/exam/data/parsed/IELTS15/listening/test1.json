@@ -1,0 +1,494 @@
+{
+  "book_ref": "IELTS-15",
+  "test_number": 1,
+  "exam_type": "academic",
+  "skill_area": "listening",
+  "passage_text": null,
+  "questions": [
+    {
+      "number": 1,
+      "prompt": "Name of agent: Becky ___",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 2,
+      "prompt": "Best to call her in the ___",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 3,
+      "prompt": "Clerical and administrative applicants must have good ___",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 4,
+      "prompt": "Jobs are usually for at least one ___",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 5,
+      "prompt": "Pay is usually £___ per hour",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 6,
+      "prompt": "Wear a ___ to the interview",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 7,
+      "prompt": "Bring your ___ to the interview",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 8,
+      "prompt": "The agency will ask questions about each applicant's ___",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 9,
+      "prompt": "The ___ received at interview will benefit applicants",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 10,
+      "prompt": "Less ___ is involved in applying for jobs through the agency",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 11,
+      "prompt": "According to the speaker, the company",
+      "question_type": "Multiple Choice",
+      "instructions": "Choose the correct letter, A, B or C.",
+      "passage_number": null,
+      "section_number": 2,
+      "options": [
+        "has been in business for longer than most of its competitors.",
+        "arranges holidays to more destinations than its competitors.",
+        "has more customers than its competitors."
+      ]
+    },
+    {
+      "number": 12,
+      "prompt": "Where can customers meet the tour manager before travelling to the Isle of Man?",
+      "question_type": "Multiple Choice",
+      "instructions": "Choose the correct letter, A, B or C.",
+      "passage_number": null,
+      "section_number": 2,
+      "options": [
+        "Liverpool",
+        "Heysham",
+        "Luton"
+      ]
+    },
+    {
+      "number": 13,
+      "prompt": "How many lunches are included in the price of the holiday?",
+      "question_type": "Multiple Choice",
+      "instructions": "Choose the correct letter, A, B or C.",
+      "passage_number": null,
+      "section_number": 2,
+      "options": [
+        "three",
+        "four",
+        "five"
+      ]
+    },
+    {
+      "number": 14,
+      "prompt": "Customers have to pay extra for",
+      "question_type": "Multiple Choice",
+      "instructions": "Choose the correct letter, A, B or C.",
+      "passage_number": null,
+      "section_number": 2,
+      "options": [
+        "guaranteeing themselves a larger room.",
+        "booking at short notice.",
+        "transferring to another date."
+      ]
+    },
+    {
+      "number": 15,
+      "prompt": "The hotel dining room has a view of the ___",
+      "question_type": "Table Completion",
+      "instructions": "Complete the table below. Write ONE WORD AND/OR A NUMBER for each answer.",
+      "passage_number": null,
+      "section_number": 2
+    },
+    {
+      "number": 16,
+      "prompt": "The earliest surviving reference to Tynwald is from ___",
+      "question_type": "Table Completion",
+      "instructions": "Complete the table below. Write ONE WORD AND/OR A NUMBER for each answer.",
+      "passage_number": null,
+      "section_number": 2
+    },
+    {
+      "number": 17,
+      "prompt": "The Snaefell Mountain Railway takes visitors to the ___ of Snaefell",
+      "question_type": "Table Completion",
+      "instructions": "Complete the table below. Write ONE WORD AND/OR A NUMBER for each answer.",
+      "passage_number": null,
+      "section_number": 2
+    },
+    {
+      "number": 18,
+      "prompt": "On the free day, a ___ covers local transport and heritage sites",
+      "question_type": "Table Completion",
+      "instructions": "Complete the table below. Write ONE WORD AND/OR A NUMBER for each answer.",
+      "passage_number": null,
+      "section_number": 2
+    },
+    {
+      "number": 19,
+      "prompt": "On Day 5, visitors travel on the ___ railway",
+      "question_type": "Table Completion",
+      "instructions": "Complete the table below. Write ONE WORD AND/OR A NUMBER for each answer.",
+      "passage_number": null,
+      "section_number": 2
+    },
+    {
+      "number": 20,
+      "prompt": "Castletown is the island's former ___",
+      "question_type": "Table Completion",
+      "instructions": "Complete the table below. Write ONE WORD AND/OR A NUMBER for each answer.",
+      "passage_number": null,
+      "section_number": 2
+    },
+    {
+      "number": 21,
+      "prompt": "the eldest child",
+      "question_type": "Matching",
+      "instructions": "Choose SIX answers from the box and write the correct letter, A–H, next to Questions 21–26.",
+      "passage_number": null,
+      "section_number": 3,
+      "options": [
+        "outgoing",
+        "selfish",
+        "independent",
+        "attention-seeking",
+        "introverted",
+        "co-operative",
+        "caring",
+        "competitive"
+      ]
+    },
+    {
+      "number": 22,
+      "prompt": "a middle child",
+      "question_type": "Matching",
+      "instructions": "Choose SIX answers from the box and write the correct letter, A–H, next to Questions 21–26.",
+      "passage_number": null,
+      "section_number": 3,
+      "options": [
+        "outgoing",
+        "selfish",
+        "independent",
+        "attention-seeking",
+        "introverted",
+        "co-operative",
+        "caring",
+        "competitive"
+      ]
+    },
+    {
+      "number": 23,
+      "prompt": "the youngest child",
+      "question_type": "Matching",
+      "instructions": "Choose SIX answers from the box and write the correct letter, A–H, next to Questions 21–26.",
+      "passage_number": null,
+      "section_number": 3,
+      "options": [
+        "outgoing",
+        "selfish",
+        "independent",
+        "attention-seeking",
+        "introverted",
+        "co-operative",
+        "caring",
+        "competitive"
+      ]
+    },
+    {
+      "number": 24,
+      "prompt": "a twin",
+      "question_type": "Matching",
+      "instructions": "Choose SIX answers from the box and write the correct letter, A–H, next to Questions 21–26.",
+      "passage_number": null,
+      "section_number": 3,
+      "options": [
+        "outgoing",
+        "selfish",
+        "independent",
+        "attention-seeking",
+        "introverted",
+        "co-operative",
+        "caring",
+        "competitive"
+      ]
+    },
+    {
+      "number": 25,
+      "prompt": "an only child",
+      "question_type": "Matching",
+      "instructions": "Choose SIX answers from the box and write the correct letter, A–H, next to Questions 21–26.",
+      "passage_number": null,
+      "section_number": 3,
+      "options": [
+        "outgoing",
+        "selfish",
+        "independent",
+        "attention-seeking",
+        "introverted",
+        "co-operative",
+        "caring",
+        "competitive"
+      ]
+    },
+    {
+      "number": 26,
+      "prompt": "a child with much older siblings",
+      "question_type": "Matching",
+      "instructions": "Choose SIX answers from the box and write the correct letter, A–H, next to Questions 21–26.",
+      "passage_number": null,
+      "section_number": 3,
+      "options": [
+        "outgoing",
+        "selfish",
+        "independent",
+        "attention-seeking",
+        "introverted",
+        "co-operative",
+        "caring",
+        "competitive"
+      ]
+    },
+    {
+      "number": 27,
+      "prompt": "What do the speakers say about the evidence relating to birth order and academic success?",
+      "question_type": "Multiple Choice",
+      "instructions": "Choose the correct letter, A, B or C.",
+      "passage_number": null,
+      "section_number": 3,
+      "options": [
+        "There is conflicting evidence about whether oldest children perform best in intelligence tests.",
+        "There is little doubt that birth order has less influence on academic achievement than socio-economic status.",
+        "Some studies have neglected to include important factors such as family size."
+      ]
+    },
+    {
+      "number": 28,
+      "prompt": "What does Ruth think is surprising about the difference in oldest children's academic performance?",
+      "question_type": "Multiple Choice",
+      "instructions": "Choose the correct letter, A, B or C.",
+      "passage_number": null,
+      "section_number": 3,
+      "options": [
+        "It is mainly thanks to their roles as teachers for their younger siblings.",
+        "The advantages they have only lead to a slightly higher level of achievement.",
+        "The extra parental attention they receive at a young age makes little difference."
+      ]
+    },
+    {
+      "number": 29,
+      "prompt": "Which TWO experiences of sibling rivalry do the speakers agree have been valuable for them?",
+      "question_type": "Multiple Choice",
+      "instructions": "Choose TWO letters, A–E. Which TWO experiences of sibling rivalry do the speakers agree have been valuable for them?",
+      "passage_number": null,
+      "section_number": 3,
+      "options": [
+        "learning to share",
+        "learning to stand up for oneself",
+        "learning to be a good loser",
+        "learning to be tolerant",
+        "learning to say sorry"
+      ]
+    },
+    {
+      "number": 30,
+      "prompt": "Which TWO experiences of sibling rivalry do the speakers agree have been valuable for them?",
+      "question_type": "Multiple Choice",
+      "instructions": "Choose TWO letters, A–E. Which TWO experiences of sibling rivalry do the speakers agree have been valuable for them?",
+      "passage_number": null,
+      "section_number": 3,
+      "options": [
+        "learning to share",
+        "learning to stand up for oneself",
+        "learning to be a good loser",
+        "learning to be tolerant",
+        "learning to say sorry"
+      ]
+    },
+    {
+      "number": 31,
+      "prompt": "The eucalyptus provides ___ and food for a wide range of species",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 32,
+      "prompt": "Its leaves provide ___ which is used to make a disinfectant",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 33,
+      "prompt": "Lime used for making ___ was absorbed, preventing trees from taking in iron",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 34,
+      "prompt": "___ feed on eucalyptus leaves and secrete a sugary substance",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 35,
+      "prompt": "High-frequency bushfires result in the growth of ___",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 36,
+      "prompt": "Mid-frequency bushfires make more ___ available to eucalyptus trees",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 37,
+      "prompt": "Mid-frequency bushfires maintain the quality of the ___",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 38,
+      "prompt": "Low-frequency bushfires result in the growth of ___ rainforest",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 39,
+      "prompt": "This rainforest is a ___ ecosystem",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 40,
+      "prompt": "This rainforest is an ideal environment for the ___",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
+      "passage_number": null,
+      "section_number": 4
+    }
+  ],
+  "answer_key": {
+    "answers": {
+      "1": "Jamieson",
+      "2": "afternoon",
+      "3": "communication",
+      "4": "week",
+      "5": [
+        "10",
+        "ten"
+      ],
+      "6": "suit",
+      "7": "passport",
+      "8": "personality",
+      "9": "feedback",
+      "10": "time",
+      "11": "A",
+      "12": "B",
+      "13": "A",
+      "14": "C",
+      "15": "river",
+      "16": "1422",
+      "17": "top",
+      "18": "pass",
+      "19": "steam",
+      "20": "capital",
+      "21": "G",
+      "22": "F",
+      "23": "A",
+      "24": "E",
+      "25": "B",
+      "26": "C",
+      "27": "C",
+      "28": "A",
+      "29": "B",
+      "30": "D",
+      "31": "shelter",
+      "32": "oil",
+      "33": "roads",
+      "34": "insects",
+      "35": [
+        "grass",
+        "grasses"
+      ],
+      "36": "water",
+      "37": "soil",
+      "38": "dry",
+      "39": "simple",
+      "40": [
+        "nest",
+        "nests"
+      ]
+    },
+    "unordered_groups": [
+      [
+        "29",
+        "30"
+      ]
+    ]
+  },
+  "audio_s3_key": "exam-audio/IELTS-15/1/section1.mp3",
+  "time_limit_seconds": 2400
+}

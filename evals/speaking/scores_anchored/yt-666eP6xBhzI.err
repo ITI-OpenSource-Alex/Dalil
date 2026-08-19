@@ -1,0 +1,5 @@
+{"level":"error","error":"context deadline exceeded","time":"2026-08-09T00:32:43+02:00","message":"Failed to record LLM cost telemetry"}
+redis: 2026/08/09 00:32:55 pool.go:724: redis: connection pool: failed to dial after 5 attempts: dial tcp: lookup redis-gateway: no such host
+{"level":"error","error":"model returned no text (stop_reason=\"\", content_blocks=[thinking], output_tokens=3)","criterion":"Pronunciation","failed_after":43918.7969,"time":"2026-08-09T00:32:56+02:00","message":"Evaluation agent failed"}
+{"level":"error","error":"context deadline exceeded","time":"2026-08-09T00:32:59+02:00","message":"Failed to record LLM cost telemetry"}
+{"level":"error","error":"context deadline exceeded","time":"2026-08-09T00:33:07+02:00","message":"Failed to record LLM cost telemetry"}

@@ -1,0 +1,139 @@
+{
+  "evaluation": {
+    "schema_version": "speaking-evaluation/v1",
+    "evaluation_id": "ielts-official-aashish",
+    "mode": "benchmark",
+    "status": "partial",
+    "score_semantics": "estimated_ielts_practice_band",
+    "criteria": [
+      {
+        "criterion_id": "fluency_coherence",
+        "status": "scored",
+        "band": 8,
+        "summary": "Note: no MEASURED SPEECH FEATURES (words per minute, articulation rate, pause counts/durations) were supplied with this submission, so I cannot judge rate of speech, flow or hesitation from timing. Per the instructions, this evaluation is based on the coherence and cohesion components only. On coherence, you develop each answer with relevant reasons and examples and keep a logical thread throughout the Part 3 responses, so topics are handled appropriately and understandably. Your cohesion is a genuine strength: you deploy a wide and natural range of discourse markers to frame and connect ideas, which is characteristic of a high band. There are a few reformulations where the thread momentarily tangles and meaning is only just recoverable, and this—together with visible repetition/self-correction that cannot be confirmed as content-related without timing data—is what keeps the coherence/cohesion picture just short of the top band. Providing audio timing would allow a fuller, more confident FC rating.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "fc.8",
+            "descriptor_band": 8,
+            "polarity": "supports",
+            "application": "Topics are developed coherently and appropriately, with ideas sequenced logically and relevantly across extended Part 3 answers."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "fc.7",
+            "descriptor_band": 7,
+            "polarity": "supports",
+            "application": "A range of connectives and discourse markers ('undoubtedly', 'as far as I know', 'I would still say', 'other than that', 'like I said before') is used flexibly and naturally."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "fc.9",
+            "descriptor_band": 9,
+            "polarity": "caps_below",
+            "application": "Coherence occasionally frays during reformulations and repetition is more than rare, so cohesive features are not yet fully seamless; timing data would also be needed to confirm hesitation is consistently content-related."
+          }
+        ]
+      },
+      {
+        "criterion_id": "lexical_resource",
+        "status": "scored",
+        "band": 7,
+        "summary": "You have a wide enough vocabulary to discuss a variety of topics at length and you show some ability to use less common and idiomatic vocabulary with awareness of collocation (e.g. 'betterment of the country', 'misused their fame and power', 'take things for granted', 'makes a big difference to sales'). You also paraphrase effectively and use flexible discourse markers. However, several inappropriate collocations and word choices restrict a higher rating: 'come into great attention', 'follow their footsteps' (should be 'follow in their footsteps'), and 'put themselves out to the world'. To reach Band 8 you would need to deploy this less common and idiomatic vocabulary more skilfully and consistently to convey precise meaning, with fewer collocation slips.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "lr.7",
+            "descriptor_band": 7,
+            "polarity": "supports",
+            "application": "He uses vocabulary flexibly across a range of topics (fame, politics, advertising, role models) and shows some less common/idiomatic vocabulary with awareness of collocation."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "lr.6",
+            "descriptor_band": 6,
+            "polarity": "supports",
+            "application": "He clearly has enough vocabulary to discuss topics at length and paraphrases successfully to keep his meaning clear."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "lr.8",
+            "descriptor_band": 8,
+            "polarity": "caps_below",
+            "application": "Recurrent inappropriate collocations and word choices ('come into great attention', 'follow their footsteps', 'put themselves out to the world') show the idiomatic vocabulary is not yet used skilfully or with full precision."
+          }
+        ]
+      },
+      {
+        "criterion_id": "grammatical_range",
+        "status": "scored",
+        "band": 8,
+        "summary": "You use a wide range of grammatical structures flexibly, including conditionals, the present perfect, and multiple subordinate and relative clauses, and the majority of your sentences are error-free. Complex structures are handled naturally rather than mechanically, and the occasional inaccuracies do not affect meaning. To reach Band 9 you would need consistently accurate structures with only minor slips; here a few errors surface (e.g. 'there wasn't so much of media attention', 'gain attention on their take over the country'), and some clauses become tangled during self-correction, which keeps the profile below fully natural, error-free production.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.8",
+            "descriptor_band": 8,
+            "polarity": "supports",
+            "application": "The candidate uses a wide range of structures (conditionals, present perfect, relative and subordinate clauses) flexibly, and the majority of sentences are error-free."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.7",
+            "descriptor_band": 7,
+            "polarity": "supports",
+            "application": "A range of complex structures is used with flexibility and error-free sentences are produced frequently, comfortably meeting this level."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.9",
+            "descriptor_band": 9,
+            "polarity": "caps_below",
+            "application": "Production is not consistently accurate beyond minor slips, with a few real errors and some tangled clauses during self-correction, so the fully error-free profile of Band 9 is not reached."
+          }
+        ]
+      },
+      {
+        "criterion_id": "pronunciation",
+        "status": "unavailable",
+        "unavailable_reason": "insufficient_evidence",
+        "summary": "Evaluation unavailable due to an internal error."
+      }
+    ],
+    "overall": {
+      "band": 7.5,
+      "unrounded_mean": 7.666666666666667,
+      "included_criteria": [
+        "fluency_coherence",
+        "lexical_resource",
+        "grammatical_range"
+      ],
+      "excluded_criteria": [
+        "pronunciation"
+      ],
+      "rounding_rule": "ielts_half_band_v1",
+      "min_criteria_required": 3
+    },
+    "provenance": {
+      "created_at": "2026-08-09T01:10:44.0387291Z",
+      "scorer_version": "speaking@dev",
+      "rubric_id": "ielts-speaking-public",
+      "rubric_version": "2023-06",
+      "rubric_sha256": "40820db22ab572944baa4ecc399d6ff2597291e076dd5c990bd7bc578974f9cb",
+      "llm_provider": "agentrouter",
+      "llm_model": "claude-opus-4-8"
+    }
+  },
+  "lane": "scorer_only",
+  "latency_ms": 73812,
+  "swarm_error": ""
+}

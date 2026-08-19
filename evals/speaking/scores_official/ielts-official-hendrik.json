@@ -1,0 +1,139 @@
+{
+  "evaluation": {
+    "schema_version": "speaking-evaluation/v1",
+    "evaluation_id": "ielts-official-hendrik",
+    "mode": "benchmark",
+    "status": "partial",
+    "score_semantics": "estimated_ielts_practice_band",
+    "criteria": [
+      {
+        "criterion_id": "fluency_coherence",
+        "status": "scored",
+        "band": 7,
+        "summary": "Note: no measured speech features (words per minute, pause data) were supplied, so I cannot judge your rate of speech, flow, or pausing from the audio; this assessment covers coherence and cohesion only, with hesitation inferred cautiously from the transcript. Your ideas are logically sequenced and developed at length: you consistently give a point, a reason, and an example (e.g. politicians being famous, the financial crisis, celebrities in advertising, role models and responsibility), so there is no real loss of coherence. You use a good range of connectives and discourse markers flexibly ('I would say', 'that's a good question', 'as I said', 'As long as'), which is characteristic of band 7. What holds you back from band 8 is the heavy overuse of the filler 'yeah', some repetition ('hard to to think'), and occasionally inaccurate referencing ('for the one or the other reason', 'everything what happens'), which go beyond the 'only occasional repetition' expected at band 8.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "fc.7",
+            "descriptor_band": 7,
+            "polarity": "supports",
+            "application": "The candidate speaks at length with clearly sequenced, well-developed points and no real loss of coherence, using a range of connectives and discourse markers ('I would say', 'as I said', 'As long as') flexibly."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "fc.8",
+            "descriptor_band": 8,
+            "polarity": "caps_below",
+            "application": "Frequent overuse of the filler 'yeah', some word repetition, and occasionally inaccurate referencing exceed the 'only occasional repetition or self-correction' allowed at band 8."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "fc.6",
+            "descriptor_band": 6,
+            "polarity": "supports",
+            "application": "He is very willing to speak at length and sustains a range of connectives, but he comfortably exceeds band 6 because coherence is maintained rather than lost."
+          }
+        ]
+      },
+      {
+        "criterion_id": "lexical_resource",
+        "status": "scored",
+        "band": 7,
+        "summary": "You use a wide range of vocabulary and handle a variety of abstract topics (fame, responsibility, advertising) with flexibility. You show good awareness of collocation and some less common/idiomatic language ('easy to blame them for everything', 'he stands for something', 'if you can't stand this pressure', 'go on the wrong path', 'global warming', 'financial crisis'), which places you firmly at Band 7. What holds you back from Band 8 is a lack of precision at times: word-formation slips ('environmentally people/things' instead of 'environmental'), imprecise collocations ('a big branch of this'), and imprecise expressions ('living on the other side of the lake', 'Greek' for 'Greece'). To move higher, aim to convey precise meaning consistently and deploy less common vocabulary more skilfully.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "lr.7",
+            "descriptor_band": 7,
+            "polarity": "supports",
+            "application": "The candidate discusses varied abstract topics flexibly and uses less common and idiomatic items with awareness of collocation ('go on the wrong path', 'can't stand this pressure', 'easy to blame')."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "lr.6",
+            "descriptor_band": 6,
+            "polarity": "supports",
+            "application": "The candidate has a wide enough vocabulary to discuss topics at length and paraphrases successfully to keep meaning clear."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "lr.8",
+            "descriptor_band": 8,
+            "polarity": "caps_below",
+            "application": "Precision and skilful use fall short due to word-formation and word-choice errors ('environmentally people', 'a big branch', 'on the other side of the lake', 'Greek' for 'Greece')."
+          }
+        ]
+      },
+      {
+        "criterion_id": "grammatical_range",
+        "status": "scored",
+        "band": 7,
+        "summary": "You use a good range of complex structures with some flexibility, including subordinate clauses with 'because', conditional and 'as long as' clauses, and 'that'-clauses, and you frequently produce error-free sentences. However, recurring errors keep you from the next band: subject-verb agreement slips ('the people who admires him yeah wants to buy this product'), a relative-pronoun error ('everything what happens'), and article misuse ('the normal person') mean you do not yet produce a majority of error-free sentences with a wide range of structures. To move higher, tighten agreement in relative clauses and vary sentence openings more.",
+        "rubric_matches": [
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.7",
+            "descriptor_band": 7,
+            "polarity": "supports",
+            "application": "The candidate deploys a range of complex structures (because-clauses, conditionals, 'as long as' clauses, 'that'-clauses) with some flexibility and frequently produces error-free sentences."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.8",
+            "descriptor_band": 8,
+            "polarity": "caps_below",
+            "application": "Recurring subject-verb agreement errors ('people who wants'), a relative-pronoun error ('everything what happens') and article slips prevent the majority-error-free, flexibly wide range required for Band 8."
+          },
+          {
+            "rubric_id": "ielts-speaking-public",
+            "rubric_version": "2023-06",
+            "descriptor_id": "gra.6",
+            "descriptor_band": 6,
+            "polarity": "supports",
+            "application": "The candidate comfortably mixes simple and complex structures, exceeding the limited flexibility of Band 6."
+          }
+        ]
+      },
+      {
+        "criterion_id": "pronunciation",
+        "status": "unavailable",
+        "unavailable_reason": "insufficient_evidence",
+        "summary": "Evaluation unavailable due to an internal error."
+      }
+    ],
+    "overall": {
+      "band": 7,
+      "unrounded_mean": 7,
+      "included_criteria": [
+        "fluency_coherence",
+        "lexical_resource",
+        "grammatical_range"
+      ],
+      "excluded_criteria": [
+        "pronunciation"
+      ],
+      "rounding_rule": "ielts_half_band_v1",
+      "min_criteria_required": 3
+    },
+    "provenance": {
+      "created_at": "2026-08-09T01:12:39.6053218Z",
+      "scorer_version": "speaking@dev",
+      "rubric_id": "ielts-speaking-public",
+      "rubric_version": "2023-06",
+      "rubric_sha256": "40820db22ab572944baa4ecc399d6ff2597291e076dd5c990bd7bc578974f9cb",
+      "llm_provider": "agentrouter",
+      "llm_model": "claude-opus-4-8"
+    }
+  },
+  "lane": "scorer_only",
+  "latency_ms": 36373,
+  "swarm_error": ""
+}

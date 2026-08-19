@@ -1,0 +1,1490 @@
+{
+  "rag": [
+    {
+      "question": "Dummy RAG question 1",
+      "expected_answer_concepts": [
+        "concept_a_1",
+        "concept_b_1"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 2",
+      "expected_answer_concepts": [
+        "concept_a_2",
+        "concept_b_2"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 3",
+      "expected_answer_concepts": [
+        "concept_a_3",
+        "concept_b_3"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 4",
+      "expected_answer_concepts": [
+        "concept_a_4",
+        "concept_b_4"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 5",
+      "expected_answer_concepts": [
+        "concept_a_5",
+        "concept_b_5"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 6",
+      "expected_answer_concepts": [
+        "concept_a_6",
+        "concept_b_6"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 7",
+      "expected_answer_concepts": [
+        "concept_a_7",
+        "concept_b_7"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 8",
+      "expected_answer_concepts": [
+        "concept_a_8",
+        "concept_b_8"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 9",
+      "expected_answer_concepts": [
+        "concept_a_9",
+        "concept_b_9"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 10",
+      "expected_answer_concepts": [
+        "concept_a_10",
+        "concept_b_10"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 11",
+      "expected_answer_concepts": [
+        "concept_a_11",
+        "concept_b_11"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 12",
+      "expected_answer_concepts": [
+        "concept_a_12",
+        "concept_b_12"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 13",
+      "expected_answer_concepts": [
+        "concept_a_13",
+        "concept_b_13"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 14",
+      "expected_answer_concepts": [
+        "concept_a_14",
+        "concept_b_14"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 15",
+      "expected_answer_concepts": [
+        "concept_a_15",
+        "concept_b_15"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 16",
+      "expected_answer_concepts": [
+        "concept_a_16",
+        "concept_b_16"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 17",
+      "expected_answer_concepts": [
+        "concept_a_17",
+        "concept_b_17"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 18",
+      "expected_answer_concepts": [
+        "concept_a_18",
+        "concept_b_18"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 19",
+      "expected_answer_concepts": [
+        "concept_a_19",
+        "concept_b_19"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 20",
+      "expected_answer_concepts": [
+        "concept_a_20",
+        "concept_b_20"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 21",
+      "expected_answer_concepts": [
+        "concept_a_21",
+        "concept_b_21"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 22",
+      "expected_answer_concepts": [
+        "concept_a_22",
+        "concept_b_22"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 23",
+      "expected_answer_concepts": [
+        "concept_a_23",
+        "concept_b_23"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 24",
+      "expected_answer_concepts": [
+        "concept_a_24",
+        "concept_b_24"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 25",
+      "expected_answer_concepts": [
+        "concept_a_25",
+        "concept_b_25"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 26",
+      "expected_answer_concepts": [
+        "concept_a_26",
+        "concept_b_26"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 27",
+      "expected_answer_concepts": [
+        "concept_a_27",
+        "concept_b_27"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 28",
+      "expected_answer_concepts": [
+        "concept_a_28",
+        "concept_b_28"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 29",
+      "expected_answer_concepts": [
+        "concept_a_29",
+        "concept_b_29"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 30",
+      "expected_answer_concepts": [
+        "concept_a_30",
+        "concept_b_30"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 31",
+      "expected_answer_concepts": [
+        "concept_a_31",
+        "concept_b_31"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 32",
+      "expected_answer_concepts": [
+        "concept_a_32",
+        "concept_b_32"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 33",
+      "expected_answer_concepts": [
+        "concept_a_33",
+        "concept_b_33"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 34",
+      "expected_answer_concepts": [
+        "concept_a_34",
+        "concept_b_34"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 35",
+      "expected_answer_concepts": [
+        "concept_a_35",
+        "concept_b_35"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 36",
+      "expected_answer_concepts": [
+        "concept_a_36",
+        "concept_b_36"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 37",
+      "expected_answer_concepts": [
+        "concept_a_37",
+        "concept_b_37"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 38",
+      "expected_answer_concepts": [
+        "concept_a_38",
+        "concept_b_38"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 39",
+      "expected_answer_concepts": [
+        "concept_a_39",
+        "concept_b_39"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 40",
+      "expected_answer_concepts": [
+        "concept_a_40",
+        "concept_b_40"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 41",
+      "expected_answer_concepts": [
+        "concept_a_41",
+        "concept_b_41"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 42",
+      "expected_answer_concepts": [
+        "concept_a_42",
+        "concept_b_42"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 43",
+      "expected_answer_concepts": [
+        "concept_a_43",
+        "concept_b_43"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 44",
+      "expected_answer_concepts": [
+        "concept_a_44",
+        "concept_b_44"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 45",
+      "expected_answer_concepts": [
+        "concept_a_45",
+        "concept_b_45"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 46",
+      "expected_answer_concepts": [
+        "concept_a_46",
+        "concept_b_46"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 47",
+      "expected_answer_concepts": [
+        "concept_a_47",
+        "concept_b_47"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 48",
+      "expected_answer_concepts": [
+        "concept_a_48",
+        "concept_b_48"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 49",
+      "expected_answer_concepts": [
+        "concept_a_49",
+        "concept_b_49"
+      ]
+    },
+    {
+      "question": "Dummy RAG question 50",
+      "expected_answer_concepts": [
+        "concept_a_50",
+        "concept_b_50"
+      ]
+    }
+  ],
+  "scoring": [
+    {
+      "profile": "00000000-0000-0000-0000-000000000001",
+      "expected_gate": "blocked",
+      "expected_soft_score": 0.0
+    },
+    {
+      "profile": "00000000-0000-0000-0000-000000000002",
+      "expected_gate": "pass",
+      "expected_soft_score": 77.0
+    },
+    {
+      "profile": "00000000-0000-0000-0000-000000000003",
+      "expected_gate": "blocked",
+      "expected_soft_score": 0.0
+    },
+    {
+      "profile": "00000000-0000-0000-0000-000000000004",
+      "expected_gate": "pass",
+      "expected_soft_score": 79.0
+    },
+    {
+      "profile": "00000000-0000-0000-0000-000000000005",
+      "expected_gate": "blocked",
+      "expected_soft_score": 0.0
+    },
+    {
+      "profile": "00000000-0000-0000-0000-000000000006",
+      "expected_gate": "pass",
+      "expected_soft_score": 81.0
+    },
+    {
+      "profile": "00000000-0000-0000-0000-000000000007",
+      "expected_gate": "blocked",
+      "expected_soft_score": 0.0
+    },
+    {
+      "profile": "00000000-0000-0000-0000-000000000008",
+      "expected_gate": "pass",
+      "expected_soft_score": 83.0
+    },
+    {
+      "profile": "00000000-0000-0000-0000-000000000009",
+      "expected_gate": "blocked",
+      "expected_soft_score": 0.0
+    },
+    {
+      "profile": "00000000-0000-0000-0000-000000000010",
+      "expected_gate": "pass",
+      "expected_soft_score": 75.0
+    },
+    {
+      "profile": "00000000-0000-0000-0000-000000000011",
+      "expected_gate": "blocked",
+      "expected_soft_score": 0.0
+    },
+    {
+      "profile": "00000000-0000-0000-0000-000000000012",
+      "expected_gate": "pass",
+      "expected_soft_score": 77.0
+    },
+    {
+      "profile": "00000000-0000-0000-0000-000000000013",
+      "expected_gate": "blocked",
+      "expected_soft_score": 0.0
+    },
+    {
+      "profile": "00000000-0000-0000-0000-000000000014",
+      "expected_gate": "pass",
+      "expected_soft_score": 79.0
+    },
+    {
+      "profile": "00000000-0000-0000-0000-000000000015",
+      "expected_gate": "blocked",
+      "expected_soft_score": 0.0
+    },
+    {
+      "profile": "00000000-0000-0000-0000-000000000016",
+      "expected_gate": "pass",
+      "expected_soft_score": 81.0
+    },
+    {
+      "profile": "00000000-0000-0000-0000-000000000017",
+      "expected_gate": "blocked",
+      "expected_soft_score": 0.0
+    },
+    {
+      "profile": "00000000-0000-0000-0000-000000000018",
+      "expected_gate": "pass",
+      "expected_soft_score": 83.0
+    },
+    {
+      "profile": "00000000-0000-0000-0000-000000000019",
+      "expected_gate": "blocked",
+      "expected_soft_score": 0.0
+    },
+    {
+      "profile": "00000000-0000-0000-0000-000000000020",
+      "expected_gate": "pass",
+      "expected_soft_score": 75.0
+    }
+  ],
+  "rag_retrieval": [
+    {
+      "id": "rag-q01",
+      "question": "How many questions are in the IELTS Reading test?",
+      "relevant_document_ids": [
+        "c90c6811-fb06-5607-9253-9565d7ce4941"
+      ],
+      "unanswerable": false
+    },
+    {
+      "id": "rag-q02",
+      "question": "What does band 7 mean?",
+      "relevant_document_ids": [
+        "c90c6811-fb06-5607-9253-9565d7ce4941"
+      ],
+      "unanswerable": false
+    },
+    {
+      "id": "rag-q03",
+      "question": "How long is an IELTS score valid?",
+      "relevant_document_ids": [
+        "c90c6811-fb06-5607-9253-9565d7ce4941"
+      ],
+      "unanswerable": false
+    },
+    {
+      "id": "rag-q04",
+      "question": "What documents are needed for a German student visa?",
+      "relevant_document_ids": [
+        "3ffdd2e7-ebc2-5555-896a-0498b3c4f74d"
+      ],
+      "unanswerable": false
+    },
+    {
+      "id": "rag-q05",
+      "question": "What is a blocked account for Germany?",
+      "relevant_document_ids": [
+        "4810e0af-a634-5589-94a7-0fb88ea1a9fc"
+      ],
+      "unanswerable": false
+    },
+    {
+      "id": "rag-q06",
+      "question": "What is the minimum score required for Stipendium Hungaricum?",
+      "relevant_document_ids": [
+        "731671ec-be34-58a4-a4f6-8ef3bc51b033"
+      ],
+      "unanswerable": false
+    },
+    {
+      "id": "rag-q07",
+      "question": "How long can a Stipendium Hungaricum holder stay outside Hungary?",
+      "relevant_document_ids": [
+        "731671ec-be34-58a4-a4f6-8ef3bc51b033"
+      ],
+      "unanswerable": false
+    },
+    {
+      "id": "rag-q08",
+      "question": "What is the Sweden residence permit passport validity rule?",
+      "relevant_document_ids": [
+        "7f6c3826-646b-586b-951c-6d1ebcdce2b4"
+      ],
+      "unanswerable": false
+    },
+    {
+      "id": "rag-q09",
+      "question": "How much money is required for UK student visa application fee?",
+      "relevant_document_ids": [
+        "6ff39dd7-25e4-539c-a111-c918c50ca1bf"
+      ],
+      "unanswerable": false
+    },
+    {
+      "id": "rag-q10",
+      "question": "What are the IELTS band score levels?",
+      "relevant_document_ids": [
+        "c90c6811-fb06-5607-9253-9565d7ce4941"
+      ],
+      "unanswerable": false
+    },
+    {
+      "id": "rag-q11-unanswerable",
+      "question": "What is the capital of Jupiter?",
+      "relevant_document_ids": [],
+      "unanswerable": true
+    },
+    {
+      "question": "What TOEFL score do I need for a German masters programme?",
+      "relevant_document_ids": [],
+      "expected_answer_concepts": [],
+      "unanswerable": true,
+      "rationale": "No corpus document mentions this topic (verified: 0 ILIKE matches)."
+    },
+    {
+      "question": "Is the Duolingo English Test accepted for admission?",
+      "relevant_document_ids": [],
+      "expected_answer_concepts": [],
+      "unanswerable": true,
+      "rationale": "No corpus document mentions this topic (verified: 0 ILIKE matches)."
+    },
+    {
+      "question": "What is the minimum PTE Academic score for admission?",
+      "relevant_document_ids": [],
+      "expected_answer_concepts": [],
+      "unanswerable": true,
+      "rationale": "No corpus document mentions this topic (verified: 0 ILIKE matches)."
+    },
+    {
+      "question": "What GMAT score is required for an MBA programme?",
+      "relevant_document_ids": [],
+      "expected_answer_concepts": [],
+      "unanswerable": true,
+      "rationale": "No corpus document mentions this topic (verified: 0 ILIKE matches)."
+    },
+    {
+      "question": "Do I need to sit the SAT exam to apply?",
+      "relevant_document_ids": [],
+      "expected_answer_concepts": [],
+      "unanswerable": true,
+      "rationale": "No corpus document mentions this topic (verified: 0 ILIKE matches)."
+    },
+    {
+      "question": "How do I apply for a Fulbright scholarship?",
+      "relevant_document_ids": [],
+      "expected_answer_concepts": [],
+      "unanswerable": true,
+      "rationale": "No corpus document mentions this topic (verified: 0 ILIKE matches)."
+    },
+    {
+      "question": "What MCAT score is needed for medical school admission?",
+      "relevant_document_ids": [],
+      "expected_answer_concepts": [],
+      "unanswerable": true,
+      "rationale": "No corpus document mentions this topic (verified: 0 ILIKE matches)."
+    },
+    {
+      "question": "What is the LSAT requirement for a law degree?",
+      "relevant_document_ids": [],
+      "expected_answer_concepts": [],
+      "unanswerable": true,
+      "rationale": "No corpus document mentions this topic (verified: 0 ILIKE matches)."
+    },
+    {
+      "question": "Is Cambridge C1 Advanced accepted instead of IELTS?",
+      "relevant_document_ids": [],
+      "expected_answer_concepts": [],
+      "unanswerable": true,
+      "rationale": "No corpus document mentions this topic (verified: 0 ILIKE matches)."
+    },
+    {
+      "question": "What JLPT level is required to study in Japanese?",
+      "relevant_document_ids": [],
+      "expected_answer_concepts": [],
+      "unanswerable": true,
+      "rationale": "No corpus document mentions this topic (verified: 0 ILIKE matches)."
+    },
+    {
+      "question": "What HSK level do I need for a Chinese-taught programme?",
+      "relevant_document_ids": [],
+      "expected_answer_concepts": [],
+      "unanswerable": true,
+      "rationale": "No corpus document mentions this topic (verified: 0 ILIKE matches)."
+    },
+    {
+      "question": "Is TestDaF accepted as proof of German language ability?",
+      "relevant_document_ids": [],
+      "expected_answer_concepts": [],
+      "unanswerable": true,
+      "rationale": "No corpus document mentions this topic (verified: 0 ILIKE matches)."
+    },
+    {
+      "question": "Do I need a Goethe-Zertifikat for admission?",
+      "relevant_document_ids": [],
+      "expected_answer_concepts": [],
+      "unanswerable": true,
+      "rationale": "No corpus document mentions this topic (verified: 0 ILIKE matches)."
+    },
+    {
+      "question": "What is the typical postdoc salary in this programme?",
+      "relevant_document_ids": [],
+      "expected_answer_concepts": [],
+      "unanswerable": true,
+      "rationale": "No corpus document mentions this topic (verified: 0 ILIKE matches)."
+    },
+    {
+      "id": "rag-entity-01",
+      "subset": "entity",
+      "question": "Who can apply for a Chevening Scholarship?",
+      "relevant_document_ids": ["0390f4de-1934-5d0a-9445-071997dadcc8"],
+      "unanswerable": false,
+      "category": "scholarships",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The labelled chunk is the only document containing Chevening and directly describes applicant eligibility."
+    },
+    {
+      "id": "rag-entity-02",
+      "subset": "entity",
+      "question": "How long may a Stipendium Hungaricum holder stay outside Hungary?",
+      "relevant_document_ids": ["279bf6f6-09f4-58d4-8a17-ceb30fddcb4d"],
+      "unanswerable": false,
+      "category": "scholarships",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The labelled scholarship chunk states the 30-day rule and termination consequence."
+    },
+    {
+      "id": "rag-entity-03",
+      "subset": "entity",
+      "question": "Which university offers QuanTEEM, the Erasmus Mundus quantum technologies programme?",
+      "relevant_document_ids": ["1f7920a9-f630-5037-b9a0-7565fc14dccf"],
+      "unanswerable": false,
+      "category": "universities",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The labelled listing names QuanTEEM and Aarhus University; no other corpus row contains QuanTEEM."
+    },
+    {
+      "id": "rag-entity-04",
+      "subset": "entity",
+      "question": "What is the ReSound European Joint Masters programme about?",
+      "relevant_document_ids": ["96ef970d-35ea-55d3-8d73-2ec6aab15ee8"],
+      "unanswerable": false,
+      "category": "universities",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The labelled listing is the corpus's ReSound programme and explains its focus on sound in culture and creative industries."
+    },
+    {
+      "id": "rag-entity-05",
+      "subset": "entity",
+      "question": "What does the IT4BI Erasmus Mundus programme train students to do?",
+      "relevant_document_ids": ["90afd047-694b-5d72-9b35-13c506821b88"],
+      "unanswerable": false,
+      "category": "universities",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The labelled listing expands IT4BI and describes its business-intelligence training objective."
+    },
+    {
+      "id": "rag-entity-06",
+      "subset": "entity",
+      "question": "Which institutions in this corpus offer Renewable Energy in the Marine Environment (REM)?",
+      "relevant_document_ids": [
+        "5edce7dc-3aa0-5b3d-a44a-e7c6e45af777",
+        "9f343058-969f-505c-b442-6009c1e0bce8"
+      ],
+      "unanswerable": false,
+      "category": "universities",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The two labelled listings are the only REM programme rows and name Centrale Nantes and the University of the Basque Country."
+    },
+    {
+      "id": "rag-entity-07",
+      "subset": "entity",
+      "question": "What does the BDMA Erasmus Mundus master's programme cover?",
+      "relevant_document_ids": ["ea21497d-902b-5f33-ba63-117d107302ab"],
+      "unanswerable": false,
+      "category": "universities",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The labelled listing expands BDMA as Big Data Management and Analytics and describes its subject."
+    },
+    {
+      "id": "rag-entity-08",
+      "subset": "entity",
+      "question": "What does WAVES stand for in the University of Coimbra Erasmus Mundus programme?",
+      "relevant_document_ids": ["f2ff27b2-ba6c-5aed-84b5-32bda13534fa"],
+      "unanswerable": false,
+      "category": "universities",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The labelled listing explicitly expands WAVES as Waves, Acoustics, Vibrations, Engineering and Sound."
+    },
+    {
+      "id": "rag-entity-09",
+      "subset": "entity",
+      "question": "Which institutions collaborate on Erasmus Mundus META 4.0?",
+      "relevant_document_ids": ["fcf304a2-c27f-54cc-ad2c-a4e9df95ca1d"],
+      "unanswerable": false,
+      "category": "universities",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The labelled META 4.0 listing enumerates the collaborating institutions."
+    },
+    {
+      "id": "rag-entity-10",
+      "subset": "entity",
+      "question": "Which universities cooperate on TUM's Erasmus Mundus Cartography programme?",
+      "relevant_document_ids": ["d61bac62-c0f4-57b0-b52c-e06ed37c0ad2"],
+      "unanswerable": false,
+      "category": "universities",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The labelled Cartography listing names TUM, Vienna University of Technology, TU Dresden and the University of Twente."
+    },
+    {
+      "id": "rag-numeric-01",
+      "subset": "numeric",
+      "question": "What IELTS requirement is listed for Hull's Immersive Design in Extended Realities pre-master's programme?",
+      "relevant_document_ids": ["98ee82bc-3f35-5610-b528-4cff24126cf1"],
+      "unanswerable": false,
+      "category": "universities",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The labelled listing states IELTS 4.5; the corpus contains thousands of otherwise similar programme listings with nearby IELTS values."
+    },
+    {
+      "id": "rag-numeric-02",
+      "subset": "numeric",
+      "question": "What IELTS requirement is listed for Computer Science Engineering at Budapest University of Technology and Economics?",
+      "relevant_document_ids": ["3e1b1de0-1ba1-5310-88bc-81a2f61de400"],
+      "unanswerable": false,
+      "category": "universities",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The labelled listing states IELTS 5.0; near-miss programme listings with 4.5 and 5.5 are present."
+    },
+    {
+      "id": "rag-numeric-03",
+      "subset": "numeric",
+      "question": "What IELTS requirement is listed for Business Process Management at Vilnius University?",
+      "relevant_document_ids": ["3f2cd161-7065-565f-975d-eccb50f8fdb5"],
+      "unanswerable": false,
+      "category": "universities",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The labelled listing states IELTS 5.5; near-miss listings with 5.0 and 6.0 are present."
+    },
+    {
+      "id": "rag-numeric-04",
+      "subset": "numeric",
+      "question": "What IELTS requirement is listed for Information Security and Risk (Learning at Work) at Portsmouth?",
+      "relevant_document_ids": ["0908c43f-c46a-54d4-8010-a0477a8793a3"],
+      "unanswerable": false,
+      "category": "universities",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The labelled listing states IELTS 6.0; dense retrieval was manually observed returning similarly named 6.5 security programmes instead."
+    },
+    {
+      "id": "rag-numeric-05",
+      "subset": "numeric",
+      "question": "What IELTS requirement is listed for Biomedical Engineering at Kaunas University of Technology?",
+      "relevant_document_ids": ["4757d1a8-bbde-5ce0-a50c-cdd638b4c2db"],
+      "unanswerable": false,
+      "category": "universities",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The labelled listing states IELTS 6.0; the corpus has many Biomedical Engineering and 6.5 programme distractors."
+    },
+    {
+      "id": "rag-numeric-06",
+      "subset": "numeric",
+      "question": "What IELTS requirement is listed for Business Analytics at the University of West London?",
+      "relevant_document_ids": ["a9161d44-6d89-5de3-ae51-cc1e529a68cc"],
+      "unanswerable": false,
+      "category": "universities",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The labelled listing states IELTS 6.5; similarly named Business Analytics programmes with other thresholds are present."
+    },
+    {
+      "id": "rag-numeric-07",
+      "subset": "numeric",
+      "question": "What IELTS requirement is listed for Emerging Digital Technologies at UCL?",
+      "relevant_document_ids": ["e2d3a26d-525b-5c8d-bb49-32483fb27195"],
+      "unanswerable": false,
+      "category": "universities",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The labelled listing states IELTS 7.0; nearby 6.5 and 7.5 UCL programme listings are present."
+    },
+    {
+      "id": "rag-numeric-08",
+      "subset": "numeric",
+      "question": "What IELTS requirement is listed for Data Science for Public Policy at Hertie School Berlin?",
+      "relevant_document_ids": ["bdef5c62-4677-5ffc-8e54-c3bacc342fa7"],
+      "unanswerable": false,
+      "category": "universities",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The labelled listing states IELTS 7.0; the corpus contains similarly named Data Science programmes with lower thresholds."
+    },
+    {
+      "id": "rag-numeric-09",
+      "subset": "numeric",
+      "question": "What IELTS requirement is listed for Software Engineering at the University of Oxford?",
+      "relevant_document_ids": ["b9055641-e145-5c71-8559-54fbb4ffa33a"],
+      "unanswerable": false,
+      "category": "universities",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The labelled listing states IELTS 7.5; many similarly named Software Engineering listings have lower thresholds."
+    },
+    {
+      "id": "rag-numeric-10",
+      "subset": "numeric",
+      "question": "What IELTS requirement is listed for Media and Convergence Management at the University of Klagenfurt?",
+      "relevant_document_ids": ["1acb4bb5-c192-562c-8b34-c5c4e210324f"],
+      "unanswerable": false,
+      "category": "universities",
+      "label_method": "Manual inspection of the frozen GOA-137 corpus snapshot.",
+      "rationale": "The labelled listing states IELTS 8.0, while the rest of the corpus supplies numerous near-miss thresholds from 4.5 through 7.5."
+    }
+  ],
+  "speaking": [
+    {
+      "id": "s-01",
+      "task_type": "speaking",
+      "transcript": "Examiner: Tell me about your hometown. Candidate: My hometown is small city in Delta region. It is very quiet place and many people know each other. I live there with my family since I was born. Examiner: What do you do in your free time? Candidate: In my free time I like watching television and playing games on my phone. Sometimes I go out with my friends to coffee shop, but mostly I stay home because I feel tired after work.",
+      "expected_band": 5.0,
+      "expected_criteria": {
+        "fluency_coherence": 5.0,
+        "lexical_resource": 5.0,
+        "grammatical_range": 5.0,
+        "pronunciation": 5.0
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Band 5.0 overall; slow speech rate, simple sentences, basic vocabulary.",
+      "label_validated": false
+    },
+    {
+      "id": "s-02",
+      "task_type": "speaking",
+      "transcript": "Examiner: Do you enjoy listening to music? Candidate: Yes, I really like listening to music, especially pop music and traditional songs. When I am listening to music, I feel relaxed and happy. I usually listen music when I commute to my university or before going to sleep. Examiner: Has your taste in music changed since you were younger? Candidate: Yes, it changed a lot. When I was child, I listened to cartoon songs, but now I prefer modern pop and instrumental music because it helps me concentrate during study.",
+      "expected_band": 5.5,
+      "expected_criteria": {
+        "fluency_coherence": 6.0,
+        "lexical_resource": 5.5,
+        "grammatical_range": 5.0,
+        "pronunciation": 5.5
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Band 5.5 overall; willing to speak at length, minor grammatical errors.",
+      "label_validated": false
+    },
+    {
+      "id": "s-03",
+      "task_type": "speaking",
+      "transcript": "Examiner: What kind of sports do you like? Candidate: To be honest, I am not very athletic person, but I enjoy playing badminton with my brother on weekends. It is fun and good exercise for body. Examiner: Do you think physical education should be compulsory at school? Candidate: Yes, I think so. Children today spend too much time sitting and playing video games. If schools have compulsory sports, kids will become healthier and learn team work.",
+      "expected_band": 5.5,
+      "expected_criteria": {
+        "fluency_coherence": 5.5,
+        "lexical_resource": 5.5,
+        "grammatical_range": 5.5,
+        "pronunciation": 5.5
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Band 5.5 overall; adequate vocabulary for familiar topics, simple grammar structures.",
+      "label_validated": false
+    },
+    {
+      "id": "s-04",
+      "task_type": "speaking",
+      "transcript": "Examiner: Where did you go for your last vacation? Candidate: Last summer, I went to Alexandria with my family. We stayed in a hotel near the sea for five days. We enjoyed swimming every morning and eating fresh seafood in local restaurants. Examiner: Do you prefer traveling alone or in a group? Candidate: I prefer traveling with my friends or family because we can share experiences and help each other if any problem happens. Traveling alone can be lonely sometimes.",
+      "expected_band": 5.5,
+      "expected_criteria": {
+        "fluency_coherence": 5.5,
+        "lexical_resource": 5.5,
+        "grammatical_range": 5.5,
+        "pronunciation": 5.5
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Band 5.5 overall; clear communication of main ideas, frequent small structural slips.",
+      "label_validated": false
+    },
+    {
+      "id": "s-05",
+      "task_type": "speaking",
+      "transcript": "Examiner: Describe a memorable journey you took. Candidate: I would like to talk about a trip I took to Luxor and Aswan two years ago during winter break. I went there by train with three of my university friends. The journey took around ten hours, but it was very enjoyable because the scenery along the Nile was beautiful. When we arrived, we visited ancient temples like Karnak and the Valley of the Kings. What made this trip memorable was the historical atmosphere and the hospitality of the local people. We also rode a felucca sailboat on the Nile during sunset, which was an unforgettable experience. I felt very relaxed and amazed by our country's rich history.",
+      "expected_band": 6.0,
+      "expected_criteria": {
+        "fluency_coherence": 6.0,
+        "lexical_resource": 6.0,
+        "grammatical_range": 6.0,
+        "pronunciation": 6.0
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Band 6.0 overall; speaks at length, coherent discourse, clear pronunciation.",
+      "label_validated": false
+    },
+    {
+      "id": "s-06",
+      "task_type": "speaking",
+      "transcript": "Examiner: How can individuals help protect the environment? Candidate: Well, there are several simple actions people can take in their daily lives. Firstly, we can reduce plastic usage by taking reusable bags when shopping. Secondly, saving energy at home by turning off lights and air conditioning when leaving the room helps reduce carbon emissions. Furthermore, sorting garbage for recycling is becoming popular in many communities. Although individual actions might seem small, if millions of people participate, it will make a significant impact on global environmental conservation.",
+      "expected_band": 6.0,
+      "expected_criteria": {
+        "fluency_coherence": 6.0,
+        "lexical_resource": 6.5,
+        "grammatical_range": 6.0,
+        "pronunciation": 5.5
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Band 6.0 overall; good range of environmental vocabulary, clear logical markers.",
+      "label_validated": false
+    },
+    {
+      "id": "s-07",
+      "task_type": "speaking",
+      "transcript": "Examiner: Do you prefer shopping online or in traditional stores? Candidate: Personally, I prefer online shopping for most items like electronics and books because it is extremely convenient. I can compare prices across different websites within minutes and have products delivered directly to my doorstep. However, when it comes to clothes or shoes, I still prefer going to physical shops. Trying on clothes ensures the size and fit are correct, and I can check the fabric quality before making a purchase. So, my choice depends largely on the category of product I am buying.",
+      "expected_band": 6.0,
+      "expected_criteria": {
+        "fluency_coherence": 6.5,
+        "lexical_resource": 6.0,
+        "grammatical_range": 5.5,
+        "pronunciation": 6.0
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Band 6.0 overall; fluent delivery, contrast markers used effectively.",
+      "label_validated": false
+    },
+    {
+      "id": "s-08",
+      "task_type": "speaking",
+      "transcript": "Examiner: What are your future career plans? Candidate: After completing my bachelor's degree in computer science, I intend to work as a software developer in an international technology firm. In the short term, I want to gain practical coding experience and learn modern software frameworks. In the long term, I hope to lead engineering teams or start my own tech startup specializing in educational applications. I believe continuous learning and adaptability are key to thriving in the fast-paced IT industry.",
+      "expected_band": 6.0,
+      "expected_criteria": {
+        "fluency_coherence": 6.0,
+        "lexical_resource": 6.0,
+        "grammatical_range": 6.0,
+        "pronunciation": 6.0
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Band 6.0 overall; clear expression of career goals, appropriate technical terms.",
+      "label_validated": false
+    },
+    {
+      "id": "s-09",
+      "task_type": "speaking",
+      "transcript": "Examiner: Describe a person who has significantly influenced your life. Candidate: I'd like to speak about my high school mathematics teacher, Mr. Ahmed. He was an exceptionally dedicated educator who transformed how I approach problem-solving. Before meeting him, I used to find math intimidating and abstract. However, Mr. Ahmed had a unique teaching methodology; he connected complex algebraic concepts to real-world applications in engineering and architecture. Beyond academics, he constantly encouraged us to persevere when facing difficult challenges. His patience and enthusiasm inspired me to pursue an engineering degree at university. Even today, whenever I encounter complex technical problems, I remember his advice to break big problems down into manageable components.",
+      "expected_band": 6.5,
+      "expected_criteria": {
+        "fluency_coherence": 6.5,
+        "lexical_resource": 6.5,
+        "grammatical_range": 6.5,
+        "pronunciation": 6.5
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Band 6.5 overall; fluent narrative, good range of vocabulary, natural intonation.",
+      "label_validated": false
+    },
+    {
+      "id": "s-10",
+      "task_type": "speaking",
+      "transcript": "Examiner: How has social media changed interpersonal communication? Candidate: Social media has revolutionized how we connect with others, offering both remarkable advantages and noticeable drawbacks. On the positive side, platforms like WhatsApp and LinkedIn allow us to maintain instant contact with friends and professional contacts across the globe, regardless of geographical distance. It has democratized communication and made networking far more accessible. On the negative side, digital communication often lacks the depth and nuance of face-to-face interactions. Non-verbal cues, tone of voice, and genuine emotional connection can get lost in text messages, sometimes leading to misunderstandings. Furthermore, people tend to curate idealized versions of their lives online, which can foster superficial relationships.",
+      "expected_band": 6.5,
+      "expected_criteria": {
+        "fluency_coherence": 6.5,
+        "lexical_resource": 7.0,
+        "grammatical_range": 6.5,
+        "pronunciation": 6.0
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Band 6.5 overall; strong vocabulary range (democratized, curated, nuance), good discourse control.",
+      "label_validated": false
+    },
+    {
+      "id": "s-11",
+      "task_type": "speaking",
+      "transcript": "Examiner: Why are traditional art galleries still important in the digital era? Candidate: Although digital technology allows us to view high-resolution images of famous artworks online, visiting a physical art gallery offers an incomparable sensory experience. Seeing an oil painting in person allows you to appreciate its scale, texture, brushstrokes, and subtle lighting details that no digital screen can accurately replicate. Furthermore, galleries provide a quiet, contemplative space free from digital distractions, enabling visitors to connect deeply with the artwork's emotional essence. Therefore, galleries remain vital cultural institutions for art preservation and appreciation.",
+      "expected_band": 6.5,
+      "expected_criteria": {
+        "fluency_coherence": 6.5,
+        "lexical_resource": 6.5,
+        "grammatical_range": 6.5,
+        "pronunciation": 6.5
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Band 6.5 overall; sophisticated topic collocations (contemplative space, sensory experience).",
+      "label_validated": false
+    },
+    {
+      "id": "s-12",
+      "task_type": "speaking",
+      "transcript": "Examiner: What are the benefits and challenges of online education? Candidate: Online education provides unprecedented flexibility and accessibility. Students can access course materials from top international universities from the comfort of their homes, allowing them to balance study with work or family commitments. Additionally, recorded lectures enable learners to review complex topics at their own pace. However, the lack of physical classroom interaction can lead to feelings of isolation and reduced motivation. Collaborative group work and spontaneous peer discussions are often less effective online, and practical hands-on subjects like chemistry or medicine require physical laboratory access.",
+      "expected_band": 6.5,
+      "expected_criteria": {
+        "fluency_coherence": 7.0,
+        "lexical_resource": 6.5,
+        "grammatical_range": 6.5,
+        "pronunciation": 6.0
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Band 6.5 overall; fluent delivery without hesitation, good grammatical range.",
+      "label_validated": false
+    },
+    {
+      "id": "s-13",
+      "task_type": "speaking",
+      "transcript": "Examiner: Describe a public event you attended recently. Candidate: I'd like to describe an international book fair I attended last November in Cairo. It was a massive cultural gathering held at the exhibition center, attracting publishers, authors, and book enthusiasts from across the Arab world and beyond. The atmosphere was incredibly vibrant, with dozens of pavilions showcasing literature spanning history, technology, fiction, and philosophy. I attended a panel discussion featuring prominent contemporary authors who discussed the evolution of Arabic literature in the digital age. What struck me most was the sheer diversity of attendees—families, university students, and scholars all united by a shared passion for reading. I purchased several academic volumes and left feeling intellectually enriched and inspired by the thriving literary culture.",
+      "expected_band": 7.0,
+      "expected_criteria": {
+        "fluency_coherence": 7.0,
+        "lexical_resource": 7.0,
+        "grammatical_range": 7.0,
+        "pronunciation": 7.0
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Band 7.0 overall; fluent, flexible discourse, precise vocabulary, clear pronunciation.",
+      "label_validated": false
+    },
+    {
+      "id": "s-14",
+      "task_type": "speaking",
+      "transcript": "Examiner: How will smart city technologies transform urban living? Candidate: Smart city innovations hold immense potential to optimize urban infrastructure and enhance citizens' quality of life. By deploying Internet-of-Things sensors and data analytics, municipal authorities can monitor traffic flow in real time, dynamically adjusting traffic signals to alleviate congestion and reduce carbon emissions. Similarly, smart energy grids can optimize power distribution, integrating renewable energy sources far more efficiently. Furthermore, automated waste management systems can streamline municipal services. However, implementing these technologies requires robust cybersecurity frameworks to safeguard citizens' privacy against data breaches.",
+      "expected_band": 7.0,
+      "expected_criteria": {
+        "fluency_coherence": 7.0,
+        "lexical_resource": 7.5,
+        "grammatical_range": 7.0,
+        "pronunciation": 6.5
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Band 7.0 overall; advanced vocabulary (dynamic adjustment, robust cybersecurity), coherent ideas.",
+      "label_validated": false
+    },
+    {
+      "id": "s-15",
+      "task_type": "speaking",
+      "transcript": "Examiner: Does globalization threaten cultural identity? Candidate: Globalization is a double-edged sword regarding national identity. On one hand, the dominance of global media and multinational brands can lead to cultural homogenization, where local traditions and regional dialects are gradually overshadowed by globalized consumer culture. Young generations often adopt Western lifestyles and music, sometimes drifting away from their heritage. On the other hand, globalization can stimulate a conscious revival of local heritage. As exposure to foreign cultures increases, many communities take proactive measures to document, celebrate, and preserve their unique folklore, cuisine, and artisanal crafts to stand out on the global stage.",
+      "expected_band": 7.0,
+      "expected_criteria": {
+        "fluency_coherence": 7.0,
+        "lexical_resource": 7.0,
+        "grammatical_range": 7.0,
+        "pronunciation": 7.0
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Band 7.0 overall; balanced arguments, natural use of idiomatic expressions (double-edged sword).",
+      "label_validated": false
+    },
+    {
+      "id": "s-16",
+      "task_type": "speaking",
+      "transcript": "Examiner: Should governments regulate artificial intelligence research? Candidate: Absolutely. The exponential trajectory of artificial intelligence development necessitates stringent regulatory oversight to mitigate profound societal and ethical risks. Unchecked AI deployment in areas such as autonomous weaponry, algorithmic hiring bias, and deepfake technology poses existential threats to democratic institutions and civil liberties. Regulatory frameworks must enforce transparency, algorithmic accountability, and data privacy standards without stifling beneficial technological innovation. Establishing international consensus on ethical AI deployment is imperative to prevent a regulatory race to the bottom among competing nations.",
+      "expected_band": 7.5,
+      "expected_criteria": {
+        "fluency_coherence": 7.5,
+        "lexical_resource": 8.0,
+        "grammatical_range": 7.5,
+        "pronunciation": 7.0
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Band 7.5 overall; highly sophisticated vocabulary, complex grammar, effortless fluency.",
+      "label_validated": false
+    },
+    {
+      "id": "s-17",
+      "task_type": "speaking",
+      "transcript": "Examiner: Describe a complex decision you had to make. Candidate: I would like to discuss my decision to transition from civil engineering into data science two years ago. Having completed a bachelor's degree in structural engineering and worked in construction management, making a radical career shift involved considerable uncertainty and financial risk. I evaluated the long-term prospects of both sectors: while civil engineering offered stability, data science presented immense growth opportunities at the intersection of machine learning and urban planning. I devoted six months to self-study, mastering Python programming and statistical modeling, before enrolling in an intensive postgraduate diploma. The decision required relinquishing job security to embrace continuous learning, but it has proven immensely rewarding as I now build predictive models for sustainable infrastructure.",
+      "expected_band": 7.5,
+      "expected_criteria": {
+        "fluency_coherence": 8.0,
+        "lexical_resource": 7.5,
+        "grammatical_range": 7.5,
+        "pronunciation": 7.0
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Band 7.5 overall; seamless flow, natural discourse markers, rich vocabulary.",
+      "label_validated": false
+    },
+    {
+      "id": "s-18",
+      "task_type": "speaking",
+      "transcript": "Examiner: Can economic growth be decoupled from environmental degradation? Candidate: Decoupling economic growth from environmental degradation is not merely theoretically plausible; it is an absolute imperative for sustainable human civilization. Achieving absolute decoupling demands a paradigm shift from extractive, linear economic models to circular, low-carbon frameworks. Advanced economies have demonstrated that GDP growth can continue while greenhouse gas emissions decline, primarily by transitioning to renewable energy grids, electrifying transport, and improving energy efficiency across industrial processes. However, true sustainability requires addressing embedded carbon in global supply chains and curbing overconsumption. Policy instruments such as carbon pricing, circular economy mandates, and massive public investment in green technology are indispensable to decouple prosperity from ecological destruction.",
+      "expected_band": 8.0,
+      "expected_criteria": {
+        "fluency_coherence": 8.0,
+        "lexical_resource": 8.0,
+        "grammatical_range": 8.0,
+        "pronunciation": 8.0
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Band 8.0 overall; authoritative tone, effortless fluency, precise academic vocabulary.",
+      "label_validated": false
+    },
+    {
+      "id": "s-19",
+      "task_type": "speaking",
+      "transcript": "Examiner: How does tourism affect your country? Candidate: Oh tourism is very big deal in my country you know! Millions of people coming every year to seeing pyramids and Nile river. I think it bring lots of money and jobs for everybody like taxi drivers and hotels. But also sometimes prices going very up and local people cannot buying things easily. Many tourist dropping rubbish everywhere on beach which making locals very angry. But overall I saying tourism is good because economy needing the foreign money so much.",
+      "expected_band": 6.0,
+      "expected_criteria": {
+        "fluency_coherence": 8.0,
+        "lexical_resource": 6.5,
+        "grammatical_range": 5.0,
+        "pronunciation": 5.0
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Hard case: Fluent speech with rapid flow and zero hesitation (FC 8.0), but frequent basic tense/grammatical errors (GRA 5.0) and mispronunciations (PR 5.0), resulting in an overall Band 6.0.",
+      "label_validated": false
+    },
+    {
+      "id": "s-20",
+      "task_type": "speaking",
+      "transcript": "Examiner: Do you think digital books will replace paper books? Candidate: Well... that is... a remarkably complex question. Um... on one hand... digital readers offer... unparalleled storage capacity... and portability. One can carry an entire research library... within a single lightweight device. However... um... physical books possess an enduring tactile aesthetic... and provide a cognitive focus... unencumbered by digital notifications. Therefore... I suspect both mediums will continue... to coexist harmoniously.",
+      "expected_band": 7.0,
+      "expected_criteria": {
+        "fluency_coherence": 5.5,
+        "lexical_resource": 8.5,
+        "grammatical_range": 8.0,
+        "pronunciation": 8.5
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Hard case: Noticeable hesitation and slow speaking rate with pauses (FC 5.5), but exceptional vocabulary precision (LR 8.5), advanced grammatical structures (GRA 8.0), and pristine pronunciation (PR 8.5), averaging Band 7.0.",
+      "label_validated": false
+    }
+  ],
+  "writing_synthetic_unvalidated": [
+    {
+      "id": "w-01",
+      "task_type": "task2",
+      "essay": "In modern world university education is very important for many young people. Some people think government must pay all money for students because it is good for future. However other people say students should pay by themselves. In my opinion free education is good idea because poor people can study too. Firstly when university is free many poor students can go to study and get good job. In my country many smart students cannot go to university because they have no money. This is very sad situation. Secondly government will get more educated workers like doctors and engineers. This will help the economy grow faster. On the other hand some people argue that if education is free students will not work hard. They will waste time and money. Also government need to increase tax to pay for all universities. In conclusion I agree that university should be free for everyone because it gives equal chance to all people even though taxes might increase.",
+      "expected_band": 5.0,
+      "expected_criteria": {
+        "task_response": 5.5,
+        "coherence": 5.0,
+        "lexical": 5.0,
+        "grammar": 5.0
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Band 5.0 overall; limited vocabulary, repetitive sentence structures, basic coherence.",
+      "label_validated": false
+    },
+    {
+      "id": "w-02",
+      "task_type": "task2",
+      "essay": "Extreme sports such as skydiving, mountain climbing, and motor racing have become very popular in recent years. Many people believe these dangerous activities should be prohibited by law due to high risk of injury or death. I partly agree with this statement, but I also believe individuals should have personal freedom to choose their hobbies. On the one hand, extreme sports cause severe accidents every year. When athletes get injured, hospitals spend many resources to treat them. Furthermore, families suffer a lot if someone dies in a skydiving accident. Therefore, governments have responsibility to protect citizens from dangerous risks. On the other hand, people should be allowed to do what they like if they prepare well and follow safety rules. Professional athletes train very hard and use high quality safety equipment. Banning these sports completely would ruin many sports industries and events. To sum up, although extreme sports carry high risks, banning them is not the best solution. Instead, strict safety regulations should be enforced.",
+      "expected_band": 5.5,
+      "expected_criteria": {
+        "task_response": 6.0,
+        "coherence": 5.5,
+        "lexical": 5.5,
+        "grammar": 5.0
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Band 5.5 overall; relevant response, basic paragraphing, frequent minor grammatical errors.",
+      "label_validated": false
+    },
+    {
+      "id": "w-03",
+      "task_type": "task2",
+      "essay": "Nowadays children spend a lot of time using modern technology like smartphones, tablets and video games. It is often said that technology makes young people less physically active. I completely agree with this view because screen time reduces outdoor play and leads to sedentary habits. In the past, children used to play football or ride bicycles in the park after school. However, nowadays most children prefer sitting on the sofa for hours watching videos or playing online games with friends. This lack of movement causes health problems like childhood obesity and weak eyesight. Furthermore, social media platforms keep children addicted to their devices until late at night. Consequently, they feel tired during daytime and lack energy to participate in sports or physical exercises at school. In conclusion, technology is the main reason why modern children live an inactive lifestyle. Parents should limit screen time and encourage outdoor activities to improve their health.",
+      "expected_band": 5.5,
+      "expected_criteria": {
+        "task_response": 6.0,
+        "coherence": 5.5,
+        "lexical": 5.5,
+        "grammar": 5.0
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Band 5.5 overall; clear position, adequate ideas, limited range of complex structures.",
+      "label_validated": false
+    },
+    {
+      "id": "w-04",
+      "task_type": "task2",
+      "essay": "Traffic congestion is a major problem in many large cities around the world. Some people suggest that making public transportation free of charge is the best way to solve this issue. I agree that free public transport has many advantages, although it requires significant government funding. Firstly, if buses and trains are free, many car owners will stop driving to work every day. This will drastically reduce traffic jams and air pollution in city centers. Moreover, low-income citizens can save money on daily commuting expenses, which improves their quality of life. Secondly, free transport encourages people to visit city centers for shopping and leisure, boosting local businesses. However, the government needs huge budgets to maintain buses and pay drivers without ticket revenues. In conclusion, providing free public transport is an effective policy to reduce urban pollution and traffic, even though funding it remains a challenge.",
+      "expected_band": 5.5,
+      "expected_criteria": {
+        "task_response": 5.5,
+        "coherence": 5.5,
+        "lexical": 5.5,
+        "grammar": 5.5
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Band 5.5 overall; balanced view, adequate vocabulary, occasional errors in word form.",
+      "label_validated": false
+    },
+    {
+      "id": "w-05",
+      "task_type": "task2",
+      "essay": "International travel has grown rapidly over the past few decades, allowing millions of people to visit foreign countries. While some critics argue that international tourism damages local communities, I believe that its positive economic and cultural benefits outweigh the negative consequences. On the one hand, tourism can create environmental and social problems. Popular destinations often suffer from overcrowding, noise pollution, and littering. Moreover, the influx of tourists can push up housing costs and prices of everyday goods, making life difficult for local residents. For instance, in cities like Venice, historic residential areas have been transformed into tourist rentals, displacing local families. On the other hand, tourism brings substantial economic growth. It creates jobs in hotels, restaurants, and transportation services, reducing unemployment. Additionally, tourism encourages cultural exchange, as visitors learn about local traditions and customs, fostering global understanding and tolerance. In conclusion, although tourism causes environmental pressure and rising living costs, its economic benefits and cultural exchange make it a positive phenomenon overall.",
+      "expected_band": 6.0,
+      "expected_criteria": {
+        "task_response": 6.0,
+        "coherence": 6.0,
+        "lexical": 6.0,
+        "grammar": 6.0
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Band 6.0 overall; addresses all parts of prompt, clear progression, adequate vocabulary and control.",
+      "label_validated": false
+    },
+    {
+      "id": "w-06",
+      "task_type": "task2",
+      "essay": "When deciding on a career path, many individuals prioritize financial compensation above all else. Although a high salary is undeniably essential for financial security, I disagree with the view that it is the most critical factor when selecting a profession. Firstly, job satisfaction and personal interest are vital for long-term career success. If an employee earns a high income but dislikes their daily tasks, they will eventually experience severe stress, burnout, and mental exhaustion. Conversely, working in a field one is passionate about provides intrinsic motivation and emotional fulfillment, regardless of the income level. Secondly, workplace environment and work-life balance play a crucial role in overall well-being. Flexible working hours, supportive colleagues, and reasonable workload allow individuals to spend quality time with their families and pursue hobbies. In contrast, high-paying jobs often demand long hours and continuous pressure, leaving little time for personal life. In conclusion, while money is necessary to cover living expenses, job satisfaction, mental health, and work-life balance are more important factors when choosing a career.",
+      "expected_band": 6.0,
+      "expected_criteria": {
+        "task_response": 6.5,
+        "coherence": 6.0,
+        "lexical": 6.0,
+        "grammar": 5.5
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Band 6.0 overall; well-developed response, good paragraphing, minor grammatical inaccuracies.",
+      "label_validated": false
+    },
+    {
+      "id": "w-07",
+      "task_type": "task2",
+      "essay": "The primary purpose of education has long been a subject of debate. While some argue that schools should focus exclusively on traditional academic subjects such as mathematics and science, others contend that practical life skills ought to be included in the curriculum. I strongly agree with the latter perspective. Academic subjects are essential because they build foundational knowledge and critical thinking abilities required for higher education. Subjects like physics and history broaden students' intellect and prepare them for specialized university degrees. However, focusing solely on academics leaves graduates unprepared for daily adult life. Teaching practical skills like financial management, cooking, and basic home repairs equips students with essential abilities needed to live independently. Furthermore, interpersonal skills such as communication and teamwork help young people navigate professional work environments successfully. In summary, a balanced education that combines academic rigor with practical life skills prepares students far better for adulthood than an exclusively academic curriculum.",
+      "expected_band": 6.0,
+      "expected_criteria": {
+        "task_response": 6.0,
+        "coherence": 6.0,
+        "lexical": 6.0,
+        "grammar": 6.0
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Band 6.0 overall; clear central position, cohesive linkers, effective topic vocabulary.",
+      "label_validated": false
+    },
+    {
+      "id": "w-08",
+      "task_type": "task2",
+      "essay": "In recent years, fast food consumption has increased significantly across many societies worldwide. This trend is driven by modern busy lifestyles and aggressive marketing, and it has serious consequences for public health and family dynamics. The primary cause of fast food popularity is convenience. Many working adults and students have demanding schedules, leaving them with little time to purchase fresh ingredients and cook meals at home. Fast food outlets provide cheap, quick, and accessible meals requiring zero preparation. Additionally, fast food companies spend millions on advertisements targeting young people, making fast food appear appealing and fashionable. However, this shift in dietary habits has severe negative effects. Fast food is rich in saturated fats, sugar, and sodium, which contributes to escalating rates of obesity, diabetes, and cardiovascular diseases. Furthermore, family bonds weaken when members no longer sit together for traditional home-cooked dinners. In conclusion, fast food popularity stems from busy routines and marketing, but its health and social consequences are overwhelmingly harmful.",
+      "expected_band": 6.0,
+      "expected_criteria": {
+        "task_response": 6.0,
+        "coherence": 6.0,
+        "lexical": 6.0,
+        "grammar": 6.0
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Band 6.0 overall; answers causes and effects, clear paragraph structure.",
+      "label_validated": false
+    },
+    {
+      "id": "w-09",
+      "task_type": "task2",
+      "essay": "Tourism has expanded globally, leading many traditional cultural practices to be commercialized for international visitors. While critics argue that converting heritage into commercial entertainment degrades authentic traditions, I believe that tourism can actually help preserve cultural practices if managed responsibly. On the one hand, commercializing culture can lead to trivialization and loss of authenticity. When traditional dances or sacred rituals are performed repeatedly for tourist groups, they may lose their deep spiritual meaning and become mere theatrical performances. Furthermore, local artisans sometimes simplify traditional crafts to suit tourist tastes, resulting in mass-produced souvenirs that lack genuine craftsmanship. On the other hand, tourism generates vital revenue that supports cultural preservation. In many developing nations, government funds for heritage conservation are limited. Tourist entry fees and local spending provide financial resources to restore historical monuments, support folk artists, and preserve ancient languages. For instance, indigenous crafts in Latin America have experienced a revival precisely because foreign tourists are willing to pay fair prices for authentic handmade goods. In conclusion, although uncontrolled commercialization risks diluting cultural significance, tourism provides essential financial incentive to protect and celebrate cultural heritage.",
+      "expected_band": 6.5,
+      "expected_criteria": {
+        "task_response": 6.5,
+        "coherence": 6.5,
+        "lexical": 6.5,
+        "grammar": 6.5
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Band 6.5 overall; logical progression, good range of cohesive devices, clear focus.",
+      "label_validated": false
+    },
+    {
+      "id": "w-10",
+      "task_type": "task2",
+      "essay": "Taking a gap year before entering university has become increasingly popular among secondary school graduates. While this option offers substantial opportunities for personal growth and practical experience, it also carries potential drawbacks regarding academic continuity and financial costs. The main advantage of taking a gap year is the acquisition of life experience and maturity. Working in a entry-level job teaches young adults financial responsibility, time management, and professional communication skills. Similarly, traveling abroad exposes them to diverse cultures, broadening their global perspective and fostering independence. Consequently, students often return to university with a clearer sense of direction regarding their academic choices. Conversely, a major disadvantage is the disruption of academic momentum. Students who spend a year away from formal study may struggle to regain their academic focus, study habits, and self-discipline when university starts. Additionally, traveling during a gap year can be expensive, placing financial pressure on families if the young person fails to secure employment. In conclusion, a gap year provides valuable maturity and career clarity, but students must plan carefully to avoid losing academic motivation or incurring unmanageable expenses.",
+      "expected_band": 6.5,
+      "expected_criteria": {
+        "task_response": 6.5,
+        "coherence": 6.5,
+        "lexical": 6.5,
+        "grammar": 6.5
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Band 6.5 overall; solid argument structure, varied vocabulary, good grammatical control.",
+      "label_validated": false
+    },
+    {
+      "id": "w-11",
+      "task_type": "task2",
+      "essay": "The rapid advancement of artificial intelligence (AI) has sparked widespread debate about its potential impact on education. Although AI-driven educational platforms can personalize learning and automate grading, I firmly disagree with the assertion that machines will completely replace human teachers in the classroom. AI technology undoubtedly offers remarkable benefits for educational delivery. Intelligent tutoring systems can analyze a student's learning speed, identify specific weaknesses, and generate tailored exercises instantaneously. Furthermore, AI can take over administrative tasks such as grading multiple-choice tests, freeing up time for educators to focus on student engagement. However, human teachers provide essential emotional and social dimensions of learning that AI cannot replicate. Teaching is not merely the transmission of facts; it involves empathy, encouragement, and mentorship. A human teacher can recognize when a student is feeling anxious, demotivated, or distressed, offering emotional support and moral guidance. Moreover, teachers foster critical thinking and collaborative skills through group discussions and debate. In conclusion, while AI will serve as a powerful tool to assist educators, the human element in teaching remains indispensable for holistic child development.",
+      "expected_band": 6.5,
+      "expected_criteria": {
+        "task_response": 7.0,
+        "coherence": 6.5,
+        "lexical": 6.5,
+        "grammar": 6.0
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Band 6.5 overall; strong Task Response, well-articulated position, minor grammar slips.",
+      "label_validated": false
+    },
+    {
+      "id": "w-12",
+      "task_type": "task2",
+      "essay": "Rapid economic development over the past century has led to significant industrial expansion and natural resource depletion. While economic activities have historically generated severe environmental pollution, I disagree with the notion that environmental degradation is an unavoidable consequence of economic growth. Historically, industrialization relied heavily on burning fossil fuels, resulting in greenhouse gas emissions, deforestation, and water contamination. Developing nations often prioritize immediate economic output over environmental protection, leading to severe ecological damage. However, modern technological innovations prove that sustainable economic growth is entirely achievable. Transitioning to renewable energy sources such as solar and wind power enables nations to expand their economies while drastically cutting carbon emissions. Furthermore, the growth of the green economy creates new industries, green jobs, and circular manufacturing models that minimize waste. Developed economies in Northern Europe have demonstrated that GDP can grow while carbon emissions decrease. In conclusion, although past economic models damaged the environment, sustainable technologies and green policies prove that economic prosperity and environmental conservation can co-exist.",
+      "expected_band": 6.5,
+      "expected_criteria": {
+        "task_response": 6.5,
+        "coherence": 6.5,
+        "lexical": 6.5,
+        "grammar": 6.5
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Band 6.5 overall; clear progression, effective use of topic-specific collocations.",
+      "label_validated": false
+    },
+    {
+      "id": "w-13",
+      "task_type": "task2",
+      "essay": "Global trade has expanded exponentially over recent decades, driven by trade agreements and containerized shipping. While critics argue that international commerce undermines domestic manufacturing, I believe that the net benefits of global trade—specifically increased consumer choice and economic efficiency—outweigh the localized drawbacks. Proponents of local industry protection highlight the vulnerability of domestic producers when faced with cheap foreign imports. Small-scale domestic manufacturers often struggle to compete with multinational corporations that benefit from economies of scale and cheaper labor overseas. This competition can lead to factory closures, job losses, and economic decline in industrial regions. On the other hand, global trade undeniably enhances living standards for the broader population. By eliminating tariffs and encouraging international competition, consumer prices for electronics, clothing, and food decline sharply. Furthermore, international trade allows nations to specialize in industries where they possess comparative advantages, fostering innovation and productivity. For instance, agricultural nations export food while importing high-tech machinery, maximizing resource allocation globally. In conclusion, although global trade creates challenges for vulnerable domestic sectors, its overall contribution to consumer affordability, technological diffusion, and economic prosperity makes it a vital force for global development.",
+      "expected_band": 7.0,
+      "expected_criteria": {
+        "task_response": 7.0,
+        "coherence": 7.0,
+        "lexical": 7.0,
+        "grammar": 7.0
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Band 7.0 overall; fully developed response, flexible vocabulary, complex structures used accurately.",
+      "label_validated": false
+    },
+    {
+      "id": "w-14",
+      "task_type": "task2",
+      "essay": "Rapid urbanization has triggered acute housing shortages in metropolitan areas worldwide, driving property prices and rents beyond the reach of average earners. While private property developers play a crucial role in building residential infrastructure, I strongly agree that systemic housing shortages can only be resolved through proactive government intervention. Private developers are inherently profit-driven, concentrating their investments on luxury apartments and commercial real estate that yield higher profit margins. Consequently, the private market fails to supply affordable housing for lower- and middle-income families. State intervention is therefore necessary to mandate affordable housing quotas in new developments and to construct public housing projects directly. Furthermore, governments possess sole authority to implement urban planning reforms and tax policies. Municipal authorities can release public land for housing, expand public transit to surrounding suburbs, and impose vacant property taxes to discourage speculative property hoarding. Examples from Singapore demonstrate how comprehensive state housing programs can achieve high homeownership rates and eliminate urban slums. In conclusion, because private markets prioritize profitability over social equity, decisive government legislation, public investment, and urban planning are indispensable to solving urban housing crises.",
+      "expected_band": 7.0,
+      "expected_criteria": {
+        "task_response": 7.0,
+        "coherence": 7.0,
+        "lexical": 7.0,
+        "grammar": 7.0
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Band 7.0 overall; clear central position throughout, smooth paragraphing, high precision.",
+      "label_validated": false
+    },
+    {
+      "id": "w-15",
+      "task_type": "task2",
+      "essay": "The root causes of criminality have long been debated among criminologists, psychologists, and legal scholars. While some researchers contend that genetic predispositions play a role in antisocial behavior, I hold the view that environmental influences—such as poverty, education, and family structure—are the primary determinants of criminal activity. Biological arguments suggest that hereditary traits, such as neurological imbalances or impulsive temperaments, may incline certain individuals toward aggressive behavior. Twin studies are frequently cited to show a statistical correlation in criminal tendencies among biological relatives. However, genetics alone rarely result in crime unless triggered by adverse social conditions. Conversely, social environment exerts a profound and direct influence on individual choices. Poverty, peer pressure, lack of educational opportunities, and exposure to domestic violence create systemic pressures that foster crime. Youth growing up in economically deprived neighborhoods with high unemployment rates are significantly more likely to join gangs or engage in illegal trade out of financial necessity. Conversely, when individuals are provided with quality education, stable employment, and social support, crime rates diminish dramatically across all demographics. In conclusion, while biological factors may influence temperament, social environment remains the overwhelming factor determining whether an individual engages in criminal behavior.",
+      "expected_band": 7.0,
+      "expected_criteria": {
+        "task_response": 7.0,
+        "coherence": 7.0,
+        "lexical": 7.0,
+        "grammar": 7.0
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Band 7.0 overall; well-structured discussion, accurate academic vocabulary, strong cohesion.",
+      "label_validated": false
+    },
+    {
+      "id": "w-16",
+      "task_type": "task2",
+      "essay": "Scientific research forms the cornerstone of technological advancement and societal progress. The question of whether research should be directed primarily by state institutions or private corporations remains contentious. Although private investment accelerates commercial innovation, I argue that government control and funding are essential to ensure that scientific inquiry serves the public good rather than commercial profit. Private sector funding offers undeniable advantages in speed, capital allocation, and market responsiveness. Pharmaceutical and technology companies invest billions in research and development to bring innovative drugs and consumer products to market rapidly. Driven by competitive pressure, corporate R&D often achieves breakthroughs that transform healthcare and communications. However, private funding suffers from an inherent conflict of interest: corporate research is fundamentally profit-oriented. Private firms rarely invest in non-commercial fields such as basic theoretical physics, environmental conservation, or rare disease treatments. Furthermore, corporate sponsors may suppress findings that undermine their commercial interests. In contrast, government-funded research prioritizes public health, national infrastructure, and long-term scientific exploration without immediate commercial pressure. Publicly funded discoveries—such as the Internet or space technology—are published openly, benefiting humanity as a whole. In conclusion, while private R&D drives commercial products, state-funded scientific research is vital to maintain ethical integrity, open knowledge, and long-term public welfare.",
+      "expected_band": 7.5,
+      "expected_criteria": {
+        "task_response": 7.5,
+        "coherence": 7.5,
+        "lexical": 7.5,
+        "grammar": 7.5
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Band 7.5 overall; sophisticated academic register, nuanced arguments, natural collocations.",
+      "label_validated": false
+    },
+    {
+      "id": "w-17",
+      "task_type": "task2",
+      "essay": "The modern university stands at an intersection between vocational training institute and center of intellectual enlightenment. While contemporary economic realities demand that higher education align with workforce requirements, I believe that universities must balance career preparation with the pursuit of foundational knowledge and critical inquiry. Proponents of workplace-focused education emphasize that higher education requires substantial financial investment from students and tax payers alike. Graduates facing competitive job markets need specialized technical skills, digital literacy, and practical experience to secure immediate employment. When universities tailor their curricula to industry requirements, they reduce unemployment and foster economic productivity. However, reducing higher education to mere vocational training undermines its fundamental purpose. Universities exist to cultivate critical thinking, intellectual independence, and ethical reasoning—attributes that transcend specific job descriptions. Studying abstract mathematics, philosophy, or theoretical sciences expands human understanding and drives long-term innovation that cannot be predicted by current market trends. Moreover, automated job markets evolve rapidly; specific technical skills become obsolete, whereas deep analytical capacity enables lifelong adaptation. In conclusion, higher education should neither be an ivory tower detached from reality nor a trade school servicing corporate needs. A university fulfills its higher purpose when it delivers rigorous intellectual discipline alongside practical professional competencies.",
+      "expected_band": 7.5,
+      "expected_criteria": {
+        "task_response": 8.0,
+        "coherence": 7.5,
+        "lexical": 7.5,
+        "grammar": 7.5
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Band 7.5 overall; exceptional Task Response, polished style, sophisticated cohesive devices.",
+      "label_validated": false
+    },
+    {
+      "id": "w-18",
+      "task_type": "task2",
+      "essay": "The global disparity in wealth and living standards presents one of the most pressing moral and geopolitical challenges of the modern era. I strongly agree that affluent nations possess both an ethical imperative and a strategic interest to assist developing countries by providing aid for nutrition and education. From a humanitarian standpoint, basic sustenance and primary education are fundamental human rights. In an interconnected global economy where developed countries consume a disproportionate share of global resources, failing to alleviate preventable starvation and illiteracy in underdeveloped regions is morally indefensible. Investing in primary education empowers individuals, elevates women's socio-economic status, and breaks intergenerational cycles of poverty. From a self-interested perspective, global inequality generates regional instability, mass irregular migration, and security threats that ultimately impact wealthy nations. By fostering economic stability and educational infrastructure in developing countries, donor states cultivate stable trading partners and mitigate the root causes of forced displacement. However, aid must be structured to foster long-term self-reliance rather than perpetual dependence, prioritizing local capacity building over unconditioned cash transfers. In conclusion, international aid for food and education is both a moral obligation and a prudent investment in global security and prosperity.",
+      "expected_band": 8.0,
+      "expected_criteria": {
+        "task_response": 8.0,
+        "coherence": 8.0,
+        "lexical": 8.0,
+        "grammar": 8.0
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Band 8.0 overall; masterful argument development, wide lexical precision, flawless grammar.",
+      "label_validated": false
+    },
+    {
+      "id": "w-19",
+      "task_type": "task2",
+      "essay": "Space exploration represents the pinnacle of human curiosity and technological sophistication. Astrophysics, rocket propulsion, and satellite communication have revolutionized contemporary global infrastructure. For centuries, astronomers have observed celestial bodies through optical telescopes, endeavoring to decipher the cosmological mysteries of planetary orbits and dark matter. In recent decades, space agencies such as NASA and ESA have deployed interplanetary probes to Mars and established orbital laboratories like the International Space Station. The development of reusable rocket boosters has exponentially diminished launch costs, facilitating commercial satellite constellations that enable global positioning systems and high-speed satellite telecommunications. Furthermore, astro-biology seeks micro-organisms beyond terrestrial boundaries, addressing existential questions regarding extraterrestrial life. The engineering innovations derived from aerospace technology—ranging from photovoltaic solar panels to advanced memory foam and thermal insulation—demonstrate the profound technological spillover generated by space missions.",
+      "expected_band": 6.0,
+      "expected_criteria": {
+        "task_response": 4.0,
+        "coherence": 6.5,
+        "lexical": 8.0,
+        "grammar": 7.5
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Hard case: Off-topic essay. Exceptional vocabulary (LR 8.0) and sophisticated grammar (GR 7.5), but completely fails Task Response (TR 4.0) because it describes space technology without addressing the prompt question.",
+      "label_validated": false
+    },
+    {
+      "id": "w-20",
+      "task_type": "task2",
+      "essay": "Digital e-books and online media have rapidly replaced paper publications across many domains. However, I disagree that physical printed books are obsolete. Printed books offer distinct cognitive and tactile advantages over digital screens. Deep reading on paper enhances comprehension and memory retention because physical pages provide spatial orientation without digital distractions or screen fatigue. Furthermore, printed volumes preserve cultural heritage independently of electrical power or digital rights management. In conclusion, while digital reading offers convenience, physical books remain essential for deep learning and permanent cultural preservation.",
+      "expected_band": 7.0,
+      "expected_criteria": {
+        "task_response": 7.0,
+        "coherence": 7.0,
+        "lexical": 7.0,
+        "grammar": 7.0
+      },
+      "band_source": "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1.",
+      "notes": "Hard case: Concise essay (~100 words). Clear thesis, logical progression, precise vocabulary, and accurate grammar meeting Band 7.0 criteria despite brevity.",
+      "label_validated": false
+    }
+  ],
+  "writing": [
+    {
+      "id": "w-official-01",
+      "essay": "I completly disagree with the written statment. I believe that most of the people in the world \nhave more information about their health and also about how they can improve their healthy \nconditions. \nNowadays, information about how harmful is to smoke for our bodies can be seen in many \npackets of cigars. This is a clear example how things can change from our recent past. \nThere is a clear trend in the diminishing of smokers and if this continues it will have a \npositive impact in our health. \nOn the other hand, the alimentation habbits are changing all over the world and this can \naffect people’s health. However every one can choose what to eat every day. Mostly \neverybody, from developed societies, know the importance of having a healthy diet. \nAdvances such as the information showed in the menus of fast food restaurants will help \npeople to have a clever choice before they choose what to eat. \nAnother important issue that I would like to mention is how medicine is changing. There are \nnew discovers and treatments almost every week and that is an inequivoque sintom of how \nthings are changing in order to improve the world’s health.",
+      "task_type": "task2",
+      "expected_band": 5.5,
+      "expected_criteria": {},
+      "band_source": "IELTS official sample script — Academic Writing Part 2, Candidate Response 1, awarded Band 5.5 with published examiner comment",
+      "source_url": "https://ielts.org/cdn/computer-delivered-sample-tests-academic-writing/ielts-academic-writing-example-responses-to-parts-1-and-2-with-band-scores-and-examiner-comments.pdf",
+      "examiner_comment": "A clear position is presented from the outset, supported by relevant ideas. These would require further \ndevelopment to achieve a higher score. It is also useful to note, this response does not meet the \nminimum word count for Task 2 of 250 words, so there is room for further development. Information and \nideas are generally arranged coherently and there is a clear overall progression. Cohesive devices are \nused effectively, but paragraphing is not always logical. \nA range of vocabulary is attempted, although there is a lack of precision in word choice and there are \nsome errors in spelling and word formation. There also appears to be some interference from the test \ntaker’s first language, e.g. ‘alimentation’, but these features do not make the answer difficult to \nunderstand. There is a mix of sentence forms, but the level of error is too high to achieve a higher band \nscore.",
+      "word_count": 198,
+      "label_validated": true,
+      "license_note": "Reproduced from IELTS/British Council public sample materials for internal evaluation with attribution. Not redistributed as GOA content."
+    },
+    {
+      "id": "w-official-02",
+      "essay": "Recently, there have been a lot of discussions about health and whether it is going to \nimprove or not. In my opinion, I think that people will become unhealthier in the future than \nthey are now. \nThere are many reasons that support the idea of people becoming unhealthy in the future. \nFirstly, one reason is that of food. People tend to eat more fast food nowadays. They tend to \ntreat themselves with sweets and chocolate whenever they want. This appears to be \nbecause people are busier now than they used to be. So, people don’t have a chance to \ncook or even learn the art of cookery. Also, having a lot of unhealthy food can lead to obesity \nand it could be a serious issue in the future. Another reason is that technology is developing \neveryday. Young people enjoy buying new gadgets and the latest devices. This has a \nnegative impact on their health, especially when they enjoy video games. Spending long \nhours looking at a screen can lead to bad eyesight and obesity as well. Yet another reason \nis that laziness is a big issue. Different forms of exercise might disappear in the future \nbecause people don’t like sports. Also, people prefer spending most of their time on the \ninternet and the internet is growing every single day. \nOther people might disagree and say that health will improve in the future. They believe \nthat new sports and new ways to exercise will appear in the future. However, I don’t think it \ncan happen since the majority of people spend less time outdoors. Moreover, other people \nbelieve that technology will try and help people improve their health. For example, there \nhave been some games released on the Wii console that makes people exercise but \ntechnology is developing more in a negative way. For instance, many phone industries are \ndeveloping new applications everyday and today’s generation likes to follow every trend. \nThis prevents people to go outside to exercise. They like to spend more time on the internet \ndownloading new programmes or reading gossips about celebraties. This affects people’s \nhealth badly. \nIn conclusion, I believe that people’s health is affected negatively by fast food, technology \nand sports and it will be a problem in the future.",
+      "task_type": "task2",
+      "expected_band": 7.5,
+      "expected_criteria": {},
+      "band_source": "IELTS official sample script — Academic Writing Part 2, Candidate Response 2, awarded Band 7.5 with published examiner comment",
+      "source_url": "https://ielts.org/cdn/computer-delivered-sample-tests-academic-writing/ielts-academic-writing-example-responses-to-parts-1-and-2-with-band-scores-and-examiner-comments.pdf",
+      "examiner_comment": "This is a strong response. A clear position is presented at the outset and some ideas are explored to \nsupport it. An alternative position is also considered but rejected. Ideas are logically organised and \nthere is a clear progression throughout the response. Cohesive devices are generally used flexibly, \nbut there is some overuse of sequencers in paragraph 2 [Firstly | So | Also | Yet]. Paragraphing is \ngenerally effective but could perhaps be used more appropriately by breaking down paragraphs 2 \nand 3. \nThere is a wide range of vocabulary with good use of less common items as well as evidence of \nhigher-level features, such as ‘softening’, e.g. ‘They tend to’, ‘This appears to be’, and ‘might \ndisagree’. Errors in spelling and word formation are rare. There is also a variety of complex structures \nwith frequent error-free sentences, though some errors do occur and there is some overuse of rather \nshort sentence forms.",
+      "word_count": 375,
+      "label_validated": true,
+      "license_note": "Reproduced from IELTS/British Council public sample materials for internal evaluation with attribution. Not redistributed as GOA content."
+    },
+    {
+      "id": "w-official-03",
+      "essay": "Who should be responsible for our people. \nIt is true that the old Peoples situation gets worse in the many countries. The first question \nmust be what they want’s and what they needs? Especially their necessity are more benefit \nmore respect more quiet life. \nIf they have been working for a long time in the any company or in the Public Sector and when \nthey get old that’s means during their retire’s time company or Government must be \nresponsible of their welfare, it is just my opinion. They should take care of them. \nIn addition to company or Government. If they have good money they can look after \nthemselves. We can do something to make easier their life for example an organization or a \nvoluntary association, unions. \nThe families or Relative’s responsibility depends on their wealthy situations. \nIf they could do they should do anything. \nGovernment’s or their former place could supply them with life insurance and a good Social \nSecurity Policy. The Social community center or old age pensioner like in the Britain are very \nuseful for them. \nFor all of them life is hard and gets harder, in the their old ages. They expect more attention \nand good life. \nThe old people, if don’t want lost them. We should do anything that what we able to do. \nI.Bozyil",
+      "task_type": "task2",
+      "expected_band": 5.0,
+      "expected_criteria": {},
+      "band_source": "IELTS official sample script — General Training Writing Task 2, Sample Script A, awarded Band 5.0 with published examiner comment",
+      "source_url": "https://ielts.org/cdn/computer-delivered-sample-tests-general-training-writing/ielts-general-training-writing-example-responses-to-parts-1-and-2-with-band-scores-and-examiner-comments.pdf",
+      "examiner_comment": "There are quite a lot of relevant ideas in the answer but they are not sufficiently developed. \nThere are some areas in the answer where the organisation becomes weak and the reader \nfinds the message difficult to follow. Nevertheless, the writer’s view is apparent and there is a \nlogical flow to the points given. There are a lot of mistakes and some parts, such as the \nconclusion, are very hard to follow because of these errors. Although there is some \nappropriate vocabulary, sentence control is very weak.",
+      "word_count": 220,
+      "label_validated": true,
+      "license_note": "Reproduced from IELTS/British Council public sample materials for internal evaluation with attribution. Not redistributed as GOA content."
+    }
+  ]
+}

@@ -1,0 +1,750 @@
+{
+  "ticket": "GOA-136",
+  "phase": "post",
+  "captured_at": "2026-08-07T23:53:59+00:00",
+  "git_sha": "3688033",
+  "host": {
+    "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.41",
+    "python": "3.12.13"
+  },
+  "providers": {
+    "graders": {
+      "base_url": "https://agentrouter.org",
+      "models": [
+        "claude-opus-4-8"
+      ],
+      "real": true
+    },
+    "judge_same_family": {
+      "base_url": "https://agentrouter.org",
+      "model": "claude-opus-4-8",
+      "real": true
+    },
+    "judge_independent": {
+      "base_url": "https://agentrouter.org/v1",
+      "model": "gpt-5.6-sol",
+      "real": true
+    }
+  },
+  "n_samples": 15,
+  "valid": true,
+  "validity_failures": [],
+  "dataset_provenance": {
+    "writing": {
+      "n_total": 3,
+      "n_validated": 3,
+      "n_synthetic": 0,
+      "band_source": [
+        "IELTS official sample script — Academic Writing Part 2, Candidate Response 1, awarded Band 5.5 with published examiner comment",
+        "IELTS official sample script — Academic Writing Part 2, Candidate Response 2, awarded Band 7.5 with published examiner comment",
+        "IELTS official sample script — General Training Writing Task 2, Sample Script A, awarded Band 5.0 with published examiner comment"
+      ]
+    },
+    "writing_synthetic_unvalidated": {
+      "n_total": 20,
+      "n_validated": 0,
+      "n_synthetic": 20,
+      "band_source": [
+        "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1."
+      ]
+    },
+    "speaking": {
+      "n_total": 20,
+      "n_validated": 0,
+      "n_synthetic": 20,
+      "band_source": [
+        "SYNTHETIC — text and band both model-generated, not examiner-validated. NOT usable for a published accuracy claim; replace with officially banded samples or self-authored answers banded by a named person. See GOA-028 Task 1."
+      ]
+    }
+  },
+  "current_report_surface": {
+    "judge_model_recorded": true,
+    "grader_models_recorded": true,
+    "provenance_recorded": true,
+    "consistency_recorded": true,
+    "accuracy_caveat_recorded": true
+  },
+  "metrics": {
+    "E1_writing": {
+      "n_validated": 3,
+      "same_family": {
+        "model": "claude-opus-4-8",
+        "accuracy": {
+          "accuracy": 0.3333333333333333,
+          "judged": 3,
+          "errored": 0,
+          "accurate": 1,
+          "overscored": 0,
+          "underscored": 2,
+          "disagreements": 1,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cached_count": 3
+        },
+        "mae": {
+          "overall": 0.667,
+          "mean_signed_error": -0.667,
+          "per_criterion": {},
+          "per_criterion_unavailable_reason": "no per-criterion ground truth in the dataset: the official IELTS sample scripts publish only an overall band",
+          "rows_with_expert_criteria": 0
+        },
+        "elapsed_ms": 30.202,
+        "incremental_cost_usd": 0.0,
+        "verdicts": [
+          {
+            "item_id": "w-official-01",
+            "verdict": "ACCURATE",
+            "agent_band": 5.5,
+            "expert_band": 5.5,
+            "delta": 0.0,
+            "reason": "TR fits Band 5: the essay 'responds to the prompt only partially' and never states what the original statement was, so the 'position may be unclear'; main ideas are present but underdeveloped. CC is Band 5 rather than 6 because there is a 'lack of overall progression' and cohesive devices ('On the other hand') are used inaccurately. LR fits Band 5 with a 'limited range' and 'errors in spelling/word formation' (completly, statment, cigars, habbits, discovers, inequivoque, sintom, alimentation) that 'may cause difficulty'; GRA also sits at Band 5 as it 'attempts complex sentences but these tend to be less accurate than simple sentences' with frequent errors, not the Band 6 standard where errors 'rarely reduce communication'.",
+            "judged_band": 5.0,
+            "agent_criteria": {
+              "task_response": 6.0,
+              "coherence": 6.0,
+              "lexical": 5.0,
+              "grammar": 5.5
+            },
+            "expert_criteria": {},
+            "judge_criteria": {
+              "task_response": 5.0,
+              "coherence": 5.0,
+              "lexical": 5.0,
+              "grammar": 5.0
+            },
+            "per_criterion_verdicts": {},
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cached": true,
+            "error": null
+          },
+          {
+            "item_id": "w-official-02",
+            "verdict": "UNDERSCORED",
+            "agent_band": 6.5,
+            "expert_band": 7.5,
+            "delta": -1.0,
+            "reason": "TR is Band 6: it 'addresses all parts of the prompt' and 'presents a relevant position' but 'presents main ideas' where 'some may be inadequately developed' (points like laziness and 'new sports will appear' are asserted rather than extended), short of Band 7's 'presents, extends, and supports main ideas.' CC fits Band 6 — 'clear overall progression' with cohesive devices used 'effectively, though some cohesion may be faulty or mechanical' (mechanical 'Firstly... Another reason... Yet another reason'), not the Band 7 'range of cohesive devices appropriately.' LR is Band 6, an 'adequate range' that 'attempts to use less common vocabulary but with some inaccuracy' (spelling errors 'celebraties', 'programmes', collocation slips). GRA is Band 6: a 'mix of simple and complex sentence forms' with 'some errors in grammar and punctuation' ('This prevents people to go outside', 'makes people exercise') that 'rarely reduce communication' but fall short of Band 7's 'frequent error-free sentences.'",
+            "judged_band": 6.0,
+            "agent_criteria": {
+              "task_response": 6.5,
+              "coherence": 6.0,
+              "lexical": 6.0,
+              "grammar": 7.0
+            },
+            "expert_criteria": {},
+            "judge_criteria": {
+              "task_response": 6.0,
+              "coherence": 6.0,
+              "lexical": 6.0,
+              "grammar": 6.0
+            },
+            "per_criterion_verdicts": {},
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cached": true,
+            "error": null
+          },
+          {
+            "item_id": "w-official-03",
+            "verdict": "UNDERSCORED",
+            "agent_band": 4.0,
+            "expert_band": 5.0,
+            "delta": -1.0,
+            "reason": "TR fits Band 4: the essay 'Responds to prompt only in a minimal way' with an unclear 'position' — ideas are fragmentary ('it is just my opinion', 'If they could do they should do anything') and the prompt is only vaguely addressed. CC also fits Band 4/5 territory but the pervasive breakdown supports 4, as it goes below Band 5's 'some organization' with a 'lack of overall progression' — sentence fragments ('In addition to company or Government.') disrupt any progression. LR and GRA sit at Band 4/5 boundary but the volume of errors that impede meaning ('what they want's and what they needs', 'if don't want lost them') pushes below Band 5's 'limited range' / 'attempts complex sentences but these tend to be less accurate,' as here even simple sentences frequently break down.",
+            "judged_band": 4.0,
+            "agent_criteria": {
+              "task_response": 4.0,
+              "coherence": 4.0,
+              "lexical": 4.0,
+              "grammar": 4.0
+            },
+            "expert_criteria": {},
+            "judge_criteria": {
+              "task_response": 4.0,
+              "coherence": 4.0,
+              "lexical": 4.0,
+              "grammar": 4.0
+            },
+            "per_criterion_verdicts": {},
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cached": true,
+            "error": null
+          }
+        ]
+      },
+      "independent": {
+        "model": "gpt-5.6-sol",
+        "accuracy": {
+          "accuracy": 0.3333333333333333,
+          "judged": 3,
+          "errored": 0,
+          "accurate": 1,
+          "overscored": 0,
+          "underscored": 2,
+          "disagreements": 1,
+          "input_tokens": 0,
+          "output_tokens": 0,
+          "cached_count": 3
+        },
+        "mae": {
+          "overall": 0.667,
+          "mean_signed_error": -0.667,
+          "per_criterion": {},
+          "per_criterion_unavailable_reason": "no per-criterion ground truth in the dataset: the official IELTS sample scripts publish only an overall band",
+          "rows_with_expert_criteria": 0
+        },
+        "elapsed_ms": 29.142,
+        "incremental_cost_usd": 0.0,
+        "verdicts": [
+          {
+            "item_id": "w-official-01",
+            "verdict": "ACCURATE",
+            "agent_band": 5.5,
+            "expert_band": 5.5,
+            "delta": 0.0,
+            "reason": "Task Response is best supported by Band 5 because the response appears to address the prompt only partially, although it presents a relevant position and several main ideas; the full prompt is not supplied, so an all-parts judgment cannot be grounded more precisely. Coherence meets Band 6 because it arranges information coherently with a clear overall progression, while vocabulary and grammar meet Band 5 because the language is limited and complex-sentence attempts are less accurate than simple sentences.",
+            "judged_band": 5.5,
+            "agent_criteria": {
+              "task_response": 6.0,
+              "coherence": 6.0,
+              "lexical": 5.0,
+              "grammar": 5.5
+            },
+            "expert_criteria": {},
+            "judge_criteria": {
+              "task_response": 5,
+              "coherence": 6,
+              "lexical": 5,
+              "grammar": 5
+            },
+            "per_criterion_verdicts": {},
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cached": true,
+            "error": null
+          },
+          {
+            "item_id": "w-official-02",
+            "verdict": "UNDERSCORED",
+            "agent_band": 6.5,
+            "expert_band": 7.5,
+            "delta": -1.0,
+            "reason": "For Task Response, the essay “addresses all parts of the prompt” and “presents a relevant position,” but some supporting ideas are inadequately developed or unclear; for Coherence and Cohesion, it has “clear overall progression,” although some linking is mechanical and repetitive. Lexical Resource shows “an adequate range of vocabulary” with some inaccurate word choice and formation, while Grammar uses “a mix of simple and complex sentence forms” and contains errors that “rarely reduce communication,” supporting Band 6 in both criteria.",
+            "judged_band": 6.0,
+            "agent_criteria": {
+              "task_response": 6.5,
+              "coherence": 6.0,
+              "lexical": 6.0,
+              "grammar": 7.0
+            },
+            "expert_criteria": {},
+            "judge_criteria": {
+              "task_response": 6.0,
+              "coherence": 6.0,
+              "lexical": 6.0,
+              "grammar": 6.0
+            },
+            "per_criterion_verdicts": {},
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cached": true,
+            "error": null
+          },
+          {
+            "item_id": "w-official-03",
+            "verdict": "UNDERSCORED",
+            "agent_band": 4.0,
+            "expert_band": 5.0,
+            "delta": -1.0,
+            "reason": "Task Response is Band 5 because it 'responds to the prompt only partially' and presents main ideas that are 'limited or off-topic', although it does identify several responsible parties. Coherence is Band 5 because it shows 'some organization' but has 'a lack of overall progression' and inaccurate cohesion; Lexical Resource and Grammar are also Band 5 because vocabulary is limited with word-formation errors, while it 'attempts complex sentences but these tend to be less accurate than simple sentences.'",
+            "judged_band": 5.0,
+            "agent_criteria": {
+              "task_response": 4.0,
+              "coherence": 4.0,
+              "lexical": 4.0,
+              "grammar": 4.0
+            },
+            "expert_criteria": {},
+            "judge_criteria": {
+              "task_response": 5.0,
+              "coherence": 5.0,
+              "lexical": 5.0,
+              "grammar": 5.0
+            },
+            "per_criterion_verdicts": {},
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cached": true,
+            "error": null
+          }
+        ]
+      }
+    },
+    "E2_speaking": {
+      "speaking_accuracy": null,
+      "speaking_reason": "not measured: the available speaking rows contain synthetic transcripts but no audio, while the production Gateway WebSocket requires binary PCM audio; fabricating acoustic evidence would make the score invalid",
+      "speaking_pipeline_exercised": false
+    },
+    "E6_E7_self_consistency": {
+      "per_item": {
+        "w-official-01": {
+          "n": 5,
+          "mean": 5.5,
+          "std_dev": 0.0,
+          "max_spread": 0.0,
+          "modal_band": 5.5,
+          "modal_tie": false,
+          "unanimous": true,
+          "criteria": {
+            "coherence": {
+              "n": 5,
+              "mean": 6.0,
+              "std_dev": 0.0,
+              "max_spread": 0.0,
+              "modal_band": 6.0,
+              "modal_tie": false
+            },
+            "grammar": {
+              "n": 5,
+              "mean": 5.5,
+              "std_dev": 0.0,
+              "max_spread": 0.0,
+              "modal_band": 5.5,
+              "modal_tie": false
+            },
+            "lexical": {
+              "n": 5,
+              "mean": 5.2,
+              "std_dev": 0.2449,
+              "max_spread": 0.5,
+              "modal_band": 5.0,
+              "modal_tie": false
+            },
+            "task_response": {
+              "n": 5,
+              "mean": 5.4,
+              "std_dev": 0.3742,
+              "max_spread": 1.0,
+              "modal_band": 5.5,
+              "modal_tie": true
+            }
+          }
+        },
+        "w-official-02": {
+          "n": 5,
+          "mean": 6.4,
+          "std_dev": 0.2,
+          "max_spread": 0.5,
+          "modal_band": 6.5,
+          "modal_tie": false,
+          "unanimous": false,
+          "criteria": {
+            "coherence": {
+              "n": 5,
+              "mean": 6.1,
+              "std_dev": 0.2,
+              "max_spread": 0.5,
+              "modal_band": 6.0,
+              "modal_tie": false
+            },
+            "grammar": {
+              "n": 5,
+              "mean": 6.7,
+              "std_dev": 0.4,
+              "max_spread": 1.0,
+              "modal_band": 7.0,
+              "modal_tie": false
+            },
+            "lexical": {
+              "n": 5,
+              "mean": 6.0,
+              "std_dev": 0.0,
+              "max_spread": 0.0,
+              "modal_band": 6.0,
+              "modal_tie": false
+            },
+            "task_response": {
+              "n": 5,
+              "mean": 6.3,
+              "std_dev": 0.2449,
+              "max_spread": 0.5,
+              "modal_band": 6.5,
+              "modal_tie": false
+            }
+          }
+        },
+        "w-official-03": {
+          "n": 5,
+          "mean": 4.2,
+          "std_dev": 0.2449,
+          "max_spread": 0.5,
+          "modal_band": 4.0,
+          "modal_tie": false,
+          "unanimous": false,
+          "criteria": {
+            "coherence": {
+              "n": 5,
+              "mean": 4.0,
+              "std_dev": 0.0,
+              "max_spread": 0.0,
+              "modal_band": 4.0,
+              "modal_tie": false
+            },
+            "grammar": {
+              "n": 5,
+              "mean": 4.0,
+              "std_dev": 0.0,
+              "max_spread": 0.0,
+              "modal_band": 4.0,
+              "modal_tie": false
+            },
+            "lexical": {
+              "n": 5,
+              "mean": 4.5,
+              "std_dev": 0.3162,
+              "max_spread": 1.0,
+              "modal_band": 4.5,
+              "modal_tie": false
+            },
+            "task_response": {
+              "n": 5,
+              "mean": 4.1,
+              "std_dev": 0.2,
+              "max_spread": 0.5,
+              "modal_band": 4.0,
+              "modal_tie": false
+            }
+          }
+        }
+      },
+      "domain": {
+        "n_items": 3,
+        "repeats": 5,
+        "mean": 5.3667,
+        "std_dev": 0.1483,
+        "std_dev_definition": "mean of per-item population standard deviations",
+        "max_spread": 0.5,
+        "unanimous_rate": 0.3333,
+        "criteria": {
+          "coherence": {
+            "std_dev": 0.0667,
+            "std_dev_definition": "mean of per-item population standard deviations",
+            "max_spread": 0.5,
+            "unanimous_rate": 0.6667
+          },
+          "grammar": {
+            "std_dev": 0.1333,
+            "std_dev_definition": "mean of per-item population standard deviations",
+            "max_spread": 1.0,
+            "unanimous_rate": 0.6667
+          },
+          "lexical": {
+            "std_dev": 0.187,
+            "std_dev_definition": "mean of per-item population standard deviations",
+            "max_spread": 1.0,
+            "unanimous_rate": 0.3333
+          },
+          "task_response": {
+            "std_dev": 0.273,
+            "std_dev_definition": "mean of per-item population standard deviations",
+            "max_spread": 1.0,
+            "unanimous_rate": 0.0
+          }
+        }
+      }
+    },
+    "E8_judge_family_delta": {
+      "accuracy_delta": 0.0,
+      "mae_delta": 0.0,
+      "verdicts_changed": 0,
+      "changed_item_ids": [],
+      "judged_band_deltas": {
+        "w-official-01": 0.5,
+        "w-official-02": 0.0,
+        "w-official-03": 1.0
+      },
+      "note": "accuracy and verdict are computed in code from agent_band versus expert_band; judge family can change judged_band/reason but cannot change the headline verdict under the current design"
+    },
+    "E9_judge_cost": {
+      "claude-opus-4-8": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cached_count": 3,
+        "incremental_cost_usd": 0.0
+      },
+      "gpt-5.6-sol": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cached_count": 3,
+        "incremental_cost_usd": 0.0
+      }
+    },
+    "grader_latency_ms": {
+      "min": 54486.234,
+      "median": 74430.621,
+      "p95": 190747.84,
+      "max": 190747.84
+    },
+    "grader_cache_hits": 0
+  },
+  "raw_grader_runs": [
+    {
+      "item_id": "w-official-01",
+      "repeat": 1,
+      "elapsed_ms": 54486.234,
+      "from_cache": false,
+      "result": {
+        "overall_band": 5.5,
+        "criteria": {
+          "task_response": 6.0,
+          "coherence": 6.0,
+          "lexical": 5.0,
+          "grammar": 5.5
+        },
+        "justification": null,
+        "from_cache": false
+      }
+    },
+    {
+      "item_id": "w-official-01",
+      "repeat": 2,
+      "elapsed_ms": 62949.598,
+      "from_cache": false,
+      "result": {
+        "overall_band": 5.5,
+        "criteria": {
+          "task_response": 5.5,
+          "coherence": 6.0,
+          "lexical": 5.0,
+          "grammar": 5.5
+        },
+        "justification": null,
+        "from_cache": false
+      }
+    },
+    {
+      "item_id": "w-official-01",
+      "repeat": 3,
+      "elapsed_ms": 59663.012,
+      "from_cache": false,
+      "result": {
+        "overall_band": 5.5,
+        "criteria": {
+          "task_response": 5.5,
+          "coherence": 6.0,
+          "lexical": 5.0,
+          "grammar": 5.5
+        },
+        "justification": null,
+        "from_cache": false
+      }
+    },
+    {
+      "item_id": "w-official-01",
+      "repeat": 4,
+      "elapsed_ms": 98514.974,
+      "from_cache": false,
+      "result": {
+        "overall_band": 5.5,
+        "criteria": {
+          "task_response": 5.0,
+          "coherence": 6.0,
+          "lexical": 5.5,
+          "grammar": 5.5
+        },
+        "justification": null,
+        "from_cache": false
+      }
+    },
+    {
+      "item_id": "w-official-01",
+      "repeat": 5,
+      "elapsed_ms": 63579.227,
+      "from_cache": false,
+      "result": {
+        "overall_band": 5.5,
+        "criteria": {
+          "task_response": 5.0,
+          "coherence": 6.0,
+          "lexical": 5.5,
+          "grammar": 5.5
+        },
+        "justification": null,
+        "from_cache": false
+      }
+    },
+    {
+      "item_id": "w-official-02",
+      "repeat": 1,
+      "elapsed_ms": 80679.618,
+      "from_cache": false,
+      "result": {
+        "overall_band": 6.5,
+        "criteria": {
+          "task_response": 6.5,
+          "coherence": 6.0,
+          "lexical": 6.0,
+          "grammar": 7.0
+        },
+        "justification": null,
+        "from_cache": false
+      }
+    },
+    {
+      "item_id": "w-official-02",
+      "repeat": 2,
+      "elapsed_ms": 104441.564,
+      "from_cache": false,
+      "result": {
+        "overall_band": 6.0,
+        "criteria": {
+          "task_response": 6.0,
+          "coherence": 6.5,
+          "lexical": 6.0,
+          "grammar": 6.0
+        },
+        "justification": null,
+        "from_cache": false
+      }
+    },
+    {
+      "item_id": "w-official-02",
+      "repeat": 3,
+      "elapsed_ms": 68699.879,
+      "from_cache": false,
+      "result": {
+        "overall_band": 6.5,
+        "criteria": {
+          "task_response": 6.0,
+          "coherence": 6.0,
+          "lexical": 6.0,
+          "grammar": 7.0
+        },
+        "justification": null,
+        "from_cache": false
+      }
+    },
+    {
+      "item_id": "w-official-02",
+      "repeat": 4,
+      "elapsed_ms": 190747.84,
+      "from_cache": false,
+      "result": {
+        "overall_band": 6.5,
+        "criteria": {
+          "task_response": 6.5,
+          "coherence": 6.0,
+          "lexical": 6.0,
+          "grammar": 7.0
+        },
+        "justification": null,
+        "from_cache": false
+      }
+    },
+    {
+      "item_id": "w-official-02",
+      "repeat": 5,
+      "elapsed_ms": 74430.621,
+      "from_cache": false,
+      "result": {
+        "overall_band": 6.5,
+        "criteria": {
+          "task_response": 6.5,
+          "coherence": 6.0,
+          "lexical": 6.0,
+          "grammar": 6.5
+        },
+        "justification": null,
+        "from_cache": false
+      }
+    },
+    {
+      "item_id": "w-official-03",
+      "repeat": 1,
+      "elapsed_ms": 55847.852,
+      "from_cache": false,
+      "result": {
+        "overall_band": 4.0,
+        "criteria": {
+          "task_response": 4.0,
+          "coherence": 4.0,
+          "lexical": 4.0,
+          "grammar": 4.0
+        },
+        "justification": null,
+        "from_cache": false
+      }
+    },
+    {
+      "item_id": "w-official-03",
+      "repeat": 2,
+      "elapsed_ms": 107869.838,
+      "from_cache": false,
+      "result": {
+        "overall_band": 4.5,
+        "criteria": {
+          "task_response": 4.5,
+          "coherence": 4.0,
+          "lexical": 4.5,
+          "grammar": 4.0
+        },
+        "justification": null,
+        "from_cache": false
+      }
+    },
+    {
+      "item_id": "w-official-03",
+      "repeat": 3,
+      "elapsed_ms": 67871.883,
+      "from_cache": false,
+      "result": {
+        "overall_band": 4.0,
+        "criteria": {
+          "task_response": 4.0,
+          "coherence": 4.0,
+          "lexical": 4.5,
+          "grammar": 4.0
+        },
+        "justification": null,
+        "from_cache": false
+      }
+    },
+    {
+      "item_id": "w-official-03",
+      "repeat": 4,
+      "elapsed_ms": 94140.361,
+      "from_cache": false,
+      "result": {
+        "overall_band": 4.0,
+        "criteria": {
+          "task_response": 4.0,
+          "coherence": 4.0,
+          "lexical": 4.5,
+          "grammar": 4.0
+        },
+        "justification": null,
+        "from_cache": false
+      }
+    },
+    {
+      "item_id": "w-official-03",
+      "repeat": 5,
+      "elapsed_ms": 88321.891,
+      "from_cache": false,
+      "result": {
+        "overall_band": 4.5,
+        "criteria": {
+          "task_response": 4.0,
+          "coherence": 4.0,
+          "lexical": 5.0,
+          "grammar": 4.0
+        },
+        "justification": null,
+        "from_cache": false
+      }
+    }
+  ],
+  "grader_errors": []
+}

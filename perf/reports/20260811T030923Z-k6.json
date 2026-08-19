@@ -1,0 +1,289 @@
+{
+    "root_group": {
+        "checks": {
+            "essay_upload: 2xx": {
+                "fails": 120,
+                "name": "essay_upload: 2xx",
+                "path": "::essay_upload: 2xx",
+                "id": "68e538b20e0f0edd938d90c690c96f63",
+                "passes": 0
+            },
+            "match: 2xx": {
+                "fails": 0,
+                "name": "match: 2xx",
+                "path": "::match: 2xx",
+                "id": "c09cec39cb118f4cd3ac6b485d0e61b3",
+                "passes": 437
+            },
+            "chat: 2xx": {
+                "name": "chat: 2xx",
+                "path": "::chat: 2xx",
+                "id": "c94c8e3fc1d20383ec04cabcbbead859",
+                "passes": 181,
+                "fails": 0
+            },
+            "speaking: upgrade accepted (101)": {
+                "name": "speaking: upgrade accepted (101)",
+                "path": "::speaking: upgrade accepted (101)",
+                "id": "ce81b6de501d2f9b02b2cc0ca7da7b61",
+                "passes": 28,
+                "fails": 0
+            }
+        },
+        "name": "",
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {}
+    },
+    "metrics": {
+        "ws_connecting": {
+            "p(90)": 9.479633100000001,
+            "p(95)": 23.972144199999974,
+            "avg": 6.74614525,
+            "min": 1.986373,
+            "med": 3.7387379999999997,
+            "max": 41.357779
+        },
+        "iteration_duration": {
+            "p(90)": 12177.794255200002,
+            "p(95)": 25663.40270859997,
+            "avg": 11595.063467417547,
+            "min": 4054.92265,
+            "med": 10206.680704,
+            "max": 87661.939581
+        },
+        "iterations": {
+            "count": 3293,
+            "rate": 5.2274780005688175
+        },
+        "goa_rate_limited": {
+            "count": 2527,
+            "rate": 4.011490102471121
+        },
+        "http_req_duration{expected_response:true}": {
+            "avg": 9361.157517367317,
+            "min": 14.825899,
+            "med": 1934.312562,
+            "max": 83080.975362,
+            "p(90)": 30506.5199996,
+            "p(95)": 38451.38042404999
+        },
+        "goa_chat_source_count": {
+            "avg": 8.92817679558011,
+            "min": 0,
+            "med": 5,
+            "max": 133,
+            "p(90)": 5,
+            "p(95)": 50
+        },
+        "http_req_sending": {
+            "med": 0.12173,
+            "max": 10.805661,
+            "p(90)": 0.2897828,
+            "p(95)": 0.5196485999999999,
+            "avg": 0.19780025329249692,
+            "min": 0.031104
+        },
+        "goa_speaking_transcripts": {
+            "rate": 0.08889728758938772,
+            "count": 56
+        },
+        "goa_speaking_time_to_complete_ms": {
+            "med": 42781.5,
+            "max": 50256,
+            "p(90)": 47864.4,
+            "p(95)": 48658.85,
+            "avg": 43084.82142857143,
+            "min": 36730
+        },
+        "goa_speaking_ws_upgrade_success": {
+            "passes": 28,
+            "fails": 0,
+            "thresholds": {
+                "rate>0.99": false
+            },
+            "value": 1
+        },
+        "ws_sessions": {
+            "rate": 0.04444864379469386,
+            "count": 28
+        },
+        "http_req_connecting": {
+            "avg": 0.7231510600306281,
+            "min": 0,
+            "med": 0.398539,
+            "max": 20.129686,
+            "p(90)": 1.0798229999999998,
+            "p(95)": 2.0690829999999947
+        },
+        "http_req_waiting": {
+            "max": 15216.794861,
+            "p(90)": 1636.2730715999999,
+            "p(95)": 4259.470155199997,
+            "avg": 554.7544140143957,
+            "min": 0.937492,
+            "med": 3.674692
+        },
+        "data_received": {
+            "rate": 123868.24231483287,
+            "count": 78029620
+        },
+        "goa_match_program_count": {
+            "p(90)": 50,
+            "p(95)": 50,
+            "avg": 45.608695652173914,
+            "min": 35,
+            "med": 50,
+            "max": 50
+        },
+        "goa_essay_agent_failures": {
+            "count": 0,
+            "rate": 0,
+            "thresholds": {
+                "count==0": false
+            }
+        },
+        "http_req_tls_handshaking": {
+            "min": 0,
+            "med": 0,
+            "max": 0,
+            "p(90)": 0,
+            "p(95)": 0,
+            "avg": 0
+        },
+        "ws_msgs_sent": {
+            "count": 1036,
+            "rate": 1.644599820403673
+        },
+        "data_sent": {
+            "count": 16246871,
+            "rate": 25791.120780619345
+        },
+        "checks": {
+            "passes": 646,
+            "fails": 120,
+            "value": 0.8433420365535248
+        },
+        "vus": {
+            "value": 1,
+            "min": 1,
+            "max": 63
+        },
+        "goa_speaking_time_to_first_transcript_ms": {
+            "min": 17993,
+            "med": 22611.5,
+            "max": 28250,
+            "p(90)": 26908.7,
+            "p(95)": 27754.5,
+            "avg": 22292.10714285714,
+            "thresholds": {
+                "p(95)<45000": false
+            }
+        },
+        "goa_essay_evaluation_duration_ms": {
+            "max": 0,
+            "p(90)": 0,
+            "p(95)": 0,
+            "avg": 0,
+            "min": 0,
+            "med": 0,
+            "thresholds": {
+                "p(95)<30000": false
+            }
+        },
+        "http_req_blocked": {
+            "p(90)": 1.6142155999999996,
+            "p(95)": 3.242210999999997,
+            "avg": 1.0438961831546711,
+            "min": 0.007901,
+            "med": 0.58593,
+            "max": 28.520313
+        },
+        "goa_server_errors": {
+            "count": 0,
+            "rate": 0,
+            "thresholds": {
+                "count<10": false
+            }
+        },
+        "http_reqs": {
+            "count": 3265,
+            "rate": 5.1830293567741235
+        },
+        "goa_chat_duration_ms": {
+            "med": 27022.948664,
+            "max": 83080.975362,
+            "p(90)": 44807.01322,
+            "p(95)": 57367.034093,
+            "avg": 28724.698644674034,
+            "min": 3619.94248,
+            "thresholds": {
+                "p(95)<5000": true
+            }
+        },
+        "http_req_receiving": {
+            "avg": 1221.036052153754,
+            "min": 0.030303,
+            "med": 0.181014,
+            "max": 67864.102294,
+            "p(90)": 0.9551139999999997,
+            "p(95)": 1872.1103217999896
+        },
+        "http_req_failed": {
+            "fails": 618,
+            "passes": 2647,
+            "value": 0.8107197549770291
+        },
+        "goa_speaking_empty_transcripts": {
+            "count": 0,
+            "rate": 0,
+            "thresholds": {
+                "count==0": false
+            }
+        },
+        "ws_session_duration": {
+            "min": 36737.319718,
+            "med": 42790.4267175,
+            "max": 50267.339165,
+            "p(90)": 47874.6167205,
+            "p(95)": 48671.46634205,
+            "avg": 43096.472264678574
+        },
+        "goa_essay_upload_duration_ms": {
+            "p(95)": 10.110366799999998,
+            "avg": 3.960337508333334,
+            "min": 1.319658,
+            "med": 2.8261760000000002,
+            "max": 17.344911,
+            "p(90)": 7.7668389000000015
+        },
+        "goa_match_duration_ms": {
+            "max": 7594.190851,
+            "p(90)": 95.51503370000033,
+            "p(95)": 1612.6338984999988,
+            "avg": 202.07692128171453,
+            "min": 1.293317,
+            "med": 4.0127115,
+            "thresholds": {
+                "p(95)<5000": false
+            }
+        },
+        "http_req_duration": {
+            "p(95)": 10054.119680199616,
+            "avg": 1775.9882664214429,
+            "min": 1.293317,
+            "med": 4.169897,
+            "max": 83080.975362,
+            "p(90)": 1637.2598861999998
+        },
+        "ws_msgs_received": {
+            "count": 476,
+            "rate": 0.7556269445097956
+        },
+        "vus_max": {
+            "value": 63,
+            "min": 63,
+            "max": 63
+        }
+    }
+}

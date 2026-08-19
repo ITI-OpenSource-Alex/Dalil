@@ -1,0 +1,10 @@
+{
+  "_why_invalid": "No provenance. A score with no record of which model, rubric or scorer produced it cannot be audited, reproduced, or compared against another run.",
+  "schema_version": "speaking-evaluation/v1",
+  "evaluation_id": "eval-invalid-7",
+  "mode": "practice",
+  "status": "complete",
+  "score_semantics": "estimated_ielts_practice_band",
+  "criteria": [{ "criterion_id": "fluency_coherence", "status": "scored", "band": 6.5 }],
+  "overall": { "included_criteria": ["fluency_coherence"], "rounding_rule": "ielts_half_band_v1", "min_criteria_required": 3 }
+}

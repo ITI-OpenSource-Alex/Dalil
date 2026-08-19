@@ -1,15 +1,68 @@
+# Pinned so the project name cannot drift.
+#
+# Without this, Compose derives the name from the directory -- and this repo is
+# reached through a symlink whose resolved case differs between shells. A
+# different derived name means a different set of containers, volumes and
+# `<project>-<service>` image tags: everything rebuilds, and the previous
+# containers are orphaned rather than replaced.
+name: goa
+
 services:
+  frontend:
+    build:
+      context: ./services/frontend
+      target: dev
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8080
+      - NEXT_PUBLIC_BILLING_ENABLED=true
+      - WATCHPACK_POLLING=true
+    volumes:
+      - ./services/frontend:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      gateway:
+        condition: service_started
+
   gateway:
     build:
       context: ./services/gateway
       target: dev
-
     ports:
       - "8080:8080"
     environment:
-      - DATABASE_URL=postgres://goa:goa_pass@postgres:5432/gateway_db?sslmode=disable
+      - USER_SERVICE_URL=http://user-service:8081
+      - INTERNAL_API_KEY=supersecret_internal_key_123
+      - ADMIN_API_KEY=${ADMIN_API_KEY:-local_admin_key_123}
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - INGESTION_QUEUE_URL=http://localstack:4566/000000000000/ingestion-queue
+      - BUDGET_USD=${BUDGET_USD:-150}
+      - LLM_PRICING_JSON=${LLM_PRICING_JSON:-{"claude-opus-4-8":{"prompt_per_1m":6,"completion_per_1m":30},"claude-opus-5":{"prompt_per_1m":2,"completion_per_1m":10},"gpt-5.6-sol":{"prompt_per_1m":6,"completion_per_1m":36}}}
       - REDIS_URL=redis://redis-gateway:6379/0
       - JWT_SECRET=supersecret_dev_key
+      - WRITING_SERVICE_URL=http://writing:8000
+      - EXAM_SERVICE_URL=http://exam:8085
+      - NOTIFICATION_SERVICE_URL=http://notification:8087
+      - ORCHESTRATION_SERVICE_URL=http://orchestration:8083
+      # GOA-132: the Gateway proxies Speaking's session routes and its
+      # WebSocket, and exposes RAG's profile matching at /api/opportunities.
+      # Both are Docker hostnames -- nothing here reaches a browser.
+      - SPEAKING_SERVICE_URL=http://speaking:8082
+      - RAG_SERVICE_URL=http://rag:8084
+      - OPPORTUNITY_SEARCHES_PER_HOUR=${OPPORTUNITY_SEARCHES_PER_HOUR:-20}
+      # Relative on purpose (GOA-039): the frontend's upgrade dialog treats an
+      # absolute value as an external billing host and opens it in a new tab.
+      # /upgrade, the previous default, is not a route that exists.
+      - SUBSCRIPTION_UPGRADE_URL=${SUBSCRIPTION_UPGRADE_URL:-/pricing}
+      - SUBSCRIPTION_CACHE_TTL=5m
+      - EXAM_START_LIMIT_PER_HOUR=1000
+      - EXAM_OWNERSHIP_CACHE_TTL=5m
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
     volumes:
       - ./services/gateway:/app
     depends_on:
@@ -17,13 +70,237 @@ services:
         condition: service_healthy
       redis-gateway:
         condition: service_healthy
+      localstack:
+        condition: service_healthy
+      writing:
+        condition: service_healthy
+      exam:
+        condition: service_started
+      rag:
+        condition: service_started
+
+  user-service:
+    build:
+      context: ./services/user
+      dockerfile: Dockerfile
+      target: development
+    ports:
+      - "8081:8081"
+    environment:
+      - PORT=8081
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=goa
+      - DB_PASSWORD=goa_pass
+      - DB_NAME=user_db
+      - INTERNAL_API_KEY=supersecret_internal_key_123
+
+      # AWS / LocalStack
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT=http://localstack:4566
+      # GOA-083: auth emails are now published to notification-queue, which the
+      # notification service already polls. See services/user/src/sqs/sqs.module.ts.
+      - NOTIFICATION_QUEUE_URL=http://localstack:4566/000000000000/notification-queue
+      # GOA-091: user domain events fan out through SNS with raw delivery to
+      # per-service SQS subscriber queues.
+      - USER_EVENTS_TOPIC_ARN=arn:aws:sns:us-east-1:000000000000:user-events
+
+      # The Gateway's Redis, deliberately: this service writes two keys the
+      # Gateway reads -- user_revoked_before:{id} (GOA-083) and, as of
+      # GOA-039, subtier:v1:{id}, which is deleted the moment a payment
+      # upgrades a user so the paywall lifts immediately instead of after
+      # SUBSCRIPTION_CACHE_TTL.
+      - REDIS_HOST=redis-gateway
+      - REDIS_PORT=6379
+
+      # GOA-039 billing. "demo" simulates the payment locally; there is no
+      # payment provider, no API key and no external callback. The service
+      # refuses to serve billing at all when NODE_ENV=production, because a
+      # demo checkout grants the paid tier without taking money.
+      - BILLING_MODE=${BILLING_MODE:-demo}
+
+    volumes:
+      - ./services/user:/usr/src/app
+      # GOA-047 operator tooling runs in this Node image so the repository does
+      # not need a second root-level JavaScript dependency tree.
+      - ./scripts:/workspace/scripts:ro
+      - /usr/src/app/node_modules
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      localstack:
+        condition: service_started
+
+  writing:
+    build:
+      context: .
+      dockerfile: services/writing/Dockerfile
+      target: dev
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://goa:goa_pass@postgres:5432/writing_db
+      # Needed for the motivation-letter reviewer to read programme requirements
+      # from RAG, which owns them. Without these the review still runs but
+      # programme_fit abstains, so the failure is silent rather than loud.
+      - INTERNAL_API_KEY=supersecret_internal_key_123
+      - RAG_SERVICE_URL=http://rag:8084
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - S3_BUCKET=goa-writing-files
+      - CV_UPLOADED_QUEUE_URL=http://localstack:4566/000000000000/goa-cv-uploaded
+      - CV_PROCESSED_QUEUE_URL=http://localstack:4566/000000000000/goa-cv-processed
+      - ACCOUNT_DELETED_QUEUE_URL=http://localstack:4566/000000000000/user-events-writing
+      # /opt/goa is the shared security package (GOA-034); see the volume below.
+      - PYTHONPATH=/app:/packages/contracts/py:/opt/goa:/opt/goa-pricing
+      - OTEL_SERVICE_NAME=writing-service
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ANTHROPIC_BASE_URL=${GOA_LLM_BASE_URL:-${ANTHROPIC_BASE_URL:-}}
+      - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
+      - LLM_MODEL=${LLM_MODEL:-claude-opus-5}
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
+      - LANGFUSE_HOST=${LANGFUSE_HOST}
+      # AgentRouter serves no channel for haiku ("无可用渠道" / 503) and none for
+      # claude-sonnet-4-6; use the configured Claude Opus channel instead.
+      # consolidation target moved off Sonnet. Revert to a cheaper model here if
+      # the gateway ever routes one.
+      - WRITING_MODEL=${WRITING_MODEL:-claude-opus-5}
+      - CV_EXTRACTION_MODEL=${CV_EXTRACTION_MODEL:-claude-opus-5}
+      # Academic Task 1 stimulus description (GOA-093). Must be a vision-capable
+      # model; AgentRouter forwards multimodal blocks for Claude Opus (GOA-126).
+      - VISION_MODEL=${VISION_MODEL:-claude-opus-5}
+      - ANTHROPIC_TIMEOUT_SECONDS=${ANTHROPIC_TIMEOUT_SECONDS:-120}
+      - WRITING_AGENT_MAX_TOKENS=${WRITING_AGENT_MAX_TOKENS:-16000}
+      - WRITING_SCORE_MAX_TOKENS=${WRITING_SCORE_MAX_TOKENS:-8000}
+      - WRITING_FEEDBACK_MAX_TOKENS=${WRITING_FEEDBACK_MAX_TOKENS:-8000}
+      - WRITING_FEEDBACK_MODEL=${WRITING_FEEDBACK_MODEL:-gpt-5.6-sol}
+      - WRITING_SELECTIVE_ENSEMBLE=${WRITING_SELECTIVE_ENSEMBLE:-true}
+      - WRITING_MAX_ENSEMBLE_CRITERIA=${WRITING_MAX_ENSEMBLE_CRITERIA:-1}
+      - WRITING_CACHE_VERSION=${WRITING_CACHE_VERSION:-v2}
+    volumes:
+      - ./services/writing/app:/app/app
+      - ./services/writing/cv_processor:/app/cv_processor
+      - ./services/writing/migrations:/app/migrations
+      - ./services/writing/tests:/app/tests
+      - ./packages/contracts/py:/packages/contracts/py
+      - ./packages/security/py:/opt/goa
+      # GOA-135: the shared price table. It gets its OWN root rather than
+      # joining goa_security in /opt/goa, because the bind mount above hides
+      # whatever the image put at that path -- a package COPYed to /opt/goa
+      # would exist in the image and vanish under compose.
+      - ./packages/pricing/py:/opt/goa-pricing
+    depends_on:
+      postgres:
+        condition: service_healthy
+      localstack:
+        # The LocalStack healthcheck intentionally waits for all 16 Listening
+        # audio sections to be split and uploaded. CV metadata is PostgreSQL-
+        # owned and must remain readable while that unrelated seed is running.
+        # The upload path reports a recoverable error during the brief window
+        # before the writing bucket/queues are created.
+        condition: service_started
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  cv-processor:
+    build:
+      context: .
+      dockerfile: services/writing/Dockerfile
+      target: dev
+    command: [ "sh", "-c", "python -m app.init_db && python -m cv_processor.local_worker" ]
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://goa:goa_pass@postgres:5432/writing_db
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - S3_BUCKET=goa-writing-files
+      - CV_PROCESSOR_QUEUE_URL=http://localstack:4566/000000000000/goa-cv-processing
+      - CV_PROCESSED_QUEUE_URL=http://localstack:4566/000000000000/goa-cv-processed
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      # The CV processor is an AI service like any other and must reach the same
+      # gateway. Without these two it fell back to the real Anthropic API with an
+      # empty key and every CV stayed stuck in `processing` (BUG-018).
+      - ANTHROPIC_BASE_URL=${GOA_LLM_BASE_URL:-${ANTHROPIC_BASE_URL:-}}
+      - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
+      # AgentRouter serves no channel for haiku ("无可用渠道" / 503), only
+      # Claude Opus. Revert to a cheaper model if the gateway ever routes one.
+      - CV_EXTRACTION_MODEL=${CV_EXTRACTION_MODEL:-claude-opus-5}
+      - ANTHROPIC_TIMEOUT_SECONDS=${ANTHROPIC_TIMEOUT_SECONDS:-120}
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
+      - LANGFUSE_HOST=${LANGFUSE_HOST}
+      - PYTHONPATH=/app:/packages/contracts/py:/opt/goa:/opt/goa-pricing
+      - OTEL_SERVICE_NAME=cv-processor
+    volumes:
+      - ./services/writing/app:/app/app
+      - ./services/writing/cv_processor:/app/cv_processor
+      - ./services/writing/migrations:/app/migrations
+      - ./packages/contracts/py:/packages/contracts/py
+      - ./packages/security/py:/opt/goa
+      # GOA-135: the shared price table. It gets its OWN root rather than
+      # joining goa_security in /opt/goa, because the bind mount above hides
+      # whatever the image put at that path -- a package COPYed to /opt/goa
+      # would exist in the image and vanish under compose.
+      - ./packages/pricing/py:/opt/goa-pricing
+    depends_on:
+      postgres:
+        condition: service_healthy
+      localstack:
+        # This worker already retries missing/unready SQS resources. Starting it
+        # immediately keeps Writing startup independent of Listening audio seed.
+        condition: service_started
+
+  notification:
+    build:
+      context: .
+      dockerfile: services/notification/Dockerfile
+      target: dev
+    ports:
+      - "8087:8087"
+    environment:
+      - PORT=8087
+      - DATABASE_URL=postgresql://goa:goa_pass@postgres:5432/notification_db
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - LOCALSTACK_ENDPOINT=http://localstack:4566
+      # Both queues the Lambda is subscribed to in AWS. notification-queue
+      # carries ScholarshipMatched and DEADLINE_REMINDER from the scholarship
+      # matcher; goa-cv-processed carries CVProcessed from the Writing service.
+      # In AWS these are two event source mappings; locally the poller in
+      # src/local-server.ts watches both.
+      - NOTIFICATION_QUEUE_URLS=http://localstack:4566/000000000000/notification-queue,http://localstack:4566/000000000000/goa-cv-processed,http://localstack:4566/000000000000/user-events-notification
+      # Events carry no email address, so the recipient is resolved from the
+      # User service. Without these the handler cannot send anything, which is
+      # deliberate -- see src/users.ts.
+      - USER_SERVICE_URL=http://user-service:8081
+      - INTERNAL_API_KEY=supersecret_internal_key_123
+      # LocalStack's SES accepts and stores without delivering, so any address
+      # works locally. In AWS this must be an identity verified in SES.
+      - SES_SENDER_ADDRESS=${SES_SENDER_ADDRESS:-notifications@localhost.test}
+      - OTEL_SERVICE_NAME=notification
+    depends_on:
+      postgres:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
 
   postgres:
-    image: postgres:15-alpine
+    image: pgvector/pgvector:pg15
     environment:
       POSTGRES_USER: goa
       POSTGRES_PASSWORD: goa_pass
-      # We will mount an init script later to create the 5 separate databases
       POSTGRES_DB: postgres
     ports:
       - "5432:5432"
@@ -31,7 +308,7 @@ services:
       - ./infra/docker/postgres/init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U goa" ]
+      test: [ "CMD-SHELL", "pg_isready -U goa -d postgres" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -47,18 +324,70 @@ services:
       retries: 5
 
   localstack:
-    image: localstack/localstack
+    build:
+      context: ./infra/localstack
+    image: goa-localstack:3.4.0
     environment:
-      - SERVICES=sqs,s3
+      # ses added for GOA-023: the notification service sends email through it.
+      # LocalStack accepts and stores messages without delivering, which is what
+      # makes the notification E2E runnable locally at zero cost.
+      - SERVICES=sqs,s3,ses,sns
+      - AWS_DEFAULT_REGION=us-east-1
+      # GOA-083: the init script verifies this identity so the notification
+      # service's SendEmail succeeds. Kept in sync with the notification
+      # service's SES_SENDER_ADDRESS so an override can't verify one address
+      # while the sender uses another.
+      - SES_SENDER_ADDRESS=${SES_SENDER_ADDRESS:-notifications@localhost.test}
     ports:
       - "4566:4566"
+    volumes:
+      # The community image has no local-state persistence. Re-seed Listening
+      # audio from the user-provided recordings on every LocalStack start.
+      - ./services/exam/data/recordings:/seed/listening-recordings:ro
+      - ./services/exam/scripts/upload_listening_audio.py:/seed/upload_listening_audio.py:ro
+    healthcheck:
+      # The marker is written by the last ready hook only after Listening audio
+      # has either been seeded or explicitly skipped because no recordings exist.
+      test: [ "CMD-SHELL", "awslocal s3api head-object --bucket goa-exam-audio --key .listening-seed-ready" ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
 
   prometheus:
     image: prom/prometheus:v2.50.1
     ports:
       - "9090:9090"
+    # --web.enable-remote-write-receiver lets k6 stream metrics straight in
+    # during a load test (GOA-036) -- the local stand-in for the ticket's "k6
+    # CloudWatch output plugin, latency percentile charts visible during the
+    # run". The other four flags are the image's own defaults, restated because
+    # specifying `command` REPLACES the image command rather than appending to
+    # it; omitting them leaves Prometheus with no config file and no storage
+    # path.
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.console.libraries=/usr/share/prometheus/console_libraries
+      - --web.console.templates=/usr/share/prometheus/consoles
+      - --web.enable-remote-write-receiver
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/prometheus/gateway-alerts.yml:/etc/prometheus/gateway-alerts.yml
+      - ./monitoring/prometheus/writing-alerts.yml:/etc/prometheus/writing-alerts.yml
+
+  # GOA-030 requires goa_e2e_step_duration_ms{journey,step} to be queryable
+  # alongside the service metrics. The ticket asks for a CloudWatch custom
+  # metric; there is no CloudWatch, and Prometheus is what this stack has.
+  #
+  # A Pushgateway rather than a scrape target because the producer is a
+  # Playwright run: short-lived, no stable address, and finished long before the
+  # next 15-second scrape would find it. That is the case Pushgateway exists
+  # for, and the case where its usual "don't use it for this" caveat does not
+  # apply.
+  pushgateway:
+    image: prom/pushgateway:v1.8.0
+    ports:
+      - "9091:9091"
 
   grafana:
     image: grafana/grafana:10.4.0
@@ -76,6 +405,283 @@ services:
     image: redis:7-alpine
     ports:
       - "6380:6379"
+
+  speaking:
+    build:
+      context: ./services/speaking
+      target: dev
+    ports:
+      - "8082:8082"
+    environment:
+      - PORT=8082
+      - MAX_CONNECTIONS=100
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
+      - ANTHROPIC_BASE_URL=${GOA_LLM_BASE_URL:-${ANTHROPIC_BASE_URL:-}}
+      - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
+      - LLM_MODEL=${LLM_MODEL:-claude-opus-5}
+      - SPEAKING_PRACTICE_MODEL=${SPEAKING_PRACTICE_MODEL:-claude-opus-5}
+      - SPEAKING_EXAM_MODEL=${SPEAKING_EXAM_MODEL:-claude-opus-5}
+      - SPEAKING_INTERVIEWER_MODEL=${SPEAKING_INTERVIEWER_MODEL:-claude-opus-5}
+      - OTEL_SERVICE_NAME=speaking
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
+      - LANGFUSE_HOST=${LANGFUSE_HOST}
+      - SPEECH_SERVICE_URL=http://speech:8086
+      - EXAM_SERVICE_URL=http://exam:8085
+      - INTERNAL_API_KEY=supersecret_internal_key_123
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - SQS_QUEUE_NAME=user-events-speaking
+    volumes:
+      - ./services/speaking:/app
+    depends_on:
+      prometheus:
+        condition: service_started
+      localstack:
+        condition: service_healthy
+      # The service pings speaking_db during startup and calls log.Fatal on
+      # failure, so a cold `docker compose up` raced Postgres and exited 1
+      # with "the database system is starting up (SQLSTATE 57P03)". air only
+      # rebuilds on file change, so it never retried and the container sat
+      # "Up" with no server listening.
+      postgres:
+        condition: service_healthy
+
+  rag:
+    build:
+      context: .
+      dockerfile: services/rag/Dockerfile
+      target: dev
+    ports:
+      - "8084:8084"
+    environment:
+      - PORT=8084
+      # /opt/goa is the shared security package (GOA-034); see the volume below.
+      # Pinned here rather than left to the image's ENV PYTHONPATH, because the
+      # package is delivered at RUN time by a bind mount while the path that
+      # finds it lived only in the image. A container started from an image
+      # built before that ENV was added therefore mounts the code with no way to
+      # import it, and uvicorn dies on `from goa_security import wrap_untrusted`
+      # before it ever binds :8084 -- which the Gateway reports as a 502 from
+      # /api/opportunities/query. The Writing service already pins it here and
+      # was unaffected; this makes RAG match.
+      # /opt/goa-pricing is the shared LLM price table (GOA-135), delivered by
+      # its own bind mount below. It has to be listed here for the same reason
+      # /opt/goa is: pinning the path in compose overrides the image's ENV, so
+      # anything the image adds after this line was written is dropped. This
+      # pin and the GOA-135 mount arrived on separate branches, merged without
+      # a textual conflict, and together made goa_pricing unimportable.
+      - PYTHONPATH=/app:/opt/goa:/opt/goa-pricing
+      - DATABASE_URL=postgresql://goa:goa_pass@postgres:5432/rag_db
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ANTHROPIC_BASE_URL=${GOA_LLM_BASE_URL:-${ANTHROPIC_BASE_URL:-}}
+      - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
+      - LLM_MODEL=${LLM_MODEL:-claude-opus-5}
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
+      - LANGFUSE_HOST=${LANGFUSE_HOST}
+      - REDIS_URL=redis://redis-cache:6379/2
+      - USER_SERVICE_URL=http://user-service:8081
+      - WRITING_SERVICE_URL=http://writing:8000
+      - INTERNAL_API_KEY=supersecret_internal_key_123
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - SQS_QUEUE_NAME=user-events-rag
+      - EMBEDDING_BASE_URL=${EMBEDDING_BASE_URL:-http://host.docker.internal:11434/v1}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-nomic-embed-text}
+      - EMBEDDING_API_KEY=${EMBEDDING_API_KEY:-ollama}
+      - RAG_HYBRID_ENABLED=${RAG_HYBRID_ENABLED:-false}
+    volumes:
+      - ./services/rag:/app
+      - ./packages/security/py:/opt/goa
+      # GOA-135: the shared price table. It gets its OWN root rather than
+      # joining goa_security in /opt/goa, because the bind mount above hides
+      # whatever the image put at that path -- a package COPYed to /opt/goa
+      # would exist in the image and vanish under compose.
+      - ./packages/pricing/py:/opt/goa-pricing
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis-cache:
+        condition: service_started
+
+  exam:
+    build:
+      context: ./services/exam
+      target: dev
+    ports:
+      - "8085:8085"
+    environment:
+      - PORT=8085
+      - DATABASE_URL=postgresql://goa:goa_pass@postgres:5432/exam_db
+      - INTERNAL_API_KEY=supersecret_internal_key_123
+      - WATCHFILES_FORCE_POLLING=true
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
+      - LANGFUSE_HOST=${LANGFUSE_HOST}
+      - WRITING_SERVICE_URL=http://writing:8000
+      - SPEAKING_SERVICE_URL=http://speaking:8082
+      - AWS_REGION=us-east-1
+      - S3_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      # Server-to-server boto calls use AWS_ENDPOINT_URL (the internal host).
+      # Browser-facing pre-signed URLs must instead be SIGNED against a host the
+      # browser can resolve, or the SigV4 signature is invalid on first request
+      # (BUG-016). LocalStack is published on 4566, so localhost:4566 is that
+      # host in local dev; point this at the real S3/CDN host in other envs.
+      - S3_PUBLIC_ENDPOINT_URL=http://localhost:4566
+      - S3_BUCKET=goa-exam-audio
+      - WRITING_IMAGE_BUCKET=goa-writing-files
+      - SQS_QUEUE_NAME=user-events-exam
+    volumes:
+      - ./services/exam:/app
+      - ./evals:/evals:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+
+  orchestration:
+    build:
+      context: .
+      dockerfile: services/orchestration/Dockerfile
+      target: dev
+    ports:
+      - "8083:8083"
+    environment:
+      - PORT=8083
+      # Same reason as RAG above: the shared security package arrives on the
+      # bind mount at /opt/goa, so the path to it belongs next to the mount
+      # rather than only in the image.
+      # /opt/goa-pricing is the shared LLM price table (GOA-135), delivered by
+      # its own bind mount below. It has to be listed here for the same reason
+      # /opt/goa is: pinning the path in compose overrides the image's ENV, so
+      # anything the image adds after this line was written is dropped. This
+      # pin and the GOA-135 mount arrived on separate branches, merged without
+      # a textual conflict, and together made goa_pricing unimportable.
+      - PYTHONPATH=/app:/opt/goa:/opt/goa-pricing
+      - DATABASE_URL=postgresql://goa:goa_pass@postgres:5432/orchestration_db
+      - REDIS_URL=redis://redis-cache:6379/1
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ANTHROPIC_BASE_URL=${GOA_LLM_BASE_URL:-${ANTHROPIC_BASE_URL:-}}
+      - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
+      - LLM_MODEL=${LLM_MODEL:-claude-opus-5}
+      - INTERNAL_API_KEY=supersecret_internal_key_123
+      # The one browser-facing URL. The *_SERVICE_URL values above are Docker
+      # hostnames for server-to-server calls; handing them to a client gave
+      # ws://speaking:8082 and http://writing:8000, which no browser resolves
+      # (BUG-016). Writing's SSE and Speaking's socket both go through the
+      # Gateway now, so PUBLIC_SPEAKING_WS_URL is gone -- Orchestration derives
+      # ws://<gateway>/api/speaking/ws from this value (GOA-132).
+      - PUBLIC_GATEWAY_URL=${PUBLIC_GATEWAY_URL:-http://localhost:8080}
+      - OTEL_SERVICE_NAME=orchestration
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
+      - LANGFUSE_HOST=${LANGFUSE_HOST}
+      - RAG_SERVICE_URL=http://rag:8084
+      - SPEAKING_SERVICE_URL=http://speaking:8082
+      - WRITING_SERVICE_URL=http://writing:8000
+      - EXAM_SERVICE_URL=http://exam:8085
+      # LocalStack/SQS for the account-deleted consumer (GOA-076).
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - SQS_QUEUE_NAME=user-events-orchestration
+      # Long-term conversation memory (GOA-038). Overridable so the manual E2E
+      # can run with MEMORY_IDLE_MINUTES=1 and watch the sweep fire in real time,
+      # and so load tests (GOA-036) can set MEMORY_ENABLED=false rather than
+      # handing the sweep thousands of synthetic sessions to extract from.
+      - MEMORY_ENABLED=${MEMORY_ENABLED:-true}
+      - MEMORY_IDLE_MINUTES=${MEMORY_IDLE_MINUTES:-30}
+      - MEMORY_SWEEP_INTERVAL_SECONDS=${MEMORY_SWEEP_INTERVAL_SECONDS:-300}
+      - MEMORY_SWEEP_BATCH_MAX=${MEMORY_SWEEP_BATCH_MAX:-20}
+      - MEMORY_FACT_TTL_DAYS=${MEMORY_FACT_TTL_DAYS:-30}
+      - MEMORY_MIN_TURNS=${MEMORY_MIN_TURNS:-4}
+    volumes:
+      - ./services/orchestration:/app
+      # Shared security package (GOA-034). Mounted so a change to it is
+      # live in dev the same way a change to the service is.
+      - ./packages/security/py:/opt/goa
+      # GOA-135: the shared price table. It gets its OWN root rather than
+      # joining goa_security in /opt/goa, because the bind mount above hides
+      # whatever the image put at that path -- a package COPYed to /opt/goa
+      # would exist in the image and vanish under compose.
+      - ./packages/pricing/py:/opt/goa-pricing
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis-cache:
+        condition: service_started
+      localstack:
+        condition: service_healthy
+
+  speech:
+    build:
+      context: ./services/speech
+    ports:
+      - "8086:8086"
+    environment:
+      - PORT=8086
+
+  ingestion:
+    profiles: ["ingestion"]
+    build:
+      # Repo-root context: the Dockerfile copies packages/contracts/py, which the
+      # scholarship matcher imports. A context of ./services/ingestion cannot see
+      # it, and the worker fails with ModuleNotFoundError inside the image.
+      context: .
+      dockerfile: services/ingestion/Dockerfile
+    environment:
+      - RAG_SERVICE_URL=http://rag:8084
+      - INTERNAL_API_KEY=supersecret_internal_key_123
+      - DRY_RUN=false
+      - INGESTION_DATABASE_URL=postgresql://goa:goa_pass@postgres:5432/ingestion_db
+      # GOA-123: the visa adapter's LLM extraction runs here. Without these the
+      # container fell back to api.anthropic.com with no key -> 401 on every source.
+      - ANTHROPIC_AUTH_TOKEN=${ANTHROPIC_AUTH_TOKEN:-}
+      - ANTHROPIC_BASE_URL=${GOA_LLM_BASE_URL:-${ANTHROPIC_BASE_URL:-}}
+      - ANTHROPIC_USER_AGENT=${ANTHROPIC_USER_AGENT:-}
+      - EXTRACTION_MODEL=${EXTRACTION_MODEL:-claude-opus-5}
+      - EMBEDDING_BASE_URL=${EMBEDDING_BASE_URL:-http://host.docker.internal:11434/v1}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-nomic-embed-text}
+      - EMBEDDING_DIMENSIONS=${EMBEDDING_DIMENSIONS:-768}
+      # ING-02's completion report goes to LocalStack. Without an explicit endpoint
+      # boto3 resolves to real AWS and the report silently never lands.
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+      - INGESTION_REPORTS_BUCKET=goa-ingestion-reports
+      - INGESTION_QUEUE_URL=http://localstack:4566/000000000000/ingestion-queue
+      - INGESTION_VISIBILITY_TIMEOUT=4320
+    volumes:
+      - ./services/ingestion:/app
+      - ./scripts:/workspace/scripts:ro
+      - ./packages/contracts/py/contracts:/app/contracts:ro
+      # GOA-135: same shape as `contracts` above. The Dockerfile COPYs the price
+      # table into /app/goa_pricing, and the /app mount on the first line hides
+      # it -- the run summary's cost import then fails under compose while
+      # working perfectly in the built image.
+      - ./packages/pricing/py/goa_pricing:/app/goa_pricing:ro
+      # The schema-parity test compares the independently deployed ingestion and
+      # RAG models. Mount RAG read-only so that check also runs in the service image.
+      - ./services/rag:/rag:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rag:
+        condition: service_started
+      localstack:
+        condition: service_healthy
 
 volumes:
   pgdata:

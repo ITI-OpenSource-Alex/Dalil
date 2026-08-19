@@ -1,0 +1,481 @@
+{
+  "book_ref": "IELTS-15",
+  "test_number": 3,
+  "exam_type": "academic",
+  "skill_area": "listening",
+  "passage_text": null,
+  "questions": [
+    {
+      "number": 1,
+      "prompt": "Administrative assistant in a company that produces ___ (North London)",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 2,
+      "prompt": "Responsibilities include organising ___ and taking notes",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 3,
+      "prompt": "General administration includes management of a ___",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 4,
+      "prompt": "Applicants must show attention to ___",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 5,
+      "prompt": "Applicants need a minimum of ___ of teleconferencing experience",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 6,
+      "prompt": "Warehouse responsibilities include managing ___",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 7,
+      "prompt": "Applicants must be very organised and ___",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 8,
+      "prompt": "Applicants must be used to working in a ___",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 9,
+      "prompt": "Applicants must be able to cope with items that are ___",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 10,
+      "prompt": "Applicants need experience of ___ service",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD AND/OR A NUMBER for each answer.",
+      "passage_number": null,
+      "section_number": 1
+    },
+    {
+      "number": 11,
+      "prompt": "When did the Street Play Scheme first take place?",
+      "question_type": "Multiple Choice",
+      "instructions": "Choose the correct letter, A, B or C.",
+      "passage_number": null,
+      "section_number": 2,
+      "options": [
+        "two years ago",
+        "three years ago",
+        "six years ago"
+      ]
+    },
+    {
+      "number": 12,
+      "prompt": "How often is Beechwood Road closed to traffic now?",
+      "question_type": "Multiple Choice",
+      "instructions": "Choose the correct letter, A, B or C.",
+      "passage_number": null,
+      "section_number": 2,
+      "options": [
+        "once a week",
+        "on Saturdays and Sundays",
+        "once a month"
+      ]
+    },
+    {
+      "number": 13,
+      "prompt": "Who is responsible for closing the road?",
+      "question_type": "Multiple Choice",
+      "instructions": "Choose the correct letter, A, B or C.",
+      "passage_number": null,
+      "section_number": 2,
+      "options": [
+        "a council official",
+        "the police",
+        "street wardens"
+      ]
+    },
+    {
+      "number": 14,
+      "prompt": "Residents who want to use their cars",
+      "question_type": "Multiple Choice",
+      "instructions": "Choose the correct letter, A, B or C.",
+      "passage_number": null,
+      "section_number": 2,
+      "options": [
+        "have to park in another street.",
+        "must drive very slowly.",
+        "need permission from a warden."
+      ]
+    },
+    {
+      "number": 15,
+      "prompt": "Alice says that Street Play Schemes are most needed in",
+      "question_type": "Multiple Choice",
+      "instructions": "Choose the correct letter, A, B or C.",
+      "passage_number": null,
+      "section_number": 2,
+      "options": [
+        "wealthy areas.",
+        "quiet suburban areas.",
+        "areas with heavy traffic."
+      ]
+    },
+    {
+      "number": 16,
+      "prompt": "What has been the reaction of residents who are not parents?",
+      "question_type": "Multiple Choice",
+      "instructions": "Choose the correct letter, A, B or C.",
+      "passage_number": null,
+      "section_number": 2,
+      "options": [
+        "Many of them were unhappy at first.",
+        "They like seeing children play in the street.",
+        "They are surprised by the lack of noise."
+      ]
+    },
+    {
+      "number": 17,
+      "prompt": "Which TWO benefits for children does Alice think are the most important?",
+      "question_type": "Multiple Choice",
+      "instructions": "Choose TWO letters, A–E. Which TWO benefits for children does Alice think are the most important?",
+      "passage_number": null,
+      "section_number": 2,
+      "options": [
+        "increased physical activity",
+        "increased sense of independence",
+        "opportunity to learn new games",
+        "opportunity to be part of a community",
+        "opportunity to make new friends"
+      ]
+    },
+    {
+      "number": 18,
+      "prompt": "Which TWO benefits for children does Alice think are the most important?",
+      "question_type": "Multiple Choice",
+      "instructions": "Choose TWO letters, A–E. Which TWO benefits for children does Alice think are the most important?",
+      "passage_number": null,
+      "section_number": 2,
+      "options": [
+        "increased physical activity",
+        "increased sense of independence",
+        "opportunity to learn new games",
+        "opportunity to be part of a community",
+        "opportunity to make new friends"
+      ]
+    },
+    {
+      "number": 19,
+      "prompt": "Which TWO results of the King Street experiment surprised Alice?",
+      "question_type": "Multiple Choice",
+      "instructions": "Choose TWO letters, A–E. Which TWO results of the King Street experiment surprised Alice?",
+      "passage_number": null,
+      "section_number": 2,
+      "options": [
+        "more shoppers",
+        "improved safety",
+        "less air pollution",
+        "more relaxed atmosphere",
+        "less noise pollution"
+      ]
+    },
+    {
+      "number": 20,
+      "prompt": "Which TWO results of the King Street experiment surprised Alice?",
+      "question_type": "Multiple Choice",
+      "instructions": "Choose TWO letters, A–E. Which TWO results of the King Street experiment surprised Alice?",
+      "passage_number": null,
+      "section_number": 2,
+      "options": [
+        "more shoppers",
+        "improved safety",
+        "less air pollution",
+        "more relaxed atmosphere",
+        "less noise pollution"
+      ]
+    },
+    {
+      "number": 21,
+      "prompt": "What ___ the newspaper item is on",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 22,
+      "prompt": "The ___ of the item, including the headline",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 23,
+      "prompt": "Any ___ accompanying the item",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 24,
+      "prompt": "The ___ of the item, including what is made prominent",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 25,
+      "prompt": "The ___ of the item",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 26,
+      "prompt": "Any ___ the audience makes about the item",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
+      "passage_number": null,
+      "section_number": 3
+    },
+    {
+      "number": 27,
+      "prompt": "national news item",
+      "question_type": "Matching",
+      "instructions": "What does Hazel decide to do about each type of article? Write the correct letter, A, B or C, next to Questions 27–30.",
+      "passage_number": null,
+      "section_number": 3,
+      "options": [
+        "She will definitely look for a suitable article.",
+        "She may look for a suitable article.",
+        "She definitely won't look for an article."
+      ]
+    },
+    {
+      "number": 28,
+      "prompt": "editorial",
+      "question_type": "Matching",
+      "instructions": "What does Hazel decide to do about each type of article? Write the correct letter, A, B or C, next to Questions 27–30.",
+      "passage_number": null,
+      "section_number": 3,
+      "options": [
+        "She will definitely look for a suitable article.",
+        "She may look for a suitable article.",
+        "She definitely won't look for an article."
+      ]
+    },
+    {
+      "number": 29,
+      "prompt": "human-interest story",
+      "question_type": "Matching",
+      "instructions": "What does Hazel decide to do about each type of article? Write the correct letter, A, B or C, next to Questions 27–30.",
+      "passage_number": null,
+      "section_number": 3,
+      "options": [
+        "She will definitely look for a suitable article.",
+        "She may look for a suitable article.",
+        "She definitely won't look for an article."
+      ]
+    },
+    {
+      "number": 30,
+      "prompt": "arts",
+      "question_type": "Matching",
+      "instructions": "What does Hazel decide to do about each type of article? Write the correct letter, A, B or C, next to Questions 27–30.",
+      "passage_number": null,
+      "section_number": 3,
+      "options": [
+        "She will definitely look for a suitable article.",
+        "She may look for a suitable article.",
+        "She definitely won't look for an article."
+      ]
+    },
+    {
+      "number": 31,
+      "prompt": "In prehistoric times, water was used to wash off ___",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 32,
+      "prompt": "In ancient Babylon, soap-like material was found in ___ cylinders",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 33,
+      "prompt": "In ancient Greece, a strigil scraper was made of ___",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 34,
+      "prompt": "Ancient German and Gaulish people used soap to colour their ___",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 35,
+      "prompt": "From about 312 BC, water was carried to Roman ___",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 36,
+      "prompt": "In medieval Europe, the decline in bathing contributed to the occurrence of ___",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 37,
+      "prompt": "In medieval Europe, ___ began to be added to soap",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 38,
+      "prompt": "In 1791, Leblanc invented a way of making soda ash from ___",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 39,
+      "prompt": "In the early 1800s, Chevreul turned soapmaking into a ___",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
+      "passage_number": null,
+      "section_number": 4
+    },
+    {
+      "number": 40,
+      "prompt": "From the 1800s, there was no longer a ___ on soap",
+      "question_type": "Notes Completion",
+      "instructions": "Complete the notes below. Write ONE WORD ONLY for each answer.",
+      "passage_number": null,
+      "section_number": 4
+    }
+  ],
+  "answer_key": {
+    "answers": {
+      "1": "furniture",
+      "2": "meetings",
+      "3": "diary",
+      "4": [
+        "detail",
+        "details"
+      ],
+      "5": [
+        "1 year",
+        "one year"
+      ],
+      "6": "deliveries",
+      "7": "tidy",
+      "8": "team",
+      "9": "heavy",
+      "10": "customer",
+      "11": "B",
+      "12": "A",
+      "13": "C",
+      "14": "B",
+      "15": "C",
+      "16": "B",
+      "17": "B",
+      "18": "D",
+      "19": "A",
+      "20": "E",
+      "21": "page",
+      "22": "size",
+      "23": [
+        "graphic",
+        "graphics"
+      ],
+      "24": "structure",
+      "25": "purpose",
+      "26": [
+        "assumption",
+        "assumptions"
+      ],
+      "27": "A",
+      "28": "C",
+      "29": "C",
+      "30": "B",
+      "31": "mud",
+      "32": "clay",
+      "33": "metal",
+      "34": "hair",
+      "35": [
+        "bath",
+        "baths"
+      ],
+      "36": [
+        "disease",
+        "diseases"
+      ],
+      "37": "perfume",
+      "38": "salt",
+      "39": "science",
+      "40": "tax"
+    },
+    "unordered_groups": [
+      [
+        "17",
+        "18"
+      ],
+      [
+        "19",
+        "20"
+      ]
+    ]
+  },
+  "audio_s3_key": "exam-audio/IELTS-15/3/section1.mp3",
+  "time_limit_seconds": 2400
+}

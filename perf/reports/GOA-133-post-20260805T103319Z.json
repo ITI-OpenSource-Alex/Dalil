@@ -1,0 +1,719 @@
+{
+  "ticket": "GOA-133",
+  "phase": "post",
+  "captured_at": "2026-08-05T10:33:19+00:00",
+  "git_sha": "254f3a1",
+  "host": {
+    "platform": "Windows-10-10.0.26200-SP0",
+    "python": "3.11.3"
+  },
+  "providers": {
+    "stt": {
+      "impl": "faster-whisper",
+      "model": "small",
+      "device": "cpu",
+      "real": true
+    },
+    "llm": {
+      "base_url": "https://api.anthropic.com",
+      "model": "claude-opus-4-8",
+      "real": true
+    }
+  },
+  "fixtures": {
+    "synthetic": true,
+    "source": "Piper TTS via the speech sidecar, not human speech",
+    "limitation": "Absolute band values are meaningless: Piper's prosody is uniform, so the fluent arm is more fluent than any real candidate, and Whisper transcribes clean TTS with optimistic confidence. There are no disfluencies, accent or self-correction -- the phenomena Pronunciation is meant to assess. Use for MECHANISM (does the pipeline carry timing) and DIRECTION (does delivery move the band at all), never for calibration.",
+    "n_pairs": 5,
+    "repeats": 3,
+    "controlled_text": true
+  },
+  "metrics": {
+    "level_a_mechanism": {
+      "stt_response_keys": [
+        "duration_s",
+        "language",
+        "language_probability",
+        "segments",
+        "transcript",
+        "words"
+      ],
+      "carries_timing": true,
+      "pairs_with_identical_transcripts": "2/5",
+      "per_pair": [
+        {
+          "pair": "p01",
+          "transcripts_identical": true,
+          "fluent_duration_s": 18.87,
+          "halting_duration_s": 33.67,
+          "duration_ratio": 1.78,
+          "stt_reports_duration": true,
+          "stt_reports_words": true,
+          "stt_reports_segments": true
+        },
+        {
+          "pair": "p02",
+          "transcripts_identical": true,
+          "fluent_duration_s": 20.17,
+          "halting_duration_s": 35.43,
+          "duration_ratio": 1.76,
+          "stt_reports_duration": true,
+          "stt_reports_words": true,
+          "stt_reports_segments": true
+        },
+        {
+          "pair": "p03",
+          "transcripts_identical": false,
+          "fluent_duration_s": 20.13,
+          "halting_duration_s": 35.36,
+          "duration_ratio": 1.76,
+          "stt_reports_duration": true,
+          "stt_reports_words": true,
+          "stt_reports_segments": true
+        },
+        {
+          "pair": "p04",
+          "transcripts_identical": false,
+          "fluent_duration_s": 21.6,
+          "halting_duration_s": 37.35,
+          "duration_ratio": 1.73,
+          "stt_reports_duration": true,
+          "stt_reports_words": true,
+          "stt_reports_segments": true
+        },
+        {
+          "pair": "p05",
+          "transcripts_identical": false,
+          "fluent_duration_s": 20.16,
+          "halting_duration_s": 35.41,
+          "duration_ratio": 1.76,
+          "stt_reports_duration": true,
+          "stt_reports_words": true,
+          "stt_reports_segments": true
+        }
+      ]
+    },
+    "level_b_bands": {
+      "sessions": 30,
+      "criterion_completion_rate": 0.825,
+      "per_criterion": {
+        "Fluency and Coherence": {
+          "mean_abs_delta": 0.45,
+          "directional_agreement": "5/5",
+          "median_repeat_spread": 0.5,
+          "spearman_wpm_vs_band": 0.6151,
+          "n_pairs": 5
+        },
+        "Lexical Resource": {
+          "mean_abs_delta": 0.25,
+          "directional_agreement": "2/5",
+          "median_repeat_spread": 0.0,
+          "spearman_wpm_vs_band": -0.1753,
+          "n_pairs": 5
+        },
+        "Grammatical Range and Accuracy": {
+          "mean_abs_delta": 0.55,
+          "directional_agreement": "1/5",
+          "median_repeat_spread": 0.5,
+          "spearman_wpm_vs_band": -0.3528,
+          "n_pairs": 5
+        },
+        "Pronunciation": {
+          "mean_abs_delta": 0.5,
+          "directional_agreement": "5/5",
+          "median_repeat_spread": 0.0,
+          "spearman_wpm_vs_band": 0.7673,
+          "n_pairs": 5
+        }
+      },
+      "raw": [
+        {
+          "pair": "p01",
+          "arm": "fluent",
+          "run": 0,
+          "duration_s": 18.87,
+          "word_count": 72,
+          "wpm": 228.9,
+          "bands": {
+            "Fluency and Coherence": 7,
+            "Grammatical Range and Accuracy": 7,
+            "Lexical Resource": 6,
+            "Pronunciation": 7.5
+          },
+          "unscored_criteria": [],
+          "session_error": null,
+          "overall_band": 7,
+          "completed_count": 4,
+          "elapsed_ms": 24472.1
+        },
+        {
+          "pair": "p01",
+          "arm": "fluent",
+          "run": 1,
+          "duration_s": 18.87,
+          "word_count": 72,
+          "wpm": 228.9,
+          "bands": {
+            "Lexical Resource": 6,
+            "Pronunciation": 7.5
+          },
+          "unscored_criteria": [
+            "Fluency and Coherence",
+            "Grammatical Range and Accuracy"
+          ],
+          "session_error": null,
+          "overall_band": null,
+          "completed_count": 2,
+          "elapsed_ms": 30962.0
+        },
+        {
+          "pair": "p01",
+          "arm": "fluent",
+          "run": 2,
+          "duration_s": 18.87,
+          "word_count": 72,
+          "wpm": 228.9,
+          "bands": {
+            "Fluency and Coherence": 7,
+            "Grammatical Range and Accuracy": 5.5,
+            "Lexical Resource": 6,
+            "Pronunciation": 7.5
+          },
+          "unscored_criteria": [],
+          "session_error": null,
+          "overall_band": 6.5,
+          "completed_count": 4,
+          "elapsed_ms": 18811.7
+        },
+        {
+          "pair": "p01",
+          "arm": "halting",
+          "run": 0,
+          "duration_s": 33.67,
+          "word_count": 72,
+          "wpm": 128.3,
+          "bands": {
+            "Fluency and Coherence": 6.5,
+            "Grammatical Range and Accuracy": 7,
+            "Lexical Resource": 6,
+            "Pronunciation": 7
+          },
+          "unscored_criteria": [],
+          "session_error": null,
+          "overall_band": 6.5,
+          "completed_count": 4,
+          "elapsed_ms": 17745.0
+        },
+        {
+          "pair": "p01",
+          "arm": "halting",
+          "run": 1,
+          "duration_s": 33.67,
+          "word_count": 72,
+          "wpm": 128.3,
+          "bands": {
+            "Fluency and Coherence": 6.5,
+            "Grammatical Range and Accuracy": 5.5,
+            "Lexical Resource": 6
+          },
+          "unscored_criteria": [
+            "Pronunciation"
+          ],
+          "session_error": null,
+          "overall_band": 6,
+          "completed_count": 3,
+          "elapsed_ms": 60024.2
+        },
+        {
+          "pair": "p01",
+          "arm": "halting",
+          "run": 2,
+          "duration_s": 33.67,
+          "word_count": 72,
+          "wpm": 128.3,
+          "bands": {
+            "Grammatical Range and Accuracy": 7.5,
+            "Lexical Resource": 6,
+            "Pronunciation": 7
+          },
+          "unscored_criteria": [
+            "Fluency and Coherence"
+          ],
+          "session_error": null,
+          "overall_band": 7,
+          "completed_count": 3,
+          "elapsed_ms": 31458.7
+        },
+        {
+          "pair": "p02",
+          "arm": "fluent",
+          "run": 0,
+          "duration_s": 20.17,
+          "word_count": 71,
+          "wpm": 211.2,
+          "bands": {
+            "Fluency and Coherence": 7.5,
+            "Grammatical Range and Accuracy": 7,
+            "Pronunciation": 7.5
+          },
+          "unscored_criteria": [
+            "Lexical Resource"
+          ],
+          "session_error": null,
+          "overall_band": 7.5,
+          "completed_count": 3,
+          "elapsed_ms": 17881.1
+        },
+        {
+          "pair": "p02",
+          "arm": "fluent",
+          "run": 1,
+          "duration_s": 20.17,
+          "word_count": 71,
+          "wpm": 211.2,
+          "bands": {
+            "Grammatical Range and Accuracy": 7,
+            "Lexical Resource": 6.5,
+            "Pronunciation": 7.5
+          },
+          "unscored_criteria": [
+            "Fluency and Coherence"
+          ],
+          "session_error": null,
+          "overall_band": 7,
+          "completed_count": 3,
+          "elapsed_ms": 31102.8
+        },
+        {
+          "pair": "p02",
+          "arm": "fluent",
+          "run": 2,
+          "duration_s": 20.17,
+          "word_count": 71,
+          "wpm": 211.2,
+          "bands": {
+            "Fluency and Coherence": 7,
+            "Grammatical Range and Accuracy": 7,
+            "Lexical Resource": 6.5,
+            "Pronunciation": 7.5
+          },
+          "unscored_criteria": [],
+          "session_error": null,
+          "overall_band": 7,
+          "completed_count": 4,
+          "elapsed_ms": 21458.0
+        },
+        {
+          "pair": "p02",
+          "arm": "halting",
+          "run": 0,
+          "duration_s": 35.43,
+          "word_count": 71,
+          "wpm": 120.2,
+          "bands": {
+            "Fluency and Coherence": 6.5,
+            "Grammatical Range and Accuracy": 8,
+            "Lexical Resource": 6,
+            "Pronunciation": 7
+          },
+          "unscored_criteria": [],
+          "session_error": null,
+          "overall_band": 7,
+          "completed_count": 4,
+          "elapsed_ms": 19419.0
+        },
+        {
+          "pair": "p02",
+          "arm": "halting",
+          "run": 1,
+          "duration_s": 35.43,
+          "word_count": 71,
+          "wpm": 120.2,
+          "bands": {
+            "Fluency and Coherence": 6.5,
+            "Grammatical Range and Accuracy": 6.5,
+            "Lexical Resource": 6,
+            "Pronunciation": 7
+          },
+          "unscored_criteria": [],
+          "session_error": null,
+          "overall_band": 6.5,
+          "completed_count": 4,
+          "elapsed_ms": 50024.8
+        },
+        {
+          "pair": "p02",
+          "arm": "halting",
+          "run": 2,
+          "duration_s": 35.43,
+          "word_count": 71,
+          "wpm": 120.2,
+          "bands": {
+            "Fluency and Coherence": 6,
+            "Grammatical Range and Accuracy": 7.5,
+            "Lexical Resource": 6,
+            "Pronunciation": 7
+          },
+          "unscored_criteria": [],
+          "session_error": null,
+          "overall_band": 6.5,
+          "completed_count": 4,
+          "elapsed_ms": 45630.4
+        },
+        {
+          "pair": "p03",
+          "arm": "fluent",
+          "run": 0,
+          "duration_s": 20.13,
+          "word_count": 67,
+          "wpm": 199.7,
+          "bands": {
+            "Fluency and Coherence": 7,
+            "Pronunciation": 7
+          },
+          "unscored_criteria": [
+            "Grammatical Range and Accuracy",
+            "Lexical Resource"
+          ],
+          "session_error": null,
+          "overall_band": null,
+          "completed_count": 2,
+          "elapsed_ms": 20107.9
+        },
+        {
+          "pair": "p03",
+          "arm": "fluent",
+          "run": 1,
+          "duration_s": 20.13,
+          "word_count": 67,
+          "wpm": 199.7,
+          "bands": {
+            "Fluency and Coherence": 7,
+            "Grammatical Range and Accuracy": 7.5,
+            "Lexical Resource": 7,
+            "Pronunciation": 7.5
+          },
+          "unscored_criteria": [],
+          "session_error": null,
+          "overall_band": 7.5,
+          "completed_count": 4,
+          "elapsed_ms": 18661.4
+        },
+        {
+          "pair": "p03",
+          "arm": "fluent",
+          "run": 2,
+          "duration_s": 20.13,
+          "word_count": 67,
+          "wpm": 199.7,
+          "bands": {
+            "Fluency and Coherence": 7.5,
+            "Grammatical Range and Accuracy": 7,
+            "Lexical Resource": 7,
+            "Pronunciation": 7.5
+          },
+          "unscored_criteria": [],
+          "session_error": null,
+          "overall_band": 7.5,
+          "completed_count": 4,
+          "elapsed_ms": 17884.8
+        },
+        {
+          "pair": "p03",
+          "arm": "halting",
+          "run": 0,
+          "duration_s": 35.36,
+          "word_count": 67,
+          "wpm": 113.7,
+          "bands": {
+            "Fluency and Coherence": 7,
+            "Grammatical Range and Accuracy": 7,
+            "Lexical Resource": 7
+          },
+          "unscored_criteria": [
+            "Pronunciation"
+          ],
+          "session_error": null,
+          "overall_band": 7,
+          "completed_count": 3,
+          "elapsed_ms": 21141.6
+        },
+        {
+          "pair": "p03",
+          "arm": "halting",
+          "run": 1,
+          "duration_s": 35.36,
+          "word_count": 67,
+          "wpm": 113.7,
+          "bands": {
+            "Grammatical Range and Accuracy": 7.5,
+            "Lexical Resource": 6.5
+          },
+          "unscored_criteria": [
+            "Fluency and Coherence",
+            "Pronunciation"
+          ],
+          "session_error": null,
+          "overall_band": null,
+          "completed_count": 2,
+          "elapsed_ms": 46588.3
+        },
+        {
+          "pair": "p03",
+          "arm": "halting",
+          "run": 2,
+          "duration_s": 35.36,
+          "word_count": 67,
+          "wpm": 113.7,
+          "bands": {
+            "Fluency and Coherence": 6.5,
+            "Lexical Resource": 6.5,
+            "Pronunciation": 7
+          },
+          "unscored_criteria": [
+            "Grammatical Range and Accuracy"
+          ],
+          "session_error": null,
+          "overall_band": 6.5,
+          "completed_count": 3,
+          "elapsed_ms": 60042.3
+        },
+        {
+          "pair": "p04",
+          "arm": "fluent",
+          "run": 0,
+          "duration_s": 21.6,
+          "word_count": 77,
+          "wpm": 213.9,
+          "bands": {
+            "Lexical Resource": 6.5,
+            "Pronunciation": 7.5
+          },
+          "unscored_criteria": [
+            "Fluency and Coherence",
+            "Grammatical Range and Accuracy"
+          ],
+          "session_error": null,
+          "overall_band": null,
+          "completed_count": 2,
+          "elapsed_ms": 48003.8
+        },
+        {
+          "pair": "p04",
+          "arm": "fluent",
+          "run": 1,
+          "duration_s": 21.6,
+          "word_count": 77,
+          "wpm": 213.9,
+          "bands": {
+            "Fluency and Coherence": 8,
+            "Grammatical Range and Accuracy": 6.5,
+            "Lexical Resource": 6,
+            "Pronunciation": 8
+          },
+          "unscored_criteria": [],
+          "session_error": null,
+          "overall_band": 7,
+          "completed_count": 4,
+          "elapsed_ms": 31553.9
+        },
+        {
+          "pair": "p04",
+          "arm": "fluent",
+          "run": 2,
+          "duration_s": 21.6,
+          "word_count": 77,
+          "wpm": 213.9,
+          "bands": {
+            "Fluency and Coherence": 7,
+            "Grammatical Range and Accuracy": 6,
+            "Pronunciation": 8
+          },
+          "unscored_criteria": [
+            "Lexical Resource"
+          ],
+          "session_error": null,
+          "overall_band": 7,
+          "completed_count": 3,
+          "elapsed_ms": 57194.0
+        },
+        {
+          "pair": "p04",
+          "arm": "halting",
+          "run": 0,
+          "duration_s": 37.35,
+          "word_count": 77,
+          "wpm": 123.7,
+          "bands": {
+            "Fluency and Coherence": 7,
+            "Grammatical Range and Accuracy": 7.5,
+            "Lexical Resource": 6.5
+          },
+          "unscored_criteria": [
+            "Pronunciation"
+          ],
+          "session_error": null,
+          "overall_band": 7,
+          "completed_count": 3,
+          "elapsed_ms": 36741.7
+        },
+        {
+          "pair": "p04",
+          "arm": "halting",
+          "run": 1,
+          "duration_s": 37.35,
+          "word_count": 77,
+          "wpm": 123.7,
+          "bands": {
+            "Fluency and Coherence": 7,
+            "Grammatical Range and Accuracy": 7.5,
+            "Lexical Resource": 6.5,
+            "Pronunciation": 7.5
+          },
+          "unscored_criteria": [],
+          "session_error": null,
+          "overall_band": 7,
+          "completed_count": 4,
+          "elapsed_ms": 50585.7
+        },
+        {
+          "pair": "p04",
+          "arm": "halting",
+          "run": 2,
+          "duration_s": 37.35,
+          "word_count": 77,
+          "wpm": 123.7,
+          "bands": {
+            "Fluency and Coherence": 6.5,
+            "Lexical Resource": 6.5,
+            "Pronunciation": 7.5
+          },
+          "unscored_criteria": [
+            "Grammatical Range and Accuracy"
+          ],
+          "session_error": null,
+          "overall_band": 7,
+          "completed_count": 3,
+          "elapsed_ms": 47487.3
+        },
+        {
+          "pair": "p05",
+          "arm": "fluent",
+          "run": 0,
+          "duration_s": 20.16,
+          "word_count": 71,
+          "wpm": 211.3,
+          "bands": {
+            "Fluency and Coherence": 7,
+            "Lexical Resource": 7,
+            "Pronunciation": 7.5
+          },
+          "unscored_criteria": [
+            "Grammatical Range and Accuracy"
+          ],
+          "session_error": null,
+          "overall_band": 7,
+          "completed_count": 3,
+          "elapsed_ms": 60026.5
+        },
+        {
+          "pair": "p05",
+          "arm": "fluent",
+          "run": 1,
+          "duration_s": 20.16,
+          "word_count": 71,
+          "wpm": 211.3,
+          "bands": {
+            "Fluency and Coherence": 7,
+            "Grammatical Range and Accuracy": 8,
+            "Lexical Resource": 7,
+            "Pronunciation": 7.5
+          },
+          "unscored_criteria": [],
+          "session_error": null,
+          "overall_band": 7.5,
+          "completed_count": 4,
+          "elapsed_ms": 47893.8
+        },
+        {
+          "pair": "p05",
+          "arm": "fluent",
+          "run": 2,
+          "duration_s": 20.16,
+          "word_count": 71,
+          "wpm": 211.3,
+          "bands": {
+            "Fluency and Coherence": 7,
+            "Grammatical Range and Accuracy": 8,
+            "Lexical Resource": 6.5,
+            "Pronunciation": 7.5
+          },
+          "unscored_criteria": [],
+          "session_error": null,
+          "overall_band": 7.5,
+          "completed_count": 4,
+          "elapsed_ms": 55763.9
+        },
+        {
+          "pair": "p05",
+          "arm": "halting",
+          "run": 0,
+          "duration_s": 35.41,
+          "word_count": 71,
+          "wpm": 120.3,
+          "bands": {
+            "Lexical Resource": 7,
+            "Pronunciation": 7
+          },
+          "unscored_criteria": [
+            "Fluency and Coherence",
+            "Grammatical Range and Accuracy"
+          ],
+          "session_error": null,
+          "overall_band": null,
+          "completed_count": 2,
+          "elapsed_ms": 19141.2
+        },
+        {
+          "pair": "p05",
+          "arm": "halting",
+          "run": 1,
+          "duration_s": 35.41,
+          "word_count": 71,
+          "wpm": 120.3,
+          "bands": {
+            "Fluency and Coherence": 7,
+            "Grammatical Range and Accuracy": 8,
+            "Lexical Resource": 7,
+            "Pronunciation": 7
+          },
+          "unscored_criteria": [],
+          "session_error": null,
+          "overall_band": 7.5,
+          "completed_count": 4,
+          "elapsed_ms": 16661.4
+        },
+        {
+          "pair": "p05",
+          "arm": "halting",
+          "run": 2,
+          "duration_s": 35.41,
+          "word_count": 71,
+          "wpm": 120.3,
+          "bands": {
+            "Fluency and Coherence": 6.5,
+            "Grammatical Range and Accuracy": 7.5,
+            "Lexical Resource": 7
+          },
+          "unscored_criteria": [
+            "Pronunciation"
+          ],
+          "session_error": null,
+          "overall_band": 7,
+          "completed_count": 3,
+          "elapsed_ms": 60021.3
+        }
+      ]
+    }
+  }
+}

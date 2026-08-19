@@ -3,17 +3,21 @@ import { estimateCompletionDate } from "@/lib/checklist-estimate";
 import type { ChecklistItem } from "@/app/types/checklist";
 import { Card, Progress, Text } from "@/components/ui";
 
+type ChecklistProgressProps =
+  | { items: ChecklistItem[]; summary?: never; action?: ReactNode }
+  | {
+      items?: never;
+      summary: { completed: number; total: number };
+      action?: ReactNode;
+    };
+
 // "Blocked" items don't exist in the backend schema (see ChecklistItemRow), so
 // "remaining" here means unchecked, not unchecked-and-unblocked.
-export default function ChecklistProgress({
-  items,
-  action,
-}: {
-  items: ChecklistItem[];
-  action?: ReactNode;
-}) {
-  const total = items.length;
-  const done = items.filter((item) => item.checked).length;
+export default function ChecklistProgress(props: ChecklistProgressProps) {
+  const total = props.items ? props.items.length : props.summary.total;
+  const done = props.items
+    ? props.items.filter((item) => item.checked).length
+    : props.summary.completed;
   const remaining = total - done;
   const percent = total === 0 ? 0 : Math.round((done / total) * 100);
   const estimatedDate = estimateCompletionDate(remaining);
@@ -48,7 +52,9 @@ export default function ChecklistProgress({
           </Text>
         )}
       </div>
-      {action && <div className="print-hidden shrink-0">{action}</div>}
+      {props.action && (
+        <div className="print-hidden shrink-0">{props.action}</div>
+      )}
     </Card>
   );
 }

@@ -1,36 +1,16 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCurrentUser } from "@/app/hooks/useCurrentUser";
-import { Button, Card, Progress, Skeleton, Text } from "@/components/ui";
-import type { UserProfileDetail } from "@/app/types/profile";
+import { ProfileCompletenessCard } from "@/components/profile/profile-completeness-card";
+import type { ProfileSectionId } from "@/lib/profile-readiness";
+import { Card, Skeleton } from "@/components/ui";
 
-/** The same fields onboarding actually collects (buildProfilePayload,
- *  app/onboarding/page.tsx) and isProfileComplete checks -- this widget is a
- *  finer-grained view of the same signal, not a separate metric invented for
- *  the Dashboard. */
-const TRACKED_FIELDS: { key: keyof UserProfileDetail; label: string }[] = [
-  { key: "degreeLevel", label: "Degree level" },
-  { key: "fieldOfStudy", label: "Field of study" },
-  { key: "gpa", label: "GPA" },
-  { key: "ieltsScore", label: "IELTS score" },
-  { key: "targetCountries", label: "Target countries" },
-];
-
-function filledCount(profile: UserProfileDetail | null): number {
-  if (!profile) return 0;
-  return TRACKED_FIELDS.reduce((count, field) => {
-    const value = profile[field.key];
-    const filled = Array.isArray(value) ? value.length > 0 : value !== null;
-    return filled ? count + 1 : count;
-  }, 0);
-}
-
-/** "Overall progress" -- how much of the application profile is filled in.
- *  A real, derived number rather than a placeholder: onboarding and the
- *  profile page both write these same fields. */
+/** Matching readiness — same meter as the profile page header, so the
+ *  dashboard and profile never disagree about what still blocks matching. */
 export function ProgressWidget() {
   const { user, status } = useCurrentUser();
+  const router = useRouter();
 
   if (status === "loading" || status === "idle") {
     return (
@@ -43,29 +23,11 @@ export function ProgressWidget() {
 
   if (status === "error" || !user) return null;
 
-  const filled = filledCount(user.profile);
-  const total = TRACKED_FIELDS.length;
+  function goFixSection(_section: ProfileSectionId) {
+    router.push("/profile?tab=edit");
+  }
 
   return (
-    <Card>
-      <div className="mb-1 flex items-center justify-between gap-3">
-        <Text size="sm" tone="muted" className="font-semibold">
-          Profile completeness
-        </Text>
-        {filled < total && (
-          <Button variant="link" size="sm" asChild>
-            <Link href="/profile">Finish it</Link>
-          </Button>
-        )}
-      </div>
-      <Progress
-        value={filled}
-        max={total}
-        label="Profile completeness"
-        valueText={`${filled} of ${total} fields`}
-        showValue
-        tone={filled === total ? "success" : "brand"}
-      />
-    </Card>
+    <ProfileCompletenessCard profile={user.profile} onFix={goFixSection} />
   );
 }

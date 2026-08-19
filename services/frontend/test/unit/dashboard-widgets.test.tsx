@@ -69,7 +69,7 @@ describe("WelcomeWidget", () => {
 });
 
 describe("ProgressWidget", () => {
-  it("counts only the fields onboarding actually collects", async () => {
+  it("uses the same matching readiness meter as the profile page", async () => {
     profileMock.getMyProfile.mockResolvedValue({
       ...BASE_PROFILE,
       email: "student@example.com",
@@ -84,6 +84,7 @@ describe("ProgressWidget", () => {
         ieltsSpeaking: null,
         targetCountries: [],
         fieldOfStudy: "Computer Science",
+        targetFieldOfStudy: null,
         ects: null,
         workExperienceYears: 0,
         extracurricularsScore: 0,
@@ -93,7 +94,7 @@ describe("ProgressWidget", () => {
 
     render(<ProgressWidget />);
 
-    await waitFor(() => expect(screen.getByText("2 of 5 fields")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("2 of 6 details")).toBeInTheDocument());
   });
 });
 

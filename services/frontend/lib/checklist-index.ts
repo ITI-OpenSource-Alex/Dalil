@@ -113,3 +113,20 @@ export function progressPercent(entry: ChecklistIndexEntry): number {
   if (entry.totalItems <= 0) return 0;
   return Math.round((entry.completedItems / entry.totalItems) * 100);
 }
+
+/** True when the stored name is the raw id or otherwise not human-readable. */
+export function isPlaceholderProgramName(
+  programName: string,
+  programId: string,
+): boolean {
+  if (!programName.trim()) return true;
+  if (programName === programId) return true;
+  // UUID-style ids from some integrations.
+  return /^[a-f0-9-]{20,}$/i.test(programName);
+}
+
+/** Secondary line under the programme title on checklist cards. */
+export function checklistSubtitle(entry: ChecklistIndexEntry): string {
+  const parts = [entry.university, entry.country].filter(Boolean);
+  return parts.length > 0 ? parts.join(" · ") : "Programme checklist";
+}

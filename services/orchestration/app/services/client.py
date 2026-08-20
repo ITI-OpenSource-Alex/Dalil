@@ -17,7 +17,10 @@ from app.core.metrics import (  # noqa: E402
     goa_orchestration_circuit_breaker_state,
 )
 from app.schemas.chat import ChatStreamEvent  # noqa: E402
-from app.services.output_filter import filter_response  # noqa: E402
+from app.services.output_filter import (  # noqa: E402
+    StreamingResponseFilter,
+    filter_response,
+)
 from app.services.supervisor import SUPERVISOR_CANARIES, llm  # noqa: E402
 
 logger = structlog.get_logger("orchestration.client")
@@ -141,6 +144,73 @@ async def call_writing(
     response = await client.post(url, json=payload, headers=headers)
     response.raise_for_status()
     return response.json()
+
+
+def _ensure_breaker_allows_request(breaker: pybreaker.CircuitBreaker) -> None:
+    """Apply the same open/half-open gate used by buffered downstream calls."""
+    if breaker.current_state != "open":
+        return
+    opened_at = breaker._state_storage.opened_at
+    timeout = datetime.timedelta(seconds=breaker.reset_timeout)
+    if opened_at and opened_at + timeout < datetime.datetime.now(pybreaker.UTC):
+        breaker.half_open()
+        return
+    raise pybreaker.CircuitBreakerError("Circuit is open")
+
+
+def _record_breaker_failure(
+    breaker: pybreaker.CircuitBreaker, error: Exception
+) -> None:
+    if isinstance(error, httpx.HTTPStatusError) and error.response.status_code < 500:
+        return
+    if not breaker.is_system_error(error):
+        return
+
+    def fail():
+        raise error
+
+    try:
+        breaker.call(fail)
+    except Exception:
+        pass
+
+
+async def stream_rag_events(
+    client: httpx.AsyncClient,
+    url: str,
+    payload: dict,
+    headers: dict,
+) -> AsyncGenerator[dict, None]:
+    """Read RAG's internal SSE stream without buffering it to completion."""
+    async with client.stream("POST", url, json=payload, headers=headers) as response:
+        response.raise_for_status()
+        event_name = None
+        data_lines: list[str] = []
+        async for line in response.aiter_lines():
+            if line == "":
+                if data_lines:
+                    try:
+                        event = json.loads("\n".join(data_lines))
+                    except json.JSONDecodeError as exc:
+                        raise httpx.DecodingError(
+                            "RAG returned malformed SSE JSON"
+                        ) from exc
+                    if event_name and "type" not in event:
+                        event["type"] = event_name
+                    yield event
+                event_name = None
+                data_lines = []
+                continue
+            if line.startswith("event:"):
+                event_name = line[6:].strip()
+            elif line.startswith("data:"):
+                data_lines.append(line[5:].strip())
+
+        if data_lines:
+            event = json.loads("\n".join(data_lines))
+            if event_name and "type" not in event:
+                event["type"] = event_name
+            yield event
 
 
 def _build_exam_prep_response(message: str, exam_context: Optional[Dict] = None) -> str:
@@ -511,7 +581,6 @@ async def forward_downstream_stream(
             leak_fragments=SUPERVISOR_CANARIES,
         )
         for index in range(0, len(answer), 5):
-            await asyncio.sleep(0.02)
             yield ChatStreamEvent(type="token", content=answer[index : index + 5])
         return
 
@@ -535,7 +604,6 @@ async def forward_downstream_stream(
         answer = _build_exam_prep_response(message, exam_context)
         chunk_size = 5
         for i in range(0, len(answer), chunk_size):
-            await asyncio.sleep(0.02)
             yield ChatStreamEvent(type="token", content=answer[i : i + chunk_size])
         yield ChatStreamEvent(type="exam_prep", content="/exam")
         return
@@ -544,7 +612,6 @@ async def forward_downstream_stream(
         answer = await _build_general_response(message)
         chunk_size = 5
         for i in range(0, len(answer), chunk_size):
-            await asyncio.sleep(0.02)
             yield ChatStreamEvent(type="token", content=answer[i : i + chunk_size])
         return
 
@@ -598,7 +665,7 @@ async def forward_downstream_stream(
 
         elif intent == "RAG":
             service_name = "rag"
-            url = f"{settings.rag_service_url}/query"
+            url = f"{settings.rag_service_url}/query/stream"
             payload = {"question": message, "userId": user_id}
 
             logger.info(
@@ -608,53 +675,50 @@ async def forward_downstream_stream(
                 url=url,
                 correlation_id=correlation_id,
             )
-            data = await call_with_breaker(rag_breaker, client, url, payload, headers)
-            duration_ms = (time.perf_counter() - start_time) * 1000
-            goa_orchestration_downstream_latency_ms.labels(
-                service=service_name
-            ).observe(duration_ms)
-
-            # GOA-033 gave RAG a refusal contract: when retrieval confidence is
-            # too low it returns answer=null with a `reason` and a `suggestion`
-            # written for the user. Orchestration never consumed it. `.get()`
-            # returns None for a key that exists with a null value, so len(None)
-            # raised TypeError into the generic handler below and the user was
-            # told "the global opportunity database is currently offline" -- a
-            # false statement about a healthy service that had just answered
-            # correctly, and the same shape as BUG-015.
-            #
-            # Found by the GOA-034 pentest: every adversarial payload retrieves
-            # nothing and so trips the threshold, which made it obvious that any
-            # ordinary off-topic question does too.
-            answer = data.get("answer")
-            if not answer:
-                answer = data.get("suggestion") or (
-                    "I could not find enough information to answer that reliably. "
-                    "Try asking about a specific university, programme or visa requirement."
-                )
-                logger.info(
-                    "RAG declined to answer; relaying its suggestion",
-                    reason=data.get("reason"),
-                    correlation_id=correlation_id,
-                )
-            # GOA-034: the last moment this text exists whole. Once the loop
-            # below starts emitting five-character chunks, the first of them
-            # has already left and nothing downstream can be recalled.
-            answer = filter_response(
-                answer,
+            stream_filter = StreamingResponseFilter(
                 user_id=user_id,
                 correlation_id=correlation_id,
                 intent=intent,
                 leak_fragments=SUPERVISOR_CANARIES,
             )
-            chunk_size = 5
-            for i in range(0, len(answer), chunk_size):
-                await asyncio.sleep(0.02)
-                yield ChatStreamEvent(type="token", content=answer[i : i + chunk_size])
+            _ensure_breaker_allows_request(rag_breaker)
+            try:
+                async for rag_event in stream_rag_events(
+                    client, url, payload, headers
+                ):
+                    event_type = rag_event.get("type")
+                    if event_type == "status":
+                        yield ChatStreamEvent(
+                            type="status",
+                            stage=rag_event.get("stage"),
+                            message=rag_event.get("message"),
+                        )
+                    elif event_type == "token":
+                        safe = stream_filter.push(rag_event.get("content") or "")
+                        if safe:
+                            yield ChatStreamEvent(type="token", content=safe)
+                    elif event_type == "sources":
+                        tail = stream_filter.finish()
+                        if tail:
+                            yield ChatStreamEvent(type="token", content=tail)
+                        sources = rag_event.get("sources") or []
+                        if sources:
+                            yield ChatStreamEvent(type="sources", sources=sources)
+                    elif event_type == "error":
+                        raise httpx.HTTPError("RAG stream failed")
+            except Exception as exc:
+                _record_breaker_failure(rag_breaker, exc)
+                raise
+            else:
+                rag_breaker.call(lambda: None)
 
-            sources = data.get("sources", [])
-            if sources:
-                yield ChatStreamEvent(type="sources", sources=sources)
+            tail = stream_filter.finish()
+            if tail:
+                yield ChatStreamEvent(type="token", content=tail)
+            duration_ms = (time.perf_counter() - start_time) * 1000
+            goa_orchestration_downstream_latency_ms.labels(
+                service=service_name
+            ).observe(duration_ms)
 
         elif intent == "OPPORTUNITY_SEARCH":
             service_name = "rag"
@@ -749,7 +813,6 @@ async def forward_downstream_stream(
             )
             chunk_size = 5
             for i in range(0, len(answer), chunk_size):
-                await asyncio.sleep(0.02)
                 yield ChatStreamEvent(type="token", content=answer[i : i + chunk_size])
 
             sources = data.get("sources", [])

@@ -61,6 +61,7 @@ export type Message = {
   role: "user" | "assistant";
   content: string;
   isStreaming?: boolean;
+  streamingStatus?: string;
   intent?: string;
   confidence?: number;
   opportunities?: Opportunity[];
@@ -346,6 +347,16 @@ export default function ChatShell({
 
   const handleChatEvent = (event: ChatEvent, assistantMessageId: string) => {
     switch (event.type) {
+      case "status":
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMessageId
+              ? { ...m, streamingStatus: event.message }
+              : m,
+          ),
+        );
+        break;
+
       case "metadata":
         setMessages((prev) =>
           prev.map((m) =>
@@ -359,8 +370,6 @@ export default function ChatShell({
           ),
         );
 
-        // First response received → stop typing indicator
-        setIsTyping(false);
         break;
 
       case "token":
@@ -370,10 +379,14 @@ export default function ChatShell({
               ? {
                   ...m,
                   content: m.content + event.content,
+                  streamingStatus: undefined,
                 }
               : m,
           ),
         );
+        // Metadata only confirms routing. The visible progress animation stays
+        // active until real answer text arrives.
+        setIsTyping(false);
         break;
 
       case "match_results":
@@ -487,6 +500,7 @@ export default function ChatShell({
       role: "assistant",
       content: "",
       isStreaming: true,
+      streamingStatus: "Connecting to Dalil…",
     };
 
     // Both messages appended in one update. As two separate setMessages calls

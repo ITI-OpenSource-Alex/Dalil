@@ -4,6 +4,7 @@ from app.services.client import (
     _build_explanation_response,
     forward_downstream_stream,
     rag_breaker,
+    stream_rag_events,
     writing_breaker,
 )
 from app.core.metrics import goa_orchestration_circuit_breaker_state
@@ -19,6 +20,61 @@ def reset_circuit_breakers():
     writing_breaker.close()
     goa_orchestration_circuit_breaker_state.labels(service="rag").set(0)
     goa_orchestration_circuit_breaker_state.labels(service="writing").set(0)
+
+
+@pytest.fixture(autouse=True)
+def mock_internal_rag_sse(mocker):
+    """Keep legacy downstream mocks focused on routing and breaker behavior.
+
+    The real SSE parser has its own transport-level test below. Existing tests
+    intentionally use `client.post` so they can inject failures without each
+    implementing an async streaming context manager.
+    """
+    async def fake_stream(client, url, payload, headers):
+        response = await client.post(url, json=payload, headers=headers)
+        response.raise_for_status()
+        data = response.json()
+        answer = data.get("answer") or data.get("suggestion") or ""
+        if answer:
+            yield {"type": "token", "content": answer}
+        if data.get("sources"):
+            yield {"type": "sources", "sources": data["sources"]}
+        yield {"type": "done"}
+
+    mocker.patch("app.services.client.stream_rag_events", new=fake_stream)
+
+
+@pytest.mark.asyncio
+async def test_rag_sse_parser_preserves_event_order():
+    payload = (
+        'event: status\ndata: {"type":"status","stage":"retrieving",'
+        '"message":"Searching"}\n\n'
+        'event: token\ndata: {"type":"token","content":"First"}\n\n'
+        'event: done\ndata: {"type":"done"}\n\n'
+    )
+
+    async def handler(request):
+        assert request.url.path == "/query/stream"
+        return httpx.Response(
+            200,
+            content=payload,
+            headers={"content-type": "text/event-stream"},
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport, base_url="http://rag") as client:
+        events = [
+            event
+            async for event in stream_rag_events(
+                client,
+                "http://rag/query/stream",
+                {"question": "visa"},
+                {},
+            )
+        ]
+
+    assert [event["type"] for event in events] == ["status", "token", "done"]
+    assert events[1]["content"] == "First"
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("intent, expected_url, expected_event_type", [

@@ -47,6 +47,10 @@ function tokenEvent(text: string): string {
   return `event: token\r\ndata: ${JSON.stringify({ type: "token", content: text })}\r\n\r\n`;
 }
 
+function statusEvent(stage: string, message: string): string {
+  return `event: status\r\ndata: ${JSON.stringify({ type: "status", stage, message })}\r\n\r\n`;
+}
+
 function errorEvent(error: string): string {
   return `event: error\r\ndata: ${JSON.stringify({ type: "error", error })}\r\n\r\n`;
 }
@@ -103,6 +107,63 @@ describe("ChatShell message pipeline", () => {
     // message out. The welcome message is an assistant bubble too, hence 2.
     expect(screen.getAllByTestId("user-message")).toHaveLength(1);
     expect(screen.getAllByTestId("assistant-message")).toHaveLength(2);
+  });
+
+  it("keeps a visible progress animation until the first answer token", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+
+    fetchMock.mockImplementation(async (url: string) => {
+      if (String(url).includes("/history")) {
+        return { ok: true, json: async () => [] } as unknown as Response;
+      }
+      const encoder = new TextEncoder();
+      let index = 0;
+      return {
+        ok: true,
+        status: 200,
+        body: {
+          getReader: () => ({
+            read: async () => {
+              if (index === 0) {
+                index += 1;
+                return {
+                  done: false,
+                  value: encoder.encode(
+                    statusEvent("retrieving", "Searching trusted sources…"),
+                  ),
+                };
+              }
+              if (index === 1) {
+                index += 1;
+                await gate;
+                return {
+                  done: false,
+                  value: encoder.encode(tokenEvent("A grounded answer.")),
+                };
+              }
+              return { done: true, value: undefined };
+            },
+          }),
+        },
+      } as unknown as Response;
+    });
+
+    const user = userEvent.setup();
+    render(<ChatShell />);
+    const input = await screen.findByTestId("chat-input");
+    await screen.findByText("amina@example.com");
+
+    await user.type(input, "What are Germany's visa requirements?{Enter}");
+
+    expect(
+      await screen.findByRole("status", { name: /Searching trusted sources/i }),
+    ).toBeVisible();
+    release();
+    expect(await screen.findByText("A grounded answer.")).toBeVisible();
+    await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
   });
 
   it("shows removable turn-scoped evidence and sends it separately from editable text", async () => {

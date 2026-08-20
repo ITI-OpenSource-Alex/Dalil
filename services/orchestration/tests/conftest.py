@@ -54,3 +54,27 @@ def mock_llm(mocker):
     
     mocker.patch("app.services.supervisor.structured_llm", mock_sequence)
     return mock_sequence.ainvoke
+
+
+@pytest.fixture(autouse=True)
+def adapt_buffered_rag_test_doubles(mocker):
+    """Adapt legacy `client.post` doubles to RAG's internal SSE contract.
+
+    Most chat tests care about routing, memory, authz, or output safety and use a
+    one-response HTTP double. The transport parser and provider stream have
+    dedicated tests, so adapting at this seam keeps unrelated tests precise
+    without making every fixture implement an async streaming response.
+    """
+    async def fake_stream(client, url, payload, headers):
+        response = await client.post(url, json=payload, headers=headers)
+        response.raise_for_status()
+        data = response.json()
+        answer = data.get("answer") or data.get("suggestion") or ""
+        if answer:
+            yield {"type": "token", "content": answer}
+        sources = data.get("sources") or []
+        if sources:
+            yield {"type": "sources", "sources": sources}
+        yield {"type": "done"}
+
+    mocker.patch("app.services.client.stream_rag_events", new=fake_stream)

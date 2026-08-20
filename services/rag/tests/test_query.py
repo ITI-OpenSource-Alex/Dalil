@@ -138,6 +138,47 @@ def test_api_query_endpoint(mock_db_pool, monkeypatch):
     assert data["sources"][0]["similarity"] == 0.85
 
 
+def test_api_query_stream_emits_progress_tokens_sources_and_done(monkeypatch):
+    async def fake_query_rag(*, token_callback, status_callback, **_kwargs):
+        await status_callback("retrieving", "Searching trusted sources…")
+        await status_callback("generating", "Writing a grounded answer…")
+        await token_callback("Visa ")
+        await token_callback("answer")
+        return (
+            "Visa answer",
+            [{
+                "id": "d3b07384-d113-4956-a574-0f2c0032e52e",
+                "title": "Official visa guidance",
+                "content": "Bring a passport.",
+                "source_url": "https://example.gov/visa",
+                "similarity": 0.91,
+            }],
+            {
+                "question_hash": "abc",
+                "top_similarity": 0.91,
+                "chunks_retrieved": 1,
+                "answer_tokens": 2,
+            },
+        )
+
+    monkeypatch.setattr("app.api.query.rag_service.query_rag", fake_query_rag)
+    monkeypatch.setattr("app.api.query.redis_client.redis", None)
+
+    response = client.post(
+        "/query/stream",
+        json={"question": "What are the visa rules?", "userId": "user-stream"},
+    )
+
+    assert response.status_code == 200
+    body = response.text
+    assert body.index("event: status") < body.index("event: token")
+    assert '"stage":"retrieving"' in body
+    assert '"content":"Visa "' in body
+    assert '"content":"answer"' in body
+    assert "event: sources" in body
+    assert body.rstrip().endswith('data: {"type":"done"}')
+
+
 def test_api_query_langfuse_tracing(mock_db_pool, mock_langfuse):
     """Verify that POST /query initiates a Langfuse trace with retrieval and generation spans."""
     mock_lf, mock_trace, mock_child = mock_langfuse

@@ -1,3 +1,4 @@
+import asyncio
 import time
 import structlog
 from typing import List
@@ -72,39 +73,62 @@ async def chat_endpoint(request: ChatRequest, req: Request):
         exam_context = None
         
         try:
+            yield ServerSentEvent(
+                event="status",
+                data=ChatStreamEvent(
+                    type="status",
+                    stage="routing",
+                    message="Understanding your question…",
+                ).model_dump_json(),
+            )
             trace_id = trace.trace_id if trace else None
             parent_span_id = supervisor_span.id if supervisor_span else None
 
-            # 2a. Fetch Exam Context (best-effort enrichment)
-            try:
-                exam_context = await fetch_exam_context(
-                    http_client=req.app.state.http_client,
-                    user_id=request.userId,
-                )
-            except Exception as e:
-                logger.warning("Exam context fetch failed, proceeding without", error=str(e))
-                exam_context = None
-
-            exam_context_available = exam_context is not None and exam_context.get("exam_count", 0) > 0
-
-            if trace:
+            # History and durable facts are independent enrichment reads. Run
+            # them together so their latency is the slower read, not the sum.
+            async def load_history():
+                memory = None
                 try:
-                    trace.update(metadata={
-                        "correlation_id": correlation_id,
-                        "exam_context_available": exam_context_available,
-                    })
+                    memory = get_session_memory(request.sessionId)
+                    memory_vars = await load_memory_variables(
+                        memory, {"input": request.message}
+                    )
+                    history = (
+                        memory_vars.get("history")
+                        or memory_vars.get("chat_history")
+                        or []
+                    )
+                    return history, memory
                 except Exception as e:
-                    logger.warning("Failed to update Langfuse trace with exam context", error=str(e))
+                    logger.warning(
+                        "Failed to load session memory, proceeding statelessly",
+                        error=str(e),
+                    )
+                    return [], memory
 
-            # 2b. Load History before classifying (best-effort)
-            history = []
-            memory = None
-            try:
-                memory = get_session_memory(request.sessionId)
-                memory_vars = await load_memory_variables(memory, {"input": request.message})
-                history = memory_vars.get("history") or memory_vars.get("chat_history") or []
-            except Exception as e:
-                logger.warning("Failed to load session memory, proceeding statelessly", error=str(e))
+            async def load_facts():
+                facts_redis = None
+                try:
+                    facts_redis = await get_redis_client()
+                    return await fetch_user_facts(
+                        getattr(db, "pool", None), facts_redis, request.userId
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "Failed to load long-term facts, proceeding without",
+                        error=str(e),
+                    )
+                    return None
+                finally:
+                    if facts_redis is not None:
+                        await facts_redis.aclose()
+
+            if request.explanationContext:
+                history, memory, user_facts = [], None, None
+            else:
+                (history, memory), user_facts = await asyncio.gather(
+                    load_history(), load_facts()
+                )
 
             # 2b-i. Injection screening (GOA-034).
             #
@@ -140,26 +164,6 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                     pattern=injection,
                 )
 
-            # 2c. Load long-term facts (best-effort, GOA-038)
-            #
-            # On the request path, unlike extraction. That is the whole feature:
-            # the assistant already knows the user when they come back. Bounded
-            # by memory_load_timeout_ms and degrading to None on anything going
-            # wrong, so a slow database costs personalisation and never an
-            # answer.
-            user_facts = None
-            facts_redis = None
-            try:
-                facts_redis = await get_redis_client()
-                user_facts = await fetch_user_facts(
-                    getattr(db, "pool", None), facts_redis, request.userId
-                )
-            except Exception as e:
-                logger.warning("Failed to load long-term facts, proceeding without", error=str(e))
-            finally:
-                if facts_redis is not None:
-                    await facts_redis.aclose()
-
             # 3. Explainability entry points already declare their intent and
             # carry the exact evidence visible on the page. Sending them through
             # the ordinary classifier adds latency and can misroute "why is my
@@ -191,6 +195,38 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                 resolved_message = intent_result.standalone_question or request.message
                 intent_confidence = intent_result.confidence
                 supervisor_output = intent_result.model_dump()
+
+            # Exam history is only useful after EXAM_PREP has been selected.
+            # Fetching it before every visa/programme question added an Exam and
+            # Redis round trip to the common RAG path.
+            if intent == "EXAM_PREP":
+                try:
+                    exam_context = await fetch_exam_context(
+                        http_client=req.app.state.http_client,
+                        user_id=request.userId,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "Exam context fetch failed, proceeding without",
+                        error=str(e),
+                    )
+                    exam_context = None
+
+            exam_context_available = (
+                exam_context is not None
+                and exam_context.get("exam_count", 0) > 0
+            )
+            if trace:
+                try:
+                    trace.update(metadata={
+                        "correlation_id": correlation_id,
+                        "exam_context_available": exam_context_available,
+                    })
+                except Exception as e:
+                    logger.warning(
+                        "Failed to update Langfuse trace with exam context",
+                        error=str(e),
+                    )
             if resolved_message != request.message:
                 logger.info(
                     "Resolved message against history",
@@ -281,6 +317,21 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                     if request.explanationContext
                     else None
                 ),
+            )
+
+            stage = "retrieving" if intent in {"RAG", "OPPORTUNITY_SEARCH"} else "generating"
+            stage_message = (
+                "Searching trusted sources…"
+                if stage == "retrieving"
+                else "Preparing your answer…"
+            )
+            yield ServerSentEvent(
+                event="status",
+                data=ChatStreamEvent(
+                    type="status",
+                    stage=stage,
+                    message=stage_message,
+                ).model_dump_json(),
             )
             
             async for event in response_stream:

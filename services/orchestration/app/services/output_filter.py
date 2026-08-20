@@ -97,3 +97,75 @@ def filter_response(
         )
 
     return filtered
+
+
+class StreamingResponseFilter:
+    """Filter a model stream before any sensitive span reaches the browser.
+
+    A bounded tail is retained so every currently supported PII pattern and
+    supervisor canary is complete before its prefix is released. This adds a
+    small text holdback, not a full-answer wait. The final tail is filtered and
+    flushed when RAG sends its terminal event.
+    """
+
+    def __init__(
+        self,
+        *,
+        user_id: str,
+        correlation_id: Optional[str],
+        intent: str,
+        leak_fragments: tuple[str, ...] = (),
+        holdback_chars: int = 96,
+    ) -> None:
+        self.user_id = user_id
+        self.correlation_id = correlation_id
+        self.intent = intent
+        self.leak_fragments = leak_fragments
+        self.holdback_chars = holdback_chars
+        self.pending = ""
+        self.blocked = False
+
+    def push(self, content: str) -> str:
+        if self.blocked or not content:
+            return ""
+        self.pending += content
+
+        if detect_prompt_leak(self.pending, self.leak_fragments):
+            replacement = filter_response(
+                self.pending,
+                user_id=self.user_id,
+                correlation_id=self.correlation_id,
+                intent=self.intent,
+                leak_fragments=self.leak_fragments,
+            )
+            self.pending = ""
+            self.blocked = True
+            return replacement
+
+        self.pending = filter_response(
+            self.pending,
+            user_id=self.user_id,
+            correlation_id=self.correlation_id,
+            intent=self.intent,
+            leak_fragments=(),
+        )
+        if len(self.pending) <= self.holdback_chars:
+            return ""
+
+        split_at = len(self.pending) - self.holdback_chars
+        released = self.pending[:split_at]
+        self.pending = self.pending[split_at:]
+        return released
+
+    def finish(self) -> str:
+        if self.blocked:
+            return ""
+        final = filter_response(
+            self.pending,
+            user_id=self.user_id,
+            correlation_id=self.correlation_id,
+            intent=self.intent,
+            leak_fragments=self.leak_fragments,
+        )
+        self.pending = ""
+        return final

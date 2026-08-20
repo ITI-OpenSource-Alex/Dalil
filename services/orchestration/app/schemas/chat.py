@@ -54,7 +54,9 @@ class HistoryResponseItem(BaseModel):
     content: str
 
 class ChatStreamEvent(BaseModel):
-    type: Literal["metadata", "token", "error", "speaking_url", "writing_url", "match_results", "sources", "exam_prep", "general"]
+    type: Literal["status", "metadata", "token", "error", "speaking_url", "writing_url", "match_results", "sources", "exam_prep", "general"]
+    stage: Optional[Literal["connecting", "routing", "retrieving", "generating"]] = None
+    message: Optional[str] = None
     intent: Optional[str] = None
     confidence: Optional[float] = None
     content: Optional[str] = None

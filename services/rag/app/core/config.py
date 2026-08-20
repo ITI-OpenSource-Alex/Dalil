@@ -25,6 +25,7 @@ class Settings(BaseSettings):
 
     anthropic_base_url: str = ""
     llm_model: str = "claude-opus-5"
+    rag_answer_max_tokens: int = 512
     anthropic_user_agent: str = (
         "Kilo-Code/7.4.11 ai-sdk/provider-utils/4.0.27 runtime/bun/1.3.14"
     )
@@ -32,6 +33,7 @@ class Settings(BaseSettings):
     rag_rerank_enabled: bool = True
     rag_threshold_enabled: bool = True
     rag_cache_enabled: bool = True
+    rag_cache_ttl_seconds: int = 300
     rag_retrieval_width: int = 15
     # GOA-030. This was 1, meaning every production query scanned one IVFFlat
     # cluster out of the index's lists=100 -- roughly 1% of the corpus. It is

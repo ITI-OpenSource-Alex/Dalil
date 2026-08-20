@@ -7,6 +7,7 @@ interface MessageBubbleProps {
   role: "user" | "assistant";
   content: string;
   isStreaming?: boolean;
+  streamingStatus?: string;
   /** Initials for the user avatar, derived from the signed-in account. */
   userInitials?: string;
 }
@@ -26,6 +27,7 @@ export default function MessageBubble({
   role,
   content,
   isStreaming = false,
+  streamingStatus,
   userInitials,
 }: MessageBubbleProps) {
   const isUser = role === "user";
@@ -59,6 +61,7 @@ export default function MessageBubble({
           <StreamingMessage
             content={content}
             isStreaming={isStreaming}
+            streamingStatus={streamingStatus}
             markdown={!isUser}
           />
         </motion.div>

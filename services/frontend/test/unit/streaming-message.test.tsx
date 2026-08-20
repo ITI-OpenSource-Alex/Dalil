@@ -3,6 +3,21 @@ import { describe, expect, it } from "vitest";
 import StreamingMessage from "@/components/chat/streaming-message";
 
 describe("StreamingMessage Markdown presentation", () => {
+  it("shows an accessible animated progress state before text arrives", () => {
+    const { container } = render(
+      <StreamingMessage
+        content=""
+        isStreaming
+        streamingStatus="Searching trusted sources…"
+      />,
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Searching trusted sources…",
+    );
+    expect(container.querySelectorAll(".bg-brand")).toHaveLength(3);
+  });
+
   it("renders assistant emphasis and lists as structured content", () => {
     const { container } = render(
       <StreamingMessage

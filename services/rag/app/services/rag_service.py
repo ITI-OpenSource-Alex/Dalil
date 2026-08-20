@@ -4,7 +4,7 @@ import json
 import random
 import time
 import logging
-from typing import List, Tuple, Dict, Any, Optional
+from typing import Awaitable, Callable, List, Tuple, Dict, Any, Optional
 
 import anthropic
 import httpx
@@ -125,7 +125,14 @@ class _LLMResponse:
         self.response_metadata = {"usage": usage} if usage is not None else {}
 
 
-async def _invoke_via_sdk(prompt) -> _LLMResponse:
+TokenCallback = Callable[[str], Awaitable[None]]
+StatusCallback = Callable[[str, str], Awaitable[None]]
+
+
+async def _invoke_via_sdk(
+    prompt,
+    token_callback: TokenCallback | None = None,
+) -> _LLMResponse:
     """Call the gateway through the raw Anthropic SDK, tolerating thinking blocks.
 
     langchain_anthropic 0.1.13 predates extended thinking and reads `content[0].text`
@@ -139,11 +146,24 @@ async def _invoke_via_sdk(prompt) -> _LLMResponse:
     one call rather than upgrade it.
     """
     text = prompt if isinstance(prompt, str) else str(prompt)
-    response = await get_llm_client().messages.create(
-        model=settings.llm_model,
-        max_tokens=1024,
-        messages=[{"role": "user", "content": text}],
-    )
+    request = {
+        "model": settings.llm_model,
+        "max_tokens": settings.rag_answer_max_tokens,
+        "messages": [{"role": "user", "content": text}],
+    }
+
+    if token_callback is not None:
+        chunks: list[str] = []
+        async with get_llm_client().messages.stream(**request) as stream:
+            async for chunk in stream.text_stream:
+                if not chunk:
+                    continue
+                chunks.append(chunk)
+                await token_callback(chunk)
+            response = await stream.get_final_message()
+        return _LLMResponse("".join(chunks), getattr(response, "usage", None))
+
+    response = await get_llm_client().messages.create(**request)
 
     # Take the first block that actually carries text; thinking blocks have none.
     answer = next(
@@ -171,7 +191,11 @@ _RETRYABLE_EXCEPTIONS = (
 _RETRY_BASE_DELAY_SECONDS = 0.5
 
 
-async def _invoke_llm_with_retry(prompt, attempts: int = 2):
+async def _invoke_llm_with_retry(
+    prompt,
+    attempts: int = 2,
+    token_callback: TokenCallback | None = None,
+):
     """Retry transient failures only.
 
     Gateway tail latency is erratic (measured 2.5s-110s for identical calls), so a
@@ -184,7 +208,20 @@ async def _invoke_llm_with_retry(prompt, attempts: int = 2):
     """
     last_error = None
     for attempt in range(attempts):
+        emitted = False
+
+        async def tracked_callback(chunk: str) -> None:
+            nonlocal emitted
+            emitted = True
+            if token_callback is not None:
+                await token_callback(chunk)
+
         try:
+            if token_callback is not None:
+                return await _invoke_via_sdk(
+                    prompt,
+                    token_callback=tracked_callback,
+                )
             return await _invoke_via_sdk(prompt)
         except _RETRYABLE_EXCEPTIONS as e:
             last_error = e
@@ -197,6 +234,11 @@ async def _invoke_llm_with_retry(prompt, attempts: int = 2):
                 "LLM invoke failed, retrying (attempt %d/%d, %s): %s",
                 attempt + 1, attempts, reason, e,
             )
+            # Once text has crossed the stream boundary, retrying would append a
+            # second answer after the first partial one. Preserve the honest
+            # partial failure instead of duplicating user-visible content.
+            if emitted:
+                raise
             if attempt + 1 < attempts:
                 delay = _RETRY_BASE_DELAY_SECONDS * (2 ** attempt)
                 await asyncio.sleep(delay * (0.5 + random.random() / 2))
@@ -486,6 +528,8 @@ async def query_rag(
     category: str | None = None,
     trace: Any = None,
     flag_overrides: Dict[str, Any] | None = None,
+    token_callback: TokenCallback | None = None,
+    status_callback: StatusCallback | None = None,
 ) -> Tuple[str, List[Dict[str, Any]], Dict[str, Any]]:
     """
     Checks for a hand-curated FAQ match first (zero-token, skips the LLM entirely on
@@ -582,6 +626,8 @@ async def query_rag(
             logger.warning("Failed to start Langfuse retrieval span: %s", exc)
 
     # 2. Embed the search query
+    if status_callback is not None:
+        await status_callback("retrieving", "Searching trusted sources…")
     query_vector = await generate_embedding(question)
 
     # 3. Retrieve matching documents from pgvector database using Cosine Similarity
@@ -681,7 +727,9 @@ async def query_rag(
     if rerank_enabled:
         from app.services.reranker import Reranker
         reranker = Reranker()
-        sources = reranker.rank(question, sources, top_n=top_k)
+        sources = await asyncio.to_thread(
+            reranker.rank, question, sources, top_k
+        )
     else:
         sources = sources[:top_k]
 
@@ -774,7 +822,12 @@ Answer:"""
         except Exception as exc:
             logger.warning("Failed to start Langfuse generation: %s", exc)
 
-    response = await _invoke_llm_with_retry(prompt)
+    if status_callback is not None:
+        await status_callback("generating", "Writing a grounded answer…")
+    response = await _invoke_llm_with_retry(
+        prompt,
+        token_callback=token_callback,
+    )
     answer_text = response.content
 
     # Extract token usage
@@ -818,7 +871,17 @@ Answer:"""
     
     try:
         from app.telemetry import record_llm_cost
-        record_llm_cost(user_id, settings.llm_model, input_tokens, output_tokens)
+        # Operational accounting is best-effort and must not sit between the
+        # provider's final token and the HTTP response.
+        asyncio.create_task(
+            asyncio.to_thread(
+                record_llm_cost,
+                user_id,
+                settings.llm_model,
+                input_tokens,
+                output_tokens,
+            )
+        )
     except ImportError:
         logger.warning("telemetry helper not found")
 

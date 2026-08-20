@@ -66,6 +66,7 @@ export default function MessageList({
                   role={msg.role}
                   content={msg.content}
                   isStreaming={msg.isStreaming}
+                  streamingStatus={msg.streamingStatus}
                   userInitials={userInitials}
                 />
               </div>

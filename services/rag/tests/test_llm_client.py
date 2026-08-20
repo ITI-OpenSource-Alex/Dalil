@@ -9,6 +9,7 @@ The defects these cover, all measured in perf/reports/GOA-135-pre-*.json:
 """
 
 import asyncio
+import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import anthropic
@@ -16,6 +17,9 @@ import httpx
 import pytest
 
 from app.services import rag_service
+
+
+LIVE = os.getenv("RUN_LIVE_LLM_TESTS") == "1"
 
 
 @pytest.fixture(autouse=True)
@@ -127,6 +131,62 @@ def test_invoke_uses_the_shared_client():
     ctor.assert_not_called()
     shared.messages.create.assert_awaited_once()
     assert result.content == "answer"
+
+
+def test_invoke_streams_provider_tokens_before_completion():
+    usage = MagicMock(input_tokens=10, output_tokens=3)
+
+    class FakeStream:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        @property
+        def text_stream(self):
+            async def chunks():
+                yield "First "
+                yield "token"
+
+            return chunks()
+
+        async def get_final_message(self):
+            return MagicMock(usage=usage)
+
+    shared = MagicMock()
+    shared.messages.stream = MagicMock(return_value=FakeStream())
+    rag_service._llm_client = shared
+    received = []
+
+    async def collect(chunk):
+        received.append(chunk)
+
+    result = asyncio.run(rag_service._invoke_via_sdk("hello", collect))
+
+    assert received == ["First ", "token"]
+    assert result.content == "First token"
+    assert result.response_metadata["usage"] is usage
+    shared.messages.stream.assert_called_once()
+
+
+@pytest.mark.skipif(not LIVE, reason="paid AgentRouter canary is opt-in")
+@pytest.mark.asyncio
+async def test_live_anthropic_stream_returns_incremental_text():
+    """Canary the exact wire path used by `/query/stream`, not the OpenAI shim."""
+    received = []
+
+    async def collect(chunk):
+        received.append(chunk)
+
+    response = await rag_service._invoke_via_sdk(
+        "Reply with exactly: OK",
+        token_callback=collect,
+    )
+
+    assert received
+    assert "".join(received) == response.content
+    assert "OK" in response.content
 
 
 # --- retry policy ---------------------------------------------------------

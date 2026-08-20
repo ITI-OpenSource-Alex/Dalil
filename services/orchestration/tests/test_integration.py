@@ -91,10 +91,14 @@ async def test_chat_roundtrip_and_sse_intent(mocker):
             if event_data:
                 events.append((event_type, event_data))
             
-        assert len(events) == 2
-        assert events[0][0] == "metadata"
-        assert events[1][0] == "writing_url"
-        assert events[1][1]["essayId"] == "essay_123"
+        assert [event_type for event_type, _ in events] == [
+            "status",
+            "metadata",
+            "status",
+            "writing_url",
+        ]
+        assert events[0][1]["stage"] == "routing"
+        assert events[-1][1]["essayId"] == "essay_123"
 
         # DoD 5: verify downstream latency metric was recorded
         metrics_response = await client.get("/metrics/")
@@ -143,23 +147,9 @@ async def test_free_or_missing_tier_rejects_paid_intent_as_sse_error(
 
         assert response.status_code == 200
         events = parse_sse_events(response.text)
-        assert events == [
-            (
-                "error",
-                {
-                    "type": "error",
-                    "intent": None,
-                    "confidence": None,
-                    "content": None,
-                    "error": "subscription_required",
-                    "wsUrl": None,
-                    "essayId": None,
-                    "sseUrl": None,
-                    "programs": None,
-                    "sources": None,
-                },
-            )
-        ]
+        assert [event_type for event_type, _ in events] == ["status", "error"]
+        assert events[0][1]["stage"] == "routing"
+        assert events[-1][1]["error"] == "subscription_required"
         mock_downstream_client.post.assert_not_called()
 
 async def test_free_tier_rag_intent_proceeds(mocker):
@@ -200,8 +190,11 @@ async def test_free_tier_rag_intent_proceeds(mocker):
 
         assert response.status_code == 200
         events = parse_sse_events(response.text)
-        assert events[0][0] == "metadata"
-        assert events[0][1]["intent"] == "RAG"
+        metadata = next(data for kind, data in events if kind == "metadata")
+        assert metadata["intent"] == "RAG"
+        assert "RAG answer" in "".join(
+            data.get("content") or "" for kind, data in events if kind == "token"
+        )
         mock_downstream_client.post.assert_called_once()
 
 
@@ -245,8 +238,8 @@ async def test_explanation_turn_skips_classifier_and_remains_free_tier(mocker):
 
     assert response.status_code == 200
     events = parse_sse_events(response.text)
-    assert events[0][0] == "metadata"
-    assert events[0][1]["intent"] == "GENERAL"
+    metadata = next(data for kind, data in events if kind == "metadata")
+    assert metadata["intent"] == "GENERAL"
     assert "82% fit" in "".join(
         event[1].get("content") or "" for event in events if event[0] == "token"
     )
@@ -298,7 +291,9 @@ async def test_langfuse_failure_does_not_block_chat(mocker):
         elapsed = time.perf_counter() - started
 
         assert response.status_code == 200
-        assert parse_sse_events(response.text)[0][1]["intent"] == "RAG"
+        events = parse_sse_events(response.text)
+        metadata = next(data for kind, data in events if kind == "metadata")
+        assert metadata["intent"] == "RAG"
         assert elapsed < 1
 
 async def test_downstream_error_circuit_breaker(mocker):

@@ -1,4 +1,5 @@
 import asyncio
+import re
 import time
 import structlog
 from typing import Literal
@@ -61,6 +62,50 @@ for client_attr in ("_client", "_async_client"):
         client_obj.beta.tools = client_obj
 
 structured_llm = llm.with_structured_output(IntentResult, include_raw=True)
+
+
+_RAG_DOMAIN = re.compile(
+    r"\b(visa|university|universities|programme|program|admission|"
+    r"scholarship|ielts|toefl|gpa|ects|tuition|application deadline|"
+    r"blocked account|proof of funds)\b",
+    re.IGNORECASE,
+)
+_QUESTION_SHAPE = re.compile(
+    r"^\s*(what|which|when|where|why|how|can|could|do|does|is|are|"
+    r"tell me|explain)\b",
+    re.IGNORECASE,
+)
+_CONTEXT_REFERENCE = re.compile(
+    r"\b(it|this|that|these|those|there|former|latter|my|mine|"
+    r"first one|second one|third one|the one)\b",
+    re.IGNORECASE,
+)
+_COACHING_ACTION = re.compile(
+    r"\b(practise|practice|prepare|preparation|improve|review|"
+    r"evaluate|mock interview|speaking session)\b",
+    re.IGNORECASE,
+)
+
+
+def _fast_rag_route(
+    message: str,
+    history: list | None,
+    exam_context: dict | None,
+    user_facts: list | None,
+) -> IntentResult | None:
+    """Bypass the model only for self-contained, unambiguous domain questions."""
+    # Existing profile/history does not make a fully self-contained factual
+    # question ambiguous. Only send context-dependent wording and coaching
+    # requests through the model, where rewriting/personalisation is useful.
+    if _CONTEXT_REFERENCE.search(message) or _COACHING_ACTION.search(message):
+        return None
+    if _QUESTION_SHAPE.search(message) and _RAG_DOMAIN.search(message):
+        return IntentResult(
+            intent="RAG",
+            confidence=0.99,
+            standalone_question=message,
+        )
+    return None
 
 
 SUPERVISOR_PROMPT = """You are a routing agent. Classify the user message into exactly one of:
@@ -263,6 +308,24 @@ async def classify_intent(
     routing decision and nothing the user ever sees.
     """
 
+    start_time = time.perf_counter()
+    fast_result = _fast_rag_route(
+        message, history, exam_context, user_facts
+    )
+    if fast_result is not None:
+        duration_ms = (time.perf_counter() - start_time) * 1000
+        goa_orchestration_classification_latency_ms.observe(duration_ms)
+        goa_orchestration_intent_classified_total.labels(
+            intent=fast_result.intent
+        ).inc()
+        logger.info(
+            "Classification completed by deterministic fast path",
+            intent=fast_result.intent,
+            confidence=fast_result.confidence,
+            latency_ms=duration_ms,
+        )
+        return fast_result
+
     system_prompt = build_supervisor_prompt(exam_context, user_facts)
 
     messages = [
@@ -290,7 +353,6 @@ async def classify_intent(
         except Exception as e:
             logger.warning("Failed to initialize Langfuse callback handler", error=str(e))
     
-    start_time = time.perf_counter()
     logger.info("Classifying intent using structured LLM...", message=message[:60])
     
     last_error = None
@@ -321,12 +383,14 @@ async def classify_intent(
                 # loop -- every concurrent chat, every health check, everything
                 # -- for two seconds per turn, to record a token count nobody is
                 # waiting on. Measured at ~4s per call with the host absent.
-                await asyncio.to_thread(
-                    record_llm_cost,
-                    user_id,
-                    settings.llm_model,
-                    input_tokens,
-                    output_tokens,
+                asyncio.create_task(
+                    asyncio.to_thread(
+                        record_llm_cost,
+                        user_id,
+                        settings.llm_model,
+                        input_tokens,
+                        output_tokens,
+                    )
                 )
             except ImportError:
                 pass

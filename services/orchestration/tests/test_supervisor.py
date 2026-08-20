@@ -107,21 +107,35 @@ async def test_history_is_trimmed_to_recent_turns(mock_llm):
 
 
 async def test_no_history_still_classifies(mock_llm):
-    """Turn 1 has nothing to resolve against and must not break."""
-    raw_mock = MagicMock()
-    raw_mock.response_metadata = {"usage": {"input_tokens": 1, "output_tokens": 1}}
-    mock_llm.return_value = {
-        "parsed": IntentResult(intent="RAG", confidence=0.9),
-        "raw": raw_mock,
-    }
+    """A self-contained factual turn uses the deterministic fast path."""
 
     result = await classify_intent("What is IELTS?", history=None)
 
     assert result.intent == "RAG"
-    sent = mock_llm.call_args[0][0]
-    assert len(sent) == 2
-    # No rewrite offered, so callers fall back to the raw message.
-    assert result.standalone_question == ""
+    assert result.confidence == 0.99
+    assert result.standalone_question == "What is IELTS?"
+    mock_llm.assert_not_called()
+
+
+async def test_context_dependent_rag_question_still_uses_model(mock_llm):
+    raw_mock = MagicMock()
+    raw_mock.response_metadata = {"usage": {"input_tokens": 1, "output_tokens": 1}}
+    mock_llm.return_value = {
+        "parsed": IntentResult(
+            intent="RAG",
+            confidence=0.9,
+            standalone_question="What IELTS score does Potsdam require?",
+        ),
+        "raw": raw_mock,
+    }
+
+    result = await classify_intent(
+        "What score does it require?",
+        history=[_Msg("human", "Tell me about Potsdam admissions")],
+    )
+
+    assert result.standalone_question == "What IELTS score does Potsdam require?"
+    mock_llm.assert_called_once()
 
 
 async def test_cost_telemetry_does_not_block_the_event_loop(mock_llm, monkeypatch):
@@ -162,7 +176,8 @@ async def test_cost_telemetry_does_not_block_the_event_loop(mock_llm, monkeypatc
 
     started = _time.perf_counter()
     await asyncio.gather(
-        classify_intent("What is IELTS?"), classify_intent("What is a visa?")
+        classify_intent("I need some guidance about studying abroad"),
+        classify_intent("Help me decide what to do next"),
     )
     elapsed = _time.perf_counter() - started
 

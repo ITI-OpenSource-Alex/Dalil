@@ -6,8 +6,45 @@ import ReactMarkdown, { type Components } from "react-markdown";
 interface StreamingMessageProps {
   content: string;
   isStreaming?: boolean;
+  streamingStatus?: string;
   /** Assistant responses use bounded Markdown; user-authored text stays literal. */
   markdown?: boolean;
+}
+
+function StreamingStatus({ label }: { label: string }) {
+  return (
+    <motion.div
+      role="status"
+      aria-live="polite"
+      aria-label={label}
+      initial={{ opacity: 0, y: 3 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="flex min-w-52 items-center gap-3 py-0.5 text-sm text-fg-muted"
+    >
+      <span className="flex items-center gap-1" aria-hidden="true">
+        {[0, 1, 2].map((index) => (
+          <motion.span
+            key={index}
+            className="h-2 w-2 rounded-full bg-brand"
+            animate={{ y: [0, -5, 0], opacity: [0.45, 1, 0.45] }}
+            transition={{
+              duration: 0.9,
+              repeat: Infinity,
+              delay: index * 0.14,
+              ease: "easeInOut",
+            }}
+          />
+        ))}
+      </span>
+      <motion.span
+        key={label}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+      >
+        {label}
+      </motion.span>
+    </motion.div>
+  );
 }
 
 const markdownComponents: Components = {
@@ -96,8 +133,12 @@ function StreamingCursor() {
 export default function StreamingMessage({
   content,
   isStreaming = false,
+  streamingStatus,
   markdown = false,
 }: StreamingMessageProps) {
+  if (isStreaming && !content && streamingStatus) {
+    return <StreamingStatus label={streamingStatus} />;
+  }
   if (markdown) {
     return (
       <div className="min-w-0 wrap-break-word text-sm leading-6">

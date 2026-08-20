@@ -37,6 +37,12 @@ export interface MetadataEvent {
   confidence?: number;
 }
 
+export interface StatusEvent {
+  type: "status";
+  stage: "connecting" | "routing" | "retrieving" | "generating";
+  message: string;
+}
+
 export interface TokenEvent {
   type: "token";
   content: string;
@@ -69,6 +75,7 @@ export interface ErrorEvent {
 }
 
 export type ChatEvent =
+  | StatusEvent
   | MetadataEvent
   | TokenEvent
   | SourcesEvent
